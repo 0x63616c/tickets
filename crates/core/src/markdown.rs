@@ -1,13 +1,45 @@
 //! The only HTML rendering boundary for ticket descriptions and comments.
-use pulldown_cmark::{Options, Parser, html};
+use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd, html};
 
 pub fn render(markdown: &str) -> String {
     let mut output = String::new();
     let options =
         Options::ENABLE_TABLES | Options::ENABLE_TASKLISTS | Options::ENABLE_STRIKETHROUGH;
-    html::push_html(&mut output, Parser::new_ext(markdown, options));
+    // Each Markdown body is a section beneath the page title. Compress skipped
+    // source levels while preserving nesting, independent of visual styling.
+    let mut ancestors: Vec<(HeadingLevel, HeadingLevel)> = Vec::new();
+    let mut current = HeadingLevel::H2;
+    let events = Parser::new_ext(markdown, options).map(|event| match event {
+        Event::Start(Tag::Heading { level, .. }) => {
+            while ancestors.last().is_some_and(|(source, _)| *source >= level) {
+                ancestors.pop();
+            }
+            current = match ancestors.last().map(|(_, mapped)| mapped) {
+                None => HeadingLevel::H2,
+                Some(HeadingLevel::H2) => HeadingLevel::H3,
+                Some(HeadingLevel::H3) => HeadingLevel::H4,
+                Some(HeadingLevel::H4) => HeadingLevel::H5,
+                _ => HeadingLevel::H6,
+            };
+            ancestors.push((level, current));
+            Event::Start(Tag::Heading {
+                level: current,
+                id: None,
+                classes: vec!["markdown-heading".into()],
+                attrs: Vec::new(),
+            })
+        }
+        Event::End(TagEnd::Heading(_)) => Event::End(TagEnd::Heading(current)),
+        event => event,
+    });
+    html::push_html(&mut output, events);
     ammonia::Builder::default()
         .add_tags(&["input"])
+        .add_allowed_classes("h2", &["markdown-heading"])
+        .add_allowed_classes("h3", &["markdown-heading"])
+        .add_allowed_classes("h4", &["markdown-heading"])
+        .add_allowed_classes("h5", &["markdown-heading"])
+        .add_allowed_classes("h6", &["markdown-heading"])
         .add_tag_attributes("input", &["type", "checked", "disabled"])
         .set_tag_attribute_value("input", "type", "checkbox")
         .set_tag_attribute_value("input", "disabled", "")
@@ -18,6 +50,14 @@ pub fn render(markdown: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn headings_fit_beneath_the_page_title() {
+        let html = render("### First\n\n###### Child\n\n## Sibling\n\n# Root");
+        assert_eq!(
+            html,
+            "<h2 class=\"markdown-heading\">First</h2>\n<h3 class=\"markdown-heading\">Child</h3>\n<h2 class=\"markdown-heading\">Sibling</h2>\n<h2 class=\"markdown-heading\">Root</h2>\n"
+        );
+    }
     #[test]
     fn gfm() {
         let html = render(

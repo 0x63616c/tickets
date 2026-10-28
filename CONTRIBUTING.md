@@ -102,6 +102,20 @@
   the previous real UI as the before image; the scaffold exception no longer
   applies. Font OFL notices live alongside the bundled fonts, not as a repo license.
 
+## Accessibility verification
+
+- `CHROME_BIN=<headless-chromium> cargo xtask contrast-check` uses isolated local
+  Worker/D1 state to check rendered WCAG text contrast (including composited
+  label backgrounds and primary rest/hover/active/focus/disabled states), badge
+  size, viewport overflow and sequential headings on every route. It captures
+  dark 1440×900 / 390×844 evidence in `docs/screenshots/54/` and writes computed
+  foreground/background pairs to `contrast-pairs.json`. Use
+  `TICKETS_BEFORE_ASSETS` for origin/main assets built in a temporary worktree.
+- Markdown headings beneath page titles compress skipped source levels while
+  preserving nesting. Style the shared `markdown-heading` class independently
+  of semantic heading level; board/list page titles use `sr-only` to retain the
+  compact chrome.
+
 ## Agent skill verification
 
 - When changing the agent skill or API, run `cargo xtask skill-check`. It extracts

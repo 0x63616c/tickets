@@ -18,6 +18,12 @@
   --text-faint: #797d86;
   --accent: #5e6ad2;
   --accent-hover: #6d79df;
+  /* Filled actions keep light text readable in every state. */
+  --action-fill: #535fc4;
+  --action-hover: #4854b8;
+  --action-active: #414dab;
+  --action-disabled: #343b70;
+  --action-text: #f7f8f8;
   --accent-surface: #0d0e1f;
   --focus: #5e6ad2;
   --status-backlog: #8a8f98;
