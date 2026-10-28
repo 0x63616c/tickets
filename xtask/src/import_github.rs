@@ -177,12 +177,7 @@ fn retry_after(value: &str, now: SystemTime) -> Option<u64> {
         })
     })
 }
-fn identity_repo(repo: &str) -> &str {
-    match repo {
-        "0x63616c/quantum" => "0x63616c/voxelite",
-        _ => repo,
-    }
-}
+use tickets_core::github_mirror::{Comment, Issue, identity_repo};
 fn id(v: &Value) -> Result<i64> {
     v["id"].as_i64().ok_or_else(|| "missing ID".into())
 }
@@ -209,17 +204,10 @@ fn blockers(body: &str) -> BTreeSet<u64> {
         .collect()
 }
 fn marker(repo: &str, comment: &Value) -> Result<String> {
-    Ok(format!(
-        "<!-- tickets-import:github:{repo}:comment:{} -->",
-        id(comment)?
-    ))
+    Ok(serde_json::from_value::<Comment>(comment.clone())?.marker(repo))
 }
 fn comment_body(repo: &str, comment: &Value) -> Result<String> {
-    Ok(format!(
-        "{}\n\n{}",
-        marker(repo, comment)?,
-        comment["body"].as_str().unwrap_or("")
-    ))
+    Ok(serde_json::from_value::<Comment>(comment.clone())?.body(repo))
 }
 
 fn label_set(labels: &Value, prefix: &str) -> Result<BTreeSet<(String, String)>> {
@@ -338,11 +326,8 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
         if comment_ids.len() != comments[&number(issue)?].len() {
             return Err("duplicate source comment IDs".into());
         }
-        for label in issue["labels"].as_array().ok_or("missing labels")? {
-            wanted_labels.insert(
-                text(label, "name")?.to_owned(),
-                format!("#{}", text(label, "color")?),
-            );
+        for label in serde_json::from_value::<Issue>(issue.clone())?.labels {
+            wanted_labels.insert(label.name.clone(), label.ticket_color());
         }
         for blocker in blockers(issue["body"].as_str().unwrap_or("")) {
             if !numbers.contains(&blocker) {
@@ -432,13 +417,7 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
         let ticket = api.call(
             Method::PUT,
             &path,
-            json!({
-                "project_id": project_id,
-                "title": text(issue,"title")?,
-                "body": issue["body"].as_str().unwrap_or(""),
-                "status": if issue["state"] == "closed" { "done" } else { "todo" },
-                "external_url": text(issue,"html_url")?
-            }),
+            serde_json::from_value::<Issue>(issue.clone())?.upsert(project_id),
         )?;
         let tid = id(&ticket)?;
         let desired: BTreeSet<_> = issue["labels"]

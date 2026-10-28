@@ -190,3 +190,26 @@ a 350 ms debounce and one board/list fetch at a time. Reads retain the displayed
 content and wait for local edits, comment drafts and board moves. Each catch-up
 uses the existing paginated REST endpoints (projects, tickets, labels, plus ticket
 and comments on detail); no new D1 query, replay log or Durable Object alarm is used.
+
+## GitHub mirror webhook
+
+`POST /api/v1/github/webhook` is exempt from bearer/session authentication only.
+It requires `X-Hub-Signature-256: sha256=<hex HMAC-SHA256>` over the exact raw
+request bytes, using the `GITHUB_WEBHOOK_SECRET` Worker secret. Missing/invalid
+signatures return 401; an unset/empty secret returns 503. The body limit is 1 MiB
+(413). Malformed JSON returns 400, non-POST requests 405. Do not send API tokens.
+
+Configured repository IDs are accepted independently of repository names/renames.
+Unknown repository IDs and pull requests return 202 ignored. Signed `ping` returns
+200. Issues are upserted from their full payload; deleted/transferred issues delete
+the mirrored ticket. Issue comments are created/edited/deleted by the import marker.
+Label edits update name/color; label deletions remove the global label and links.
+Successful changes and unknown events return 204. Replay is safe. Notifications
+invalidate the project room after commit; notification failure cannot undo a write.
+
+Tickets whose `external_id` starts with `github:` are mirrors. Their UI is read-only;
+agents should make changes on GitHub. Existing authenticated API mutations remain
+available for import/reconciliation. The mirror owns title, body, state, assignee,
+URL, labels and imported comments, overwriting local changes on its next update.
+GitHub comment authors appear in the marker-backed Markdown body; the API `author`
+field retains `owner`. Render only sanitized `body_html`; markers are invisible.

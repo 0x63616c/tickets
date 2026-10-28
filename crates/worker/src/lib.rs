@@ -1,4 +1,6 @@
 #[cfg(target_arch = "wasm32")]
+mod github_mirror;
+#[cfg(target_arch = "wasm32")]
 mod live;
 #[cfg(target_arch = "wasm32")]
 pub use live::BoardRoom;
@@ -10,6 +12,9 @@ use worker::*;
 #[cfg(target_arch = "wasm32")]
 #[event(fetch)]
 pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
+    if req.path() == "/api/v1/github/webhook" {
+        return github_mirror::webhook(req, &env).await;
+    }
     if req.path() == "/api" || req.path().starts_with("/api/") {
         return match auth::handle(req, env).await {
             Ok(response) => Ok(response),
@@ -123,5 +128,16 @@ mod tests {
         for path in ["/secret.png", "/icons/favicon.svg", "/login", "/"] {
             assert!(!is_public_asset(path), "{path} must stay gated");
         }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[event(scheduled)]
+pub async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+    if github_mirror::reconcile(&env, event.schedule())
+        .await
+        .is_err()
+    {
+        console_error!("GitHub reconciliation failed; retrying next scheduled run");
     }
 }

@@ -191,3 +191,14 @@ and have no replay. Reconnect with backoff plus jitter and refetch after reconne
 Do not send application messages. See the API reference for cookie/Origin rules.
 Ordinary REST mutations automatically notify watchers; no separate publish call
 is required, and notification failures never fail a committed mutation.
+
+## GitHub mirrors
+
+Tickets with `external_id` beginning `github:` are read-only for agents too.
+Make changes on GitHub using `external_url`; webhook/cron ingestion overwrites
+local edits. Never mutate mirror tickets, labels or comments through this API.
+The API still permits writes for the importer. Both voxelite and quantum use
+`github:0x63616c/voxelite:N`; preserve issue identities and comment markers.
+GitHub author logins appear in imported comment bodies; render sanitized HTML.
+The signed webhook endpoint is documented in docs/API.md and is not an agent
+write endpoint. GitHub remains the source of truth; nothing syncs back.
