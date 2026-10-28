@@ -27,7 +27,12 @@ pub fn ProjectLinks() -> impl IntoView {
 #[component]
 pub fn ApiProjects() -> impl IntoView {
     let board = expect_context::<BoardState>();
-    let editor = RwSignal::new(None::<Option<Project>>);
+    let location = leptos_router::hooks::use_location();
+    let editor = RwSignal::new(if location.search.get_untracked() == "new=true" {
+        Some(None)
+    } else {
+        None::<Option<Project>>
+    });
     let archived = RwSignal::new(false);
     board.refresh();
     view! {
@@ -43,14 +48,14 @@ pub fn ApiProjects() -> impl IntoView {
                     let edit=p.clone();
                     let link=github_link(&p);
                     view! { <div class="project-row api-project-row">
-                        <div><a class="project-title" href="/" on:click=move|e|{if !board.select_project(id){e.prevent_default();}}><span class="project-mark" style=format!("color:{}",p.color)><Icon name="project"/></span><div><strong>{p.name}</strong><p>{p.key_prefix}{if p.archived {" · Archived"}else{""}}</p></div></a><button class="button button-ghost" aria-label=format!("Edit project {}",edit.name) on:click=move|_|editor.set(Some(Some(edit.clone())))>"Edit"</button></div>
+                        <div><a class="project-title" href="/" on:click=move|e|{if !board.select_project(id){e.prevent_default();}}><span class="project-mark" style=format!("color:{}",p.color)>{p.name.chars().next().unwrap_or('P').to_uppercase().to_string()}</span><div><strong>{p.name}</strong><p class="mono">{p.key_prefix}{if p.archived {" · Archived"}else{""}}</p></div></a></div>
                         <span class="muted">{move||board.tickets.get().iter().filter(|t|t.project_id==id).count()}</span>
                         <span class="muted">{link.map(|link|view!{<a class="subtle-link" href=link.url() target="_blank" rel="noreferrer">{format!("{} / {}",link.owner,link.number)}<Icon name="external"/></a>}.into_any()).unwrap_or_else(||view!{<span>"Not linked"</span>}.into_any())}</span>
+                        <button class="icon-button project-row-action" aria-label=format!("Edit project {}",edit.name) on:click=move|_|editor.set(Some(Some(edit.clone())))><Icon name="more"/></button>
                     </div> }
                 }).collect_view()}
                 </div>
                 <Show when=move||!board.projects.get().iter().any(|p|archived.get() || !p.archived)><EmptyState title="No active projects" description="Create a project to start adding tickets." action="New project" icon="project" on_action=Callback::new(move|_|editor.set(Some(None)))/></Show>
-                <footer class="view-footer">{move||board.projects.get().iter().filter(|p|archived.get() || !p.archived).count()}" projects"</footer>
             </Show>
         </div>
         {move||editor.get().map(|project|view!{<ProjectEditor project on_close=Callback::new(move|_|editor.set(None))/>})}
@@ -77,14 +82,8 @@ fn ProjectEditor(project: Option<Project>, on_close: Callback<()>) -> impl IntoV
     let owner = RwSignal::new(
         project
             .as_ref()
-            .and_then(|p| p.github_owner.clone())
-            .unwrap_or_default(),
-    );
-    let number = RwSignal::new(
-        project
-            .as_ref()
-            .and_then(|p| p.github_project_number)
-            .map(|n| n.to_string())
+            .and_then(github_link)
+            .map(|link| link.url())
             .unwrap_or_default(),
     );
     let kind = RwSignal::new(
@@ -107,7 +106,7 @@ fn ProjectEditor(project: Option<Project>, on_close: Callback<()>) -> impl IntoV
             e.prevent_default();
             if busy.get_untracked(){return;}
             error.set(String::new());
-            let link=if owner.get_untracked().trim().is_empty() && number.get_untracked().trim().is_empty(){Ok(None)}else{ProjectLink::parse(&owner.get_untracked(),&number.get_untracked(),&kind.get_untracked()).map(Some)};
+            let link=if owner.get_untracked().trim().is_empty(){Ok(None)}else{ProjectLink::parse(&owner.get_untracked(),"",&kind.get_untracked()).map(Some)};
             let link=match link{Ok(link)=>link,Err(e)=>{error.set(e);return;}};
             let repository=repo.get_untracked().trim().to_string();
             if !repository.is_empty() && (!tickets_core::github::valid_repo(&repository) || link.is_none()) {error.set("Enter a repository name and link its GitHub Project first.".into());return;}
@@ -127,11 +126,10 @@ fn ProjectEditor(project: Option<Project>, on_close: Callback<()>) -> impl IntoV
         }>
         <div class="modal-body"><TextInput id="project-name" label="Name" value=name/>
         <TextInput id="project-prefix" label="Key prefix" placeholder="TKT" value=prefix/>
-        <p class="muted">"Changing the prefix updates existing ticket keys."</p>
-        <label class="field" for="project-color">"Icon color"<input id="project-color" type="color" prop:value=color on:input=move|e|color.set(event_target_value(&e))/></label>
-        <TextInput id="project-owner" label="GitHub owner or Project URL (optional)" placeholder="https://github.com/orgs/example/projects/1" value=owner/>
-        <label class="field" for="project-kind">"Owner type"<select id="project-kind" prop:value=kind on:change=move|e|kind.set(event_target_value(&e))><option value="users">"User"</option><option value="orgs">"Organization"</option></select></label>
-        <TextInput id="project-number" label="Project number (when entering an owner)" value=number/>
+        <Show when=move||id.is_some()><p class="muted">"Changing the prefix updates existing ticket keys."</p></Show>
+        <fieldset class="project-colors"><legend>"Icon color"</legend><div class="project-swatches">{[("#5e6ad2","Accent","--accent"),("#8b82d9","Feature","--label-feature"),("#eb5757","Bug","--label-bug"),("#4ea7fc","Infrastructure","--label-infra"),("#c6a1b9","Design","--label-design"),("#27a644","Green","--success"),("#f0bf00","Yellow","--warning")].into_iter().map(|(value,label,token)|view!{<button type="button" class="project-swatch" aria-label=format!("{label} color") aria-pressed=move||color.get()==value style=format!("--swatch:var({token})") on:click=move|_|color.set(value.into())/>}).collect_view()}</div></fieldset>
+        <TextInput id="project-owner" label="GitHub Project" placeholder="github.com/orgs/example/projects/1 or example/1" value=owner/>
+        <Show when=move||{let value=owner.get(); !value.trim().is_empty() && !value.contains("github.com/") && !value.contains("://")}><label class="field" for="project-kind">"Owner type"<select id="project-kind" prop:value=kind on:change=move|e|kind.set(event_target_value(&e))><option value="users">"User"</option><option value="orgs">"Organization"</option></select></label></Show>
         <TextInput id="project-repo" label="Repository name (optional)" placeholder="repo" value=repo/>
         <Show when=move||id.is_some()><label class="canceled-toggle"><input type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Archived"</label><p class="muted">"Archived projects leave the sidebar. Tickets are kept and remain editable."</p></Show>
         <Show when=move||!error.get().is_empty()><p role="alert">{error}</p></Show>

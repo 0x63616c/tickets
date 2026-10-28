@@ -19,7 +19,10 @@ pub fn valid_owner(owner: &str) -> bool {
 impl ProjectLink {
     pub fn parse(owner_or_url: &str, number: &str, kind: &str) -> Result<Self, String> {
         let input = owner_or_url.trim();
-        let (owner, number, kind) = if input.contains('/') {
+        let (owner, number, kind) = if input.split('/').count() == 2 && !input.contains(':') {
+            let (owner, number) = input.split_once('/').unwrap();
+            (owner, number, kind)
+        } else if input.contains('/') {
             let path = input
                 .strip_prefix("https://github.com/")
                 .or_else(|| input.strip_prefix("github.com/"))
@@ -73,6 +76,7 @@ mod tests {
             let parsed = ProjectLink::parse(&url, "", "users").unwrap();
             assert_eq!(parsed.url(), url);
             assert_eq!(parsed, ProjectLink::parse("example", "7", kind).unwrap());
+            assert_eq!(parsed, ProjectLink::parse("example/7", "", kind).unwrap());
         }
         for bad in [
             "https://evil.test/users/example/projects/7",
