@@ -206,6 +206,10 @@ fn proxy() -> Result<Fixture> {
         handle: Some(handle),
     })
 }
+/// Quantum's original and renamed GitHub repository names.
+const ORIGINAL_REPO: &str = "0x63616c/voxelite";
+const RENAMED_REPO: &str = "0x63616c/quantum";
+
 pub fn check(token: &str) -> Result<()> {
     let fixture = Fixture::start()?;
     let gh = Api::new(
@@ -318,9 +322,9 @@ pub fn check(token: &str) -> Result<()> {
         import(&gh, &api, "example/fixture", "FIX", false).is_err(),
         "reconciliation ignored an extra ticket"
     );
-    import(&gh, &api, "0x63616c/voxelite", "QUA", false)?;
+    import(&gh, &api, ORIGINAL_REPO, "QUA", false)?;
     let before_rename = api.list("/api/v1/tickets")?;
-    import(&gh, &api, "0x63616c/quantum", "QUA", false)?;
+    import(&gh, &api, RENAMED_REPO, "QUA", false)?;
     let after_rename = api.list("/api/v1/tickets")?;
     assert_eq!(before_rename.len(), after_rename.len());
     for (before, after) in before_rename.iter().zip(&after_rename) {
