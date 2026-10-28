@@ -11,6 +11,8 @@ Read `CONTRIBUTING.md` first; everything there applies.
 - Before opening a PR run: `cargo fmt --all --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 - UI changes: attach before/after dark-mode screenshots to the PR.
+- First-run acceptance: run `CHROME_BIN=<headless-chromium> cargo xtask first-run-check`;
+  see CONTRIBUTING.md for its empty-D1, UI-only contract and screenshot outputs.
 - If a convention is missing, add it to `CONTRIBUTING.md` / this file in the same PR.
 - The agent skill for driving Tickets lives in `.agents/skills/tickets/SKILL.md`; keep it
   current when the API changes.

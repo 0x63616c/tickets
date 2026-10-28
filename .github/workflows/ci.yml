@@ -23,6 +23,7 @@ jobs:
       - run: cargo xtask skill-check
       - run: cargo xtask import-check
       - run: CHROME_BIN=google-chrome cargo xtask mirror-check
+      - run: CHROME_BIN=google-chrome cargo xtask first-run-check
   migrations:
     runs-on: ubuntu-latest
     steps:
