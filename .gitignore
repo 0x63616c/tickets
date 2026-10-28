@@ -5,3 +5,10 @@ build/
 dist/
 .dev.vars
 *.local
+
+# Impeccable runtime state; only shared configuration belongs in git.
+/.impeccable/*
+!/.impeccable/config.json
+*.local.json
+**/skills/impeccable/scripts/bin/
+**/skills/impeccable/scripts/.cache/

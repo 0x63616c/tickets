@@ -16,3 +16,17 @@ Read `CONTRIBUTING.md` first; everything there applies.
 - If a convention is missing, add it to `CONTRIBUTING.md` / this file in the same PR.
 - The agent skill for driving Tickets lives in `.agents/skills/tickets/SKILL.md`; keep it
   current when the API changes.
+
+## Impeccable
+
+- Project-local Impeccable is pinned to **4.8.0** for Codex (`.agents/skills`),
+  Claude and Cursor. Always run it with `IMPECCABLE_NO_TELEMETRY=1 DO_NOT_TRACK=1`;
+  `.impeccable/config.json` also disables telemetry for everyone.
+- On UI PRs, run `/impeccable critique` and `/impeccable polish` before review.
+  Read root `DESIGN.md` first: Calum's taste and its pinned tokens override
+  Impeccable defaults, including warnings about pure black or Inter.
+- Skill-only installation: no provider hooks are installed. Do not enable hooks
+  (including `.codex/hooks.json`) without Calum's approval.
+- Set `IMPECCABLE_HOME="$PWD/.impeccable"` for bundled launchers so fallback
+  engine downloads stay in the ignored project cache.
+- Installation, verification and version updates: see CONTRIBUTING.md.
