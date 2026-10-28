@@ -318,3 +318,43 @@
   layer and captures dark desktop/mobile network failures in `docs/screenshots/56/`.
   With `TICKETS_BEFORE_ASSETS` pointing at origin/main assets built in a temporary
   worktree, it captures only the baseline network state without asserting new behavior.
+
+## Impeccable design review
+
+Impeccable **4.8.0** is installed project-locally for Codex, Claude and Cursor.
+Before requesting review of a UI PR, run `/impeccable critique <target>` and
+`/impeccable polish <target>` in the agent chat, resolve findings within scope,
+then run the existing UI checks and attach before/after dark screenshots.
+Read `DESIGN.md` first; its pinned taste and tokens win over Impeccable defaults.
+Inter and near-pure-black surfaces are intentional. Tooling-only PRs need no UI
+screenshots. `PRODUCT.md` supplies the product context expected by this release.
+
+Always run Impeccable with `IMPECCABLE_NO_TELEMETRY=1 DO_NOT_TRACK=1`, including
+its bundled launchers. Keep `"telemetry": false` in `.impeccable/config.json`.
+From the worktree root, reproduce the install with:
+
+```sh
+IMPECCABLE_NO_TELEMETRY=1 DO_NOT_TRACK=1 npx -y impeccable@4.8.0 install --providers=codex,claude,cursor --scope=project --yes --no-hooks
+IMPECCABLE_NO_TELEMETRY=1 DO_NOT_TRACK=1 npx -y impeccable@4.8.0 telemetry status
+```
+
+Use skill-only installation: automatic edit hooks are unnecessary for explicit
+review and would execute third-party tooling on edits. Enabling any provider
+hooks, including `.codex/hooks.json`, requires Calum's approval. The installer
+places Codex skills in `.agents/skills/impeccable`; it does not need a Codex hook.
+Downloaded engines are ignored; the version/checksum-pinned launchers fetch them
+on first use. When invoking a bundled launcher, also set
+`IMPECCABLE_HOME="$PWD/.impeccable"` to keep its fallback engine cache in this
+worktree rather than the default home-directory cache. Do not commit runtime questions, seed keys, roll records, caches,
+downloaded binaries, local overrides or `node_modules`.
+
+To update, check the upstream release notes and installer help, choose an exact
+version, then rerun the install above with that version and `--force`. Review the
+third-party diff, retain `--no-hooks`, update the pins here and in `AGENTS.md`,
+and verify telemetry status from the project root. Confirm the config alone
+reports off as well (temporarily unset both opt-out environment variables for
+that read-only status check). Recheck ignored runtime paths, inspect the staged
+diff for secrets/binaries, and run the required Rust checks before opening a PR.
+
+Keep installer-provided skill files verbatim, including upstream whitespace and
+Windows line endings; apply repository formatting checks to our own files.
