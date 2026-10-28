@@ -1,5 +1,6 @@
 //! Authenticated one-way GitHub ingestion. No GitHub mutation requests exist here.
 use crate::repository::Store;
+use futures_util::StreamExt;
 use js_sys::{Array, Object, Reflect, Uint8Array};
 use serde::Deserialize;
 use serde_json::Value;
@@ -70,7 +71,13 @@ async fn issue(db: &D1Database, repo: &Repo, project: i64, issue: &Issue) -> Res
     }
     let mapped = issue.upsert(project);
     let ext = issue.external_id(&repo.identity);
-    let labels = serde_json::to_string(&issue.labels)?;
+    let labels = serde_json::to_string(
+        &issue
+            .labels
+            .iter()
+            .map(|l| serde_json::json!({"name":l.name,"color":l.ticket_color()}))
+            .collect::<Vec<_>>(),
+    )?;
     let statements = vec![
         statement(
             db,
@@ -87,7 +94,7 @@ async fn issue(db: &D1Database, repo: &Repo, project: i64, issue: &Issue) -> Res
         )?,
         statement(
             db,
-            "INSERT INTO labels(name,color) SELECT json_extract(value,'$.name'),'#'||json_extract(value,'$.color') FROM json_each(?) WHERE true ON CONFLICT(name) DO UPDATE SET color=excluded.color",
+            "INSERT INTO labels(name,color) SELECT json_extract(value,'$.name'),json_extract(value,'$.color') FROM json_each(?) WHERE true ON CONFLICT(name) DO UPDATE SET color=excluded.color",
             vec![labels.clone().into()],
         )?,
         statement(
@@ -195,14 +202,22 @@ pub async fn webhook(mut req: Request, env: &Env) -> Result<Response> {
     {
         return Response::error("Payload too large", 413);
     }
-    let bytes = req.bytes().await?;
-    if bytes.len() > MAX_BODY {
-        return Response::error("Payload too large", 413);
-    }
     let signature = req
         .headers()
         .get("X-Hub-Signature-256")?
         .unwrap_or_default();
+    if !signature.starts_with("sha256=") || signature.len() != 71 {
+        return Response::error("Invalid signature", 401);
+    }
+    let mut bytes = Vec::new();
+    let mut stream = req.stream()?;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        if chunk.len() > MAX_BODY.saturating_sub(bytes.len()) {
+            return Response::error("Payload too large", 413);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
     if !mapping::signature_matches(&signature, &digest(&secret, &bytes).await?) {
         return Response::error("Invalid signature", 401);
     }
@@ -267,17 +282,32 @@ pub async fn webhook(mut req: Request, env: &Env) -> Result<Response> {
             if payload.action == "deleted" {
                 query(&db, "DELETE FROM labels WHERE name=?", vec![l.name.into()]).await?;
             } else if payload.action == "edited" {
-                query(
-                    &db,
-                    "UPDATE labels SET name=?,color=? WHERE name=?",
-                    vec![l.name.into(), format!("#{}", l.color).into(), old.into()],
-                )
-                .await?;
+                // Labels are global: a rename may collide with a name already
+                // used by another repository. Merge memberships transactionally.
+                batch(&db,vec![
+                    statement(&db,"INSERT INTO labels(name,color) VALUES(?,?) ON CONFLICT(name) DO UPDATE SET color=excluded.color",vec![l.name.clone().into(),l.ticket_color().into()])?,
+                    statement(&db,"INSERT OR IGNORE INTO ticket_labels(ticket_id,label_id) SELECT ticket_id,(SELECT id FROM labels WHERE name=?) FROM ticket_labels WHERE label_id=(SELECT id FROM labels WHERE name=?)",vec![l.name.clone().into(),old.clone().into()])?,
+                    statement(&db,"DELETE FROM labels WHERE name=? AND name<>?",vec![old.into(),l.name.into()])?,
+                ]).await?;
             }
         }
         _ => {}
     }
-    notify(env, &db, project).await;
+    if event == "label" {
+        let _ = crate::live::notify(
+            env,
+            &db,
+            crate::api::CommittedChange {
+                entity: "labels".into(),
+                id: 0,
+                action: "update".into(),
+                projects: vec![],
+            },
+        )
+        .await;
+    } else {
+        notify(env, &db, project).await;
+    }
     Ok(Response::empty()?.with_status(204))
 }
 
@@ -289,6 +319,16 @@ struct Cursor {
     high_water: String,
     page: u32,
     etag: Option<String>,
+}
+fn github_headers(env: &Env) -> Result<Headers> {
+    let headers = Headers::new();
+    headers.set("User-Agent", "tickets-mirror")?;
+    headers.set("Accept", "application/vnd.github+json")?;
+    headers.set("X-GitHub-Api-Version", "2022-11-28")?;
+    if let Ok(token) = env.secret("GITHUB_TOKEN") {
+        headers.set("Authorization", &format!("Bearer {token}"))?;
+    }
+    Ok(headers)
 }
 /// One repository per run, alternating each ten minutes. Two GitHub requests and
 /// one D1 read when unchanged. At most two issues and two comments: <=23 SQL
@@ -341,13 +381,7 @@ pub async fn reconcile(env: &Env, scheduled_time: f64) -> Result<()> {
             .append_pair("since", since)
             .append_pair("per_page", "2")
             .append_pair("page", &page.to_string());
-        let headers = Headers::new();
-        headers.set("User-Agent", "tickets-mirror")?;
-        headers.set("Accept", "application/vnd.github+json")?;
-        headers.set("X-GitHub-Api-Version", "2022-11-28")?;
-        if let Ok(token) = env.secret("GITHUB_TOKEN") {
-            headers.set("Authorization", &format!("Bearer {token}"))?;
-        }
+        let headers = github_headers(env)?;
         if let Some(etag) = cursor.and_then(|c| c.etag.as_ref()) {
             headers.set("If-None-Match", etag)?;
         }
@@ -384,7 +418,29 @@ pub async fn reconcile(env: &Env, scheduled_time: f64) -> Result<()> {
                     .and_then(|s| s.parse().ok())
                     .ok_or_else(|| error("Invalid comment issue URL"))?;
                 if !comment(&db, repo, number, &c, false).await? {
-                    return Ok(());
+                    // Repository comment streams also contain PR comments. Resolve
+                    // the issue so a PR can never permanently block this stream.
+                    let mut init = RequestInit::new();
+                    init.with_headers(github_headers(env)?);
+                    let mut response = Fetch::Request(Request::new_with_init(
+                        &format!("{base}/repositories/{}/issues/{number}", repo.id),
+                        &init,
+                    )?)
+                    .send()
+                    .await?;
+                    if matches!(response.status_code(), 403 | 429) {
+                        return Ok(());
+                    }
+                    if response.status_code() != 200 {
+                        return Ok(());
+                    }
+                    let missing: Issue = response.json().await?;
+                    if missing.pull_request.is_none() {
+                        issue(&db, repo, project, &missing).await?;
+                        if !comment(&db, repo, number, &c, false).await? {
+                            return Ok(());
+                        }
+                    }
                 }
             }
         }

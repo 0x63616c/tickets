@@ -2489,6 +2489,7 @@ name = "tickets-worker"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "futures-util",
  "js-sys",
  "rusqlite",
  "serde",

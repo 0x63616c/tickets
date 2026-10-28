@@ -326,11 +326,8 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
         if comment_ids.len() != comments[&number(issue)?].len() {
             return Err("duplicate source comment IDs".into());
         }
-        for label in issue["labels"].as_array().ok_or("missing labels")? {
-            wanted_labels.insert(
-                text(label, "name")?.to_owned(),
-                format!("#{}", text(label, "color")?),
-            );
+        for label in serde_json::from_value::<Issue>(issue.clone())?.labels {
+            wanted_labels.insert(label.name.clone(), label.ticket_color());
         }
         for blocker in blockers(issue["body"].as_str().unwrap_or("")) {
             if !numbers.contains(&blocker) {

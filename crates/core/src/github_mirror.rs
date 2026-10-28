@@ -17,6 +17,11 @@ pub struct Label {
     pub name: String,
     pub color: String,
 }
+impl Label {
+    pub fn ticket_color(&self) -> String {
+        format!("#{}", self.color)
+    }
+}
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Issue {
     pub number: u64,
@@ -138,7 +143,7 @@ pub fn signature_matches(header: &str, digest: &[u8]) -> bool {
         return false;
     }
     let mut bytes = [0u8; 32];
-    for (i, chunk) in hex.as_bytes().chunks_exact(2).enumerate() {
+    for (i, chunk) in hex.as_bytes().as_chunks::<2>().0.iter().enumerate() {
         let Ok(s) = std::str::from_utf8(chunk) else {
             return false;
         };
