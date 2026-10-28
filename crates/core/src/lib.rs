@@ -39,3 +39,5 @@ pub mod github;
 pub mod live;
 
 pub mod navigation;
+
+pub mod github_mirror;
