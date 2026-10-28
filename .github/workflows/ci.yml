@@ -16,7 +16,11 @@ jobs:
       - run: cargo xtask ci
       - name: Install wasm build tools
         run: cargo install worker-build --version 0.8.7 --locked && cargo install trunk --version 0.21.14 --locked
-      - run: cargo xtask build
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: npm install --global wrangler@4.154.0
+      - run: cargo xtask skill-check
   migrations:
     runs-on: ubuntu-latest
     steps:

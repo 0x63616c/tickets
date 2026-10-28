@@ -116,3 +116,11 @@ Set `TICKETS_CHROME` to your Chromium executable, or put `chromium` on PATH.
 Run auth-verify first to prepare its ignored browser storage. Screenshot captures
 never include the one-time secret. The before screenshot for #4 reuses the actual
 scaffold capture from the base branch, whose UI was unchanged by #3.
+
+`cargo xtask skill-check` builds the app and runs every curl example in the
+[agent skill](../.agents/skills/tickets/SKILL.md) against a fresh local Worker/D1.
+It checks HTTP status, JSON response subsets, pagination, filters, dependency
+conflicts, project moves and repeated external upserts. It shares api-smoke's
+port 8795 and generated `target/api-smoke-*` state, and stops the Worker on exit.
+Use it whenever the skill or API changes; CI also runs it. It supplies generated
+fixture credentials, never credentials from your environment.

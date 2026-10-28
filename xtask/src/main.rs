@@ -3,6 +3,7 @@ mod auth;
 mod auth_verify;
 #[cfg(not(target_arch = "wasm32"))]
 mod screenshots;
+mod skill_check;
 
 use std::{env, error::Error, path::Path, process::Command};
 
@@ -47,10 +48,11 @@ fn main() -> Result {
     let mut args = env::args().skip(1);
     let task = args.next();
     if args.next().is_some() {
-        return Err("expected exactly one task: dev, build, migrate, ci, api-smoke, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
+        return Err("expected exactly one task: dev, build, migrate, ci, api-smoke, skill-check, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
     }
     match task.as_deref() {
-        Some("api-smoke") => api_smoke::run(root),
+        Some("api-smoke") => api_smoke::run(root, false),
+        Some("skill-check") => api_smoke::run(root, true),
         #[cfg(not(target_arch = "wasm32"))]
         Some("auth-screenshots") => screenshots::run(),
         Some("auth-verify") => auth_verify::run(),
@@ -100,7 +102,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <dev|build|migrate|ci|api-smoke|auth-hash|auth-bench|auth-verify|auth-screenshots>".into())
+            Err("usage: cargo xtask <dev|build|migrate|ci|api-smoke|skill-check|auth-hash|auth-bench|auth-verify|auth-screenshots>".into())
         }
     }
 }

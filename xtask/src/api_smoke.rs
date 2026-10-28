@@ -101,7 +101,7 @@ impl Client {
         Ok(value)
     }
 }
-pub fn run(root: &Path) -> Result<()> {
+pub fn run(root: &Path, skill: bool) -> Result<()> {
     super::build(root)?;
     let mut random = [0u8; 24];
     getrandom::getrandom(&mut random).map_err(|_| "randomness unavailable")?;
@@ -199,6 +199,9 @@ pub fn run(root: &Path) -> Result<()> {
         "cookie",
         201,
     )?;
+    if skill {
+        return super::skill_check::run(root, token["token"].as_str().ok_or("missing token")?);
+    }
     fs::write(
         c.dir.join("bearer.local"),
         format!(
