@@ -7,6 +7,8 @@ fn run(directory: &Path, program: &str, args: &[&str]) -> Result {
     let status = Command::new(program)
         .args(args)
         .current_dir(directory)
+        // Trunk expects a boolean; some CI/agent environments set NO_COLOR=1.
+        .env("NO_COLOR", "true")
         .env(
             "CARGO_TARGET_DIR",
             Path::new(env!("CARGO_MANIFEST_DIR"))
