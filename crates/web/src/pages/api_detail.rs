@@ -34,7 +34,10 @@ impl DetailState {
     /// Use the page owner even from effects or short-lived editor children.
     fn spawn(self, task: impl std::future::Future<Output = ()> + 'static) {
         self.owner.with_value(|owner| {
-            let owner = owner.upgrade().expect("mounted detail page owner");
+            // A disposed page has nothing left to load or save into.
+            let Some(owner) = owner.upgrade() else {
+                return;
+            };
             let (abort, registration) = futures_util::future::AbortHandle::new_pair();
             owner.with(|| on_cleanup(move || abort.abort()));
             // Do not retain the page Owner in the future: that would keep the
