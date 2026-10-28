@@ -76,7 +76,9 @@ pub(crate) struct BoardState {
     pub(crate) error: RwSignal<String>,
     pub(crate) notice: RwSignal<String>,
     pub(crate) signed_in: RwSignal<bool>,
-    dragged: RwSignal<Option<i64>>,
+    pub(crate) dragged: RwSignal<Option<i64>>,
+    pub(crate) live_revision: RwSignal<u64>,
+    pub(crate) connection: RwSignal<ConnectionState>,
     snapshot: RwSignal<Vec<BoardTicket>>,
     pub(crate) composer: RwSignal<Option<Status>>,
 }
@@ -96,6 +98,8 @@ impl BoardState {
             notice: expect_context::<DesignState>().toast,
             signed_in: RwSignal::new(false),
             dragged: RwSignal::new(None),
+            live_revision: RwSignal::new(0),
+            connection: RwSignal::new(ConnectionState::Offline),
             snapshot: RwSignal::new(vec![]),
             composer: RwSignal::new(None),
         }
@@ -448,7 +452,7 @@ pub fn ApiBoard() -> impl IntoView {
     });
     on_cleanup(move || handle.remove());
     view! {
-        <header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><span class="breadcrumb-current">{move||state.projects.get().iter().find(|p|p.id==state.project.get()).map(|p|p.name.clone()).unwrap_or_default()}</span></div><div class="topbar-actions"><button class="button button-primary" disabled=move||state.project.get()==0 || state.busy.get() || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
+        <header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><span class="breadcrumb-current">{move||state.projects.get().iter().find(|p|p.id==state.project.get()).map(|p|p.name.clone()).unwrap_or_default()}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-primary" disabled=move||state.project.get()==0 || state.busy.get() || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
         <div class="view-tabs"><nav aria-label="Ticket view"><span class="view-tab selected"><Icon name="board"/>"Board"</span><a class="view-tab" href="/list"><Icon name="list"/>"List"</a></nav><crate::pages::projects::ProjectLinks/></div>
         <Show when=move||state.tickets.get().iter().any(|t|t.project_id==state.project.get())><div class="view-toolbar board-filters"><div class="filter-input"><Icon name="filter"/><input aria-label="Filter tickets" disabled=move||state.dragged.get().is_some() placeholder="Filter tickets…" prop:value=move||state.query.get() on:input=move|e|state.query.set(event_target_value(&e))/></div>
         <select aria-label="Filter by label" disabled=move||state.dragged.get().is_some() prop:value=move||state.label.get() on:change=move|e|state.label.set(event_target_value(&e))><option value="">"All labels"</option>{move||state.labels.get().into_iter().map(|l|view!{<option value=l.id.to_string()>{l.name}</option>}).collect_view()}</select>

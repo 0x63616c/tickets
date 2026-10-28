@@ -9,6 +9,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
     let state = expect_context::<DesignState>();
     let board = expect_context::<crate::pages::board::BoardState>();
     let location = use_location();
+    crate::live::subscribe(board, location.pathname);
     wasm_bindgen_futures::spawn_local(async move {
         board.signed_in.set(
             crate::ui::api("GET", "/api/v1/me", serde_json::Value::Null)
