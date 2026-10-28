@@ -13,3 +13,5 @@ pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     }
     env.assets("ASSETS")?.fetch_request(req).await
 }
+
+pub mod repository;

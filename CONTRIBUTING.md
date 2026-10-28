@@ -36,3 +36,19 @@
 - Use `cargo xtask build`, `cargo xtask dev`, and `cargo xtask ci`; see `docs/DEVELOPMENT.md`.
 - For the initial scaffold only, with no pre-existing runnable UI, the before
   screenshot is an explicitly labelled empty dark baseline.
+
+## Data model conventions
+- Store timestamps as UTC ISO 8601 text (`YYYY-MM-DDTHH:MM:SS.sssZ`). Repository
+  updates set `updated_at`; creation timestamps and ticket project/number are immutable.
+- Status values in SQL/JSON are `backlog`, `todo`, `in_progress`, `in_review`,
+  `done`, `canceled`. Priority is 0 (none), 1 (urgent), 2 (high), 3 (medium), 4 (low).
+- Project prefixes are 1–10 uppercase ASCII letters; colors are `#RRGGBB`.
+  Ticket numbers are allocated atomically per project and never reused after deletion.
+- Dependency edges point from blocker to blocked. Core validates additions; the SQL
+  trigger also rejects cycles atomically. Remove/reinsert edges rather than updating them.
+- Auth tables accept hashes only; hashing/verification and bootstrap belong to auth (#4).
+  External IDs must be namespaced by source/repository (for example `github:org/repo:123`).
+- Keep D1 transport in the Worker Store adapter. Test shared parameterized repository
+  queries using SQLite with foreign keys enabled and the complete migration chain.
+- Render descriptions/comments only through `tickets_core::markdown::render`; the
+  returned HTML is sanitized, including raw HTML and forced-disabled task checkboxes.
