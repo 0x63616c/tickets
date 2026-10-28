@@ -76,8 +76,7 @@
   it builds the app and uses port 8795 and generated state under `target/`.
 
 ## Authentication conventions
-- All `/api/*` handlers must pass through the Worker auth gate, except health and
-  login. Invalid Authorization headers must not fall back to a cookie.
+- All `/api/*` handlers must pass through the Worker auth gate, except health, login, and the independently HMAC-authenticated GitHub webhook. Invalid Authorization headers must not fall back to a cookie.
 - Cookie-auth mutations require a matching Origin; bearer-auth mutations do not.
 - Never return credential hashes in JSON or log request bodies/authorization.
 - Auth timestamps follow the domain UTC format. Sessions expire after seven days;
@@ -254,3 +253,14 @@
 - Capture the emulated viewport explicitly with Chromium's screenshot clip and
   `captureBeyondViewport`; the headless window can otherwise truncate desktop
   images to 1024×640. Verify the saved PNG dimensions before publishing evidence.
+
+## GitHub mirror conventions
+
+- Shared issue/comment mapping lives in core; importer and Worker use identical
+  external IDs and hidden comment markers. GitHub is authoritative; never write back.
+- Mirror ingestion uses D1 batches with JSON label lists and bounded cron pages.
+  Advance stored cursors only after applied pages. Deletions require webhooks.
+- Mirrored tickets (`external_id` starts `github:`) are read-only in the UI and
+  for agents. Keep API writes available for importer compatibility.
+- Run `cargo xtask mirror-check` for ingestion changes; its local lifecycle shares
+  port 8795 with import/skill checks. Screenshots live under docs/screenshots/39/.

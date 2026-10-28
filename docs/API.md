@@ -183,3 +183,26 @@ D1 writes succeed even when notification fails. There is no replay log.
 `cargo xtask live-check` tests local upgrade authentication and two WebSocket
 clients, then checks a move in two browser windows plus list/detail and reconnect.
 See [architecture](ARCHITECTURE.md) for free-tier constraints and consistency limits.
+
+## GitHub mirror webhook
+
+`POST /api/v1/github/webhook` is exempt from bearer/session authentication only.
+It requires `X-Hub-Signature-256: sha256=<hex HMAC-SHA256>` over the exact raw
+request bytes, using the `GITHUB_WEBHOOK_SECRET` Worker secret. Missing/invalid
+signatures return 401; an unset/empty secret returns 503. The body limit is 1 MiB
+(413). Malformed JSON returns 400, non-POST requests 405. Do not send API tokens.
+
+Configured repository IDs are accepted independently of repository names/renames.
+Unknown repository IDs and pull requests return 202 ignored. Signed `ping` returns
+200. Issues are upserted from their full payload; deleted/transferred issues delete
+the mirrored ticket. Issue comments are created/edited/deleted by the import marker.
+Label edits update name/color; label deletions remove the global label and links.
+Successful changes and unknown events return 204. Replay is safe. Notifications
+invalidate the project room after commit; notification failure cannot undo a write.
+
+Tickets whose `external_id` starts with `github:` are mirrors. Their UI is read-only;
+agents should make changes on GitHub. Existing authenticated API mutations remain
+available for import/reconciliation. The mirror owns title, body, state, assignee,
+URL, labels and imported comments, overwriting local changes on its next update.
+GitHub comment authors appear in the marker-backed Markdown body; the API `author`
+field retains `owner`. Render only sanitized `body_html`; markers are invisible.

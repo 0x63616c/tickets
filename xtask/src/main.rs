@@ -10,6 +10,8 @@ mod live;
 #[cfg(not(target_arch = "wasm32"))]
 mod login;
 #[cfg(not(target_arch = "wasm32"))]
+mod mirror_check;
+#[cfg(not(target_arch = "wasm32"))]
 mod screenshots;
 mod skill_check;
 
@@ -75,6 +77,8 @@ fn main() -> Result {
         Some("import-github") => import_github::cli(&args[1..]),
         #[cfg(not(target_arch = "wasm32"))]
         Some("import-check") => api_smoke::import_check(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("mirror-check") => api_smoke::mirror_check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("live-check") => api_smoke::live(root),
         #[cfg(not(target_arch = "wasm32"))]
