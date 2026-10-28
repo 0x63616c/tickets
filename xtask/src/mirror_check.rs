@@ -299,7 +299,7 @@ pub fn check(root: &Path, password: &str, token: &str, fixture: &Fixture) -> Res
     assert_eq!(api.list("/api/v1/tickets")?.len(), 2);
     assert_eq!(api.list("/api/v1/tickets/1/comments")?.len(), 1);
     let github = Api::new(&fixture.base, "fixture".into(), true)?;
-    import(&github, &api, "0x63616c/tickets", "TICKETS", false)?;
+    import(&github, &api, "0x63616c/tickets", "TIK", false)?;
     scheduled()?;
     assert_eq!(api.list("/api/v1/tickets")?.len(), 2);
     assert_eq!(api.list("/api/v1/tickets/1/comments")?.len(), 1);

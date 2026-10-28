@@ -241,7 +241,7 @@ content fresh within seconds and cron repairs missed edits. The coordinator does
 production setup after merge; development and checks use isolated local D1 only.
 
 `GITHUB_MIRROR` is a Worker var in both default and production environments:
-`1436584641=0x63616c/tickets:TICKETS,1433792506=0x63616c/voxelite:QUA`.
+`1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/voxelite:QUA`.
 Each entry maps stable repository ID to external-ID identity and project key.
 Projects are ensured by key; QUA is named Quantum, others use the repository name.
 The quantum rename retains the original voxelite identity and comment markers.

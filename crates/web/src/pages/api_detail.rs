@@ -168,7 +168,7 @@ fn DetailPage(id: i64) -> impl IntoView {
             <article class="ticket-detail"><div class="detail-overline"><a href="/" class="back-link"><Icon name="board"/>"Board"</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key)}</span></div>
             <Show when=move||state.mirrored()><p class="muted github-sync">"Synced from GitHub"{move||state.ticket.get().and_then(|t|t.external_url).map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener">"Open on GitHub ↗"</a>})}</p></Show>
             <h1>{move||state.ticket.get().map(|t|t.title)}</h1><div class="detail-description">{move||state.ticket.get().map(|t|view!{<Markdown source=t.body/>})}</div>
-            <section class="dependencies" aria-label="Dependencies"><div class="section-heading"><h2>"Dependencies"</h2><button class="button button-ghost" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|dependency.set(true)><Icon name="plus"/>"Add dependency"</button></div>
+            <section class="dependencies" aria-label="Dependencies"><div class="section-heading"><h2>"Dependencies"</h2><Show when=move||!state.mirrored()><button class="button button-ghost" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|dependency.set(true)><Icon name="plus"/>"Add dependency"</button></Show></div>
             {move||state.ticket.get().map(|t|{let empty=t.blocks.is_empty() && t.blocked_by.is_empty();view!{ {empty.then(||view!{<p class="muted dependency-empty">"No dependencies"</p>})}
                 {t.blocked_by.into_iter().map(|related|view!{<DependencyRow related incoming=true/>}).collect_view()}{t.blocks.into_iter().map(|related|view!{<DependencyRow related incoming=false/>}).collect_view()}
             }})}</section>
@@ -206,7 +206,7 @@ fn DependencyRow(related: i64, incoming: bool) -> impl IntoView {
     };
     view! {<div class="dependency-row"><span class="dependency-kind"><Icon name=if incoming{"blocked"}else{"arrow"}/>{if incoming{"Blocked by"}else{"Blocks"}}</span>
     {move||board.tickets.get().into_iter().find(|t|t.id==related).map(|t|view!{<StatusIcon status=t.status/><span class="mono muted">{t.key}</span><a class="dependency-title" href=format!("/ticket?id={related}")>{t.title}</a>{matches!(t.status,Status::Done|Status::Canceled).then(||view!{<span class="resolved">"Resolved"</span>})}})}
-    <button class="icon-button" aria-label=format!("Remove dependency {related}") disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/tickets/{from}/dependencies/{to}"),Value::Null,Callback::new(|_|{}))><Icon name="close"/></button></div>}
+    <Show when=move||!state.mirrored()><button class="icon-button" aria-label=format!("Remove dependency {related}") disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/tickets/{from}/dependencies/{to}"),Value::Null,Callback::new(|_|{}))><Icon name="close"/></button></Show></div>}
 }
 #[component]
 fn DependencyEditor(close: Callback<()>) -> impl IntoView {
@@ -250,7 +250,7 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     } else {
         comment.body.clone()
     };
-    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,Callback::new(|_|{}))>"Delete"</button></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone()/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
+    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||!state.mirrored()><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,Callback::new(|_|{}))>"Delete"</button></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone()/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
 }
 #[component]
 fn CommentEditor(
