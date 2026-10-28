@@ -113,7 +113,9 @@
 ## Kanban ordering and verification
 
 - The API board lives at `/`; `/design*` retains its fixture-only state. Projects
-  are selected in the board header until the project management view (#10) lands.
+  are selected in the sidebar. Hide Canceled by default; `?canceled=true` reveals it.
+  Use equal flex columns with a 240px minimum and 16px gaps. At 1440px the
+  sidebar contracts to leave 1304px for five columns; narrower boards scroll.
 - Sort a project/status column by `sort_order`, then numeric ticket ID to resolve
   ties (including the API default of zero). A move assigns gapped integer ranks
   `1024, 2048, …` to the destination column and PATCHes only changed rows. Include

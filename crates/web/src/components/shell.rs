@@ -7,6 +7,13 @@ use leptos_router::hooks::use_location;
 pub fn AppShell(children: Children) -> impl IntoView {
     let state = expect_context::<DesignState>();
     let board = expect_context::<crate::pages::board::BoardState>();
+    wasm_bindgen_futures::spawn_local(async move {
+        board.signed_in.set(
+            crate::ui::api("GET", "/api/v1/me", serde_json::Value::Null)
+                .await
+                .is_ok(),
+        );
+    });
     let mobile_open = RwSignal::new(false);
     let location = use_location();
     view! {
@@ -14,18 +21,19 @@ pub fn AppShell(children: Children) -> impl IntoView {
         <div class="app-shell" class:sidebar-open=move || mobile_open.get()>
             <aside class="sidebar" aria-label="Workspace">
                 <div class="workspace"><button class="workspace-switcher" aria-label="Switch workspace"><span class="workspace-mark">"T"</span><strong>"Tickets"</strong><Icon name="down"/></button><Avatar/></div>
+                <button class="search-trigger" on:click=move |_| state.dialog.set(DialogKind::Command)><Icon name="search"/><span>"Search tickets…"</span><Shortcut>"⌘ K"</Shortcut></button>
                 <Show when=move || location.pathname.get().starts_with("/design") fallback=move || view! {
                     <nav class="sidebar-nav" aria-label="Main navigation" on:click=move |_| mobile_open.set(false)>
                         <div class="nav-section-label">"Projects"</div>
                         {move || board.projects.get().into_iter().map(|p| {
-                            let id = p["id"].as_i64().unwrap_or_default();
-                            view! { <A href="/" attr:class="nav-item project-nav" on:click=move |ev| { if !board.select_project(id) {ev.prevent_default();} }><span class="project-dot" style=format!("--dot:{}",p["color"].as_str().unwrap_or_default())/><span>{p["name"].as_str().unwrap_or_default().to_owned()}</span></A> }
+                            let id = p.id;
+                            view! { <A href="/" attr:class="nav-item project-nav" on:click=move |ev| { if !board.select_project(id) {ev.prevent_default();} }><span class="project-dot" style=format!("--dot:{}",p.color)/><span>{p.name}</span><span class="nav-count">{move||board.tickets.get().iter().filter(|t|t.project_id==id).count()}</span></A> }
                         }).collect_view()}
                         <div class="nav-section-label">"Views"</div>
                         <A href="/" attr:class="nav-item"><Icon name="board"/>"Board"</A>
                     </nav>
                 }>
-                <button class="search-trigger" on:click=move |_| state.dialog.set(DialogKind::Command)><Icon name="search"/><span>"Search tickets…"</span><Shortcut>"⌘ K"</Shortcut></button>
+
                 <nav class="sidebar-nav" aria-label="Main navigation" on:click=move |_| mobile_open.set(false)>
                     <A href="/design/projects" attr:class="nav-item"><Icon name="project"/><span>"Projects"</span><span class="nav-count">{move || state.projects.get().len() + 2}</span></A>
                     <div class="nav-section-label">"Projects"</div>
@@ -40,7 +48,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
                 </Show>
                 <div class="sidebar-bottom">
                     <A href="/settings/tokens" attr:class="nav-item"><Icon name="settings"/><span>"API tokens"</span></A>
-                    <A href="/login" attr:class="nav-item"><Icon name="arrow"/><span>"Sign in"</span></A>
+                    <Show when=move||board.signed_in.get() fallback=||view!{<A href="/login" attr:class="nav-item"><Icon name="arrow"/><span>"Sign in"</span></A>}><button class="nav-item" on:click=move|_|wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{board.signed_in.set(false);let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}})><Icon name="arrow"/><span>"Sign out"</span></button></Show>
                     <A href="/design" exact=true attr:class="nav-item"><Icon name="grid"/><span>"Design system"</span></A>
                     <Show when=move || location.pathname.get().starts_with("/design")><div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div></Show>
                     <div class="sidebar-account"><Avatar/><span>"Personal workspace"</span><Show when=move || location.pathname.get().starts_with("/design")><IconButton label="Open commands" icon="help" on_click=Callback::new(move |_| state.dialog.set(DialogKind::Command))/></Show></div>
@@ -51,7 +59,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
                 <main id="main" tabindex="-1">{children()}</main>
             </div>
         </div>
-        <Show when=move || location.pathname.get().starts_with("/design")><Overlays/></Show>
+        <Overlays/>
         <Toast/>
     }
 }

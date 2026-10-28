@@ -4,7 +4,8 @@ use serde_json::{Value, json};
 use wasm_bindgen_futures::spawn_local;
 
 pub(crate) async fn api(method: &str, path: &str, body: Value) -> Result<Value, String> {
-    let builder = RequestBuilder::new(path).method(method.parse().unwrap());
+    let builder =
+        RequestBuilder::new(path).method(method.parse().map_err(|_| "Invalid HTTP method")?);
     let request = if method == "GET" {
         builder.build().map_err(|_| "Request failed")?
     } else {
@@ -16,10 +17,22 @@ pub(crate) async fn api(method: &str, path: &str, body: Value) -> Result<Value, 
     }
     let value: Value = response.json().await.map_err(|_| "Invalid response")?;
     if !response.ok() {
-        return Err(value["error"]["message"]
-            .as_str()
-            .unwrap_or("Request failed")
-            .into());
+        #[derive(serde::Deserialize)]
+        #[serde(untagged)]
+        enum ApiError {
+            Message { message: String },
+            Text(String),
+        }
+        #[derive(serde::Deserialize)]
+        struct Envelope {
+            error: ApiError,
+        }
+        let error: Envelope =
+            serde_json::from_value(value).map_err(|e| format!("Invalid error response: {e}"))?;
+        return Err(match error.error {
+            ApiError::Message { message } => message,
+            ApiError::Text(message) => message,
+        });
     }
     Ok(value)
 }
@@ -42,7 +55,20 @@ pub fn Login() -> impl IntoView {
 }
 #[component]
 pub fn Tokens() -> impl IntoView {
-    let (items, set_items) = signal(Vec::<Value>::new());
+    #[derive(Clone, serde::Deserialize)]
+    struct Token {
+        id: i64,
+        name: String,
+        created_at: String,
+        last_used_at: Option<String>,
+        revoked_at: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Created {
+        token: String,
+    }
+
+    let (items, set_items) = signal(Vec::<Token>::new());
     let (name, set_name) = signal(String::new());
     let (created, set_created) = signal(String::new());
     let (message, set_message) = signal(String::new());
@@ -50,18 +76,21 @@ pub fn Tokens() -> impl IntoView {
     let refresh = move || {
         spawn_local(async move {
             match api("GET", "/api/v1/tokens", Value::Null).await {
-                Ok(v) => set_items.set(v.as_array().cloned().unwrap_or_default()),
+                Ok(v) => match serde_json::from_value(v) {
+                    Ok(items) => set_items.set(items),
+                    Err(e) => set_message.set(format!("Invalid token list: {e}")),
+                },
                 Err(e) => set_message.set(e),
             }
         })
     };
     refresh();
-    view! { <header><h1>"API tokens"</h1><button on:click=move |_|spawn_local(async move { if api("POST","/api/v1/logout",Value::Null).await.is_ok(){let _=web_sys::window().unwrap().location().set_href("/login");} })>"Sign out"</button></header>
+    view! { <header><h1>"API tokens"</h1><button on:click=move |_|spawn_local(async move { match api("POST","/api/v1/logout",Value::Null).await{Ok(_)=>{let _=web_sys::window().unwrap().location().set_href("/login");},Err(e)=>set_message.set(e)} })>"Sign out"</button></header>
     <section><h2>"Personal API tokens"</h2><p>"Give each agent its own token. Revoke it when access is no longer needed."</p>
     <form on:submit=move |ev| { ev.prevent_default(); set_busy.set(true); set_created.set(String::new()); set_message.set(String::new()); spawn_local(async move {
-        match api("POST","/api/v1/tokens",json!({"name":name.get_untracked()})).await { Ok(v)=>{set_created.set(v["token"].as_str().unwrap_or_default().into());set_name.set(String::new());refresh();},Err(e)=>set_message.set(e) } set_busy.set(false);
+        match api("POST","/api/v1/tokens",json!({"name":name.get_untracked()})).await { Ok(v)=>match serde_json::from_value::<Created>(v){Ok(v)=>{set_created.set(v.token);set_name.set(String::new());refresh();},Err(e)=>set_message.set(format!("Invalid token response: {e}"))},Err(e)=>set_message.set(e) } set_busy.set(false);
     }); }><label for="token-name">"Token name"</label><div class="inline"><input id="token-name" placeholder="e.g. Build agent" required maxlength="100" prop:value=name on:input=move |e|set_name.set(event_target_value(&e))/><button disabled=busy type="submit">"Create token"</button></div></form>
     <Show when=move ||!created.get().is_empty()><div class="secret"><h2>"Copy your token"</h2><p>"This token is shown only once. Store it somewhere safe before leaving this page."</p><code>{created}</code><button on:click=move |_|spawn_local(async move { let promise=web_sys::window().unwrap().navigator().clipboard().write_text(&created.get_untracked()); set_message.set(if wasm_bindgen_futures::JsFuture::from(promise).await.is_ok(){"Token copied."}else{"Copy failed. Select the token and copy it manually."}.into()); })>"Copy token"</button><button on:click=move |_|set_created.set(String::new())>"Dismiss"</button></div></Show>
-    <p role="status">{message}</p><ul class="tokens">{move || items.get().into_iter().map(|item| {let id=item["id"].as_i64().unwrap();let revoked=!item["revoked_at"].is_null(); view!{<li><div><strong>{item["name"].as_str().unwrap_or_default().to_owned()}</strong><p>{format!("Created {} · Last used {}",item["created_at"].as_str().unwrap_or("—"),item["last_used_at"].as_str().unwrap_or("Never"))}</p></div>{if revoked {view!{<span>"Revoked"</span>}.into_any()}else{view!{<button on:click=move |_|spawn_local(async move { match api("DELETE",&format!("/api/v1/tokens/{id}"),Value::Null).await {Ok(_)=>refresh(),Err(e)=>set_message.set(e)} })>"Revoke"</button>}.into_any()}}</li>} }).collect_view()}</ul>
+    <p role="status">{message}</p><ul class="tokens">{move || items.get().into_iter().map(|item| {let id=item.id;let revoked=item.revoked_at.is_some(); view!{<li><div><strong>{item.name}</strong><p>{format!("Created {} · Last used {}",item.created_at,item.last_used_at.as_deref().unwrap_or("Never"))}</p></div>{if revoked {view!{<span>"Revoked"</span>}.into_any()}else{view!{<button on:click=move |_|spawn_local(async move { match api("DELETE",&format!("/api/v1/tokens/{id}"),Value::Null).await {Ok(_)=>refresh(),Err(e)=>set_message.set(e)} })>"Revoke"</button>}.into_any()}}</li>} }).collect_view()}</ul>
     <Show when=move ||items.get().is_empty()><p>"No API tokens yet."</p></Show></section> }
 }

@@ -47,6 +47,7 @@ pub fn Modal(
 #[component]
 pub fn Overlays() -> impl IntoView {
     let state = expect_context::<DesignState>();
+    let location = leptos_router::hooks::use_location();
     let handle = window_event_listener(ev::keydown, move |event| {
         if event.key().eq_ignore_ascii_case("k") && (event.meta_key() || event.ctrl_key()) {
             event.prevent_default();
@@ -65,7 +66,8 @@ pub fn Overlays() -> impl IntoView {
             ["INPUT", "TEXTAREA", "SELECT"].contains(&t.tag_name().as_str())
                 || t.is_content_editable()
         });
-        if !editing
+        if location.pathname.get_untracked().starts_with("/design")
+            && !editing
             && !event.meta_key()
             && !event.ctrl_key()
             && !event.alt_key()
@@ -160,14 +162,16 @@ fn AddDependency() -> impl IntoView {
 pub fn CommandPalette() -> impl IntoView {
     let state = expect_context::<DesignState>();
     let query = RwSignal::new(String::new());
+    let board = expect_context::<crate::pages::board::BoardState>();
+    let location = leptos_router::hooks::use_location();
     view! {
         <Modal title="Search and commands" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
             <div on:keydown=command_key>
             <div class="command-search"><Icon name="search"/><input aria-label="Search tickets or commands" placeholder="Search tickets or run a command…" on:input=move |ev| query.set(event_target_value(&ev))/></div>
-            <div class="command-results"><p class="menu-heading">"Actions"</p><button class="menu-item" on:click=move |_| state.new_ticket(Status::Todo)><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button><button class="menu-item" on:click=move |_| state.dialog.set(DialogKind::Project)><Icon name="project"/>"New project"</button><p class="menu-heading">"Tickets"</p>{move || {
+            <Show when=move||!location.pathname.get().starts_with("/design") fallback=move||view!{<div class="command-results"><p class="menu-heading">"Actions"</p><button class="menu-item" on:click=move |_| state.new_ticket(Status::Todo)><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button><button class="menu-item" on:click=move |_| state.dialog.set(DialogKind::Project)><Icon name="project"/>"New project"</button><p class="menu-heading">"Tickets"</p>{move || {
                 let filtered = state.tickets.get().into_iter().filter(|t| format!("TKT-{} {}", t.id, t.title).to_lowercase().contains(&query.get().to_lowercase())).take(6).collect::<Vec<_>>();
                 if filtered.is_empty() { view! { <p class="command-empty">"No tickets match your search."</p> }.into_any() } else { filtered.into_iter().map(|ticket| view! { <A href=format!("/design/ticket?id={}", ticket.id) attr:class="menu-item" on:click=move |_| state.dialog.set(DialogKind::None)><StatusIcon status=ticket.status/><span class="mono muted">{format!("TKT-{}", ticket.id)}</span><span>{ticket.title}</span></A> }).collect_view().into_any() }
-            }}</div><div class="command-footer"><span><Shortcut>"↑ ↓"</Shortcut>" to navigate"</span><span><Shortcut>"↵"</Shortcut>" to select"</span><span><Shortcut>"esc"</Shortcut>" to close"</span></div>
+            }}</div>}><div class="command-results"><p class="menu-heading">"Tickets"</p>{move||board.tickets.get().into_iter().filter(|t|format!("{} {}",t.key,t.title).to_lowercase().contains(&query.get().to_lowercase())).take(20).map(|t|view!{<button class="menu-item" on:click=move|_|{board.select_project(t.project_id);state.dialog.set(DialogKind::None);request_animation_frame(move||{if let Some(e)=document().get_element_by_id(&format!("ticket-{}",t.id)).and_then(|e|e.dyn_into::<web_sys::HtmlElement>().ok()){let _=e.focus();}});} ><StatusIcon status=t.status/><span class="mono muted">{t.key}</span><span>{t.title}</span></button>}).collect_view()}</div></Show><div class="command-footer"><span><Shortcut>"↑ ↓"</Shortcut>" to navigate"</span><span><Shortcut>"↵"</Shortcut>" to select"</span><span><Shortcut>"esc"</Shortcut>" to close"</span></div>
             </div>
         </Modal>
     }
