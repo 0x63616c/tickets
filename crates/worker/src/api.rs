@@ -9,6 +9,15 @@ use tickets_core::api::{list_options, positive_id};
 pub struct Reply {
     pub status: u16,
     pub body: Value,
+    pub change: Option<CommittedChange>,
+}
+/// Internal notification metadata; never included in REST responses.
+pub struct CommittedChange {
+    pub entity: String,
+    pub id: i64,
+    pub action: String,
+    /// Empty for global label invalidations.
+    pub projects: Vec<i64>,
 }
 #[derive(Debug)]
 struct Failure(u16, &'static str, String);
@@ -64,14 +73,6 @@ fn bad(message: impl Into<String>) -> Failure {
 fn id(s: &str) -> Result<i64> {
     positive_id(s).map_err(bad)
 }
-/// Extension point for #16. Called only after a successful domain mutation.
-pub struct ChangeEvent<'a> {
-    pub entity: &'a str,
-    pub id: i64,
-    pub action: &'a str,
-}
-pub fn change_event(_event: ChangeEvent<'_>) {}
-
 pub async fn handle<S: Store>(
     store: &S,
     method: &str,
@@ -83,6 +84,7 @@ pub async fn handle<S: Store>(
         Ok(r) => r,
         Err(Failure(status, code, message)) => Reply {
             status,
+            change: None,
             body: json!({"error":{"code":code,"message":message}}),
         },
     }
@@ -105,6 +107,7 @@ async fn list<S: Store>(
     let o = list_options(entity, q).map_err(bad)?;
     Ok(Reply {
         status: 200,
+        change: None,
         body: r
             .list(entity, &o.filters, ticket, o.limit, o.cursor)
             .await?,
@@ -117,10 +120,24 @@ async fn changed<S: Store>(
     action: &str,
     value: Value,
     status: u16,
+    mut projects: Vec<i64>,
 ) -> Result<Reply> {
-    change_event(ChangeEvent { entity, id, action });
+    if let Some(project) = value["project_id"].as_i64() {
+        projects.push(project);
+    }
+    if entity == "projects" {
+        projects.push(id);
+    }
+    projects.sort_unstable();
+    projects.dedup();
     Ok(Reply {
         status,
+        change: Some(CommittedChange {
+            entity: entity.into(),
+            id,
+            action: action.into(),
+            projects,
+        }),
         body: r.enrich(entity, value).await?,
     })
 }
@@ -143,7 +160,7 @@ async fn dispatch<S: Store>(
         ("GET", [_, _, e]) if *e != "comments" => list(r, entity, q, None).await,
         ("POST", [_, _, e]) if *e != "comments" => {
             let v = r.create(entity, &body, false).await?;
-            changed(r, entity, row_id(&v)?, "create", v, 201).await
+            changed(r, entity, row_id(&v)?, "create", v, 201, vec![]).await
         }
         ("PUT", [_, _, "tickets", "by-external"]) => {
             let ext = q
@@ -158,22 +175,36 @@ async fn dispatch<S: Store>(
                 .as_object_mut()
                 .ok_or_else(|| Error::Validation("expected a JSON object".into()))?;
             object.insert("external_id".into(), ext.clone().into());
+            let projects = r.external_projects(ext).await?;
             let v = r.create("tickets", &body, true).await?;
-            changed(r, "tickets", row_id(&v)?, "upsert", v, 200).await
+            changed(r, "tickets", row_id(&v)?, "upsert", v, 200, projects).await
         }
         ("GET" | "POST", [_, _, "tickets", key, "comments"]) => {
-            let t = row_id(&resource(r, "tickets", key).await?)?;
+            let ticket = resource(r, "tickets", key).await?;
+            let t = row_id(&ticket)?;
             if method == "GET" {
                 return list(r, "comments", q, Some(t)).await;
             }
             let v = r.create_comment(t, &body).await?;
-            changed(r, "comments", row_id(&v)?, "create", v, 201).await
+            changed(
+                r,
+                "comments",
+                row_id(&v)?,
+                "create",
+                v,
+                201,
+                vec![ticket["project_id"].as_i64().unwrap()],
+            )
+            .await
         }
         ("POST" | "DELETE", [_, _, "tickets", key, kind, other])
             if ["labels", "dependencies"].contains(kind) =>
         {
-            let t = row_id(&resource(r, "tickets", key).await?)?;
-            r.link(kind, t, id(other)?, method == "POST").await?;
+            let ticket = resource(r, "tickets", key).await?;
+            let t = row_id(&ticket)?;
+            let other_project = r.link(kind, t, id(other)?, method == "POST").await?;
+            let mut projects = vec![ticket["project_id"].as_i64().unwrap()];
+            projects.extend(other_project);
             changed(
                 r,
                 kind,
@@ -181,6 +212,7 @@ async fn dispatch<S: Store>(
                 if method == "POST" { "create" } else { "delete" },
                 json!({"ok":true}),
                 200,
+                projects,
             )
             .await
         }
@@ -190,9 +222,23 @@ async fn dispatch<S: Store>(
             }
             let existing = resource(r, entity, key).await?;
             let n = row_id(&existing)?;
+            let mut projects = existing["project_id"]
+                .as_i64()
+                .into_iter()
+                .collect::<Vec<_>>();
+            if entity == "comments" && method != "GET" {
+                let ticket = r
+                    .get("tickets", existing["ticket_id"].as_i64().unwrap())
+                    .await?;
+                projects.extend(ticket["project_id"].as_i64());
+            }
+            if entity == "tickets" && method != "GET" {
+                projects.extend(r.ticket_projects(n).await?);
+            }
             match method {
                 "GET" => Ok(Reply {
                     status: 200,
+                    change: None,
                     body: r.enrich(entity, existing).await?,
                 }),
                 "PATCH" => {
@@ -201,11 +247,11 @@ async fn dispatch<S: Store>(
                         return Err(bad("Patch must contain fields"));
                     }
                     let v = r.patch(entity, &existing, &body).await?;
-                    changed(r, entity, n, "update", v, 200).await
+                    changed(r, entity, n, "update", v, 200, projects).await
                 }
                 _ => {
                     r.delete(entity, n).await?;
-                    changed(r, entity, n, "delete", json!({"ok":true}), 200).await
+                    changed(r, entity, n, "delete", json!({"ok":true}), 200, projects).await
                 }
             }
         }

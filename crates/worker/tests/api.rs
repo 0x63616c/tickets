@@ -707,7 +707,7 @@ fn constant_query_budget_with_full_enrichment() {
                     "/api/v1/tickets/50",
                     &[],
                     json!({"project_id":1,"title":"Patched"}),
-                    (200, 5),
+                    (200, 6),
                 )
                 .await;
             for field in ["key", "labels", "blocks", "blocked_by", "body_html"] {
@@ -720,7 +720,7 @@ fn constant_query_budget_with_full_enrichment() {
                     "/api/v1/tickets/by-external",
                     &[("id".into(), "fixture:budget".into())],
                     json!({"project_id":1,"title":"Import"}),
-                    (200, 4),
+                    (200, 5),
                 )
                 .await;
             store
@@ -759,7 +759,7 @@ fn constant_query_budget_with_full_enrichment() {
                 "/api/v1/tickets/51",
                 &[],
                 json!({"project_id":2}),
-                (200, 5),
+                (200, 6),
             )
             .await;
         assert_eq!(moved["key"], "DST-1");
@@ -841,5 +841,99 @@ fn project_link_kind_and_archive_preserve_tickets() {
         let p=call(&db,"PATCH","/api/v1/projects/1",json!({"archived":false,"github_owner":null,"github_project_number":null,"github_repo":null,"github_project_kind":"users"}),200).await;
         assert_eq!(p["github_owner"], Value::Null);
         assert_eq!(p["github_project_kind"], "users");
+    });
+}
+
+#[test]
+fn committed_changes_keep_project_scope_including_moves_and_dependencies() {
+    block_on(async {
+        let db = Sqlite::new();
+        for (name, prefix) in [("First", "ONE"), ("Second", "TWO")] {
+            call(
+                &db,
+                "POST",
+                "/api/v1/projects",
+                json!({"name":name,"key_prefix":prefix,"color":"#123456"}),
+                201,
+            )
+            .await;
+        }
+        call(
+            &db,
+            "POST",
+            "/api/v1/tickets",
+            json!({"project_id":1,"title":"First"}),
+            201,
+        )
+        .await;
+        call(
+            &db,
+            "POST",
+            "/api/v1/tickets",
+            json!({"project_id":2,"title":"Second"}),
+            201,
+        )
+        .await;
+        let edge = handle(
+            &db,
+            "POST",
+            "/api/v1/tickets/1/dependencies/2",
+            &[],
+            Value::Null,
+        )
+        .await;
+        assert_eq!(edge.change.unwrap().projects, vec![1, 2]);
+        let changed = handle(
+            &db,
+            "PATCH",
+            "/api/v1/tickets/1",
+            &[],
+            json!({"status":"done"}),
+        )
+        .await;
+        assert_eq!(changed.change.unwrap().projects, vec![1, 2]);
+        let moved = handle(
+            &db,
+            "PATCH",
+            "/api/v1/tickets/1",
+            &[],
+            json!({"project_id":2}),
+        )
+        .await;
+        assert_eq!(moved.change.unwrap().projects, vec![1, 2]);
+        let comment = handle(
+            &db,
+            "POST",
+            "/api/v1/tickets/1/comments",
+            &[],
+            json!({"body":"Update"}),
+        )
+        .await;
+        assert_eq!(comment.change.unwrap().projects, vec![2]);
+        let deleted = handle(&db, "DELETE", "/api/v1/comments/1", &[], Value::Null).await;
+        assert_eq!(deleted.change.unwrap().projects, vec![2]);
+        let label = handle(
+            &db,
+            "POST",
+            "/api/v1/labels",
+            &[],
+            json!({"name":"Bug","color":"#123456"}),
+        )
+        .await;
+        assert!(label.change.unwrap().projects.is_empty()); // Global label invalidation.
+        let rejected = handle(
+            &db,
+            "PATCH",
+            "/api/v1/tickets/1",
+            &[],
+            json!({"status":"invalid"}),
+        )
+        .await;
+        assert_eq!(rejected.status, 422);
+        assert!(rejected.change.is_none());
+        let read = handle(&db, "GET", "/api/v1/tickets/1", &[], Value::Null).await;
+        assert!(read.change.is_none());
+        let deleted = handle(&db, "DELETE", "/api/v1/tickets/2", &[], Value::Null).await;
+        assert_eq!(deleted.change.unwrap().projects, vec![2]);
     });
 }

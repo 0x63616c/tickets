@@ -176,6 +176,17 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
     if changing && !bearer && !same_origin(&req) {
         return reply(json!({"error":"Origin required"}), 403);
     }
+    if method == Method::Get
+        && let Some(project) = path.strip_prefix("/api/v1/live/")
+    {
+        let Ok(project) = tickets_core::api::positive_id(project) else {
+            return reply(json!({"error":"Invalid project id"}), 400);
+        };
+        if !bearer && !same_origin(&req) {
+            return reply(json!({"error":"Origin required"}), 403);
+        }
+        return crate::live::upgrade(req, &env, &db, project).await;
+    }
     match (method,path.as_str()) {
         (Method::Get,"/api/v1/me")=>reply(json!({"authenticated":true}),200),
         (Method::Post,"/api/v1/logout")=> {
@@ -207,6 +218,10 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
                 }
             } else {Value::Null};
             let response=crate::api::handle(&db,req.method().as_ref(),&path,&query,body).await;
+            if let Some(change) = response.change {
+                // Best effort after D1 commit: notification cannot roll back or fail a write.
+                if crate::live::notify(&env, &db, change).await.is_err() { console_error!("Live notification failed"); }
+            }
             reply(response.body,response.status)
         }
     }
