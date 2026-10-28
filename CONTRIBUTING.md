@@ -71,7 +71,7 @@
   family. The visual/interaction reference is `docs/design-system.md` and `/design`.
 - The `/design` routes are fixture previews. Label them as sample data and keep
   API/auth/live-transport integration in its implementation issue.
-- Descriptions and comments must use `markdown::render` (pulldown-cmark followed
+- Descriptions and comments must use `tickets_core::markdown::render` (pulldown-cmark followed
   by ammonia). Never feed raw Markdown or user HTML directly to `inner_html`.
 - Keep tool logic in Rust `xtask`. `cargo xtask design-check` checks a local
   running UI through Chromium and captures 1440×900 dark screenshots. See

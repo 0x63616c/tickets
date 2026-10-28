@@ -2,6 +2,10 @@ use super::*;
 use crate::fixtures::{Priority, Ticket};
 use leptos::{ev, html, prelude::*};
 use leptos_router::{components::A, hooks::use_navigate};
+use tickets_core::{
+    dependency::{DependencyError, DependencyGraph},
+    domain::Dependency,
+};
 use web_sys::wasm_bindgen::JsCast;
 
 /// Native dialog provides focus containment, Escape and inert background.
@@ -126,11 +130,12 @@ fn AddDependency() -> impl IntoView {
                 <div class="dependency-results">{move || {
                     let selected = state.selected_ticket.get();
                     let tickets = state.tickets.get();
+                    let graph = DependencyGraph::new(tickets.iter().flat_map(|ticket| ticket.blocked_by.iter().map(|blocker| Dependency { blocker_id: i64::from(*blocker), blocked_id: i64::from(ticket.id) }))).expect("valid fixture graph");
                     tickets.iter().filter(|t| t.id != selected && format!("TKT-{} {}", t.id, t.title).to_lowercase().contains(&query.get().to_lowercase())).take(6).map(|t| {
                         let id = t.id;
                         let (dependent, prerequisite) = if direction.get() == "Is blocked by" { (selected, id) } else { (id, selected) };
                         let exists = tickets.iter().any(|t| t.id == dependent && t.blocked_by.contains(&prerequisite));
-                        let cycle = depends_on(&tickets, prerequisite, dependent, &mut vec![]);
+                        let cycle = graph.check(Dependency { blocker_id: i64::from(prerequisite), blocked_id: i64::from(dependent) }) == Err(DependencyError::Cycle);
                         view! { <button class="dependency-option" disabled=exists || cycle on:click=move |_| {
                             state.tickets.update(|tickets| { if let Some(t) = tickets.iter_mut().find(|t| t.id == dependent) { t.blocked_by.push(prerequisite); } });
                             state.dialog.set(DialogKind::None);
@@ -141,22 +146,6 @@ fn AddDependency() -> impl IntoView {
             </div>
         </Modal>
     }
-}
-
-// Preview-only guard. The API remains authoritative for dependency validation.
-fn depends_on(tickets: &[Ticket], from: u32, target: u32, seen: &mut Vec<u32>) -> bool {
-    if from == target {
-        return true;
-    }
-    if seen.contains(&from) {
-        return false;
-    }
-    seen.push(from);
-    tickets.iter().find(|t| t.id == from).is_some_and(|t| {
-        t.blocked_by
-            .iter()
-            .any(|id| depends_on(tickets, *id, target, seen))
-    })
 }
 
 #[component]

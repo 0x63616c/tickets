@@ -2,6 +2,7 @@ mod controls;
 mod icons;
 mod overlays;
 mod shell;
+pub use crate::fixtures::{PriorityPresentation, StatusPresentation};
 pub use controls::*;
 pub use icons::*;
 pub use overlays::*;

@@ -298,3 +298,4 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .auth-page .tokens p { font-size: var(--text-sm); margin-top: 4px; }
 .auth-page [role=alert], .auth-page [role=status] { margin-top: 12px; }
 @media (max-width: 760px) { .auth-page section { padding: 24px 16px; } }
+.status-review { color: var(--status-review); }

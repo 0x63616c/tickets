@@ -1,4 +1,4 @@
-use crate::fixtures::{Priority, Status};
+use crate::fixtures::{Priority, PriorityPresentation, Status, StatusPresentation};
 use leptos::prelude::*;
 
 /// One 16px, 1.5px-stroke icon family. Icons inherit their surrounding text color.
@@ -43,6 +43,7 @@ pub fn StatusIcon(status: Status) -> impl IntoView {
             <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5" stroke-dasharray=if status == Status::Backlog { "1.5 2" } else { "none" }/>
             {match status {
                 Status::InProgress => view! { <path d="M8 4a4 4 0 0 1 0 8Z" fill="currentColor"/> }.into_any(),
+                Status::InReview => view! { <circle cx="8" cy="8" r="2" fill="currentColor"/> }.into_any(),
                 Status::Done => view! { <circle cx="8" cy="8" r="5.5" fill="currentColor"/><path d="m5 8 2 2 4-4" stroke="var(--bg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/> }.into_any(),
                 Status::Canceled => view! { <path d="m4 12 8-8" stroke="currentColor" stroke-width="1.5"/> }.into_any(),
                 _ => ().into_any(),

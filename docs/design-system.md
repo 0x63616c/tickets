@@ -18,7 +18,7 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 
 These are local in-memory fixtures. Creation, status changes, labels, comments,
 projects, and dependency selection demonstrate behavior; reload resets them.
-The sidebar identifies the preview as Sample data. No API, login, GitHub sync,
+The sidebar identifies the preview as Sample data. No API integration, login, GitHub sync,
 or live transport is implemented in this issue. Do not treat the fixture statuses
 as a statement about the GitHub issues' actual progress.
 
@@ -27,11 +27,11 @@ as a statement about the GitHub issues' actual progress.
 | Module | Components and responsibility |
 | --- | --- |
 | `components/shell.rs` | AppShell, TopBar, ProjectHeader; sidebar, breadcrumbs, visible Board/List tabs |
-| `components/controls.rs` | Button, IconButton, TextInput, Select, LabelChip, Avatar, Shortcut, EmptyState, Markdown, ConnectionIndicator |
+| `components/controls.rs` | Button, IconButton, TextInput, Select, Menu, LabelChip, Avatar, Shortcut, EmptyState, Markdown, ConnectionIndicator |
 | `components/icons.rs` | One 16px/1.5px-stroke SVG family; status shapes and priority bars |
 | `components/overlays.rs` | Native Modal, command palette, creation/dependency dialogs, toast |
 | `style/tokens.css` | Color/type/spacing/radius/shadow/motion roles; self-hosted Inter Variable and Geist Mono |
-| `markdown.rs` | The only Markdown-to-HTML boundary; pulldown-cmark then ammonia |
+| `crates/core/src/markdown.rs` | The shared Markdown-to-HTML boundary; pulldown-cmark then ammonia |
 
 Use the existing role tokens; do not introduce a new palette per page. Use
 `--text-secondary` for body content and `--text-muted` for secondary metadata.
@@ -72,6 +72,10 @@ the article on narrow screens. Focus remains visible and reduced motion is honor
    reconnecting. #16 supplies transport state and retry timing. These indicators
    do not imply successful writes, queued mutations, or offline persistence.
 
+The preview uses the shared core status/priority enums, Markdown renderer, and
+`DependencyGraph` validator. In review and Canceled appear as board/list groups
+when populated; all six statuses are available in the status select and gallery.
+
 ## Handoff boundaries
 
 Replace `DesignState` with API-backed resources. Keep the visual structure and
@@ -99,7 +103,7 @@ are included in the WASM app and no Node/Python tooling is vendored.
 
 Default captures are 1440×900, dark, DPR 1; the mobile gallery is 390×844.
 Fonts are loaded before capture. The before image is the actual #2 scaffold
-(`../screenshots/02-after-dark.png`), copied as `00-before-scaffold.png` here.
+(`screenshots/02-after-dark.png`), copied as `00-before-scaffold.png` here.
 
 | Screenshot | Review focus |
 | --- | --- |
@@ -127,10 +131,10 @@ LTO, size optimization, wasm-opt), before API integration:
 
 | Asset | Bytes |
 | --- | ---: |
-| Frontend WASM | 1,623,660 |
-| WASM compressed with `gzip -9` | 640,998 |
-| Generated JavaScript loader | 47,483 |
-| Component CSS + tokens | 31,842 |
+| Frontend WASM | 1,637,971 |
+| WASM compressed with `gzip -9` | 646,044 |
+| Generated JavaScript loader | 48,030 |
+| Component CSS + tokens | 31,918 |
 | Inter Variable WOFF2 | 352,240 |
 | Geist Mono WOFF2 | 71,596 |
 

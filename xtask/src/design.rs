@@ -220,6 +220,10 @@ pub fn check(root: &Path) -> super::Result {
     browser
         .eval("document.querySelector('select[aria-label=\"Move TKT-7 to status\"]').focus()")?;
     browser.key("ArrowDown", 40, 0)?;
+    browser.wait("document.querySelector('.board-column[aria-label=\"In review\"] select[aria-label=\"Move TKT-7 to status\"]')?.value === 'In review'")?;
+    browser
+        .wait("document.activeElement?.getAttribute('aria-label') === 'Move TKT-7 to status'")?;
+    browser.key("ArrowDown", 40, 0)?;
     browser.wait("document.querySelector('.board-column[aria-label=\"Done\"] select[aria-label=\"Move TKT-7 to status\"]')?.value === 'Done'")?;
     browser
         .wait("document.activeElement?.getAttribute('aria-label') === 'Move TKT-7 to status'")?;

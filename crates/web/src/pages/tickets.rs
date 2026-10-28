@@ -37,7 +37,7 @@ pub fn Board() -> impl IntoView {
         <div class="board" aria-label="Ticket board">{Status::ALL.into_iter().map(|status| {
             let over = RwSignal::new(false);
             view! {
-                <Show when=move || status != Status::Canceled || state.tickets.get().iter().any(|t| t.status == status)>
+                <Show when=move || !matches!(status, Status::InReview | Status::Canceled) || state.tickets.get().iter().any(|t| t.status == status)>
                     <section class="board-column" class:drag-over=move || over.get() aria-label=status.name()
                         on:dragover=move |ev| { ev.prevent_default(); over.set(true); }
                         on:dragleave=move |_| over.set(false)
@@ -78,7 +78,7 @@ pub fn List() -> impl IntoView {
     view! {
         <TopBar/><ProjectHeader view="list"/><ViewToolbar query/>
         <div class="ticket-list" aria-label="Tickets grouped by status">{Status::ALL.into_iter().map(|status| view! {
-            <Show when=move || status != Status::Canceled || state.tickets.get().iter().any(|t| t.status == status)>
+            <Show when=move || !matches!(status, Status::InReview | Status::Canceled) || state.tickets.get().iter().any(|t| t.status == status)>
                 <section class="list-group" aria-label=status.name()>
                     <div class="list-group-heading"><StatusIcon status/><h2>{status.name()}</h2><span class="count">{move || state.tickets.get().iter().filter(|t| t.status == status && matches(t, &query.get(), &state.current_project.get())).count()}</span><button class="list-add" aria-label=format!("Add ticket to {}", status.name()) on:click=move |_| state.new_ticket(status)><Icon name="plus"/></button></div>
                     <For each=move || { state.tickets.get().into_iter().filter(|t| t.status == status && matches(t, &query.get(), &state.current_project.get())).collect::<Vec<_>>() } key=|ticket| ticket.id children=|ticket| view! { <TicketRow ticket/> }/>

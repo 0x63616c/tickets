@@ -141,5 +141,5 @@ pub fn EmptyState(
 
 #[component]
 pub fn Markdown(#[prop(into)] source: String) -> impl IntoView {
-    view! { <div class="markdown" inner_html=crate::markdown::render(&source)/> }
+    view! { <div class="markdown" inner_html=tickets_core::markdown::render(&source)/> }
 }

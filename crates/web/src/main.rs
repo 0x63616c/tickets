@@ -2,8 +2,6 @@
 mod components;
 #[cfg(target_arch = "wasm32")]
 mod fixtures;
-#[cfg(any(target_arch = "wasm32", test))]
-mod markdown;
 #[cfg(target_arch = "wasm32")]
 mod pages;
 #[cfg(target_arch = "wasm32")]

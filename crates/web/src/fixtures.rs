@@ -1,40 +1,45 @@
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Status {
-    Backlog,
-    Todo,
-    InProgress,
-    Done,
-    Canceled,
+pub use tickets_core::domain::{Priority, Status};
+
+/// Display-only extensions to the shared domain types.
+pub trait StatusPresentation: Sized {
+    const BOARD: [Self; 4];
+    const ALL: [Self; 6];
+    fn name(self) -> &'static str;
+    fn class(self) -> &'static str;
+    fn from_name(name: &str) -> Self;
 }
 
-impl Status {
-    pub const BOARD: [Self; 4] = [Self::Backlog, Self::Todo, Self::InProgress, Self::Done];
-    pub const ALL: [Self; 5] = [
+impl StatusPresentation for Status {
+    const BOARD: [Self; 4] = [Self::Backlog, Self::Todo, Self::InProgress, Self::Done];
+    const ALL: [Self; 6] = [
         Self::Backlog,
         Self::Todo,
         Self::InProgress,
+        Self::InReview,
         Self::Done,
         Self::Canceled,
     ];
-    pub fn name(self) -> &'static str {
+    fn name(self) -> &'static str {
         match self {
             Self::Backlog => "Backlog",
             Self::Todo => "Todo",
             Self::InProgress => "In progress",
+            Self::InReview => "In review",
             Self::Done => "Done",
             Self::Canceled => "Canceled",
         }
     }
-    pub fn class(self) -> &'static str {
+    fn class(self) -> &'static str {
         match self {
             Self::Backlog => "backlog",
             Self::Todo => "todo",
             Self::InProgress => "progress",
+            Self::InReview => "review",
             Self::Done => "done",
             Self::Canceled => "canceled",
         }
     }
-    pub fn from_name(name: &str) -> Self {
+    fn from_name(name: &str) -> Self {
         Self::ALL
             .into_iter()
             .find(|s| s.name() == name)
@@ -42,23 +47,20 @@ impl Status {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Priority {
-    None,
-    Low,
-    Medium,
-    High,
-    Urgent,
+pub trait PriorityPresentation: Sized {
+    const ALL: [Self; 5];
+    fn name(self) -> &'static str;
+    fn class(self) -> &'static str;
 }
-impl Priority {
-    pub const ALL: [Self; 5] = [
+impl PriorityPresentation for Priority {
+    const ALL: [Self; 5] = [
         Self::None,
         Self::Low,
         Self::Medium,
         Self::High,
         Self::Urgent,
     ];
-    pub fn name(self) -> &'static str {
+    fn name(self) -> &'static str {
         match self {
             Self::None => "No priority",
             Self::Low => "Low",
@@ -67,7 +69,7 @@ impl Priority {
             Self::Urgent => "Urgent",
         }
     }
-    pub fn class(self) -> &'static str {
+    fn class(self) -> &'static str {
         match self {
             Self::None => "none",
             Self::Low => "low",

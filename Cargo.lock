@@ -2172,12 +2172,11 @@ dependencies = [
 name = "tickets-web"
 version = "0.1.0"
 dependencies = [
- "ammonia",
  "gloo-net 0.7.0",
  "leptos",
  "leptos_router",
- "pulldown-cmark",
  "serde_json",
+ "tickets-core",
  "wasm-bindgen-futures",
  "web-sys",
 ]
