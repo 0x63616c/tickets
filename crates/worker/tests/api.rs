@@ -586,3 +586,219 @@ fn moves_imports_search_and_cascades() {
         .await;
     });
 }
+
+/// Counts actual statements, including the same auth queries used by the Worker.
+struct CountingStore {
+    db: Sqlite,
+    queries: std::cell::Cell<usize>,
+}
+impl tickets_worker::repository::Store for CountingStore {
+    async fn query<T: serde::de::DeserializeOwned>(
+        &self,
+        sql: &str,
+        params: Vec<Value>,
+    ) -> tickets_worker::repository::Result<Vec<T>> {
+        assert!(params.len() <= 100, "D1 parameter limit: {sql}");
+        self.queries.set(self.queries.get() + 1);
+        self.db.query(sql, params).await
+    }
+}
+impl CountingStore {
+    async fn request(
+        &self,
+        auth: &str,
+        method: &str,
+        path: &str,
+        query: &[(String, String)],
+        body: Value,
+        expected: (u16, usize),
+    ) -> Value {
+        use tickets_worker::repository::Store;
+        let (status, budget) = expected;
+        self.queries.set(0);
+        let user: Vec<Value> = self.query(auth, vec!["fixture-hash".into()]).await.unwrap();
+        assert_eq!(user[0]["user_id"], 1);
+        let reply = handle(self, method, path, query, body).await;
+        assert_eq!(reply.status, status, "{}", reply.body);
+        assert!(
+            self.queries.get() <= budget,
+            "{method} {path}: {} queries exceeds {budget}",
+            self.queries.get()
+        );
+        reply.body
+    }
+}
+
+#[test]
+fn constant_query_budget_with_full_enrichment() {
+    use tickets_worker::auth_queries::{BEARER, SESSION};
+    block_on(async {
+        let db = Sqlite::new();
+        db.0.execute_batch("INSERT INTO users(id,username) VALUES(1,'owner');
+            INSERT INTO api_tokens(user_id,token_hash,name) VALUES(1,'fixture-hash','fixture');
+            INSERT INTO sessions(token_hash,user_id,expires_at) VALUES('fixture-hash',1,'2999-01-01T00:00:00.000Z');
+            INSERT INTO projects(name,key_prefix,color) VALUES('Budget','BGT','#123456');
+            INSERT INTO labels(name,color) VALUES('first','#123456'),('second','#abcdef');
+            WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<102)
+            INSERT INTO tickets(project_id,number,title,body) SELECT 1,x,'Ticket '||x,'**bold** <script>bad</script>' FROM n;
+            INSERT INTO ticket_labels SELECT id,2 FROM tickets;
+            INSERT INTO ticket_labels SELECT id,1 FROM tickets;
+            INSERT INTO ticket_dependencies SELECT id,id+1 FROM tickets WHERE id<102;
+            INSERT INTO ticket_dependencies SELECT id,id+2 FROM tickets WHERE id<101;").unwrap();
+        let store = CountingStore {
+            db,
+            queries: std::cell::Cell::new(0),
+        };
+        for auth in [BEARER, SESSION] {
+            let page = store
+                .request(
+                    auth,
+                    "GET",
+                    "/api/v1/tickets",
+                    &[("limit".into(), "100".into())],
+                    Value::Null,
+                    (200, 2),
+                )
+                .await;
+            assert_eq!(page["next_cursor"], "100");
+            assert_eq!(page["data"].as_array().unwrap().len(), 100);
+            for (index, ticket) in page["data"].as_array().unwrap().iter().enumerate() {
+                let id = index + 1;
+                assert_eq!(ticket["key"], format!("BGT-{id}"));
+                assert_eq!(
+                    ticket["labels"],
+                    json!([{"id":1,"name":"first","color":"#123456"},{"id":2,"name":"second","color":"#abcdef"}])
+                );
+                assert_eq!(ticket["blocks"], json!([id + 1, id + 2]));
+                let blocked_by: Vec<_> = (id.saturating_sub(2).max(1)..id).collect();
+                assert_eq!(ticket["blocked_by"], json!(blocked_by));
+                assert_eq!(ticket["body"], "**bold** <script>bad</script>");
+                assert!(
+                    ticket["body_html"]
+                        .as_str()
+                        .unwrap()
+                        .contains("<strong>bold</strong>")
+                );
+                assert!(!ticket["body_html"].as_str().unwrap().contains("<script>"));
+            }
+            for path in ["/api/v1/tickets/50", "/api/v1/tickets/BGT-50"] {
+                let ticket = store
+                    .request(auth, "GET", path, &[], Value::Null, (200, 2))
+                    .await;
+                assert_eq!(ticket, page["data"][49]);
+            }
+            let created = store
+                .request(
+                    auth,
+                    "POST",
+                    "/api/v1/tickets",
+                    &[],
+                    json!({"project_id":1,"title":"Created"}),
+                    (201, 4),
+                )
+                .await;
+            assert_eq!(created["labels"], json!([]));
+            assert_eq!(created["blocks"], json!([]));
+            assert_eq!(created["blocked_by"], json!([]));
+            let patched = store
+                .request(
+                    auth,
+                    "PATCH",
+                    "/api/v1/tickets/50",
+                    &[],
+                    json!({"project_id":1,"title":"Patched"}),
+                    (200, 5),
+                )
+                .await;
+            for field in ["key", "labels", "blocks", "blocked_by", "body_html"] {
+                assert_eq!(patched[field], page["data"][49][field]);
+            }
+            store
+                .request(
+                    auth,
+                    "PUT",
+                    "/api/v1/tickets/by-external",
+                    &[("id".into(), "fixture:budget".into())],
+                    json!({"project_id":1,"title":"Import"}),
+                    (200, 4),
+                )
+                .await;
+            store
+                .request(
+                    auth,
+                    "POST",
+                    "/api/v1/tickets/1/dependencies/102",
+                    &[],
+                    Value::Null,
+                    (200, 5),
+                )
+                .await;
+            store
+                .request(
+                    auth,
+                    "DELETE",
+                    "/api/v1/tickets/1/dependencies/102",
+                    &[],
+                    Value::Null,
+                    (200, 4),
+                )
+                .await;
+        }
+        store
+            .db
+            .0
+            .execute(
+                "INSERT INTO projects(name,key_prefix,color) VALUES('Destination','DST','#123456')",
+                [],
+            )
+            .unwrap();
+        let moved = store
+            .request(
+                BEARER,
+                "PATCH",
+                "/api/v1/tickets/51",
+                &[],
+                json!({"project_id":2}),
+                (200, 5),
+            )
+            .await;
+        assert_eq!(moved["key"], "DST-1");
+        assert_eq!(moved["blocks"], json!([52, 53]));
+        assert_eq!(moved["blocked_by"], json!([49, 50]));
+        assert_eq!(moved["labels"].as_array().unwrap().len(), 2);
+    });
+}
+
+#[test]
+fn unexpected_storage_data_returns_internal_error() {
+    struct Unexpected(Value);
+    impl tickets_worker::repository::Store for Unexpected {
+        async fn query<T: serde::de::DeserializeOwned>(
+            &self,
+            _: &str,
+            _: Vec<Value>,
+        ) -> tickets_worker::repository::Result<Vec<T>> {
+            Ok(vec![serde_json::from_value(self.0.clone()).unwrap()])
+        }
+    }
+    block_on(async {
+        for row in [
+            json!({"id":"unexpected"}),
+            json!({"id":1,"key":"EX-1","labels":"invalid json"}),
+        ] {
+            let reply = handle(
+                &Unexpected(row),
+                "GET",
+                "/api/v1/tickets/1",
+                &[],
+                Value::Null,
+            )
+            .await;
+            assert_eq!(reply.status, 500);
+            assert_eq!(
+                reply.body,
+                json!({"error":{"code":"internal","message":"Storage operation failed"}})
+            );
+        }
+    });
+}

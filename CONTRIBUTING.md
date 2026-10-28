@@ -61,6 +61,13 @@
 - After successful domain writes call the no-op `api::change_event` with entity,
   ID and action, ready for #16. Validate domain documents in core, keep transport
   in the authenticated Worker adapter, and exercise shared dispatch with SQLite.
+- Keep each API request within six D1 calls including authentication, independent
+  of page size, and each SQL statement within 100 bound parameters. The Workers
+  Free plan allows only 50 queries per invocation. Ticket reads use one SELECT
+  with ordered JSON aggregates for labels/dependencies; never query per result row.
+  Counting Store regressions cover 100-ticket pages and mutation responses with
+  the shared bearer/session auth statements (list/get: 2 calls; create/upsert: 4;
+  PATCH with a project field and dependency creation: 5).
 - Run `cargo xtask api-smoke` for an isolated local Worker/D1 end-to-end check;
   it builds the app and uses port 8795 and generated state under `target/`.
 

@@ -4,6 +4,27 @@ use crate::repository::{Error, Repository, Result, Store};
 use serde_json::{Value, json};
 use tickets_core::domain::Dependency;
 
+// Correlated subqueries are part of one D1 request; ordered inner SELECTs keep
+// arrays deterministic without multiplying ticket rows through joins.
+const TICKET_SELECT: &str = "tickets.*,
+ (SELECT key_prefix FROM projects WHERE id=tickets.project_id) || '-' || number AS key,
+ (SELECT json_group_array(json(label)) FROM
+   (SELECT json_object('id',l.id,'name',l.name,'color',l.color) AS label
+    FROM labels l JOIN ticket_labels tl ON l.id=tl.label_id
+    WHERE tl.ticket_id=tickets.id ORDER BY l.id)) AS labels,
+ (SELECT json_group_array(blocked_id) FROM
+   (SELECT blocked_id FROM ticket_dependencies WHERE blocker_id=tickets.id ORDER BY blocked_id)) AS blocks,
+ (SELECT json_group_array(blocker_id) FROM
+   (SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=tickets.id ORDER BY blocker_id)) AS blocked_by";
+
+fn selection(entity: &str) -> &str {
+    if entity == "tickets" {
+        TICKET_SELECT
+    } else {
+        "*"
+    }
+}
+
 pub(crate) struct ApiRepository<'a, S>(pub &'a S);
 impl<S: Store> ApiRepository<'_, S> {
     async fn rows(&self, sql: &str, p: Vec<Value>) -> Result<Vec<Value>> {
@@ -18,27 +39,36 @@ impl<S: Store> ApiRepository<'_, S> {
     }
     pub async fn get(&self, entity: &str, id: i64) -> Result<Value> {
         self.one(
-            &format!("SELECT * FROM {entity} WHERE id=?"),
+            &format!("SELECT {} FROM {entity} WHERE id=?", selection(entity)),
             vec![id.into()],
         )
         .await
     }
     pub async fn ticket_key(&self, prefix: &str, number: i64) -> Result<Value> {
-        self.one("SELECT t.* FROM tickets t JOIN projects p ON p.id=t.project_id WHERE p.key_prefix=? AND t.number=?",vec![prefix.into(),number.into()]).await
+        self.one(&format!("SELECT {TICKET_SELECT} FROM tickets WHERE project_id=(SELECT id FROM projects WHERE key_prefix=?) AND number=?"),vec![prefix.into(),number.into()]).await
     }
     pub async fn enrich(&self, entity: &str, mut v: Value) -> Result<Value> {
         if v.get("id").is_none() {
             return Ok(v);
         }
         if entity == "tickets" {
-            let n = v["id"].clone();
-            let p = self
-                .get("projects", v["project_id"].as_i64().unwrap())
-                .await?;
-            v["key"] = format!("{}-{}", p["key_prefix"].as_str().unwrap(), v["number"]).into();
-            v["labels"]=json!(self.rows("SELECT l.* FROM labels l JOIN ticket_labels tl ON l.id=tl.label_id WHERE tl.ticket_id=? ORDER BY l.id",vec![n.clone()]).await?);
-            v["blocks"]=json!(self.rows("SELECT blocked_id AS id FROM ticket_dependencies WHERE blocker_id=? ORDER BY blocked_id",vec![n.clone()]).await?.iter().map(|x|x["id"].clone()).collect::<Vec<_>>());
-            v["blocked_by"]=json!(self.rows("SELECT blocker_id AS id FROM ticket_dependencies WHERE blocked_id=? ORDER BY blocker_id",vec![n]).await?.iter().map(|x|x["id"].clone()).collect::<Vec<_>>());
+            if v.get("key").is_none() {
+                let id = v["id"]
+                    .as_i64()
+                    .ok_or_else(|| Error::Storage("Invalid ticket ID".into()))?;
+                v = self.get("tickets", id).await?;
+            }
+            for field in ["labels", "blocks", "blocked_by"] {
+                let text = v[field]
+                    .as_str()
+                    .ok_or_else(|| Error::Storage(format!("Invalid ticket {field}")))?;
+                let array: Value =
+                    serde_json::from_str(text).map_err(|e| Error::Storage(e.to_string()))?;
+                if !array.is_array() {
+                    return Err(Error::Storage(format!("Invalid ticket {field}")));
+                }
+                v[field] = array;
+            }
         }
         if entity == "tickets" || entity == "comments" {
             v["body_html"] =
@@ -200,7 +230,8 @@ impl<S: Store> ApiRepository<'_, S> {
         let mut data = self
             .rows(
                 &format!(
-                    "SELECT * FROM {entity} WHERE {} ORDER BY id LIMIT ?",
+                    "SELECT {} FROM {entity} WHERE {} ORDER BY id LIMIT ?",
+                    selection(entity),
                     clauses.join(" AND ")
                 ),
                 args,

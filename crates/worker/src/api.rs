@@ -53,6 +53,11 @@ impl From<Error> for Failure {
         }
     }
 }
+fn row_id(value: &Value) -> Result<i64> {
+    value["id"]
+        .as_i64()
+        .ok_or_else(|| Error::Storage("Invalid resource ID".into()).into())
+}
 fn bad(message: impl Into<String>) -> Failure {
     Failure(400, "bad_request", message.into())
 }
@@ -138,7 +143,7 @@ async fn dispatch<S: Store>(
         ("GET", [_, _, e]) if *e != "comments" => list(r, entity, q, None).await,
         ("POST", [_, _, e]) if *e != "comments" => {
             let v = r.create(entity, &body, false).await?;
-            changed(r, entity, v["id"].as_i64().unwrap(), "create", v, 201).await
+            changed(r, entity, row_id(&v)?, "create", v, 201).await
         }
         ("PUT", [_, _, "tickets", "by-external"]) => {
             let ext = q
@@ -154,20 +159,20 @@ async fn dispatch<S: Store>(
                 .ok_or_else(|| Error::Validation("expected a JSON object".into()))?;
             object.insert("external_id".into(), ext.clone().into());
             let v = r.create("tickets", &body, true).await?;
-            changed(r, "tickets", v["id"].as_i64().unwrap(), "upsert", v, 200).await
+            changed(r, "tickets", row_id(&v)?, "upsert", v, 200).await
         }
         ("GET" | "POST", [_, _, "tickets", key, "comments"]) => {
-            let t = resource(r, "tickets", key).await?["id"].as_i64().unwrap();
+            let t = row_id(&resource(r, "tickets", key).await?)?;
             if method == "GET" {
                 return list(r, "comments", q, Some(t)).await;
             }
             let v = r.create_comment(t, &body).await?;
-            changed(r, "comments", v["id"].as_i64().unwrap(), "create", v, 201).await
+            changed(r, "comments", row_id(&v)?, "create", v, 201).await
         }
         ("POST" | "DELETE", [_, _, "tickets", key, kind, other])
             if ["labels", "dependencies"].contains(kind) =>
         {
-            let t = resource(r, "tickets", key).await?["id"].as_i64().unwrap();
+            let t = row_id(&resource(r, "tickets", key).await?)?;
             r.link(kind, t, id(other)?, method == "POST").await?;
             changed(
                 r,
@@ -184,7 +189,7 @@ async fn dispatch<S: Store>(
                 return Err(Error::NotFound.into());
             }
             let existing = resource(r, entity, key).await?;
-            let n = existing["id"].as_i64().unwrap();
+            let n = row_id(&existing)?;
             match method {
                 "GET" => Ok(Reply {
                     status: 200,
