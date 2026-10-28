@@ -149,7 +149,7 @@ fn DetailPage(id: i64) -> impl IntoView {
     view! {
         <header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><a href="/">{move||state.ticket.get().and_then(|t|board.projects.get().into_iter().find(|p|p.id==t.project_id)).map(|p|p.name).unwrap_or_default()}</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key).unwrap_or_default()}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-ghost" disabled=move||state.mirrored() || state.busy.get() || state.ticket.get().is_none() on:click=move|_|edit.set(true)>"Edit ticket"</button><button class="button button-primary" disabled=move||board.loading.get() || board.project.get()==0 on:click=move|_|board.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
         <Show when=move||state.loading.get()><p class="board-message" role="status">"Loading ticket…"</p></Show>
-        <Show when=move||!state.error.get().is_empty() && !edit.get() && !dependency.get()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|{state.busy.set(true);spawn_local(async move{state.error.set(String::new());if let Err(e)=state.load().await{state.error.set(e);}state.busy.set(false);});}>"Reload ticket"</button></div></Show>
+        <Show when=move||!state.error.get().is_empty() && !edit.get() && !dependency.get()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.busy.get() on:click=move|_|{state.busy.set(true);spawn_local(async move{state.error.set(String::new());if let Err(e)=state.load().await{state.error.set(e);}state.busy.set(false);});}>"Reload ticket"</button></div></Show>
         <Show when=move||state.ticket.get().is_some()><div class="detail-layout" aria-busy=move||state.busy.get().to_string()>
             <article class="ticket-detail"><div class="detail-overline"><a href="/" class="back-link"><Icon name="board"/>"Board"</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key)}</span></div>
             <Show when=move||state.mirrored()><p class="muted github-sync">"Synced from GitHub"{move||state.ticket.get().and_then(|t|t.external_url).map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener">"Open on GitHub ↗"</a>})}</p></Show>
@@ -227,7 +227,16 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     } else {
         "You".into()
     };
-    view! {<div class="comment"><Avatar/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,Callback::new(|_|{}))>"Delete"</button></div><Show when=move||editing.get() fallback={let body=comment.body.clone();move||view!{<Markdown source=body.clone()/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
+    let display_body = if author != "You" {
+        comment
+            .body
+            .split_once("** on GitHub\n\n")
+            .map(|(_, body)| body.to_owned())
+            .unwrap_or_else(|| comment.body.clone())
+    } else {
+        comment.body.clone()
+    };
+    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,Callback::new(|_|{}))>"Delete"</button></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone()/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
 }
 #[component]
 fn CommentEditor(
