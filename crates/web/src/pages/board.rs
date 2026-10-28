@@ -29,6 +29,8 @@ pub(crate) struct BoardTicket {
     pub updated_at: String,
     pub body: String,
     pub blocks: Vec<i64>,
+    #[serde(default)]
+    pub external_url: Option<String>,
 }
 fn id(t: &BoardTicket) -> i64 {
     t.id

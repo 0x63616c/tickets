@@ -623,7 +623,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     select_value(b, "Priority", "Urgent")?;
     b.wait("document.querySelector('[aria-label=Priority]').value==='Urgent' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.text("input[aria-label=Assignee]", "agent")?;
-    b.click(".assignee-editor button")?;
+    b.eval("document.querySelector('.assignee-editor').requestSubmit()")?;
     b.wait("document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.click(".label-menu summary")?;
     b.click(".label-menu .menu-item")?;
