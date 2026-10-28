@@ -31,6 +31,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
                         }).collect_view()}
                         <div class="nav-section-label">"Views"</div>
                         <A href="/" attr:class="nav-item"><Icon name="board"/>"Board"</A>
+                        <A href="/list" attr:class="nav-item"><Icon name="list"/>"List"</A>
                     </nav>
                 }>
 
