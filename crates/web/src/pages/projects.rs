@@ -28,10 +28,19 @@ pub fn ProjectLinks() -> impl IntoView {
 pub fn ApiProjects() -> impl IntoView {
     let board = expect_context::<BoardState>();
     let location = leptos_router::hooks::use_location();
-    let editor = RwSignal::new(if location.search.get_untracked() == "new=true" {
-        Some(None)
-    } else {
-        None::<Option<Project>>
+    let editor = RwSignal::new(None::<Option<Project>>);
+    let navigate = leptos_router::hooks::use_navigate();
+    Effect::new(move |_| {
+        if location.search.get() == "new=true" {
+            editor.set(Some(None));
+            navigate(
+                "/projects",
+                leptos_router::NavigateOptions {
+                    replace: true,
+                    ..Default::default()
+                },
+            );
+        }
     });
     let archived = RwSignal::new(false);
     board.refresh();
@@ -127,7 +136,7 @@ fn ProjectEditor(project: Option<Project>, on_close: Callback<()>) -> impl IntoV
         <div class="modal-body"><TextInput id="project-name" label="Name" value=name/>
         <TextInput id="project-prefix" label="Key prefix" placeholder="TKT" value=prefix/>
         <Show when=move||id.is_some()><p class="muted">"Changing the prefix updates existing ticket keys."</p></Show>
-        <fieldset class="project-colors"><legend>"Icon color"</legend><div class="project-swatches">{[("#5e6ad2","Accent","--accent"),("#8b82d9","Feature","--label-feature"),("#eb5757","Bug","--label-bug"),("#4ea7fc","Infrastructure","--label-infra"),("#c6a1b9","Design","--label-design"),("#27a644","Green","--success"),("#f0bf00","Yellow","--warning")].into_iter().map(|(value,label,token)|view!{<button type="button" class="project-swatch" aria-label=format!("{label} color") aria-pressed=move||color.get()==value style=format!("--swatch:var({token})") on:click=move|_|color.set(value.into())/>}).collect_view()}</div></fieldset>
+        <fieldset class="project-colors"><legend>"Icon color"</legend><div class="project-swatches">{[("#5e6ad2","Accent","--accent"),("#8b82d9","Feature","--label-feature"),("#eb5757","Bug","--label-bug"),("#4ea7fc","Infrastructure","--label-infra"),("#c6a1b9","Design","--label-design"),("#27a644","Green","--success"),("#f0bf00","Yellow","--warning")].into_iter().map(|(value,label,token)|view!{<button type="button" class="project-swatch" aria-label=format!("{label} color") aria-pressed=move||(color.get()==value).to_string() style=format!("--swatch:var({token})") on:click=move|_|color.set(value.into())/>}).collect_view()}</div></fieldset>
         <TextInput id="project-owner" label="GitHub Project" placeholder="github.com/orgs/example/projects/1 or example/1" value=owner/>
         <Show when=move||{let value=owner.get(); !value.trim().is_empty() && !value.contains("github.com/") && !value.contains("://")}><label class="field" for="project-kind">"Owner type"<select id="project-kind" prop:value=kind on:change=move|e|kind.set(event_target_value(&e))><option value="users">"User"</option><option value="orgs">"Organization"</option></select></label></Show>
         <TextInput id="project-repo" label="Repository name (optional)" placeholder="repo" value=repo/>

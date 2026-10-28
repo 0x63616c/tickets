@@ -30,6 +30,9 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     }
     for (size, width) in [("desktop", 1440), ("mobile", 390)] {
         b.viewport(width, 900)?;
+        if !before && width == 390 {
+            b.wait("document.documentElement.scrollWidth<=innerWidth && getComputedStyle(document.querySelector('.project-row-action')).display!=='none' && getComputedStyle(document.querySelector('.api-project-row > span:nth-child(3)')).display==='none'")?;
+        }
         b.screenshot(&output.join(format!("projects-{phase}-{size}.png")))?;
     }
     b.viewport(1440, 900)?;
@@ -39,14 +42,26 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         b.screenshot(&output.join("projects-target-desktop.png"))?;
         return Ok(());
     }
-    b.click(".topbar .button-primary")?;
+    b.wait("document.querySelector('.sidebar .nav-count')?.textContent==='2' && [...document.querySelectorAll('.sidebar a')].some(e=>e.textContent.includes('New project')) && !document.querySelector('.projects-page .view-footer')")?;
+    b.wait("[...document.querySelectorAll('.api-project-row')].every(e=>e.querySelector('.project-title .mono') && e.querySelector('.project-mark').textContent.trim().length===1 && e.querySelector('button[aria-label] svg')) && getComputedStyle(document.querySelector('.sidebar')).width==='240px'")?;
+    b.eval("document.querySelector('.project-row-action').focus();true")?;
+    b.wait("getComputedStyle(document.querySelector('.project-row-action')).opacity==='1'")?;
+    b.click(".sidebar a[href='/projects?new=true']")?;
     b.wait("document.activeElement.id==='project-name'")?;
+    b.click("dialog .modal-footer .button-ghost")?;
+    b.wait("!document.querySelector('dialog')")?;
+    b.click(".sidebar a[href='/projects?new=true']")?;
+    b.wait("document.activeElement.id==='project-name'")?;
+    b.wait("!document.querySelector('#project-kind') && !document.querySelector('#project-number') && !document.querySelector('input[type=color]') && !document.querySelector('dialog').textContent.includes('Changing the prefix')")?;
+    b.click("[aria-label='Infrastructure color']")?;
+    b.wait("document.querySelector('[aria-label=\"Infrastructure color\"]').getAttribute('aria-pressed')==='true'")?;
     b.text("#project-name", "Engine")?;
     b.text("#project-prefix", "ENG")?;
     b.text(
         "#project-owner",
         "https://github.com/users/example/projects/9",
     )?;
+    b.wait("!document.querySelector('#project-kind')")?;
     b.text("#project-repo", "engine")?;
     b.screenshot(&output.join("create-after-desktop.png"))?;
     b.viewport(390, 900)?;
@@ -56,6 +71,11 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.click("dialog button[type=submit]")?;
     b.wait("!document.querySelector('dialog') && document.querySelectorAll('.api-project-row').length===3")?;
     b.click("[aria-label='Edit project Engine']")?;
+    b.wait("document.querySelector('dialog').textContent.includes('Changing the prefix') && document.querySelector('[aria-label=\"Infrastructure color\"]').getAttribute('aria-pressed')==='true'")?;
+    b.screenshot(&output.join("edit-after-desktop.png"))?;
+    b.text("#project-owner", "example/4")?;
+    b.wait("!!document.querySelector('#project-kind')")?;
+    b.eval("var s=document.querySelector('#project-kind');s.value='users';s.dispatchEvent(new Event('change',{bubbles:true}));true")?;
     b.text("#project-name", "Engine renamed")?;
     b.text("#project-prefix", "REN")?;
     b.text(
@@ -68,6 +88,13 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         "#project-owner",
         "https://github.com/orgs/example/projects/4",
     )?;
+    b.wait("!document.querySelector('#project-kind')")?;
+    b.click("dialog button[type=submit]")?;
+    b.wait("!document.querySelector('dialog') && !!document.querySelector('.api-project-row a[href=\"https://github.com/orgs/example/projects/4\"]')")?;
+    b.click("[aria-label='Edit project Engine renamed']")?;
+    b.text("#project-owner", "example/4")?;
+    b.wait("document.querySelector('#project-kind')?.value==='orgs'")?;
+    b.screenshot(&output.join("edit-short-after-desktop.png"))?;
     b.click("dialog button[type=submit]")?;
     b.wait("!document.querySelector('dialog') && !!document.querySelector('[aria-label=\"Edit project Engine renamed\"]')")?;
     b.go("http://127.0.0.1:8795/projects")?;
