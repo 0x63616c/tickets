@@ -185,6 +185,10 @@ impl Browser {
     }
     fn text(&mut self, selector: &str, text: &str) -> Result<()> {
         self.click(selector)?;
+        self.eval(&format!(
+            "document.querySelector({}).select();true",
+            serde_json::to_string(selector)?
+        ))?;
         self.call("Input.insertText", json!({"text":text}))?;
         Ok(())
     }
@@ -358,7 +362,7 @@ pub fn board_before(root: &Path) -> super::Result {
 }
 
 /// Real API, real Worker, real keyboard events; isolated D1 lifecycle is owned by api_smoke.
-pub fn board_check(root: &Path, password: &str, list: bool) -> super::Result {
+pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     let mut b = Browser::start(root)?;
     b.go("http://127.0.0.1:8795/login")?;
     b.text("#username", "fixture")?;
@@ -387,7 +391,10 @@ pub fn board_check(root: &Path, password: &str, list: bool) -> super::Result {
         return true;
     })()"#)?;
     b.eval("document.querySelector('[role=alert]')?.textContent || true")?;
-    if list {
+    if mode == "detail" {
+        return detail_check(root, &mut b);
+    }
+    if mode == "list" {
         return list_check(root, &mut b);
     }
     b.go("http://127.0.0.1:8795/")?;
@@ -523,9 +530,9 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.key("k", 75, 0)?;
     b.wait("document.activeElement.id==='list-ticket-1'")?;
     b.key("Enter", 13, 0)?;
-    b.wait("document.querySelector('dialog')?.textContent.includes('Remember filters')")?;
-    b.key("Escape", 27, 0)?;
-    b.wait("!document.querySelector('dialog') && document.activeElement.id==='list-ticket-1'")?;
+    b.wait("location.pathname==='/ticket' && document.querySelector('.ticket-detail h1')?.textContent.includes('Remember filters')")?;
+    b.go("http://127.0.0.1:8795/list?project=1")?;
+    b.wait("!!document.querySelector('#list-ticket-1')")?;
     b.eval(r#"(()=>{let s=document.querySelector('[aria-label="Status for TKT-1"]');s.value='Todo';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
     b.wait("document.querySelector('#list-ticket-1')?.closest('section').getAttribute('aria-label')==='Todo' && document.querySelector('.ticket-list').getAttribute('aria-busy')==='false'")?;
     b.eval(r#"(()=>{let s=document.querySelector('[aria-label="Priority for TKT-1"]');s.value='Urgent';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
@@ -575,7 +582,161 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.go("http://127.0.0.1:8795/list?project=3")?;
     b.wait("document.querySelectorAll('.api-list-row').length===1 && document.body.innerText.includes('Created from the list')")?;
     println!(
-        "PASS list: pagination, grouping, combined URL filters/reload, sorting, inline persistence, rejected-save restoration, j/k/Enter/Escape, desktop/mobile"
+        "PASS list: pagination, grouping, combined URL filters/reload, sorting, inline persistence, rejected-save restoration, j/k/Enter detail navigation, desktop/mobile"
     );
+    Ok(())
+}
+
+/// Issue #9: browser-level component safety and persistent editing against local D1.
+fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
+    let output = root.join("docs/screenshots/detail");
+    fs::create_dir_all(&output)?;
+    b.go("http://127.0.0.1:8795/ticket?id=2")?;
+    if env::var_os("TICKETS_BEFORE_ASSETS").is_some() {
+        b.wait("document.body.innerText.includes('Page not found')")?;
+        b.screenshot(&output.join("before-desktop.png"))?;
+        b.viewport(390, 900)?;
+        b.screenshot(&output.join("before-mobile.png"))?;
+        b.viewport(1440, 900)?;
+        b.go("http://127.0.0.1:8795/list?project=1")?;
+        b.wait("document.querySelectorAll('.api-list-row').length===7")?;
+        b.click("#list-ticket-2 .row-title")?;
+        b.wait("!!document.querySelector('dialog h1')")?;
+        b.screenshot(&output.join("before-list-preview.png"))?;
+        b.go("http://127.0.0.1:8795/design/ticket")?;
+        b.wait("!!document.querySelector('.ticket-detail h1')")?;
+        b.screenshot(&output.join("target-desktop.png"))?;
+        return Ok(());
+    }
+    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Group the ticket list by status' && !!document.querySelector('[aria-label=Project] option')")?;
+    click_text(b, "button", "Edit ticket")?;
+    b.wait("!!document.querySelector('#detail-title')")?;
+    b.text("#detail-title", "Make every status change accessible")?;
+    let markdown = "Keep status changes **accessible** from every view.\n\n### Acceptance\n- [x] Keyboard focus stays visible\n- [ ] Announce the saved status\n\n| Input | Action |\n| --- | --- |\n| Space | Pick up |\n\n```rust\nlet accessible = true;\n```";
+    b.text("textarea[aria-label=Description]", markdown)?;
+    click_text(b, "dialog button", "Preview")?;
+    b.wait("!!document.querySelector('dialog .markdown table') && !!document.querySelector('dialog .markdown input[disabled]') && !!document.querySelector('dialog .markdown pre code')")?;
+    click_text(b, "dialog button", "Save ticket")?;
+    b.wait("!document.querySelector('dialog') && document.querySelector('.ticket-detail h1')?.textContent==='Make every status change accessible' && document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
+    select_value(b, "Status", "In progress")?;
+    b.wait("document.querySelector('[aria-label=Status]').value==='In progress' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    select_value(b, "Priority", "Urgent")?;
+    b.wait("document.querySelector('[aria-label=Priority]').value==='Urgent' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.text("input[aria-label=Assignee]", "agent")?;
+    b.click(".assignee-editor button")?;
+    b.wait("document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-item")?;
+    b.wait("!document.querySelector('.property-labels .label-chip') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-item")?;
+    b.wait("!!document.querySelector('.property-labels .label-chip') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    // Existing 1 -> 2; 2 -> 1 must report the real API's cycle rejection inline.
+    click_text(b, "button", "Add dependency")?;
+    select_value(b, "Direction", "Blocks")?;
+    b.text("#dependency-search", "TKT-1 ")?;
+    b.click(".dependency-options button")?;
+    b.wait("document.querySelector('dialog [role=alert]')?.textContent.toLowerCase().includes('cycle') && !document.querySelector('dialog button[disabled]')")?;
+    b.eval("document.querySelector('[aria-label=\"Dismiss notification\"]')?.click();true")?;
+    b.screenshot(&output.join("cycle-error.png"))?;
+    b.text("#dependency-search", "TKT-3 ")?;
+    b.click(".dependency-options button")?;
+    b.wait("!document.querySelector('dialog') && document.querySelectorAll('.dependency-row').length===2 && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    // Component-level XSS tests exercise live preview AND persisted comment rendering.
+    for payload in [
+        "<script>window.xss=1</script>",
+        "<img src=x onerror='window.xss=1'>",
+        "[bad](javascript:alert%281%29)",
+        "<div onclick='window.xss=1'>raw html</div>",
+    ] {
+        b.text("textarea[aria-label='Write a comment']", payload)?;
+        click_text(b, ".comment-form button", "Preview")?;
+        b.wait("!!document.querySelector('.markdown-preview') && !document.querySelector('.markdown-preview script,.markdown-preview [onerror],.markdown-preview [onclick],.markdown-preview a[href^=\"javascript:\"]') && !window.xss")?;
+        click_text(b, ".comment-form button", "Comment")?;
+        b.wait("document.querySelector('.detail-layout').getAttribute('aria-busy')==='false' && !!document.querySelector('.comment')")?;
+        b.wait("!document.querySelector('.comment script,.comment [onerror],.comment [onclick],.comment a[href^=\"javascript:\"]') && !window.xss")?;
+        click_text(b, ".comment button", "Delete")?;
+        b.wait("!document.querySelector('.comment') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+        click_text(b, ".comment-form button", "Write")?;
+    }
+    b.text("textarea[aria-label='Write a comment']","The status menu should work everywhere the ticket appears. **Keyboard focus** stays visible.")?;
+    click_text(b, ".comment-form button", "Comment")?;
+    b.wait("!!document.querySelector('.comment strong') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    click_text(b, ".comment button", "Edit")?;
+    b.text(
+        ".comment textarea",
+        "Reviewed: **keyboard focus** stays visible after a move.",
+    )?;
+    click_text(b, ".comment button", "Preview")?;
+    b.wait("document.querySelector('.comment .markdown-preview strong')?.textContent==='keyboard focus'")?;
+    click_text(b, ".comment button", "Save comment")?;
+    b.wait("document.querySelector('.comment .markdown')?.textContent.includes('Reviewed:') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    select_value(b, "Project", "2")?;
+    b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.go("http://127.0.0.1:8795/ticket?id=2")?;
+    b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('[aria-label=Priority]')?.value==='Urgent' && document.querySelector('input[aria-label=Assignee]')?.value==='agent' && document.querySelector('.comment .markdown')?.textContent.includes('Reviewed:')")?;
+    select_value(b, "Project", "1")?;
+    b.wait("document.querySelector('.detail-overline .mono')?.textContent==='TKT-8' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.wait("document.querySelector('.toast')?.textContent.includes('Saved')")?;
+    b.click("[aria-label='Dismiss notification']")?;
+    b.screenshot(&output.join("after-desktop.png"))?;
+    b.viewport(390, 900)?;
+    b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+    b.screenshot(&output.join("after-mobile.png"))?;
+    b.eval("document.querySelector('.properties').scrollIntoView();true")?;
+    b.screenshot(&output.join("after-mobile-properties.png"))?;
+    b.viewport(1440, 900)?;
+    b.go("http://127.0.0.1:8795/list?project=1")?;
+    b.wait("!!document.querySelector('#list-ticket-2')")?;
+    b.eval("document.querySelector('#list-ticket-2').focus();true")?;
+    b.key("Enter", 13, 0)?;
+    b.wait("location.pathname==='/ticket' && !!document.querySelector('.ticket-detail h1')")?;
+    b.key("c", 67, 0)?;
+    b.wait("!!document.querySelector('#board-title')")?;
+    b.text("#board-title", "Created from detail")?;
+    select_value(b, "New ticket project", "2")?;
+    b.screenshot(&output.join("create-dialog.png"))?;
+    b.click("dialog button[type=submit]")?;
+    b.wait("!document.querySelector('dialog')")?;
+    b.wait("fetch('/api/v1/tickets?project=2&limit=100').then(r=>r.json()).then(p=>p.data.some(t=>t.title==='Created from detail' && t.status==='todo'))")?;
+    // Failed property saves restore the saved selection; failed comments preserve the draft.
+    b.eval("window.savedFetch=window.fetch;window.fetch=(i,o)=>((i instanceof Request?i.method:o?.method)==='PATCH'?Promise.resolve(new Response(JSON.stringify({error:{message:'Verification rejection'}}),{status:409,headers:{'Content-Type':'application/json'}})):window.savedFetch(i,o));true")?;
+    select_value(b, "Status", "Done")?;
+    b.wait("document.querySelector('[role=alert]')?.textContent.includes('Verification rejection') && document.querySelector('[aria-label=Status]').value==='In progress'")?;
+    b.eval("window.fetch=window.savedFetch;true")?;
+    b.click("button[aria-label='Remove dependency 3']")?;
+    b.wait("document.querySelectorAll('.dependency-row').length===1 && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.wait("fetch('/api/v1/tickets/2').then(r=>r.json()).then(t=>t.blocks.length===0 && t.blocked_by.length===1)")?;
+    click_text(b, "button", "Add dependency")?;
+    b.text("#dependency-search", "TKT-4 ")?;
+    b.click(".dependency-options button")?;
+    b.wait("!document.querySelector('dialog') && document.querySelectorAll('.dependency-row').length===2 && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.wait("fetch('/api/v1/tickets/2').then(r=>r.json()).then(t=>t.blocked_by.includes(4))")?;
+    b.click("button[aria-label='Remove dependency 4']")?;
+    b.wait("document.querySelectorAll('.dependency-row').length===1 && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.eval("window.savedFetch=window.fetch;window.fetch=(i,o)=>((i instanceof Request?i.method:o?.method)==='POST'?Promise.resolve(new Response(JSON.stringify({error:{message:'Comment verification rejection'}}),{status:422,headers:{'Content-Type':'application/json'}})):window.savedFetch(i,o));true")?;
+    b.text(
+        "textarea[aria-label='Write a comment']",
+        "Keep this draft after failure",
+    )?;
+    click_text(b, ".comment-form button", "Comment")?;
+    b.wait("document.querySelector('[role=alert]')?.textContent.includes('Comment verification rejection') && document.querySelector('textarea[aria-label=\"Write a comment\"]').value==='Keep this draft after failure'")?;
+    b.eval("window.fetch=window.savedFetch;true")?;
+    b.go("http://127.0.0.1:8795/ticket?id=999999")?;
+    b.wait("document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found') && [...document.querySelectorAll('button')].some(b=>b.textContent==='Edit ticket' && b.disabled)")?;
+    b.call("Network.clearBrowserCookies", json!({}))?;
+    b.go("http://127.0.0.1:8795/ticket?id=2")?;
+    b.wait("document.querySelector('[role=alert] a')?.getAttribute('href')==='/login'")?;
+    println!(
+        "PASS detail: fields, project move/reload, labels attach/detach, both dependency directions and inline 409, dependency removal, CommonMark/GFM, preview and persisted component XSS (script/onerror/javascript/raw HTML), comment CRUD, create shortcut/project selection, failed-save restoration and draft retention, list Enter, desktop/mobile screenshots"
+    );
+    Ok(())
+}
+fn click_text(b: &mut Browser, selector: &str, text: &str) -> Result<()> {
+    b.eval(&format!("(()=>{{const e=[...document.querySelectorAll({})].find(e=>e.textContent.trim()==={});if(!e)throw Error('Missing button');e.click();return true;}})()",serde_json::to_string(selector)?,serde_json::to_string(text)?))?;
+    Ok(())
+}
+fn select_value(b: &mut Browser, label: &str, value: &str) -> Result<()> {
+    b.eval(&format!("(()=>{{const e=document.querySelector({});e.value={};e.dispatchEvent(new Event('change',{{bubbles:true}}));return true;}})()",serde_json::to_string(&format!("select[aria-label='{label}']"))?,serde_json::to_string(value)?))?;
     Ok(())
 }

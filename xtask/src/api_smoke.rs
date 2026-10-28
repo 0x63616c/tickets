@@ -115,12 +115,16 @@ pub fn board(root: &Path) -> Result<()> {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn list(root: &Path) -> Result<()> {
     // Child browser selects the list verification after the shared API seed.
-    run_inner_mode(root, false, true, true)
+    run_inner_mode(root, false, true, "list")
+}
+#[cfg(not(target_arch = "wasm32"))]
+pub fn detail(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "detail")
 }
 fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
-    run_inner_mode(root, skill, board, false)
+    run_inner_mode(root, skill, board, "board")
 }
-fn run_inner_mode(root: &Path, skill: bool, board: bool, _list: bool) -> Result<()> {
+fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<()> {
     super::build(root)?;
     let mut random = [0u8; 24];
     getrandom::getrandom(&mut random).map_err(|_| "randomness unavailable")?;
@@ -151,7 +155,10 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _list: bool) -> Result<
         format!(
             "name='tickets-api-smoke'\nmain='{}'\ncompatibility_date='2026-10-27'\n[assets]\ndirectory='{}'\nbinding='ASSETS'\nnot_found_handling='single-page-application'\nrun_worker_first=['/api','/api/*']\n[[d1_databases]]\nbinding='DB'\ndatabase_name='api-smoke'\ndatabase_id='00000000-0000-0000-0000-000000000000'\nmigrations_dir='{}'\n",
             root.join("crates/worker/build/worker/shim.mjs").display(),
-            root.join("crates/web/dist").display(),
+            std::env::var_os("TICKETS_BEFORE_ASSETS")
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| root.join("crates/web/dist"))
+                .display(),
             root.join("migrations").display()
         ),
     )?;
@@ -226,7 +233,7 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _list: bool) -> Result<
     )?;
     if board {
         #[cfg(not(target_arch = "wasm32"))]
-        return super::design::board_check(root, &password, _list);
+        return super::design::board_check(root, &password, _view);
         #[cfg(target_arch = "wasm32")]
         return Err("board-check requires a native host".into());
     }

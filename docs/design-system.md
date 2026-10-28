@@ -20,9 +20,17 @@ The real API-backed board is `/`; see [Kanban](kanban.md) for its persistence,
 keyboard controls, local verification and #16 change-event hook.
 The API-backed list is `/list`: it reuses the grouped fixture rows and inline
 status/priority icons, with project/label/assignee/status filters and sort in the
-URL query. Enter opens a read-only preview until the detail editor in #9.
+URL query. Enter opens the persistent detail editor at `/ticket?id=<numeric ID>`.
 Run `cargo xtask list-check` with `CHROME_BIN` for the isolated local verification;
 see the list conventions in `CONTRIBUTING.md`.
+
+The API-backed detail uses the same article, properties rail, dependency rows,
+Markdown, comments and modal controls as the fixture. Edit ticket saves title and
+description; property selects save immediately. The shared create dialog supports
+project selection. Descriptions and comments provide Write/Preview using the core
+sanitizer. Dependency rejections remain inline in the open picker. Run
+`cargo xtask detail-check` with `CHROME_BIN` for isolated local verification and
+desktop/mobile screenshots; see the detail conventions in `CONTRIBUTING.md`.
 
 The `/design*` routes are local in-memory fixtures. Creation, status changes, labels, comments,
 projects, and dependency selection demonstrate behavior; reload resets them.
