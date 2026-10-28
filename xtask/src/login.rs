@@ -108,7 +108,10 @@ pub fn check(root: &Path, password: &str, state: &Path) -> Result<()> {
             "$ curl -sI http://127.0.0.1:8787/{name}\n{headers}\n"
         ));
     }
-    fs::write(out.join("curl.txt"), evidence)?;
+    fs::write(
+        out.join("curl.txt"),
+        format!("{}\n", evidence.replace("\r\n", "\n").trim_end()),
+    )?;
     let mut b = Browser::start_named(root, "login-check")?;
     for (name, w, h) in [("desktop", 1440, 900), ("mobile", 375, 812)] {
         b.viewport(w, h)?;

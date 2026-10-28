@@ -104,5 +104,3 @@ Content-Type: application/wasm
 Cache-Control: public, max-age=0, must-revalidate
 ETag: "9ce1c2e6f818122d2ea5cd620cdc0d96"
 CF-Cache-Status: HIT
-
-
