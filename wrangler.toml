@@ -45,10 +45,10 @@ name = "BOARD_ROOMS"
 class_name = "BoardRoom"
 
 [vars]
-GITHUB_MIRROR = "1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/voxelite:QUA"
+GITHUB_MIRROR = "1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/quantum:QUA"
 
 [env.production.vars]
-GITHUB_MIRROR = "1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/voxelite:QUA"
+GITHUB_MIRROR = "1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/quantum:QUA"
 
 [triggers]
 crons = ["*/10 * * * *"]
