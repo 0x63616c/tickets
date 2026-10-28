@@ -70,7 +70,7 @@ impl<S: Store> Repository<S> {
             .map_err(Error::Validation)?;
         self.one(
             "UPDATE projects SET name=?,key_prefix=?,color=?,archived=?,github_owner=?,
-             github_project_number=?,github_repo=? WHERE id=? RETURNING *",
+             github_project_number=?,github_repo=?,github_project_kind=? WHERE id=? RETURNING *",
             vec![
                 p.name.clone().into(),
                 p.key_prefix.clone().into(),
@@ -79,6 +79,7 @@ impl<S: Store> Repository<S> {
                 p.github_owner.clone().into(),
                 p.github_project_number.into(),
                 p.github_repo.clone().into(),
+                p.github_project_kind.clone().into(),
                 p.id.into(),
             ],
         )

@@ -34,3 +34,4 @@ pub mod markdown;
 
 pub mod api;
 pub mod auth;
+pub mod github;
