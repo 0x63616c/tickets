@@ -9,7 +9,6 @@ use leptos::{ev, prelude::*};
 use leptos_router::hooks::use_query_map;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use wasm_bindgen_futures::spawn_local;
 use web_sys::wasm_bindgen::JsCast;
 
 #[derive(Clone, Deserialize)]
@@ -20,6 +19,7 @@ struct CommentRecord {
 }
 #[derive(Clone, Copy)]
 struct DetailState {
+    owner: StoredValue<leptos::reactive::owner::WeakOwner>,
     board: BoardState,
     id: i64,
     ticket: RwSignal<Option<BoardTicket>>,
@@ -30,6 +30,23 @@ struct DetailState {
     revision: RwSignal<u64>,
 }
 impl DetailState {
+    /// Detail reads and writes must stop when this ticket's keyed page unmounts.
+    /// Use the page owner even from effects or short-lived editor children.
+    fn spawn(self, task: impl std::future::Future<Output = ()> + 'static) {
+        self.owner.with_value(|owner| {
+            // A disposed page has nothing left to load or save into.
+            let Some(owner) = owner.upgrade() else {
+                return;
+            };
+            let (abort, registration) = futures_util::future::AbortHandle::new_pair();
+            owner.with(|| on_cleanup(move || abort.abort()));
+            // Do not retain the page Owner in the future: that would keep the
+            // keyed page alive and prevent its cleanup from canceling this task.
+            wasm_bindgen_futures::spawn_local(async move {
+                let _ = futures_util::future::Abortable::new(task, registration).await;
+            });
+        });
+    }
     fn mirrored(self) -> bool {
         self.ticket.get().is_some_and(|t| t.mirrored())
     }
@@ -62,16 +79,16 @@ impl DetailState {
         }
         Ok(())
     }
-    fn write(self, method: &'static str, path: String, body: Value, done: Callback<()>) {
+    fn write(self, method: &'static str, path: String, body: Value, done: impl FnOnce() + 'static) {
         if self.busy.get_untracked() || self.ticket.get_untracked().is_some_and(|t| t.mirrored()) {
             return;
         }
         self.busy.set(true);
         self.error.set(String::new());
-        spawn_local(async move {
+        self.spawn(async move {
             match api(method, &path, body).await {
                 Ok(_) => {
-                    done.run(());
+                    done();
                     if let Err(e) = self.load(false).await {
                         self.error.set(format!("Saved, but could not reload: {e}"));
                     }
@@ -86,12 +103,7 @@ impl DetailState {
         });
     }
     fn patch(self, body: Value) {
-        self.write(
-            "PATCH",
-            format!("/api/v1/tickets/{}", self.id),
-            body,
-            Callback::new(|_| {}),
-        );
+        self.write("PATCH", format!("/api/v1/tickets/{}", self.id), body, || {});
     }
 }
 #[component]
@@ -103,6 +115,7 @@ pub fn ApiDetail() -> impl IntoView {
 fn DetailPage(id: i64) -> impl IntoView {
     let board = expect_context::<BoardState>();
     let state = DetailState {
+        owner: StoredValue::new(Owner::current().expect("detail page owner").downgrade()),
         board,
         id,
         ticket: RwSignal::new(None),
@@ -114,7 +127,7 @@ fn DetailPage(id: i64) -> impl IntoView {
     };
     provide_context(state);
     board.refresh();
-    spawn_local(async move {
+    state.spawn(async move {
         if let Err(e) = state.load(false).await {
             state.error.set(e);
         }
@@ -136,7 +149,7 @@ fn DetailPage(id: i64) -> impl IntoView {
         {
             pending_live.set(false);
             state.loading.set(true);
-            spawn_local(async move {
+            state.spawn(async move {
                 if let Err(error) = state.load(true).await {
                     state.error.set(error);
                 }
@@ -170,7 +183,7 @@ fn DetailPage(id: i64) -> impl IntoView {
     view! {
         <header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><a href="/">{move||state.ticket.get().and_then(|t|board.projects.get().into_iter().find(|p|p.id==t.project_id)).map(|p|p.name).unwrap_or_default()}</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key).unwrap_or_default()}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-ghost" disabled=move||state.mirrored() || state.busy.get() || state.ticket.get().is_none() on:click=move|_|edit.set(true)>"Edit ticket"</button><button class="button button-primary" disabled=move||board.loading.get() || board.project.get()==0 on:click=move|_|board.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
         <Show when=move||state.loading.get() && state.ticket.get().is_none()><p class="board-message" role="status">"Loading ticket…"</p></Show>
-        <Show when=move||!state.error.get().is_empty() && !edit.get() && !dependency.get()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.busy.get() on:click=move|_|{state.busy.set(true);spawn_local(async move{state.error.set(String::new());if let Err(e)=state.load(false).await{state.error.set(e);}state.busy.set(false);});}>"Reload ticket"</button></div></Show>
+        <Show when=move||!state.error.get().is_empty() && !edit.get() && !dependency.get()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.busy.get() on:click=move|_|{state.busy.set(true);state.spawn(async move{state.error.set(String::new());if let Err(e)=state.load(false).await{state.error.set(e);}state.busy.set(false);});}>"Reload ticket"</button></div></Show>
         <Show when=move||state.ticket.get().is_some()><div class="detail-layout" aria-busy=move||state.busy.get().to_string()>
             <article class="ticket-detail"><div class="detail-overline"><a href="/" class="back-link"><Icon name="board"/>"Board"</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key)}</span></div>
             <Show when=move||state.mirrored()><p class="muted github-sync">"Synced from GitHub"{move||state.ticket.get().and_then(|t|t.external_url).map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener">"Open on GitHub ↗"</a>})}</p></Show>
@@ -225,7 +238,7 @@ fn LabelPicker() -> impl IntoView {
         }
         state.busy.set(true);
         state.error.set(String::new());
-        spawn_local(async move {
+        state.spawn(async move {
             let result = async {
                 let labels = all::<tickets_core::domain::Label>("labels").await?;
                 let exact = labels
@@ -266,6 +279,8 @@ fn LabelPicker() -> impl IntoView {
                     .await?;
                 }
                 state.board.labels.set(all("labels").await?);
+                // The authoritative read remounts Properties and disposes query.
+                query.set(String::new());
                 state.load(false).await?;
                 Ok::<_, String>(())
             }
@@ -273,7 +288,6 @@ fn LabelPicker() -> impl IntoView {
             if let Err(error) = result {
                 state.error.set(error);
             } else {
-                query.set(String::new());
                 state.board.notice.set("Labels saved.".into());
                 // Wait for Properties to remount after the authoritative read.
                 gloo_timers::future::TimeoutFuture::new(0).await;
@@ -308,7 +322,7 @@ fn DependencyRow(related: i64, incoming: bool) -> impl IntoView {
     };
     view! {<div class="dependency-row"><span class="dependency-kind"><Icon name=if incoming{"blocked"}else{"arrow"}/>{if incoming{"Blocked by"}else{"Blocks"}}</span>
     {move||board.tickets.get().into_iter().find(|t|t.id==related).map(|t|view!{<StatusIcon status=t.status/><span class="mono muted">{t.key}</span><a class="dependency-title" href=format!("/ticket?id={related}")>{t.title}</a>{matches!(t.status,Status::Done|Status::Canceled).then(||view!{<span class="resolved">"Resolved"</span>})}})}
-    <Show when=move||!state.mirrored()><button class="icon-button" aria-label=format!("Remove dependency {related}") disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/tickets/{from}/dependencies/{to}"),Value::Null,Callback::new(|_|{}))><Icon name="close"/></button></Show></div>}
+    <Show when=move||!state.mirrored()><button class="icon-button" aria-label=format!("Remove dependency {related}") disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/tickets/{from}/dependencies/{to}"),Value::Null,||{})><Icon name="close"/></button></Show></div>}
 }
 #[component]
 fn DependencyEditor(close: Callback<()>) -> impl IntoView {
@@ -317,7 +331,7 @@ fn DependencyEditor(close: Callback<()>) -> impl IntoView {
     let direction = RwSignal::new("Is blocked by".to_string());
     let query = RwSignal::new(String::new());
     view! {<Modal title="Add dependency" locked=Signal::derive(move||state.busy.get()) on_close=close><div class="modal-body"><div class="dependency-direction"><Select label="Direction" options=vec!["Is blocked by","Blocks"] value=direction/></div><p class="muted">{move||if direction.get()=="Blocks"{"This ticket must be completed before the selected ticket."}else{"The selected ticket must be completed before this ticket."}}</p><TextInput id="dependency-search" label="Search tickets" value=query/>
-    <p role="alert">{move||state.error.get()}</p><div class="dependency-options">{move||board.tickets.get().into_iter().filter(|t|t.id!=state.id && format!("{} {}",t.key,t.title).to_lowercase().contains(&query.get().to_lowercase())).map(|t|{let related=t.id;view!{<button class="menu-item" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|{let(from,to)=if direction.get_untracked()=="Blocks"{(state.id,related)}else{(related,state.id)};state.write("POST",format!("/api/v1/tickets/{from}/dependencies/{to}"),Value::Null,close);} ><StatusIcon status=t.status/><span class="mono muted">{t.key}</span>{t.title}</button>}}).collect_view()}</div></div></Modal>}
+    <p role="alert">{move||state.error.get()}</p><div class="dependency-options">{move||board.tickets.get().into_iter().filter(|t|t.id!=state.id && format!("{} {}",t.key,t.title).to_lowercase().contains(&query.get().to_lowercase())).map(|t|{let related=t.id;view!{<button class="menu-item" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|{let(from,to)=if direction.get_untracked()=="Blocks"{(state.id,related)}else{(related,state.id)};state.write("POST",format!("/api/v1/tickets/{from}/dependencies/{to}"),Value::Null,move||close.run(()));} ><StatusIcon status=t.status/><span class="mono muted">{t.key}</span>{t.title}</button>}}).collect_view()}</div></div></Modal>}
 }
 #[component]
 fn EditTicket(close: Callback<()>) -> impl IntoView {
@@ -325,7 +339,7 @@ fn EditTicket(close: Callback<()>) -> impl IntoView {
     let t = state.ticket.get_untracked().expect("loaded ticket");
     let title = RwSignal::new(t.title);
     let body = RwSignal::new(t.body);
-    view! {<Modal title="Edit ticket" locked=Signal::derive(move||state.busy.get()) on_close=close><form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move|e|{e.prevent_default();state.write("PATCH",format!("/api/v1/tickets/{}",state.id),json!({"title":title.get_untracked(),"body":body.get_untracked()}),close);} ><div class="modal-body"><TextInput id="detail-title" label="Title" value=title/><MarkdownEditor body label="Description"/><p role="alert">{move||state.error.get()}</p></div><div class="modal-footer"><button class="button button-primary" type="submit" disabled=move||state.mirrored() || state.busy.get() || title.get().trim().is_empty()>"Save ticket"</button></div></form></Modal>}
+    view! {<Modal title="Edit ticket" locked=Signal::derive(move||state.busy.get()) on_close=close><form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move|e|{e.prevent_default();state.write("PATCH",format!("/api/v1/tickets/{}",state.id),json!({"title":title.get_untracked(),"body":body.get_untracked()}),move||close.run(()));} ><div class="modal-body"><TextInput id="detail-title" label="Title" value=title/><MarkdownEditor body label="Description"/><p role="alert">{move||state.error.get()}</p></div><div class="modal-footer"><button class="button button-primary" type="submit" disabled=move||state.mirrored() || state.busy.get() || title.get().trim().is_empty()>"Save ticket"</button></div></form></Modal>}
 }
 #[component]
 fn ApiComment(comment: CommentRecord) -> impl IntoView {
@@ -352,7 +366,7 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     } else {
         comment.body.clone()
     };
-    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||!state.mirrored()><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,Callback::new(|_|{}))>"Delete"</button></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone()/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
+    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||!state.mirrored()><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{})>"Delete"</button></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone()/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
 }
 #[component]
 fn CommentEditor(
@@ -362,7 +376,7 @@ fn CommentEditor(
 ) -> impl IntoView {
     let state = expect_context::<DetailState>();
     let body = RwSignal::new(initial);
-    view! {<form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="comment-form" class:has-draft=move||id.is_some() || !body.get().is_empty() on:submit=move|e|{e.prevent_default();let path=id.map(|id|format!("/api/v1/comments/{id}")).unwrap_or_else(||format!("/api/v1/tickets/{}/comments",state.id));state.write(if id.is_some(){"PATCH"}else{"POST"},path,json!({"body":body.get_untracked()}),Callback::new(move|_|{body.set(String::new());if let Some(close)=close{close.run(());}}));}><MarkdownEditor body label="Write a comment"/><div><span>"Markdown supported"</span>{close.map(|close|view!{<button class="button button-ghost" type="button" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|close.run(())>"Cancel"</button>})}<button class="button button-secondary" type="submit" disabled=move||state.mirrored() || state.busy.get() || body.get().trim().is_empty()>{if id.is_some(){"Save comment"}else{"Comment"}}<Icon name="arrow"/></button></div></form>}
+    view! {<form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="comment-form" class:has-draft=move||id.is_some() || !body.get().is_empty() on:submit=move|e|{e.prevent_default();let path=id.map(|id|format!("/api/v1/comments/{id}")).unwrap_or_else(||format!("/api/v1/tickets/{}/comments",state.id));state.write(if id.is_some(){"PATCH"}else{"POST"},path,json!({"body":body.get_untracked()}),move||{body.set(String::new());if let Some(close)=close{close.run(());}});}><MarkdownEditor body label="Write a comment"/><div><span>"Markdown supported"</span>{close.map(|close|view!{<button class="button button-ghost" type="button" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|close.run(())>"Cancel"</button>})}<button class="button button-secondary" type="submit" disabled=move||state.mirrored() || state.busy.get() || body.get().trim().is_empty()>{if id.is_some(){"Save comment"}else{"Comment"}}<Icon name="arrow"/></button></div></form>}
 }
 #[component]
 pub(crate) fn MarkdownEditor(body: RwSignal<String>, label: &'static str) -> impl IntoView {

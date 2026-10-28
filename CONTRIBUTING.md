@@ -160,6 +160,11 @@
   titles/Enter open it; `/design/ticket` remains the fixture. Numeric links survive
   project moves, which change the displayed key. Detail inherits its ticket's project
   for creation; the shared composer permits selecting any project and defaults to Todo.
+- Scope detail async tasks to the keyed ticket page and cancel them on cleanup.
+  Editor callbacks must not access child signals after an authoritative reload
+  remounts those children. Browser checks print panic-hook console errors and fail
+  on exceptions; first-run-check holds live-read/save responses across dependency
+  navigation to exercise disposal without retries.
 - Save ticket title/description explicitly with Edit ticket. Property selects save
   immediately; assignee saves on change/Enter (blank clears it). Saved state
   stays visible on failure. The dependency dialog displays the API's exact error

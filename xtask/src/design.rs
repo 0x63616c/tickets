@@ -118,6 +118,11 @@ impl Browser {
                 if response["method"] == "Runtime.exceptionThrown" {
                     return Err(format!("Browser exception: {}", response["params"]).into());
                 }
+                if response["method"] == "Runtime.consoleAPICalled"
+                    && response["params"]["type"] == "error"
+                {
+                    eprintln!("Browser console error: {}", response["params"]["args"]);
+                }
                 if response["id"] == self.id {
                     if !response["error"].is_null() {
                         return Err(format!("{method}: {}", response["error"]).into());
