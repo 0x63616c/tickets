@@ -21,6 +21,8 @@ use std::{env, error::Error, path::Path, process::Command};
 #[cfg(not(target_arch = "wasm32"))]
 mod design;
 #[cfg(not(target_arch = "wasm32"))]
+mod first_run;
+#[cfg(not(target_arch = "wasm32"))]
 mod polish;
 #[cfg(not(target_arch = "wasm32"))]
 mod projects;
@@ -107,6 +109,7 @@ fn main() -> Result {
         Some("polish-check") => api_smoke::polish(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("projects-check") => api_smoke::projects(root),
+        Some("first-run-check") => api_smoke::first_run(root),
         Some("build") => build(root),
         Some("dev") => {
             build(root)?;
@@ -169,7 +172,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <dev|build|migrate [--remote]|ci|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check>".into())
+            Err("usage: cargo xtask <dev|build|migrate [--remote]|ci|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check|first-run-check>".into())
         }
     }
 }

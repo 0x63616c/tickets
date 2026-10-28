@@ -192,6 +192,14 @@
 
 ## Projects conventions
 
+- `CHROME_BIN=<headless-chromium> cargo xtask first-run-check` builds and starts
+  isolated local Wrangler/D1 with the complete migration chain and zero data.
+  It logs in through `/login`, then uses visible UI controls only to create a
+  project, two tickets, a Kanban move, a new label and a dependency verified on
+  both tickets. No API seeding or token creation is used. CI runs it sequentially
+  with the other port-8795 checks; six dark 1440×900 screenshots live in
+  `docs/screenshots/1/first-run-*.png`.
+
 - `/projects` uses the `/design/projects` table and shared Modal, fields and icon.
   Project color tints its initial badge; show its key prefix in muted mono when no description exists. Keep row actions at the right edge, revealed on hover/focus (always visible on touch). The header contains the sole project count. Archive hides sidebar entries only;
   Show archived permits editing/restoring them. Tickets remain accessible.
