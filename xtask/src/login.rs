@@ -30,6 +30,10 @@ pub fn before(root: &Path) -> Result<()> {
     Ok(())
 }
 pub fn check(root: &Path, password: &str, state: &Path) -> Result<()> {
+    network_error(root)?;
+    if std::env::var_os("TICKETS_BEFORE_ASSETS").is_some() {
+        return Ok(());
+    }
     let out = root.join("docs/screenshots/34");
     fs::create_dir_all(&out)?;
     let mut evidence = String::new();
@@ -148,7 +152,7 @@ pub fn check(root: &Path, password: &str, state: &Path) -> Result<()> {
         b.wait("document.querySelector('button[type=submit]').disabled && document.body.textContent.includes('Signing in…')")?;
         b.screenshot(&out.join(format!("after-loading-{name}.png")))?;
         b.call("Fetch.disable", json!({}))?;
-        b.wait("document.querySelector('[role=alert]').textContent.includes('Incorrect') && !document.querySelector('button[type=submit]').disabled")?;
+        b.wait("document.querySelector('[role=alert]').textContent.includes('Incorrect') && document.querySelector('#password').value === '' && document.querySelector('#password').hasAttribute('aria-invalid') && !document.querySelector('button[type=submit]').disabled")?;
         b.screenshot(&out.join(format!("after-error-{name}.png")))?;
         b.eval("window.loginErrorHeight=document.querySelector('#login-error').getBoundingClientRect().height;true")?;
         b.text("#username", "fixture")?;
@@ -159,12 +163,15 @@ pub fn check(root: &Path, password: &str, state: &Path) -> Result<()> {
     b.text("#password", "local-attempt")?;
     b.wait("document.querySelector('#login-error').textContent === ''")?;
     b.click("button[type=submit]")?;
-    b.wait("document.querySelector('[role=alert]').textContent.includes('Too many') && !document.querySelector('button[type=submit]').disabled")?;
+    b.wait("document.querySelector('[role=alert]').textContent.includes('Too many') && document.querySelector('#password').value === 'local-attempt' && !document.querySelector('button[type=submit]').disabled")?;
     b.eval("window.fetch=()=>Promise.reject(new Error('offline'));true")?;
     b.text("#password", "local-attempt")?;
     b.wait("document.querySelector('#login-error').textContent === '' && document.querySelector('#login-error').getBoundingClientRect().height === window.loginErrorHeight")?;
     b.click("button[type=submit]")?;
-    b.wait("document.querySelector('[role=alert]').textContent.includes('Connection failed') && !document.querySelector('button[type=submit]').disabled")?;
+    b.wait("document.querySelector('[role=alert]').textContent.includes('Connection failed') && document.querySelector('#password').value === 'local-attempt' && !document.querySelector('button[type=submit]').disabled")?;
+    b.eval("window.fetch=()=>Promise.resolve(new Response('unavailable',{status:500}));true")?;
+    b.click("button[type=submit]")?;
+    b.wait("document.querySelector('[role=alert]').textContent.includes('Please try again') && document.querySelector('#password').value === 'local-attempt' && !document.querySelector('#password').hasAttribute('aria-invalid') && !document.querySelector('button[type=submit]').disabled")?;
     b.eval("window.fetch=window.originalFetch;true")?;
     b.text("#password", password)?;
     b.call("Input.dispatchKeyEvent", json!({"type":"keyDown","key":"Enter","code":"Enter","windowsVirtualKeyCode":13,"text":"\r"}))?;
@@ -191,5 +198,34 @@ pub fn check(root: &Path, password: &str, state: &Path) -> Result<()> {
     println!(
         "Login routes, assets, form states, mobile layout, Enter, logout, next validation and mid-session 401 passed."
     );
+    Ok(())
+}
+
+/// Block the real login request at Chromium's network layer, on the real route.
+fn network_error(root: &Path) -> Result<()> {
+    let before = std::env::var_os("TICKETS_BEFORE_ASSETS").is_some();
+    let phase = if before { "before" } else { "after" };
+    let out = root.join("docs/screenshots/56");
+    fs::create_dir_all(&out)?;
+    let mut b = Browser::start_named(root, "login-network-check")?;
+    for (name, width, height) in [("desktop", 1440, 900), ("mobile", 390, 844)] {
+        b.viewport(width, height)?;
+        go(&mut b, "http://127.0.0.1:8787/login", ".login-page")?;
+        b.text("#username", "fixture")?;
+        b.text("#password", "local-network-fixture")?;
+        b.call("Network.enable", json!({}))?;
+        b.call("Network.setBlockedURLs", json!({"urls":["*/api/v1/login"]}))?;
+        b.click("button[type=submit]")?;
+        b.wait("document.querySelector('#login-error').textContent.includes('Connection failed') && !document.querySelector('button[type=submit]').disabled")?;
+        b.wait(if before {
+            "document.querySelector('#password').value === ''"
+        } else {
+            "document.querySelector('#password').value === 'local-network-fixture' && !document.querySelector('#password').hasAttribute('aria-invalid') && document.querySelector('#login-error').textContent.includes('try again')"
+        })?;
+        // Allow the compositor to present the completed form after the blocked request.
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        b.screenshot(&out.join(format!("{phase}-network-{name}.png")))?;
+        b.call("Network.setBlockedURLs", json!({"urls":[]}))?;
+    }
     Ok(())
 }

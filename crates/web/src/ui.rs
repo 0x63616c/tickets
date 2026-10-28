@@ -4,46 +4,53 @@ use serde_json::{Value, json};
 use wasm_bindgen_futures::spawn_local;
 
 pub(crate) async fn api(method: &str, path: &str, body: Value) -> Result<Value, String> {
+    api_typed(method, path, body)
+        .await
+        .map_err(|error| error.to_string())
+}
+async fn api_typed(method: &str, path: &str, body: Value) -> Result<Value, crate::login::ApiError> {
+    use crate::login::ApiError;
     let builder =
-        RequestBuilder::new(path).method(method.parse().map_err(|_| "Invalid HTTP method")?);
+        RequestBuilder::new(path).method(method.parse().map_err(|_| ApiError::InvalidResponse)?);
     let request = if method == "GET" {
-        builder.build().map_err(|_| "Request failed")?
+        builder.build().map_err(|_| ApiError::InvalidResponse)?
     } else {
-        builder.json(&body).map_err(|_| "Request failed")?
+        builder.json(&body).map_err(|_| ApiError::InvalidResponse)?
     };
-    let response = request.send().await.map_err(|_| "Connection failed")?;
-    if response.status() == 401 {
-        return Err(if path == "/api/v1/login" {
+    let response = request.send().await.map_err(|_| ApiError::Network)?;
+    let status = response.status();
+    if status == 401 {
+        let message = if path == "/api/v1/login" {
             "Incorrect username or password."
         } else {
             redirect_to_login();
             "Your session expired. Redirecting to sign in…"
-        }
-        .into());
+        };
+        return Err(ApiError::Http {
+            status,
+            message: message.into(),
+        });
     }
-    if path == "/api/v1/login" && response.status() == 429 {
-        return Err("Too many sign-in attempts. Wait a few minutes and try again.".into());
-    }
-    let value: Value = response.json().await.map_err(|_| "Invalid response")?;
     if !response.ok() {
         #[derive(serde::Deserialize)]
         #[serde(untagged)]
-        enum ApiError {
+        enum ErrorBody {
             Message { message: String },
             Text(String),
         }
         #[derive(serde::Deserialize)]
         struct Envelope {
-            error: ApiError,
+            error: ErrorBody,
         }
-        let error: Envelope =
-            serde_json::from_value(value).map_err(|e| format!("Invalid error response: {e}"))?;
-        return Err(match error.error {
-            ApiError::Message { message } => message,
-            ApiError::Text(message) => message,
-        });
+        let message = match response.json::<Envelope>().await {
+            Ok(Envelope {
+                error: ErrorBody::Message { message } | ErrorBody::Text(message),
+            }) => message,
+            Err(_) => format!("Request failed (HTTP {status})."),
+        };
+        return Err(ApiError::Http { status, message });
     }
-    Ok(value)
+    response.json().await.map_err(|_| ApiError::InvalidResponse)
 }
 pub(crate) fn redirect_to_login() {
     let location = window().location();
@@ -69,9 +76,9 @@ pub fn Login() -> impl IntoView {
     let next = login_next();
     view! { <main class="login-page"><section class="login"><div class="login-wordmark"><span class="workspace-switcher"><span class="workspace-mark">"T"</span><strong>"Tickets"</strong></span></div><h1>"Sign in"</h1><p>"Use your workspace credentials."</p>
     <form method="post" action="/api/v1/login" aria-busy=busy on:submit=move |ev| { ev.prevent_default(); if busy.get_untracked() { return; } let next = next.clone(); set_busy.set(true); set_error.set(String::new()); spawn_local(async move {
-        let result=api("POST","/api/v1/login",json!({"username":username.get_untracked(),"password":password.get_untracked()})).await;
-        set_password.set(String::new()); set_busy.set(false);
-        match result { Ok(_)=> { let _=web_sys::window().unwrap().location().set_href(tickets_core::navigation::safe_next(&next)); }, Err(e)=>set_error.set(e) }
+        let result=api_typed("POST","/api/v1/login",json!({"username":username.get_untracked(),"password":password.get_untracked()})).await;
+        if crate::login::clear_password(result.as_ref().map(|_| ())) { set_password.set(String::new()); } set_busy.set(false);
+        match result { Ok(_)=> { let _=web_sys::window().unwrap().location().set_href(tickets_core::navigation::safe_next(&next)); }, Err(e)=>set_error.set(e.login_message()) }
     }); }>
     <label class="field" for="username"><span>"Username"</span><input id="username" name="username" autofocus autocomplete="username" required prop:value=username on:input=move |e|{set_username.set(event_target_value(&e));set_error.set(String::new());}/></label>
     <label class="field" for="password"><span>"Password"</span><input id="password" name="password" aria-describedby="login-error" aria-invalid=move||error.get().starts_with("Incorrect") type="password" autocomplete="current-password" required prop:value=password on:input=move |e|{set_password.set(event_target_value(&e));set_error.set(String::new());}/></label>
