@@ -107,9 +107,8 @@ an approved secure workflow. Generate a unique passphrase with a password manage
 `cargo xtask auth-hash` accepts it on stdin, refuses fewer than 16 characters, and
 outputs a randomly salted PBKDF2-SHA256 hash at 100,000 iterations. Avoid command
 arguments and shell history. Never commit the password or hash, or put the hash in
-D1: the Worker secret is authoritative. Apply the versioned migration chain during
-an authorized release; migration 0004 clears legacy D1 copies. Protect or retire
-older dumps that may still contain a hash.
+D1: the Worker secret is authoritative. Migration 0004 drops the unused D1
+password column, so D1 holds no password material.
 
 The hash stores its iteration count; verification accepts canonical positive counts
 up to the runtime maximum of 100,000. Future runtime changes can raise that maximum

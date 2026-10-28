@@ -60,8 +60,8 @@
 - Never return credential hashes in JSON or log request bodies/authorization.
 - Auth timestamps follow the domain UTC format. Sessions expire after seven days;
   personal tokens remain active until explicitly revoked.
-- Bootstrap password hashes live only in Worker secrets. Keep the legacy D1
-  `users.password_hash` column empty; never persist the bootstrap hash there.
+- Bootstrap password hashes live only in Worker secrets; D1 has no password column
+  (migration 0004 drops it). Never persist the bootstrap hash in D1.
 - Password hashes store canonical positive PBKDF2-SHA256 iteration counts up to
   the production WebCrypto maximum (100,000); new hashes use that maximum.
   Generate a passphrase of at least 16 characters with `cargo xtask auth-hash`.

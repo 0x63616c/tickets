@@ -11,10 +11,17 @@ impl Sqlite {
     fn new() -> Self {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
-        conn.execute_batch(include_str!("../../../migrations/0001_scaffold.sql"))
-            .unwrap();
-        conn.execute_batch(include_str!("../../../migrations/0002_data_model.sql"))
-            .unwrap();
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../migrations");
+        let mut files: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "sql"))
+            .collect();
+        files.sort();
+        for file in files {
+            conn.execute_batch(&std::fs::read_to_string(&file).unwrap())
+                .unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+        }
         Self(conn)
     }
 }
@@ -167,13 +174,10 @@ fn repository_round_trip() {
 fn database_constraints_and_atomic_cycle_guard() {
     let s = Sqlite::new();
     let db = &s.0;
-    db.execute(
-        "INSERT INTO users(id,username,password_hash) VALUES(1,'local-user','test-hash')",
-        [],
-    )
-    .unwrap();
+    db.execute("INSERT INTO users(id,username) VALUES(1,'local-user')", [])
+        .unwrap();
     assert!(
-        db.execute("INSERT INTO users VALUES(2,'other','hash','now')", [])
+        db.execute("INSERT INTO users VALUES(2,'other','now')", [])
             .is_err()
     );
     db.execute_batch("INSERT INTO projects(id,name,key_prefix,color) VALUES(1,'Example','EX','#123456'); INSERT INTO tickets(id,project_id,number,title) VALUES(1,1,1,'a'),(2,1,2,'b'),(3,1,3,'c'); INSERT INTO ticket_dependencies VALUES(1,2),(2,3);").unwrap();
@@ -207,28 +211,20 @@ fn auth_expiry_revocation_and_hash_only_storage() {
         let store = Sqlite::new();
         store
             .0
-            .execute_batch(include_str!("../../../migrations/0003_auth.sql"))
+            .execute("INSERT INTO users(id,username) VALUES(1,'fixture')", [])
             .unwrap();
-        store
+        let columns: Vec<String> = store
             .0
-            .execute(
-                "INSERT INTO users(id,username,password_hash) VALUES(1,'fixture','hash')",
-                [],
-            )
+            .prepare("SELECT name FROM pragma_table_info('users')")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<std::result::Result<_, _>>()
             .unwrap();
-        store
-            .0
-            .execute_batch(include_str!(
-                "../../../migrations/0004_secret_only_password.sql"
-            ))
-            .unwrap();
-        let password_hash: String = store
-            .0
-            .query_row("SELECT password_hash FROM users WHERE id=1", [], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert!(password_hash.is_empty());
+        assert!(
+            !columns.iter().any(|c| c.contains("password")),
+            "{columns:?}"
+        );
         let hash = hash_token("test credential");
 
         store.query::<Value>("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,1,'2000-01-01T00:00:00.000Z')",vec![hash.clone().into()]).await.unwrap();

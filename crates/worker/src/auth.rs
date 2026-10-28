@@ -121,7 +121,7 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
         {
             return denied();
         }
-        query(&db,"INSERT INTO users(id,username,password_hash) VALUES(1,?,'') ON CONFLICT(id) DO UPDATE SET username=excluded.username,password_hash=''",vec![username.into()]).await?;
+        query(&db,"INSERT INTO users(id,username) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET username=excluded.username",vec![username.into()]).await?;
         let token = random()?;
         query(
             &db,
