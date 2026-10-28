@@ -61,6 +61,24 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Prepare release' && document.querySelector('[aria-label=Status]')?.value==='In progress' && document.querySelector('.dependency-row')?.textContent.includes('Blocks') && document.querySelector('.dependency-title')?.textContent==='Publish release'")?;
     b.click(".dependency-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release' && document.querySelector('.property-labels .label-chip')?.textContent.includes('Release') && document.querySelector('.dependency-row')?.textContent.includes('Blocked by')")?;
+    // Hold a live catch-up response until its DetailPage has been disposed.
+    // This makes navigation during an in-flight read deterministic.
+    b.eval("window.detailFetch=window.fetch;window.fetch=async(input,init)=>{const response=await window.detailFetch(input,init);const url=input instanceof Request?input.url:String(input);if(url.includes('/tickets/2/comments?')){window.detailHeld=true;await new Promise(resolve=>window.releaseDetail=resolve);}return response;};window.dispatchEvent(new Event('focus'));true")?;
+    b.wait("window.detailHeld===true")?;
+    b.click(".dependency-title")?;
+    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Prepare release'")?;
+    b.eval("window.fetch=window.detailFetch;window.releaseDetail();true")?;
+    b.click(".dependency-title")?;
+    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
+    // Also navigate while a successful save response is still in flight.
+    b.wait("!document.querySelector('[aria-label=Priority]').disabled")?;
+    b.eval("window.fetch=async(input,init)=>{const response=await window.detailFetch(input,init);const method=input instanceof Request?input.method:init?.method;if(method==='PATCH'){window.saveHeld=true;await new Promise(resolve=>window.releaseSave=resolve);}return response;};const priority=document.querySelector('[aria-label=Priority]');priority.value='High';priority.dispatchEvent(new Event('change',{bubbles:true}));true")?;
+    b.wait("window.saveHeld===true")?;
+    b.click(".dependency-title")?;
+    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Prepare release'")?;
+    b.eval("window.fetch=window.detailFetch;window.releaseSave();true")?;
+    b.click(".dependency-title")?;
+    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release' && document.querySelector('[aria-label=Priority]')?.value==='High'")?;
     println!(
         "PASS first-run: empty install, UI login, project, two tickets, Kanban move, new label and dependency verified on both tickets; six dark 1440×900 screenshots"
     );
