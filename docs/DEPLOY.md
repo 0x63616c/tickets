@@ -1,70 +1,51 @@
 # Production setup and deployment
 
-**Deploying requires Calum's explicit OK. Do not run the remote setup or deployment
-commands below without authorization.** CI never deploys: it builds, checks Rust,
-scans for secrets, and applies migrations to local D1 only.
+Production runs at `https://tickets.worldwidewebb.co` (Worker `tickets-production`,
+named `production` environment in `wrangler.toml`). Its workers.dev endpoint and
+preview URLs are disabled. Keep the account on Workers Free; do not enable paid
+services. Calum approved the production deploy and redeploy-on-merge on 2026-10-28.
 
-Production uses the named `production` environment in `wrangler.toml` and the
-custom domain `tickets.worldwidewebb.co`. Its workers.dev endpoint and preview
-URLs are disabled. Keep the account on Workers Free; Wrangler configuration does
-not enforce an account billing plan. Do not enable paid services.
+## Continuous deployment
 
-## One-time setup (authorized operator only)
+Every push to `main` runs the `deploy` job in `.github/workflows/ci.yml` after the
+`check`, `migrations` and `secrets` jobs pass. It runs in the `production` GitHub
+environment (deployments restricted to `main`) and:
 
-1. Install the pinned tools in [DEVELOPMENT.md](DEVELOPMENT.md). The
-   `worldwidewebb.co` DNS zone must be active on Cloudflare in the same account as
-   the Worker. Resolve any conflicting DNS record for `tickets.worldwidewebb.co`
-   before attaching the custom domain; Cloudflare manages its DNS and certificate.
-2. Authenticate and create the production database:
+1. applies pending D1 migrations with `cargo xtask migrate --remote`;
+2. builds the Leptos assets and Worker with `cargo xtask build`;
+3. runs `wrangler deploy --env production`, uploading the login secrets from a
+   temporary 0600 file that is deleted afterwards;
+4. smoke-tests `/api/health` and checks that unauthenticated `/api/v1` returns 401.
 
-   ```sh
-   wrangler login
-   wrangler d1 create tickets
-   ```
+Pull requests never deploy and never see the production secrets.
 
-   Replace the all-zero `database_id` under `[[env.production.d1_databases]]`
-   with the returned ID. Leave the top-level local placeholder alone. The binding
-   must remain `DB`, with `migrations_dir = "migrations"`.
-3. Set the single-user login secrets through Wrangler's interactive prompts (see
-   "Authentication secrets" below for generating the hash):
+### Environment configuration (`production` GitHub environment)
 
-   ```sh
-   wrangler secret put BOOTSTRAP_USERNAME --env production
-   wrangler secret put BOOTSTRAP_PASSWORD_HASH --env production
-   ```
+| Name | Kind | Purpose |
+| --- | --- | --- |
+| `CLOUDFLARE_API_TOKEN` | secret | Account token `tickets-github-deploy`: Workers Scripts Write, D1 Write, Account Settings Read on the account; Workers Routes Write, Zone Read, DNS Write on `worldwidewebb.co` only. |
+| `CLOUDFLARE_ACCOUNT_ID` | variable | Cloudflare account ID. |
+| `TICKETS_BOOTSTRAP_USERNAME` | secret | Single-user login name. |
+| `TICKETS_BOOTSTRAP_PASSWORD_HASH` | secret | Output of `cargo xtask auth-hash` (see below). |
 
-   Secret creation may create an empty Worker before its first deployment. Never
-   put values in TOML, command arguments, committed files, or PRs. Day one has one
-   username/password login and no sign-up.
-4. Apply versioned migrations to the production database:
+Rotate the password by generating a new hash and updating the environment secret,
+then re-running the latest `main` deploy. Never put values in TOML, command
+arguments, committed files, or PRs.
 
-   ```sh
-   wrangler d1 migrations apply DB --remote --env production
-   ```
+## Migrations
 
-   Review pending SQL first. `cargo xtask migrate` intentionally remains local
-   only; never change it to migrate production implicitly.
+`cargo xtask migrate` applies migrations to local D1 (CI and development).
+`cargo xtask migrate --remote` applies them to the production database and needs
+Cloudflare credentials in the environment; normally only the deploy job runs it.
+Migrations must be backwards compatible with the previously deployed Worker,
+because they are applied before the new Worker goes live.
 
-## Build, validate, deploy
-
-From the repository root, build both the Leptos assets and Worker, then validate
-the production configuration without uploading or creating remote resources:
+## Manual validation
 
 ```sh
 cargo xtask build
 wrangler deploy --dry-run --env production --outdir /tmp/tickets-dry
 ```
-
-**Only after Calum's explicit OK**, with the real database ID, secrets and remote
-migrations in place, the operator may run:
-
-```sh
-wrangler deploy --env production
-```
-
-After an authorized deployment, verify `https://tickets.worldwidewebb.co/api/health`
-returns the expected JSON and the root serves the Leptos application. No production
-deployment or remote provisioning was performed as part of configuring this repo.
 
 ## Live updates (#16)
 
@@ -99,11 +80,9 @@ incoming messages (metered at 20:1), and alarms; hibernation avoids idle duratio
 usage when eligible.
 
 ## Authentication secrets
-Production deployment requires Calum's explicit authorization. This document does
-not authorize deployment or remote database provisioning.
 
-Set `BOOTSTRAP_USERNAME` and `BOOTSTRAP_PASSWORD_HASH` as Worker secrets through
-an approved secure workflow. Generate a unique passphrase with a password manager;
+The Worker reads `BOOTSTRAP_USERNAME` and `BOOTSTRAP_PASSWORD_HASH` secrets, set by
+the deploy job from the `production` environment. Generate a unique passphrase with a password manager;
 `cargo xtask auth-hash` accepts it on stdin, refuses fewer than 16 characters, and
 outputs a randomly salted PBKDF2-SHA256 hash at 100,000 iterations. Avoid command
 arguments and shell history. Never commit the password or hash, or put the hash in
