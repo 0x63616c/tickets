@@ -269,3 +269,18 @@
 - Issue #36 evidence is captured by `cargo xtask live-check` in
   `docs/screenshots/36/`; use origin/main assets via `TICKETS_BEFORE_ASSETS`
   for the real before route and a separate design target.
+
+## Label creation conventions
+
+- The ticket label menu filters names case-insensitively. A trimmed nonblank
+  name without an exact match offers creation; Enter in the input creates it,
+  while arrows focus existing rows for selection. Escape and successful writes
+  restore the trigger focus. Enter reuses an exact name and keeps an already
+  attached match; clicking an existing row toggles it.
+- Before creating, refresh the complete label list and reuse a case-insensitive
+  match. Default colors use a stable lowercase-name hash over the four label
+  hues in `tokens.css`. Use shared Menu, TextInput and LabelChip controls.
+- `cargo xtask projects-check` covers creation from zero labels, keyboard focus,
+  case-insensitive reuse and persistence. Issue #45 captures use
+  `docs/screenshots/45/` at 1440×900 and 390×844; `TICKETS_BEFORE_ASSETS`
+  selects origin/main assets for the same real ticket route and a fixture target.

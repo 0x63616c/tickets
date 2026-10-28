@@ -4,7 +4,11 @@ use web_sys::wasm_bindgen::JsCast;
 
 /// A disclosure of native buttons: Tab/Enter, Escape, and outside-click dismissal.
 #[component]
-pub fn Menu(label: &'static str, children: Children) -> impl IntoView {
+pub fn Menu(
+    label: &'static str,
+    children: Children,
+    #[prop(optional)] on_input_enter: Option<Callback<()>>,
+) -> impl IntoView {
     let menu = NodeRef::<html::Details>::new();
     let handle = window_event_listener(ev::click, move |event| {
         if let Some(menu) = menu.get_untracked()
@@ -19,6 +23,27 @@ pub fn Menu(label: &'static str, children: Children) -> impl IntoView {
     on_cleanup(move || handle.remove());
     view! {
         <details node_ref=menu class="label-menu" on:keydown=move |event: web_sys::KeyboardEvent| {
+            if let Some(menu) = menu.get_untracked() {
+                let key = event.key();
+                if key == "ArrowDown" || key == "ArrowUp" {
+                    event.prevent_default();
+                    menu.set_open(true);
+                    if let Ok(items) = menu.query_selector_all("input, button:not(:disabled)") {
+                        let active = document().active_element();
+                        let current = (0..items.length()).find(|i| items.item(*i).is_some_and(|n| active.as_ref().is_some_and(|a| n.is_same_node(Some(a)))));
+                        let len = items.length();
+                        if len > 0 {
+                            let next = match current { Some(i) if key == "ArrowUp" => (i + len - 1) % len, Some(i) => (i + 1) % len, None => 0 };
+                            if let Some(item) = items.item(next).and_then(|n| n.dyn_into::<web_sys::HtmlElement>().ok()) { let _ = item.focus(); }
+                        }
+                    }
+                } else if key == "Enter" && event.target().and_then(|t|t.dyn_into::<web_sys::HtmlInputElement>().ok()).is_some() {
+                    event.prevent_default();
+                    if let Some(enter) = on_input_enter { enter.run(()); }
+                    else if let Ok(Some(button)) = menu.query_selector("button:not(:disabled)")
+                        && let Some(button) = button.dyn_ref::<web_sys::HtmlElement>() { button.click(); }
+                }
+            }
             if event.key() == "Escape" {
                 event.prevent_default();
                 if let Some(menu) = menu.get_untracked() {
@@ -27,6 +52,10 @@ pub fn Menu(label: &'static str, children: Children) -> impl IntoView {
                         && let Some(summary) = summary.dyn_ref::<web_sys::HtmlElement>() { let _ = summary.focus(); }
                 }
             }
+        } on:toggle=move |_| {
+            if let Some(menu) = menu.get_untracked() && menu.open()
+                && let Ok(Some(input)) = menu.query_selector("input")
+                && let Some(input) = input.dyn_ref::<web_sys::HtmlElement>() { let _ = input.focus(); }
         }><summary><super::Icon name="plus"/>{label}</summary><div class="menu">{children()}</div></details>
     }
 }

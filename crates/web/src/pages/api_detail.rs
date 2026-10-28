@@ -45,11 +45,18 @@ impl DetailState {
             self.board.live_revision.update(|r| *r += 1);
             return Ok(());
         }
+        let restore_label_focus = document()
+            .active_element()
+            .is_some_and(|element| element.matches(".label-menu summary").unwrap_or(false));
         self.board.project.set(ticket.project_id);
         self.board.apply_change_event(ticket.clone(), false);
         self.ticket.set(Some(ticket));
         self.comments.set(comments);
         self.revision.update(|r| *r += 1);
+        if restore_label_focus {
+            gloo_timers::future::TimeoutFuture::new(0).await;
+            focus_label_trigger();
+        }
         Ok(())
     }
     fn write(self, method: &'static str, path: String, body: Value, done: Callback<()>) {
@@ -186,10 +193,104 @@ fn Properties() -> impl IntoView {
         <div class="property"><span>"Status"</span><div><StatusIcon status=t.status/><select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Status" disabled=move||state.busy.get() prop:value=t.status.name() on:change=move|e|state.patch(json!({"status":Status::from_name(&event_target_value(&e))}))>{Status::ALL.into_iter().map(|s|view!{<option selected=s==t.status>{s.name()}</option>}).collect_view()}</select></div></div>
         <div class="property"><span>"Priority"</span><div><PriorityIcon priority=t.priority/><select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Priority" disabled=move||state.busy.get() prop:value=t.priority.name() on:change=move|e|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==event_target_value(&e)){state.patch(json!({"priority":p}));}}>{Priority::ALL.into_iter().map(|p|view!{<option selected=p==t.priority>{p.name()}</option>}).collect_view()}</select></div></div>
         <form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="property assignee-editor" on:submit=move|e|{e.prevent_default();let name=assignee.get_untracked().trim().to_string();state.patch(json!({"assignee":if name.is_empty(){None}else{Some(name)}}));}><span>"Assignee"</span><div>{move||{let a=assignee.get();view!{<Avatar label=if a.is_empty(){"No assignee".into()}else{a.clone()} initials={a.chars().take(1).collect::<String>()}/>}}}<input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Assignee" disabled=move||state.busy.get() prop:value=move||assignee.get() on:input=move|e|assignee.set(event_target_value(&e)) on:change=move|e|{let _=event_target::<web_sys::HtmlInputElement>(&e).form().map(|f|f.request_submit());}/></div></form>
-        <div class="property-section"><h2>"Labels"</h2><div class="property-labels">{t.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</div><Menu label="Add label">{move||board.labels.get().into_iter().map(|l|{let selected=state.ticket.get().is_some_and(|t|t.labels.iter().any(|v|v.id==l.id));view!{<button class="menu-item" aria-pressed=selected disabled=move||state.busy.get() on:click=move|_|state.write(if selected{"DELETE"}else{"POST"},format!("/api/v1/tickets/{}/labels/{}",state.id,l.id),Value::Null,Callback::new(|_|{}))><LabelChip name=l.name color=l.color/>{selected.then(||view!{<Icon name="check"/>})}</button>}}).collect_view()}</Menu></div>
+        <div class="property-section"><h2>"Labels"</h2><div class="property-labels">{t.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</div><LabelPicker/></div>
         <div class="property-section"><h2>"Project"</h2><div class="property"><div><select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Project" disabled=move||state.busy.get() prop:value=t.project_id.to_string() on:change=move|e|{if let Ok(id)=event_target_value(&e).parse::<i64>(){state.patch(json!({"project_id":id}));}}>{move||board.projects.get().into_iter().map(|p|view!{<option value=p.id.to_string() selected=p.id==t.project_id>{p.name}</option>}).collect_view()}</select></div></div></div>
         {t.external_url.clone().map(|url|view!{<div class="property-section"><h2>"Links"</h2><a class="subtle-link" href=url target="_blank" rel="noopener noreferrer"><Icon name="link"/>{if url.contains("github.com"){"GitHub issue"}else{"External link"}}<Icon name="external"/></a></div>})}<div class="property-section property-dates"><span>{format!("Created {}",short_date(&t.created_at))}</span><span>{format!("Updated {}",short_date(&t.updated_at))}</span></div>
     }})
+}
+fn focus_label_trigger() {
+    if let Ok(Some(trigger)) = document().query_selector(".label-menu summary")
+        && let Some(trigger) = trigger.dyn_ref::<web_sys::HtmlElement>()
+    {
+        let _ = trigger.focus();
+    }
+}
+
+/// Create and attach in one UI action; refresh labels first to avoid stale duplicates.
+#[component]
+fn LabelPicker() -> impl IntoView {
+    let state = expect_context::<DetailState>();
+    let query = RwSignal::new(String::new());
+    let choose = Callback::new(move |existing: Option<i64>| {
+        if state.busy.get_untracked() {
+            return;
+        }
+        let name = query.get_untracked().trim().to_string();
+        if existing.is_none() && name.is_empty() {
+            return;
+        }
+        state.busy.set(true);
+        state.error.set(String::new());
+        spawn_local(async move {
+            let result = async {
+                let labels = all::<tickets_core::domain::Label>("labels").await?;
+                let exact = labels
+                    .iter()
+                    .find(|l| l.name.to_lowercase() == name.to_lowercase());
+                let id = if let Some(id) = existing {
+                    id
+                } else if let Some(label) = exact {
+                    label.id
+                } else {
+                    // The four label hues from tokens.css, stable across sessions.
+                    let palette = ["#8b82d9", "#eb5757", "#4ea7fc", "#c6a1b9"];
+                    let hash = name
+                        .to_lowercase()
+                        .bytes()
+                        .fold(0usize, |h, b| h.wrapping_mul(31).wrapping_add(b as usize));
+                    let label: tickets_core::domain::Label = serde_json::from_value(
+                        api(
+                            "POST",
+                            "/api/v1/labels",
+                            json!({"name":name,"color":palette[hash % palette.len()]}),
+                        )
+                        .await?,
+                    )
+                    .map_err(|e| e.to_string())?;
+                    label.id
+                };
+                let attached = state
+                    .ticket
+                    .get_untracked()
+                    .is_some_and(|t| t.labels.iter().any(|l| l.id == id));
+                if existing.is_some() || !attached {
+                    api(
+                        if attached { "DELETE" } else { "POST" },
+                        &format!("/api/v1/tickets/{}/labels/{id}", state.id),
+                        Value::Null,
+                    )
+                    .await?;
+                }
+                state.board.labels.set(all("labels").await?);
+                state.load(false).await?;
+                Ok::<_, String>(())
+            }
+            .await;
+            if let Err(error) = result {
+                state.error.set(error);
+            } else {
+                state.board.notice.set("Labels saved.".into());
+                // Wait for Properties to remount after the authoritative read.
+                gloo_timers::future::TimeoutFuture::new(0).await;
+                focus_label_trigger();
+            }
+            state.busy.set(false);
+        });
+    });
+    view! {<Menu label="Add label" on_input_enter=Callback::new(move |_|choose.run(None))><TextInput id="label-filter" label="Filter or create label" value=query/>
+        {move||{
+            let name=query.get().trim().to_string();
+            let labels=state.board.labels.get();
+            let exact=labels.iter().any(|l|l.name.to_lowercase()==name.to_lowercase());
+            view! {
+                {labels.into_iter().filter(|l|l.name.to_lowercase().contains(&name.to_lowercase())).map(|l|{
+                    let selected=state.ticket.get().is_some_and(|t|t.labels.iter().any(|v|v.id==l.id));
+                    view!{<button class="menu-item" aria-pressed=selected disabled=move||state.busy.get() on:click=move|_|choose.run(Some(l.id))><LabelChip name=l.name color=l.color/>{selected.then(||view!{<Icon name="check"/>})}</button>}
+                }).collect_view()}
+                {(!name.is_empty() && !exact).then(||view!{<button class="menu-item" data-create="true" disabled=move||state.busy.get() on:click=move|_|choose.run(None)><Icon name="plus"/>{format!("Create label {name}")}</button>})}
+            }
+        }}
+    </Menu>}
 }
 #[component]
 fn DependencyRow(related: i64, incoming: bool) -> impl IntoView {
