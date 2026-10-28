@@ -48,9 +48,14 @@ fn build(root: &Path) -> Result {
 
 fn main() -> Result {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let mut args = env::args().skip(1);
-    let task = args.next();
-    if args.next().is_some() {
+    let args: Vec<String> = env::args().skip(1).collect();
+    let task = args.first().cloned();
+    let max_args = if task.as_deref() == Some("migrate") {
+        2
+    } else {
+        1
+    };
+    if args.len() > max_args {
         return Err("expected exactly one task: dev, build, migrate, ci, api-smoke, skill-check, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
     }
     match task.as_deref() {
@@ -76,11 +81,28 @@ fn main() -> Result {
             build(root)?;
             run(root, "wrangler", &["dev", "--local"])
         }
-        Some("migrate") => run(
-            root,
-            "wrangler",
-            &["d1", "migrations", "apply", "DB", "--local"],
-        ),
+        Some("migrate") => match args.get(1).map(String::as_str) {
+            None => run(
+                root,
+                "wrangler",
+                &["d1", "migrations", "apply", "DB", "--local"],
+            ),
+            // Production only; requires Cloudflare credentials in the environment.
+            Some("--remote") => run(
+                root,
+                "wrangler",
+                &[
+                    "d1",
+                    "migrations",
+                    "apply",
+                    "DB",
+                    "--remote",
+                    "--env",
+                    "production",
+                ],
+            ),
+            Some(other) => Err(format!("unknown migrate flag {other}; expected --remote").into()),
+        },
         Some("ci") => {
             run(root, "cargo", &["fmt", "--all", "--check"])?;
             run(root, "cargo", &["build", "--workspace", "--locked"])?;
@@ -115,7 +137,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <dev|build|migrate|ci|api-smoke|skill-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check>".into())
+            Err("usage: cargo xtask <dev|build|migrate [--remote]|ci|api-smoke|skill-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check>".into())
         }
     }
 }

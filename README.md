@@ -6,7 +6,7 @@ track and do work across all projects.
 - Backend: Rust on Cloudflare Workers (`workers-rs`) with D1.
 - Frontend: Rust (see `docs/adr/` for the framework decision).
 - Production target: `tickets.worldwidewebb.co` (Cloudflare Workers, free tier).
-  **Nothing is deployed to production without Calum's explicit OK.**
+  Merges to `main` deploy automatically to https://tickets.worldwidewebb.co (behind login).
 
 Features: projects (linked to GitHub Projects), tickets with dependencies (blocks / blocked-by,
 cycle prevention), labels, Kanban and list views, dark mode throughout, login plus personal API
