@@ -21,7 +21,8 @@ cargo xtask ci       # fmt, native build, host + wasm clippy, host tests
 
 All Cargo build output stays in this worktree's `target/`. Wrangler rebuilds the
 Worker when its source changes using `[build]` in `wrangler.toml`. After frontend
-changes run `cargo xtask build` and refresh the browser. Run each command from
+changes stop the dev server and run `cargo xtask dev` again, then refresh the
+browser. This rebuilds the assets and refreshes Wrangler's asset manifest. Run each command from
 the workspace root so Cargo can resolve the xtask alias.
 
 Visit http://localhost:8787 for the Leptos CSR placeholder. There is no ticket CRUD
