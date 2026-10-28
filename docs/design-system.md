@@ -18,8 +18,9 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 
 These are local in-memory fixtures. Creation, status changes, labels, comments,
 projects, and dependency selection demonstrate behavior; reload resets them.
-The sidebar identifies the preview as Sample data. No API integration, login, GitHub sync,
-or live transport is implemented in this issue. Do not treat the fixture statuses
+The sidebar identifies the preview as Sample data. Ticket API integration, GitHub sync,
+and live transport remain separate. The existing `/login` and `/settings/tokens`
+screens retain their API behavior and now use these design tokens. Do not treat the fixture statuses
 as a statement about the GitHub issues' actual progress.
 
 ## Component contract
@@ -81,7 +82,7 @@ when populated; all six statuses are available in the status select and gallery.
 Replace `DesignState` with API-backed resources. Keep the visual structure and
 native semantics; do not copy the fixtures as persistence/domain code. Add actual
 loading/error/retry states at the resource boundary, optimistic rollback for
-moves, server validation, authentication, GitHub project linking, and live transport
+moves, server validation, session-aware ticket access, GitHub project linking, and live transport
 in their implementation issues. The source URL shown on the project is a repository
 reference, not an implemented GitHub Projects integration. The native select is a
 conscious accessibility baseline, not a promise of identical browser popover chrome.
@@ -117,6 +118,8 @@ Fonts are loaded before capture. The before image is the actual #2 scaffold
 | [Composer](screenshots/design/08-new-ticket.png) | Clear labels, inherited project, one submit action |
 | [Dependency picker](screenshots/design/09-add-dependency.png) | Direction and search are explicit |
 | [Mobile](screenshots/design/10-mobile-gallery.png) | Narrow-screen controls and typography |
+| [Login](screenshots/design/12-login.png) | Existing authentication form using shared tokens |
+| [Token access](screenshots/design/13-token-access.png) | Existing API-token page, signed out; no credentials in captures |
 
 The screenshots were reviewed against the supplied Linear and Vercel pack. The
 second pass removed the tall project introduction, tightened cards/rows, fixed
@@ -127,14 +130,14 @@ empty project to a left-aligned action with visible status columns.
 ## Release measurement
 
 Measured locally with the pinned toolchain, `cargo xtask build` (Trunk release,
-LTO, size optimization, wasm-opt), before API integration:
+LTO, size optimization, wasm-opt), including the existing authentication screens:
 
 | Asset | Bytes |
 | --- | ---: |
-| Frontend WASM | 1,637,971 |
-| WASM compressed with `gzip -9` | 646,044 |
-| Generated JavaScript loader | 48,030 |
-| Component CSS + tokens | 31,918 |
+| Frontend WASM | 1,749,566 |
+| WASM compressed with `gzip -9` | 689,087 |
+| Generated JavaScript loader | 53,150 |
+| Component CSS + tokens | 33,738 |
 | Inter Variable WOFF2 | 352,240 |
 | Geist Mono WOFF2 | 71,596 |
 

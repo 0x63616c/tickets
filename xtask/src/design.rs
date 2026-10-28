@@ -141,7 +141,7 @@ impl Browser {
     }
     fn go(&mut self, url: &str) -> Result<()> {
         self.call("Page.navigate", json!({"url":url}))?;
-        self.wait("!!document.querySelector('.topbar')")?;
+        self.wait("!!document.querySelector('.topbar, .auth-page')")?;
         self.eval("document.fonts.ready.then(() => true)")?;
         Ok(())
     }
@@ -286,8 +286,20 @@ pub fn check(root: &Path) -> super::Result {
         browser.wait("document.documentElement.scrollWidth <= innerWidth")?;
     }
     browser.screenshot(&output.join("10-mobile-gallery.png"))?;
+    browser.viewport(1440, 900)?;
+    browser.go(&format!("{base}/login"))?;
+    browser.wait("!!document.querySelector('#username') && !!document.querySelector('#password[type=password]') && !document.querySelector('.preview-note')")?;
+    browser.screenshot(&output.join("12-login.png"))?;
+    let worker_api = browser.eval("fetch('/api/health').then(r => r.headers.get('content-type')?.includes('application/json')).catch(() => false)")? == true;
+    browser.go(&format!("{base}/settings/tokens"))?;
+    browser.wait("!!document.querySelector('#token-name')")?;
+    if worker_api {
+        browser.wait("document.querySelector('.auth-page [role=status]')?.textContent.includes('Please sign in')")?;
+        println!("PASS: the local Worker requires authentication for API tokens.");
+    }
+    browser.screenshot(&output.join("13-token-access.png"))?;
     println!(
-        "PASS: routes, fonts, overflow at 1440/390px, keyboard status move with focus retained, drag/drop events, filtering, Cmd+K with search focus, arrow navigation, Escape, C, creation, labels, sanitized comments, dependencies, project creation and project selection."
+        "PASS: routes, fonts, overflow at 1440/390px, keyboard status move with focus retained, drag/drop events, filtering, Cmd+K with search focus, arrow navigation, Escape, C, creation, labels, sanitized comments, dependencies, project creation and project selection, existing login and token screens."
     );
     Ok(())
 }

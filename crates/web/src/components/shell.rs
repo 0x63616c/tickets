@@ -1,11 +1,13 @@
 use super::*;
 use leptos::prelude::*;
 use leptos_router::components::A;
+use leptos_router::hooks::use_location;
 
 #[component]
 pub fn AppShell(children: Children) -> impl IntoView {
     let state = expect_context::<DesignState>();
     let mobile_open = RwSignal::new(false);
+    let location = use_location();
     view! {
         <a class="skip-link" href="#main">"Skip to content"</a>
         <div class="app-shell" class:sidebar-open=move || mobile_open.get()>
@@ -27,7 +29,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
                     <A href="/settings/tokens" attr:class="nav-item"><Icon name="settings"/><span>"API tokens"</span></A>
                     <A href="/login" attr:class="nav-item"><Icon name="arrow"/><span>"Sign in"</span></A>
                     <A href="/design" exact=true attr:class="nav-item"><Icon name="grid"/><span>"Design system"</span></A>
-                    <div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div>
+                    <Show when=move || location.pathname.get() == "/" || location.pathname.get().starts_with("/design")><div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div></Show>
                     <div class="sidebar-account"><Avatar/><span>"Personal workspace"</span><IconButton label="Open commands" icon="help" on_click=Callback::new(move |_| state.dialog.set(DialogKind::Command))/></div>
                 </div>
             </aside>

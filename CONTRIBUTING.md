@@ -65,6 +65,7 @@
 - Password hashes store canonical positive PBKDF2-SHA256 iteration counts up to
   the production WebCrypto maximum (100,000); new hashes use that maximum.
   Generate a passphrase of at least 16 characters with `cargo xtask auth-hash`.
+
 ## Frontend design conventions
 - Leptos CSR is locked; see `docs/adr/0001-frontend.md`. Use plain CSS with
   `crates/web/style/tokens.css` roles, semantic controls and the shared inline SVG
