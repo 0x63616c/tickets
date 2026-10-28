@@ -57,11 +57,22 @@ right padding so text never runs under it. Inline selects (board cards, detail
 properties) use the same chevron with a transparent fill and a hover tint; card
 selects size to their content so the chevron sits beside the value.
 
-**Sidebar** is `#0f1011` against the `#08090a` canvas with a 1px `#23252a`
+**Sidebar** is `#0a0a0b` against the `#050506` canvas with a 1px `#1c1d21`
 divider. A workspace switcher (20px mark, name, chevron, avatar) sits on top.
 Items are `#d0d6e0` with 16px icons; hover is a faint tint; the active item is a
-`#191a1b` pill with white text and an accent icon. Section headers are 11px
-uppercase `#62666d`. Projects show an 8px colored dot.
+`#131415` pill with white text and an accent icon. Section headers are 11px
+uppercase `#797d86`. Projects show an 8px colored dot.
+
+**Palette** is deep and near-black: canvas `#050506`, sidebar and properties
+`#0a0a0b`, surfaces `#0e0f10` (cards, inputs) and `#131415` (raised, active),
+borders `#1c1d21` and `#2a2b31`. All body text meets WCAG AA on every surface;
+the faint tier `#797d86` was lifted from `#62666d` to keep 4.5:1 on `#131415`.
+
+**Tinted chips.** A label chip takes its own hue (`--c`): fill at 14%
+(`--tint-fill`), border at 26% (`--tint-border`), text mixed 55% toward white
+(`--tint-text`), dot at full colour. Board column counts use the same recipe
+with their status colour. Status and priority stay icon-first elsewhere, so a
+row never carries more than one tinted element.
 
 ## Flows to preserve
 

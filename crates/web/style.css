@@ -113,13 +113,19 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1
 .card-title { display: block; font-size: var(--text-base); line-height: 1.5; font-weight: var(--weight-medium); }
 .card-title:hover { color: var(--text); }
 .card-labels { display: flex; gap: 4px; margin: 12px 0 8px; }
-.label-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: transparent; border-radius: var(--radius-md); padding: 0 8px; font-size: var(--text-xs); white-space: nowrap; line-height: 22px; width: fit-content; }
-.label-chip span { color: var(--text-muted); }
-.label-feature { color: var(--label-feature); }
-.label-bug { color: var(--label-bug); }
-.label-infra { color: var(--label-infra); }
-.label-design { color: var(--label-design); }
-.label-neutral { color: var(--text-secondary); }
+.label-chip { --c: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) var(--tint-border), transparent); background: color-mix(in srgb, var(--c) var(--tint-fill), transparent); border-radius: var(--radius-md); padding: 0 8px; font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; line-height: 22px; width: fit-content; }
+.label-chip span { color: color-mix(in srgb, var(--c), #fff var(--tint-text)); }
+.label-feature { --c: var(--label-feature); }
+.label-bug { --c: var(--label-bug); }
+.label-infra { --c: var(--label-infra); }
+.label-design { --c: var(--label-design); }
+.label-neutral { --c: var(--text-muted); }
+/* Board column counts take a tint of their status colour. */
+.column-heading .count { --c: var(--text-muted); display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; font-size: var(--text-xs); font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--c), #fff var(--tint-text)); background: color-mix(in srgb, var(--c) var(--tint-fill), transparent); }
+.column-heading:has(.status-todo) .count { --c: var(--status-todo); }
+.column-heading:has(.status-progress) .count { --c: var(--status-progress); }
+.column-heading:has(.status-review) .count { --c: var(--status-review); }
+.column-heading:has(.status-done) .count { --c: var(--status-done); }
 .card-bottom, .card-meta, .comment-count { display: flex; align-items: center; }
 .card-bottom { justify-content: space-between; }
 .card-meta { gap: 10px; }
