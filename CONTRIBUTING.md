@@ -146,8 +146,29 @@
   or `__unassigned`), `status` (display name), `q` (key/title substring), and
   `sort` (`priority`, `updated`, `created`). Priority defaults to urgent first,
   none last; dates are newest first, with numeric ID breaking ties.
-- J/K focuses the next/previous visible row; Enter opens a read-only ticket
-  preview pending #9. Native inline selects edit status and priority. Failed
+- J/K focuses the next/previous visible row; Enter opens the ticket
+  detail editor. Native inline selects edit status and priority. Failed
   writes keep saved state and restore the select; errors remain visible.
 - `CHROME_BIN=<headless-chromium> cargo xtask list-check` verifies the list
   against isolated local Worker/D1 state and captures 1440×900 / 390×900 images.
+
+## Ticket detail conventions
+
+- `/ticket?id=<numeric ID>` is the API-backed detail route. Board titles and list
+  titles/Enter open it; `/design/ticket` remains the fixture. Numeric links survive
+  project moves, which change the displayed key. Detail inherits its ticket's project
+  for creation; the shared composer permits selecting any project and defaults to Todo.
+- Save ticket title/description explicitly with Edit ticket. Property selects save
+  immediately; assignee has an explicit Save action (blank clears it). Saved state
+  stays visible on failure. The dependency dialog displays the API's exact error
+  inline and remains open after a rejected addition.
+- Description/comment previews and saved bodies use the shared sanitized Markdown
+  component. Comments offer Write/Preview for both creation and editing; whitespace
+  cannot submit. No activity events are fabricated from ticket timestamps.
+- `CHROME_BIN=<headless-chromium> cargo xtask detail-check` starts isolated local
+  Worker/D1 state, seeds through the API, verifies editing/creation/comments/XSS and
+  dependency cycles, and captures dark 1440×900 / 390×900 images in
+  `docs/screenshots/detail/`. For before captures only, set `TICKETS_BEFORE_ASSETS`
+  to the absolute `crates/web/dist` directory built from origin/main in a temporary
+  worktree. This captures the previous real detail route and list preview, plus
+  the fixture target separately. Remove the temporary worktree after capturing.

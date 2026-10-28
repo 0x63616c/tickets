@@ -59,4 +59,16 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn raw_html_keeps_safe_content_but_never_active_controls() {
+        let html = render(
+            "<strong>Safe</strong><input type=submit formaction='javascript:alert(1)' onclick='alert(1)'><a href='jav&#x61;script:alert(1)'>link</a>",
+        );
+        assert!(html.contains("<strong>Safe</strong>"));
+        assert!(html.contains("type=\"checkbox\""));
+        assert!(html.contains("disabled"));
+        for forbidden in ["javascript", "formaction", "onclick", "submit"] {
+            assert!(!html.contains(forbidden), "{html}");
+        }
+    }
 }

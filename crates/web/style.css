@@ -355,3 +355,20 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .api-list-row .row-labels { display: flex; overflow: hidden; max-width: 200px; flex-shrink: 0; }
 .api-list-row .row-labels .label-chip { flex-shrink: 0; }
 @media (max-width: 760px) { .api-list-row .row-labels { display: none; } }
+
+/* Detail editors retain the fixture layout and shared control tokens. */
+.markdown-editor { width: 100%; min-width: 0; }
+.comment-form > .markdown-editor { display: block; padding: 8px; }
+.editor-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.editor-tabs [aria-pressed="true"] { background: var(--surface-active); color: var(--text); }
+.markdown-preview { min-height: 96px; padding: 12px; }
+.dependency-options { max-height: 320px; overflow-y: auto; }
+.properties select { max-width: 100%; }
+.comment-content { min-width: 0; }
+@media (max-width: 760px) { .comment-heading { flex-wrap: wrap; } }
+.comment-form .field textarea { background: transparent; border: 0; }
+.ticket-detail h1 { overflow-wrap: anywhere; }
+.assignee-editor input { background: transparent; border: 0; border-radius: var(--radius-sm); height: 28px; padding: 0 8px; margin-left: -8px; min-width: 0; flex: 1; color: var(--text); font-size: var(--text-xs); }
+.assignee-editor input:hover { background: var(--surface-hover); }.assignee-editor input:focus { background: var(--surface); outline: 1px solid var(--accent); }
+.assignee-editor div:has(.avatar) input { margin-left: 0; }
+.comment-action { opacity: 0; height: 24px; padding: 0 8px; }.comment:hover .comment-action, .comment:focus-within .comment-action { opacity: 1; }

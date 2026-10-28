@@ -159,7 +159,9 @@ pub fn ApiList() -> impl IntoView {
             state.project.set(project);
         }
     });
-    let selected = RwSignal::new(None::<i64>);
+    let selected = Callback::new(move |id: i64| {
+        let _ = window().location().set_href(&format!("/ticket?id={id}"));
+    });
     state.refresh();
     let handle = window_event_listener(ev::keydown, move |e| {
         if e.ctrl_key()
@@ -207,7 +209,7 @@ pub fn ApiList() -> impl IntoView {
             "Enter" => {
                 if let Some(at) = at {
                     e.prevent_default();
-                    selected.set(Some(visible[at].id));
+                    selected.run(visible[at].id);
                 }
             }
             "c" if !state.loading.get_untracked() && !state.busy.get_untracked() => {
@@ -236,11 +238,10 @@ pub fn ApiList() -> impl IntoView {
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && rows(state, location).is_empty()><p class="board-message">"No tickets match this view. Clear filters or create a ticket."</p></Show>
         <div class="view-footer"><span>{move||format!("{} tickets",rows(state, location).len())}</span><span>"J / K: navigate · Enter: open · C: create"</span></div>
         {move||state.composer.get().map(|status|view!{<BoardComposer status/>})}
-        {move||selected.get().and_then(|id|state.tickets.get().into_iter().find(|t|t.id==id)).map(|t| {let id=t.id;view!{<Modal title="Ticket" on_close=Callback::new(move|_|{selected.set(None);focus(id);})><div class="modal-body"><span class="mono ticket-id">{t.key}</span><h1>{t.title}</h1><div class="markdown" inner_html=t.body_html/></div></Modal>}})}
     }
 }
 #[component]
-fn ListRow(ticket: BoardTicket, selected: RwSignal<Option<i64>>) -> impl IntoView {
+fn ListRow(ticket: BoardTicket, selected: Callback<i64>) -> impl IntoView {
     let state = expect_context::<BoardState>();
     let id = ticket.id;
     let status = ticket.status;
@@ -249,7 +250,7 @@ fn ListRow(ticket: BoardTicket, selected: RwSignal<Option<i64>>) -> impl IntoVie
     view! {<article class="ticket-row api-list-row" id=format!("list-ticket-{id}") tabindex="0" aria-label=format!("{}: {}",ticket.key,ticket.title)>
         <span class="inline-property"><PriorityIcon priority/><select aria-label=format!("Priority for {}",ticket.key) disabled=move||state.busy.get() prop:value=priority.name() on:change=move|e|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==event_target_value(&e)){edit(state,id,"priority",json!(p));}}>{Priority::ALL.into_iter().map(|p|view!{<option value=p.name() selected=p==priority>{p.name()}</option>}).collect_view()}</select></span>
         <span class="mono ticket-id">{ticket.key.clone()}</span><span class="inline-property"><StatusIcon status/><select aria-label=format!("Status for {}",ticket.key) disabled=move||state.busy.get() prop:value=status.name() on:change=move|e|edit(state,id,"status",json!(Status::from_name(&event_target_value(&e))))>{Status::ALL.into_iter().map(|s|view!{<option value=s.name() selected=s==status>{s.name()}</option>}).collect_view()}</select></span>
-        <button class="row-title" on:click=move|_|selected.set(Some(id))>{ticket.title.clone()}</button>
+        <button class="row-title" on:click=move|_|selected.run(id)>{ticket.title.clone()}</button>
         {move||{let keys=blockers.iter().filter_map(|id|state.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|t.key).collect::<Vec<_>>();(!keys.is_empty()).then(||view!{<span class="row-blocked" title=format!("Blocked by {}",keys.join(", "))><Icon name="blocked"/>"Blocked"</span>})}}
         <span class="row-labels">{ticket.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</span>
         <span class="row-comments">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<Icon name="comment"/>{n}})}</span>
