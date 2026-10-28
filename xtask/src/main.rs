@@ -2,6 +2,10 @@ mod api_smoke;
 mod auth;
 mod auth_verify;
 #[cfg(not(target_arch = "wasm32"))]
+mod import_check;
+#[cfg(not(target_arch = "wasm32"))]
+mod import_github;
+#[cfg(not(target_arch = "wasm32"))]
 mod screenshots;
 mod skill_check;
 
@@ -59,10 +63,14 @@ fn main() -> Result {
     } else {
         1
     };
-    if args.len() > max_args {
-        return Err("expected exactly one task: dev, build, migrate, ci, api-smoke, skill-check, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
+    if args.len() > max_args && task.as_deref() != Some("import-github") {
+        return Err("expected exactly one task: dev, build, migrate, ci, api-smoke, skill-check, import-github, import-check, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
     }
     match task.as_deref() {
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("import-github") => import_github::cli(&args[1..]),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("import-check") => api_smoke::import_check(root),
         Some("api-smoke") => api_smoke::run(root, false),
         Some("skill-check") => api_smoke::run(root, true),
         #[cfg(not(target_arch = "wasm32"))]
@@ -145,7 +153,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <dev|build|migrate [--remote]|ci|api-smoke|skill-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check>".into())
+            Err("usage: cargo xtask <dev|build|migrate [--remote]|ci|api-smoke|skill-check|import-github --repo <owner/repo> --project <KEY> [--url <local-url>] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check>".into())
         }
     }
 }

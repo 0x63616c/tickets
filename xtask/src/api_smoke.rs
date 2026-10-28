@@ -105,6 +105,10 @@ impl Client {
         Ok(value)
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
+pub fn import_check(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, false, "import")
+}
 pub fn run(root: &Path, skill: bool) -> Result<()> {
     run_inner(root, skill, false)
 }
@@ -239,6 +243,10 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         "cookie",
         201,
     )?;
+    #[cfg(not(target_arch = "wasm32"))]
+    if _view == "import" {
+        return super::import_check::check(token["token"].as_str().ok_or("missing token")?);
+    }
     if board {
         #[cfg(not(target_arch = "wasm32"))]
         return if _view == "polish" {

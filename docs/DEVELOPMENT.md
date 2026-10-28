@@ -138,3 +138,65 @@ conflicts, project moves and repeated external upserts. It shares api-smoke's
 port 8795 and generated `target/api-smoke-*` state, and stops the Worker on exit.
 Use it whenever the skill or API changes; CI also runs it. It supplies generated
 fixture credentials, never credentials from your environment.
+
+## GitHub issue import (local only)
+
+With a local `wrangler dev` and local D1, create a local personal token through
+Settings → API tokens and set `TICKETS_TOKEN` in your secure environment.
+GitHub authentication uses `GITHUB_TOKEN`, falling back to `gh auth token`.
+Neither credential is printed. The User-Agent is `tickets-import`.
+
+```sh
+cargo xtask import-github --repo 0x63616c/voxelite --project QUA --dry-run
+cargo xtask import-github --repo 0x63616c/voxelite --project QUA
+# A second local instance can use --url http://127.0.0.1:8790
+cargo xtask import-check
+```
+
+The default Tickets URL is `http://127.0.0.1:8787`; only HTTP loopback URLs are
+accepted, redirects are disabled, and credentials never go in URLs. Production
+import remains **pending Calum's explicit OK**; this command cannot target a
+remote instance. Do not deploy, migrate remote D1, or change Quantum's process
+as part of a local import.
+
+All issues, open and closed, are read with pagination; PRs are excluded.
+`QUA` creates **Quantum** for `0x63616c/voxelite`; other repositories use their
+repository name. An existing project is selected by key, including archived
+projects. Existing tickets are upserted by `github:<owner>/<repo>:<number>`;
+external URLs link back to GitHub. Closed issues become Done, other issues Todo.
+GitHub Projects columns are deferred until the GitHub token has project scope.
+Tickets has no stored Blocked status: `status:blocked` is retained as a label,
+and `Blocked by #N` creates blocker → blocked edges after all ticket IDs exist.
+The API marks a ticket blocked while an incoming blocker is not Done/Canceled.
+A stale blocked label with only completed blockers therefore does not override
+the API's derived state. Unresolved references fail the import.
+
+The importer owns imported title, body, state, URL and label memberships. Labels
+are created by name and colors updated to GitHub's colors (labels are global).
+Dependencies between imported tickets are reconciled; unrelated edges survive.
+Comments use a hidden Markdown marker containing the repository and GitHub
+comment ID, so equal bodies remain distinct and edited comments update in place.
+Keep those markers when editing imported comments locally. Comments removed
+from GitHub are retained as history. Authors remain the API's single-user owner;
+GitHub usernames and credential information are not added to comment bodies.
+Rerun after a partial failure; source updates overwrite local edits to owned
+fields. Do not run two imports concurrently.
+
+Dry run reads source issues/comments and destination projects/labels, prints
+issue numbers, states and planned counts, and makes no writes. The final write
+report compares source open/closed counts with read-back Tickets counts, fields,
+label names/colors, dependency edges and comment bodies; gaps exit nonzero.
+GitHub rate limits with Retry-After/reset headers retry up to three times with
+a maximum five-minute wait each; longer limits fail for a later rerun. Other
+HTTP failures stop without echoing response bodies or credentials.
+
+`import-check` reuses api-smoke's isolated local Worker/D1 lifecycle, generated
+credentials, port 8795 and ignored `target/api-smoke-*` state. A Rust HTTP server
+provides paginated GitHub fixtures and a rate-limit response. It checks dry-run
+absence of writes, PR exclusion, open/closed state, Markdown, label colors,
+dependency direction and three comments (including equal bodies with distinct
+IDs). It imports twice, deliberately introducing drift before the second run,
+and checks stable ticket/comment identities and no duplicate projects/labels.
+It also reverses a local dependency and adds an incorrect label before the
+rerun, then confirms an unexpected imported ticket makes reconciliation fail.
+Do not run it concurrently with api-smoke, skill-check or browser checks.

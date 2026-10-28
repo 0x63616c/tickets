@@ -203,3 +203,17 @@
   lifecycle against isolated local D1 and captures desktop/mobile dark screenshots.
   Set `TICKETS_BEFORE_ASSETS` to origin/main assets for the real before route and
   separate fixture target, following the detail/polish baseline conventions.
+
+## GitHub import conventions
+
+- Keep GitHub migration tooling in native Rust xtask. `import-github` accepts only
+  local HTTP loopback Tickets URLs; production import is gated on Calum's OK.
+- Import identity is `github:<lowercase owner>/<lowercase repo>:<issue number>`.
+  Comments use repository/comment-ID Markdown markers until the API has native
+  comment external IDs. Preserve markers on reruns; do not deduplicate by body.
+- Blocked is derived from dependencies, not a seventh stored status. Preserve
+  `status:blocked` labels and reconcile blocker → blocked edges after upserts.
+- Run `cargo xtask import-check` for importer changes; it reuses isolated local
+  api-smoke state/port 8795 and must run sequentially with other local checks.
+- Importer PRs use `Refs #11` while production import remains pending approval;
+  do not close the issue or mark the production migration complete prematurely.
