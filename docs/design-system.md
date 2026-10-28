@@ -214,3 +214,10 @@ Gzip is a reproducible local estimate, not a measured Cloudflare transfer size.
 This is the complete preview including Markdown parsing/sanitization and routing.
 Track this baseline as the API-backed screens replace fixtures; do not compare it
 to unoptimized debug builds.
+
+The API-backed Projects view is `/projects`; `/design/projects` remains the
+fixture. It reuses the fixture table, shared project icon, Modal and TextInput.
+New project and Edit save name, key prefix, icon color and optional GitHub link.
+Show archived reveals projects for restoration; archiving preserves tickets.
+GitHub Project and repository links appear in the selected project header.
+Run `cargo xtask projects-check` for the isolated local UI lifecycle check.

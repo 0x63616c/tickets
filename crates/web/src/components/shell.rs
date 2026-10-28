@@ -38,8 +38,9 @@ pub fn AppShell(children: Children) -> impl IntoView {
                 <button class="search-trigger" on:click=move |_| state.dialog.set(DialogKind::Command)><Icon name="search"/><span>"Search tickets…"</span><Shortcut>"⌘ K"</Shortcut></button>
                 <Show when=move || location.pathname.get().starts_with("/design") fallback=move || view! {
                     <nav class="sidebar-nav" aria-label="Main navigation" on:click=move |_| mobile_open.set(false)>
+                        <A href="/projects" attr:class="nav-item"><Icon name="project"/>"Projects"</A>
                         <div class="nav-section-label">"Projects"</div>
-                        {move || board.projects.get().into_iter().map(|p| {
+                        {move || board.projects.get().into_iter().filter(|p|!p.archived).map(|p| {
                             let id = p.id;
                             view! { <A href="/" attr:class="nav-item project-nav" on:click=move |ev| { if !board.select_project(id) {ev.prevent_default();} }><span class="project-dot" style=format!("--dot:{}",p.color)/><span>{p.name}</span><span class="nav-count">{move||board.tickets.get().iter().filter(|t|t.project_id==id).count()}</span></A> }
                         }).collect_view()}

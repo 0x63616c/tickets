@@ -426,3 +426,19 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
   .command-footer { flex-wrap: wrap; gap: 8px; }
   .comment-heading { gap: 4px; }
 }
+
+/* Projects uses the fixture table, with explicit row editing. */
+.project-title { display: flex; align-items: center; gap: var(--space-3); min-width: 0; flex: 1; }
+.project-title strong { overflow-wrap: anywhere; }
+.api-project-row > div { min-width: 0; }
+.projects-heading .canceled-toggle { margin-left: auto; }
+@media (max-width: 600px) {
+  .projects-heading { flex-wrap: wrap; }
+  .projects-heading .canceled-toggle { margin-left: 0; }
+}
+.project-links { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.project-links a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) {
+  .view-tabs:has(.project-links) { height: auto; min-height: var(--topbar-height); flex-wrap: wrap; gap: var(--space-2); padding-block: var(--space-2); }
+  .project-links { flex-wrap: wrap; gap: var(--space-2); }
+}
