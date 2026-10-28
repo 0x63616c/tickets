@@ -65,3 +65,17 @@
 - Password hashes store canonical positive PBKDF2-SHA256 iteration counts up to
   the production WebCrypto maximum (100,000); new hashes use that maximum.
   Generate a passphrase of at least 16 characters with `cargo xtask auth-hash`.
+## Frontend design conventions
+- Leptos CSR is locked; see `docs/adr/0001-frontend.md`. Use plain CSS with
+  `crates/web/style/tokens.css` roles, semantic controls and the shared inline SVG
+  family. The visual/interaction reference is `docs/design-system.md` and `/design`.
+- The `/design` routes are fixture previews. Label them as sample data and keep
+  API/auth/live-transport integration in its implementation issue.
+- Descriptions and comments must use `markdown::render` (pulldown-cmark followed
+  by ammonia). Never feed raw Markdown or user HTML directly to `inner_html`.
+- Keep tool logic in Rust `xtask`. `cargo xtask design-check` checks a local
+  running UI through Chromium and captures 1440×900 dark screenshots. See
+  `docs/design-system.md` for browser, server, and output overrides.
+- UI screenshots must show actual rendered routes with fonts loaded. Include
+  the previous real UI as the before image; the scaffold exception no longer
+  applies. Font OFL notices live alongside the bundled fonts, not as a repo license.
