@@ -11,6 +11,8 @@ use std::{env, error::Error, path::Path, process::Command};
 mod design;
 #[cfg(not(target_arch = "wasm32"))]
 mod polish;
+#[cfg(not(target_arch = "wasm32"))]
+mod projects;
 
 type Result = std::result::Result<(), Box<dyn Error>>;
 
@@ -80,6 +82,8 @@ fn main() -> Result {
         Some("detail-check") => api_smoke::detail(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("polish-check") => api_smoke::polish(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("projects-check") => api_smoke::projects(root),
         Some("build") => build(root),
         Some("dev") => {
             build(root)?;
