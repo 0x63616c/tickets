@@ -130,3 +130,11 @@ routes (default server: `http://127.0.0.1:8086`). To check the Worker instead, s
 Chromium executable if `/usr/bin/google-chrome` is unavailable or managed by a
 proxy policy. The task writes screenshots under `docs/screenshots/design/` and
 browser logs/profile data under ignored `target/`.
+
+`cargo xtask skill-check` builds the app and runs every curl example in the
+[agent skill](../.agents/skills/tickets/SKILL.md) against a fresh local Worker/D1.
+It checks HTTP status, JSON response subsets, pagination, filters, dependency
+conflicts, project moves and repeated external upserts. It shares api-smoke's
+port 8795 and generated `target/api-smoke-*` state, and stops the Worker on exit.
+Use it whenever the skill or API changes; CI also runs it. It supplies generated
+fixture credentials, never credentials from your environment.

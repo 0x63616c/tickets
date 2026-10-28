@@ -32,4 +32,5 @@ pub mod dependency;
 pub mod domain;
 pub mod markdown;
 
+pub mod api;
 pub mod auth;

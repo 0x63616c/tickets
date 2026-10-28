@@ -48,6 +48,19 @@ async fn query(db: &D1Database, sql: &str, args: Vec<Value>) -> Result<Vec<Value
         .map_err(|_| Error::RustError("Authentication storage failed".into()))
 }
 fn reply(value: Value, status: u16) -> Result<Response> {
+    let value = if status >= 400 && value["error"].is_string() {
+        let code = match status {
+            400 => "bad_request",
+            401 => "unauthorized",
+            403 => "forbidden",
+            404 => "not_found",
+            429 => "rate_limited",
+            _ => "internal",
+        };
+        json!({"error":{"code":code,"message":value["error"]}})
+    } else {
+        value
+    };
     let mut r = Response::from_json(&value)?.with_status(status);
     r.headers_mut().set("Cache-Control", "no-store")?;
     Ok(r)
@@ -181,8 +194,20 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
         (Method::Delete,_) if path.starts_with("/api/v1/tokens/")=> {
             let Ok(id)=path.trim_start_matches("/api/v1/tokens/").parse::<i64>() else { return reply(json!({"error":"Invalid token id"}),400); };
             let rows=query(&db,"UPDATE api_tokens SET revoked_at=coalesce(revoked_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')) WHERE id=? AND user_id=1 RETURNING id",vec![id.into()]).await?;
-            reply(json!({"ok":!rows.is_empty()}),if rows.is_empty(){404}else{200})
+            if rows.is_empty() { reply(json!({"error":"Token not found"}),404) } else { reply(json!({"ok":true}),200) }
         },
-        _=>reply(json!({"error":"Not found"}),404)
+        _=> {
+            let url=req.url()?;
+            let query=url.query_pairs().map(|(k,v)|(k.into_owned(),v.into_owned())).collect::<Vec<_>>();
+            let body=if changing {
+                match req.text().await {
+                    Ok(text) if text.is_empty()=>Value::Null,
+                    Ok(text)=>match serde_json::from_str(&text) {Ok(v)=>v,Err(_)=>return reply(json!({"error":"Malformed JSON"}),400)},
+                    Err(_)=>return reply(json!({"error":"Unable to read body"}),400),
+                }
+            } else {Value::Null};
+            let response=crate::api::handle(&db,req.method().as_ref(),&path,&query,body).await;
+            reply(response.body,response.status)
+        }
     }
 }
