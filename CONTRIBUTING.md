@@ -372,3 +372,15 @@ diff for secrets/binaries, and run the required Rust checks before opening a PR.
 
 Keep installer-provided skill files verbatim, including upstream whitespace and
 Windows line endings; apply repository formatting checks to our own files.
+
+## Mobile ticket layout verification
+
+- Keep blocked indicators visible at narrow widths. Ticket properties follow the
+  title in DOM/keyboard order and precede description, dependencies and activity;
+  desktop retains its right-hand properties column.
+- `first-run-check` asserts the 390×844 layout with its UI-created unresolved
+  dependency, including marker geometry, row containment and properties order.
+- `TICKETS_MOBILE_LAYOUT_ONLY=1 cargo xtask contrast-check` captures the same
+  blocked list/detail routes at 1440×900 and 390×844 in `docs/screenshots/55/`.
+  Set `TICKETS_BEFORE_ASSETS` to origin/main assets from a temporary worktree for
+  the before images; after captures also assert visibility and content order.

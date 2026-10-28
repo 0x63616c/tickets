@@ -61,6 +61,15 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Prepare release' && document.querySelector('[aria-label=Status]')?.value==='In progress' && document.querySelector('.dependency-row')?.textContent.includes('Blocks') && document.querySelector('.dependency-title')?.textContent==='Publish release'")?;
     b.click(".dependency-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release' && document.querySelector('.property-labels .label-chip')?.textContent.includes('Release') && document.querySelector('.dependency-row')?.textContent.includes('Blocked by')")?;
+    // #55: exercise the responsive layout with a real unresolved dependency.
+    b.viewport(390, 844)?;
+    b.wait("(()=>{const p=document.querySelector('.properties'),d=document.querySelector('.detail-description'),a=document.querySelector('.activity');return p.getBoundingClientRect().bottom<=d.getBoundingClientRect().top && p.getBoundingClientRect().top<a.getBoundingClientRect().top && !!(p.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING)})()")?;
+    b.wait("(()=>{const r=document.querySelector('.dependency-kind').getBoundingClientRect();return r.width>0 && r.height>0})()")?;
+    b.go("http://127.0.0.1:8795/list?project=1")?;
+    b.wait("(()=>{const row=document.querySelector('#list-ticket-2'),e=row?.querySelector('.row-blocked');if(!e)return false;const r=e.getBoundingClientRect(),p=row.getBoundingClientRect();return r.width>0 && r.height>0 && r.left>=p.left && r.right<=p.right && r.top>=p.top && r.bottom<=p.bottom && getComputedStyle(e).visibility==='visible' && document.documentElement.scrollWidth<=innerWidth})()")?;
+    b.click("#list-ticket-2 .row-title")?;
+    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
+    b.viewport(1440, 900)?;
     // Hold a live catch-up response until its DetailPage has been disposed.
     // This makes navigation during an in-flight read deterministic.
     b.eval("window.detailFetch=window.fetch;window.fetch=async(input,init)=>{const response=await window.detailFetch(input,init);const url=input instanceof Request?input.url:String(input);if(url.includes('/tickets/2/comments?')){window.detailHeld=true;await new Promise(resolve=>window.releaseDetail=resolve);}return response;};window.dispatchEvent(new Event('focus'));true")?;

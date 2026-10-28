@@ -117,6 +117,52 @@ fn capture(
     Ok(())
 }
 
+// Keep the same unresolved blocker, routes and content for both asset builds.
+fn mobile_layout(b: &mut Browser, root: &Path, phase: &str) -> super::Result {
+    let output = root.join("docs/screenshots/55");
+    fs::create_dir_all(&output)?;
+    for (route, path, ready, marker) in [
+        (
+            "list",
+            "/list?project=1",
+            "document.querySelectorAll('.api-list-row').length===4",
+            "#list-ticket-1 .row-blocked",
+        ),
+        (
+            "ticket-detail",
+            "/ticket?id=1",
+            "!!document.querySelector('.comment')",
+            ".dependency-kind",
+        ),
+    ] {
+        b.go(&format!("http://127.0.0.1:8795{path}"))?;
+        b.wait(ready)?;
+        for (size, width, height) in [("desktop", 1440, 900), ("mobile", 390, 844)] {
+            b.viewport(width, height)?;
+            b.call(
+                "Input.dispatchMouseEvent",
+                json!({"type":"mouseMoved","x":0,"y":0}),
+            )?;
+            b.eval("new Promise(r=>setTimeout(r,180))")?;
+            b.eval("document.fonts.ready.then(()=>{window.scrollTo(0,0);return true})")?;
+            if phase == "after" {
+                b.wait(&format!(r#"(()=>{{const e=document.querySelector('{marker}');if(!e)return false;const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0 && r.height>0 && s.visibility==='visible' && s.display!=='none'}})()"#))?;
+                b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+                if size == "mobile" && route == "ticket-detail" {
+                    b.wait("document.querySelector('.properties').getBoundingClientRect().bottom<=document.querySelector('.detail-description').getBoundingClientRect().top && document.querySelector('.properties').getBoundingClientRect().top<document.querySelector('.activity').getBoundingClientRect().top")?;
+                    b.wait("!!(document.querySelector('.properties').compareDocumentPosition(document.querySelector('.activity')) & Node.DOCUMENT_POSITION_FOLLOWING)")?;
+                }
+                if route == "list" {
+                    b.wait("(()=>{const row=document.querySelector('#list-ticket-1').getBoundingClientRect(),marker=document.querySelector('#list-ticket-1 .row-blocked').getBoundingClientRect();return marker.left>=row.left && marker.right<=row.right && marker.top>=row.top && marker.bottom<=row.bottom})()")?;
+                }
+            }
+            b.screenshot(&output.join(format!("{route}-{phase}-{size}.png")))?;
+        }
+    }
+    b.viewport(1440, 900)?;
+    Ok(())
+}
+
 pub fn check(root: &Path, password: &str) -> super::Result {
     let phase = if env::var_os("TICKETS_BEFORE_ASSETS").is_some() {
         "before"
@@ -129,7 +175,9 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     let mut b = Browser::start_named(root, "contrast-browser")?;
     b.call("Network.clearBrowserCookies", json!({}))?;
     b.go("http://127.0.0.1:8795/login")?;
-    capture(&mut b, &output, phase, "login", &mut rows)?;
+    if env::var_os("TICKETS_MOBILE_LAYOUT_ONLY").is_none() {
+        capture(&mut b, &output, phase, "login", &mut rows)?;
+    }
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
@@ -142,9 +190,15 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         const t=await api('tickets',{project_id:1,title,status:['in_progress','todo','backlog','done'][i],priority:2,body:'### Acceptance criteria\n- [x] Show status, labels and priority\n- [ ] Keep keyboard focus visible\n\nUse the status menu or drag a card to move it.'});
         await api('tickets/'+t.id+'/labels/'+(i+1),{});
       }
+      await api('tickets/2/dependencies/1',{});
       await api('tickets/1/comments',{body:'Verify the shortcut hints and labels in each view.'});
       return true;
     })()"#)?;
+    mobile_layout(&mut b, root, phase)?;
+    if env::var_os("TICKETS_MOBILE_LAYOUT_ONLY").is_some() {
+        println!("PASS: #55 {phase} mobile layout evidence and rendered regression assertions");
+        return Ok(());
+    }
     b.go("http://127.0.0.1:8795/list?project=1")?;
     b.wait("document.querySelectorAll('.api-list-row').length===4")?;
     capture(&mut b, &output, phase, "list", &mut rows)?;
