@@ -243,13 +243,14 @@ pub fn ApiList() -> impl IntoView {
 #[component]
 fn ListRow(ticket: BoardTicket, selected: Callback<i64>) -> impl IntoView {
     let state = expect_context::<BoardState>();
+    let mirrored = ticket.mirrored();
     let id = ticket.id;
     let status = ticket.status;
     let priority = ticket.priority;
     let blockers = ticket.blocked_by.clone();
     view! {<article class="ticket-row api-list-row" id=format!("list-ticket-{id}") tabindex="0" aria-label=format!("{}: {}",ticket.key,ticket.title)>
-        <span class="inline-property"><PriorityIcon priority/><select aria-label=format!("Priority for {}",ticket.key) disabled=move||state.busy.get() prop:value=priority.name() on:change=move|e|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==event_target_value(&e)){edit(state,id,"priority",json!(p));}}>{Priority::ALL.into_iter().map(|p|view!{<option value=p.name() selected=p==priority>{p.name()}</option>}).collect_view()}</select></span>
-        <span class="mono ticket-id">{ticket.key.clone()}</span><span class="inline-property"><StatusIcon status/><select aria-label=format!("Status for {}",ticket.key) disabled=move||state.busy.get() prop:value=status.name() on:change=move|e|edit(state,id,"status",json!(Status::from_name(&event_target_value(&e))))>{Status::ALL.into_iter().map(|s|view!{<option value=s.name() selected=s==status>{s.name()}</option>}).collect_view()}</select></span>
+        <span class="inline-property"><PriorityIcon priority/><select aria-label=format!("Priority for {}",ticket.key) disabled=move||mirrored || state.busy.get() prop:value=priority.name() on:change=move|e|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==event_target_value(&e)){edit(state,id,"priority",json!(p));}}>{Priority::ALL.into_iter().map(|p|view!{<option value=p.name() selected=p==priority>{p.name()}</option>}).collect_view()}</select></span>
+        <span class="mono ticket-id">{ticket.key.clone()}</span><span class="inline-property"><StatusIcon status/><select aria-label=format!("Status for {}",ticket.key) disabled=move||mirrored || state.busy.get() prop:value=status.name() on:change=move|e|edit(state,id,"status",json!(Status::from_name(&event_target_value(&e))))>{Status::ALL.into_iter().map(|s|view!{<option value=s.name() selected=s==status>{s.name()}</option>}).collect_view()}</select></span>
         <button class="row-title" title=ticket.title.clone() on:click=move|_|selected.run(id)>{ticket.title.clone()}</button>
         {move||{let keys=blockers.iter().filter_map(|id|state.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|t.key).collect::<Vec<_>>();(!keys.is_empty()).then(||view!{<span class="row-blocked" title=format!("Blocked by {}",keys.join(", "))><Icon name="blocked"/>"Blocked"</span>})}}
         <span class="row-labels">{ticket.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</span>
