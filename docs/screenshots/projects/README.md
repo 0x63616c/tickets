@@ -13,8 +13,10 @@ captures `/design/projects`; this fixture is not the before image.
 
 After: `/projects` on `feat/10-projects`, with the same seed and viewports.
 The existing fixture table dimensions, controls, tokens and 240px desktop sidebar
-are retained. The project glyph uses its saved icon color. Extra images show
-creation, archived projects, and GitHub Project/repository links in the header.
+are retained. The initial badge uses its saved icon color and the secondary line is its key
+prefix (the model has no description). Row edit/archive actions sit at the right
+edge and appear on hover/focus, or always on touch. Extra images show
+creation, editing, archived projects, and GitHub Project/repository links in the header.
 
 Reproduce:
 
@@ -23,7 +25,9 @@ CHROME_BIN=/home/box/.cache/ms-playwright/chromium_headless_shell-1248/chrome-he
 ```
 
 The check exercises UI creation, rename/prefix changes, user and organization
-URLs, invalid URL feedback, optional repository persistence, reload, archive and
+URLs and owner/number short input, conditional owner-type controls, compact color
+swatches, edit-only prefix warning, sidebar count/new action, keyboard row actions,
+240px sidebar, mobile overflow, invalid URL feedback, optional repository persistence, reload, archive and
 restore, sidebar visibility, and actual header links. It creates a ticket in a
 chosen project, moves it on Kanban, attaches a seeded label and a dependency,
 reassigns the ticket to another project, then checks persistence after reload.
