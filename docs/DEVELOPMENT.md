@@ -193,9 +193,9 @@ are created by name and colors updated to GitHub's colors (labels are global).
 Dependencies between imported tickets are reconciled; unrelated edges survive.
 Comments use a hidden Markdown marker containing the repository and GitHub
 comment ID, so equal bodies remain distinct and edited comments update in place.
-Keep those markers when editing imported comments locally. Comments removed
-from GitHub are retained as history. Authors remain the API's single-user owner;
-GitHub usernames and credential information are not added to comment bodies.
+Keep those markers when editing imported comments locally. A standalone importer run retains comments removed from GitHub;
+mirror webhook deletions remove them. The API author field remains the single-user owner; GitHub usernames appear
+in the shared marker-backed comment body.
 Rerun after a partial failure; source updates overwrite local edits to owned
 fields. Do not run two imports concurrently.
 
@@ -232,3 +232,74 @@ once after committed PUT and PATCH writes, checking stable identities after retr
 It also loses a committed comment-create response, verifies safe recovery on
 rerun, follows GitHub 301/307 redirects, rejects an unrecognized rename, and
 imports under both voxelite/quantum names without duplicate tickets or comments.
+
+## Continuous GitHub mirror
+
+GitHub remains primary: the Worker only sends GET requests to GitHub. Start with
+`cargo xtask import-github` for **both open and closed** issues, then webhooks keep
+content fresh within seconds and cron repairs missed edits. The coordinator does
+production setup after merge; development and checks use isolated local D1 only.
+
+`GITHUB_MIRROR` is a Worker var in both default and production environments:
+`1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/voxelite:QUA`.
+Each entry maps stable repository ID to external-ID identity and project key.
+Projects are ensured by key; QUA is named Quantum, others use the repository name.
+The quantum rename retains the original voxelite identity and comment markers.
+Production deploys pass `GITHUB_WEBHOOK_SECRET` from the GitHub `production`
+environment secret `TICKETS_GITHUB_WEBHOOK_SECRET` (CI `--secrets-file`).
+Set secret `GITHUB_WEBHOOK_SECRET` to the shared webhook signing secret; without
+it the endpoint returns 503, never accepting unsigned requests. Optional secret
+`GITHUB_TOKEN` authenticates reconciliation reads (no token is logged). Local
+secrets belong in ignored `.dev.vars`, never in commits or command arguments.
+
+After merge, the coordinator registers a webhook on each repository with:
+
+- URL `https://tickets.worldwidewebb.co/api/v1/github/webhook`
+- Content type `application/json`, signing secret matching the Worker secret
+- Events **Issues**, **Issue comments**, **Labels**
+
+No reverse sync exists. Deleted/transferred issues delete their ticket and its
+comments/relationships; webhook comment deletions delete the marker-backed comment.
+**Deletions are caught only by webhooks**, because GitHub's incremental lists do
+not contain tombstones. Redeliver missed deletion deliveries through GitHub.
+Labels are global in Tickets, as in the importer; changing a shared name/color
+therefore affects every ticket using that label. A rename into an existing global
+name merges memberships transactionally rather than losing links.
+
+The ten-minute cron alternates configured repositories (each of the two repos is
+reconciled every twenty minutes). It reads issues and repository issue comments
+in ascending update order with `state=all`, cursor, and ETag per repo/stream in
+migration 0007. Each invocation fetches at most one page of two items per stream;
+initial backfill should use the importer. A sweep holds `since` fixed across pages
+and retains the high-water timestamp even when the final page is empty. Cursor
+writes happen only after full page application; a missing ticket stops comment
+progress unless a bounded issue lookup can resolve it; PR comments are skipped. 403/429 stops the invocation
+until the next scheduled run. ETags are retained only for the identical query;
+304 responses require no cursor write. GitHub requests use `tickets-mirror`,
+`application/vnd.github+json`, and API version `2022-11-28`.
+
+Budget: normally two external requests (at most four with missing-issue lookups), one cursor read, one project ensure,
+two issue batches, two comment reads/batches, and two cursor writes (10 D1 calls normally, at most 16 when both comments need issue lookups).
+An unchanged steady-state invocation costs two conditional requests and one D1
+read. A partial unique comment-marker index also prevents concurrent importer/webhook
+duplicates. Four SQL statements per issue run transactionally in a single `batch()`;
+label JSON uses bounded parameters independent of label count. No Markdown is
+rendered during ingestion. This conservatively targets the Free 10 ms CPU budget and
+stays below its 50 external subrequests and 50 D1 queries. CPU is workload-dependent;
+local checks are functional evidence, not a production CPU guarantee.
+[Current D1 limits](https://developers.cloudflare.com/d1/platform/limits/) explicitly
+count a batch as one invocation query; [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
+and [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/)
+are the references. Triggers are inheritable configuration, repeated explicitly
+for production here; vars are non-inheritable and must be repeated.
+
+`cargo xtask mirror-check` builds the app, runs local Wrangler with
+`--test-scheduled`, and calls `/__scheduled` against a Rust fake GitHub server.
+It checks HMAC acceptance/rejection, unknown repositories, PR exclusion,
+close/reopen, comment create/edit/delete, label recoloring/deletion, replay,
+and importer/mirror identity agreement, timestamp-tie pagination, ETag 304s,
+rate-limit stops, PR comment lookups and SQLite marker uniqueness; it captures
+real detail screenshots.
+It shares port 8795 with other local checks: run them sequentially.
+`GITHUB_API_BASE_URL` defaults to `https://api.github.com`; test overrides are
+restricted to HTTP loopback and are never configured in production.

@@ -22,6 +22,7 @@ jobs:
       - run: npm install --global wrangler@4.154.0
       - run: cargo xtask skill-check
       - run: cargo xtask import-check
+      - run: CHROME_BIN=google-chrome cargo xtask mirror-check
   migrations:
     runs-on: ubuntu-latest
     steps:
@@ -76,10 +77,11 @@ jobs:
         env:
           BOOTSTRAP_USERNAME: ${{ secrets.TICKETS_BOOTSTRAP_USERNAME }}
           BOOTSTRAP_PASSWORD_HASH: ${{ secrets.TICKETS_BOOTSTRAP_PASSWORD_HASH }}
+          GITHUB_WEBHOOK_SECRET: ${{ secrets.TICKETS_GITHUB_WEBHOOK_SECRET }}
         run: |
           umask 077
           secrets_file="$RUNNER_TEMP/worker-secrets.json"
-          jq -n '{BOOTSTRAP_USERNAME: env.BOOTSTRAP_USERNAME, BOOTSTRAP_PASSWORD_HASH: env.BOOTSTRAP_PASSWORD_HASH}' > "$secrets_file"
+          jq -n '{BOOTSTRAP_USERNAME: env.BOOTSTRAP_USERNAME, BOOTSTRAP_PASSWORD_HASH: env.BOOTSTRAP_PASSWORD_HASH, GITHUB_WEBHOOK_SECRET: env.GITHUB_WEBHOOK_SECRET}' > "$secrets_file"
           wrangler deploy --env production --secrets-file "$secrets_file"
           rm -f "$secrets_file"
       - name: Smoke test

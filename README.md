@@ -11,6 +11,6 @@ track and do work across all projects.
 
 Features: projects (linked to GitHub Projects), tickets with dependencies (blocks / blocked-by,
 cycle prevention), labels, Kanban and list views, dark mode throughout, login plus personal API
-tokens so agents can work fully through the API, and an agent skill in `.agents/skills/tickets/`.
+tokens so agents can work fully through the API, a one-way GitHub issue mirror (signed webhooks plus cron reconciliation), and an agent skill in `.agents/skills/tickets/`.
 
 See `CONTRIBUTING.md` and `AGENTS.md` for how work is done here. The v1 spec is issue #1.
