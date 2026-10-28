@@ -308,6 +308,17 @@
   `docs/screenshots/45/` at 1440×900 and 390×844; `TICKETS_BEFORE_ASSETS`
   selects origin/main assets for the same real ticket route and a fixture target.
 
+## Login recovery conventions
+
+- Keep typed transport failures inside the web API adapter; existing domain callers
+  receive their display strings. Login clears its password only on success or HTTP
+  401. Network, rate-limit and server failures keep it available for retry and do
+  not mark credentials invalid. Keep the decision host-testable in the web login module.
+- `cargo xtask login-check` also blocks `/api/v1/login` through Chromium's network
+  layer and captures dark desktop/mobile network failures in `docs/screenshots/56/`.
+  With `TICKETS_BEFORE_ASSETS` pointing at origin/main assets built in a temporary
+  worktree, it captures only the baseline network state without asserting new behavior.
+
 ## Impeccable design review
 
 Impeccable **4.8.0** is installed project-locally for Codex, Claude and Cursor.

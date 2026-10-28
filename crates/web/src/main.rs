@@ -6,6 +6,8 @@ mod count;
 mod fixtures;
 #[cfg(target_arch = "wasm32")]
 mod live;
+#[cfg(any(target_arch = "wasm32", test))]
+mod login;
 #[cfg(target_arch = "wasm32")]
 mod pages;
 #[cfg(target_arch = "wasm32")]
