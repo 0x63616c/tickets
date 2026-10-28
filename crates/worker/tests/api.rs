@@ -145,6 +145,9 @@ fn every_route_and_filters() {
                 .len(),
             2
         );
+        let combined=call(&db,"GET",&format!("/api/v1/tickets?project={pid}&status=in_progress&label={lid}&blocked=false&q=searchword&limit=1"),Value::Null,200).await;
+        assert_eq!(combined["data"][0]["id"], aid);
+        assert_eq!(combined["data"].as_array().unwrap().len(), 1);
         let r = call(
             &db,
             "GET",
