@@ -51,7 +51,9 @@
   --scrim: #0009;
   --duration-fast: 100ms; --duration-normal: 150ms; --duration-slow: 200ms;
   --ease: cubic-bezier(.25, .46, .45, .94);
-  --sidebar-width: 228px;
+  --chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='M3.5 5.25 7 8.75l3.5-3.5' stroke='%238a8f98' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --select-padding-x: 12px; --select-chevron-size: 14px;
+  --sidebar-width: 240px;
   --topbar-height: 44px;
 }
 @media (prefers-reduced-motion: reduce) {

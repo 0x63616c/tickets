@@ -96,7 +96,7 @@ fn TicketContent(ticket: Ticket) -> impl IntoView {
                         }).collect_view()}
                     </Menu>
                 </div>
-                <div class="property-section"><h2>"Project"</h2><A href="/design/board" attr:class="property-project"><span class="project-mark">"T"</span><span>{ticket.project}</span><Icon name="chevron"/></A></div>
+                <div class="property-section"><h2>"Project"</h2><A href="/design/board" attr:class="property-project"><span class="project-dot" style="--dot:var(--accent)"/><span>{ticket.project}</span><Icon name="chevron"/></A></div>
                 <div class="property-section"><h2>"Links"</h2><a class="subtle-link" href=format!("https://github.com/0x63616c/tickets/issues/{id}") target="_blank" rel="noreferrer"><Icon name="link"/>"GitHub issue"<Icon name="external"/></a></div>
                 <div class="property-section property-dates"><span>"Created Oct 24"</span><span>"Updated today"</span></div>
             </aside>

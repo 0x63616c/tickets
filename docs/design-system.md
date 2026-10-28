@@ -42,10 +42,26 @@ status names and icons. No animated page entrance; hover uses short color change
 
 A sidebar item is 28px high, a top/view bar 44px, a list/group row 36px. Body UI
 is 13px Inter at 510 for rows; detail titles are 20px/590. Controls use 6px radii,
-cards/menus 8px, dialogs 12px. Desktop sidebar width is 228px. Smaller screens hide
+cards/menus 8px, dialogs 12px. Desktop sidebar width is 240px. Smaller screens hide
 optional list properties first; boards scroll horizontally inside the content
 area. The sidebar collapses behind a labelled toggle. Detail properties follow
 the article on narrow screens. Focus remains visible and reduced motion is honored.
+
+All spacing sits on a 4px grid: buttons and fields are 32px high with 12px
+horizontal padding, keyboard hints 20px, label chips 24px, swatches 32px.
+
+**Selects** keep the native element for keyboard, touch and assistive technology,
+with `appearance: none` and the `--chevron-down` token: a 14px chevron in
+`#8a8f98`, 12px from the right edge to match the 12px left padding, and 36px of
+right padding so text never runs under it. Inline selects (board cards, detail
+properties) use the same chevron with a transparent fill and a hover tint; card
+selects size to their content so the chevron sits beside the value.
+
+**Sidebar** is `#0f1011` against the `#08090a` canvas with a 1px `#23252a`
+divider. A workspace switcher (20px mark, name, chevron, avatar) sits on top.
+Items are `#d0d6e0` with 16px icons; hover is a faint tint; the active item is a
+`#191a1b` pill with white text and an accent icon. Section headers are 11px
+uppercase `#62666d`. Projects show an 8px colored dot.
 
 ## Flows to preserve
 

@@ -12,14 +12,14 @@ pub fn AppShell(children: Children) -> impl IntoView {
         <a class="skip-link" href="#main">"Skip to content"</a>
         <div class="app-shell" class:sidebar-open=move || mobile_open.get()>
             <aside class="sidebar" aria-label="Workspace">
-                <div class="workspace"><span class="workspace-mark"><Icon name="ticket"/></span><strong>"Tickets"</strong><span class="workspace-personal">"Personal"</span></div>
+                <div class="workspace"><button class="workspace-switcher" aria-label="Switch workspace"><span class="workspace-mark">"T"</span><strong>"Tickets"</strong><Icon name="down"/></button><Avatar/></div>
                 <button class="search-trigger" on:click=move |_| state.dialog.set(DialogKind::Command)><Icon name="search"/><span>"Search tickets…"</span><Shortcut>"⌘ K"</Shortcut></button>
                 <nav class="sidebar-nav" aria-label="Main navigation" on:click=move |_| mobile_open.set(false)>
                     <A href="/design/projects" attr:class="nav-item"><Icon name="project"/><span>"Projects"</span><span class="nav-count">{move || state.projects.get().len() + 2}</span></A>
                     <div class="nav-section-label">"Projects"</div>
-                    <A href="/design/board" attr:class="nav-item project-nav" on:click=move |_| state.current_project.set("Tickets".into())><span class="project-mark">"T"</span><span>"Tickets"</span><span class="nav-count">{move || state.tickets.get().iter().filter(|t| t.project == "Tickets").count()}</span></A>
-                    <A href="/design/empty" attr:class="nav-item" on:click=move |_| state.current_project.set("Quantum".into())><span class="project-mark muted-mark">"Q"</span><span>"Quantum"</span></A>
-                    {move || state.projects.get().into_iter().map(|name| { let project = name.clone(); view! { <A href="/design/empty" attr:class="nav-item project-nav" on:click=move |_| state.current_project.set(project.clone())><Icon name="project"/><span>{name}</span></A> } }).collect_view()}
+                    <A href="/design/board" attr:class="nav-item project-nav" on:click=move |_| state.current_project.set("Tickets".into())><span class="project-dot" style="--dot:var(--accent)"/><span>"Tickets"</span><span class="nav-count">{move || state.tickets.get().iter().filter(|t| t.project == "Tickets").count()}</span></A>
+                    <A href="/design/empty" attr:class="nav-item" on:click=move |_| state.current_project.set("Quantum".into())><span class="project-dot" style="--dot:var(--label-infra)"/><span>"Quantum"</span></A>
+                    {move || state.projects.get().into_iter().map(|name| { let project = name.clone(); view! { <A href="/design/empty" attr:class="nav-item project-nav" on:click=move |_| state.current_project.set(project.clone())><span class="project-dot" style="--dot:var(--success)"/><span>{name}</span></A> } }).collect_view()}
                     <button class="nav-item quiet" on:click=move |_| state.dialog.set(DialogKind::Project)><Icon name="plus"/><span>"New project"</span></button>
                     <div class="nav-section-label">"Views"</div>
                     <A href="/design/board" attr:class="nav-item"><Icon name="board"/><span>"Board"</span></A>
