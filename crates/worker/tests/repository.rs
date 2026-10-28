@@ -198,3 +198,88 @@ fn database_constraints_and_atomic_cycle_guard() {
     );
 }
 use rusqlite::OptionalExtension;
+
+#[test]
+fn auth_expiry_revocation_and_hash_only_storage() {
+    use tickets_core::auth::hash_token;
+    use tickets_worker::auth_queries::{BEARER, SESSION};
+    block_on(async {
+        let store = Sqlite::new();
+        store
+            .0
+            .execute_batch(include_str!("../../../migrations/0003_auth.sql"))
+            .unwrap();
+        store
+            .0
+            .execute(
+                "INSERT INTO users(id,username,password_hash) VALUES(1,'fixture','hash')",
+                [],
+            )
+            .unwrap();
+        let hash = hash_token("test credential");
+        store.query::<Value>("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,1,'2000-01-01T00:00:00.000Z')",vec![hash.clone().into()]).await.unwrap();
+        assert!(
+            store
+                .query::<Value>(SESSION, vec![hash.clone().into()])
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        store
+            .0
+            .execute(
+                "UPDATE sessions SET expires_at='9999-01-01T00:00:00.000Z'",
+                [],
+            )
+            .unwrap();
+        assert_eq!(
+            store
+                .query::<Value>(SESSION, vec![hash.clone().into()])
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        store
+            .query::<Value>(
+                "INSERT INTO api_tokens(user_id,token_hash,name) VALUES(1,?,'fixture')",
+                vec![hash.clone().into()],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            store
+                .query::<Value>(BEARER, vec![hash.clone().into()])
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        let used: String = store
+            .0
+            .query_row("SELECT last_used_at FROM api_tokens", [], |r| r.get(0))
+            .unwrap();
+        assert!(used.ends_with('Z'));
+        store
+            .0
+            .execute(
+                "UPDATE api_tokens SET revoked_at='2026-01-01T00:00:00.000Z'",
+                [],
+            )
+            .unwrap();
+        assert!(
+            store
+                .query::<Value>(BEARER, vec![hash.clone().into()])
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            store
+                .0
+                .query_row::<String, _, _>("SELECT token_hash FROM api_tokens", [], |r| r.get(0))
+                .unwrap(),
+            hash
+        );
+    });
+}

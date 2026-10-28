@@ -31,3 +31,5 @@ mod tests {
 pub mod dependency;
 pub mod domain;
 pub mod markdown;
+
+pub mod auth;

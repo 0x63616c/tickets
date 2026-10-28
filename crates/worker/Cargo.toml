@@ -8,6 +8,9 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3.106"
+wasm-bindgen-futures = "0.4.79"
+web-sys = { version = "0.3.106", features = ["Crypto", "CryptoKey", "SubtleCrypto"] }
 worker = { version = "=0.8.7", features = ["d1"] }
 
 [dependencies]
