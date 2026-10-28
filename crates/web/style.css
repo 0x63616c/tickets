@@ -337,18 +337,7 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .api-ticket .label-chip span { overflow: hidden; text-overflow: ellipsis; }
 
 .api-board { display: flex; gap: 16px; }
-.api-board .board-column { flex: 1 0 240px; min-width: 240px; }
+/* Five columns fit beside the 240px sidebar at 1440px; narrower viewports scroll. */
+.api-board .board-column { flex: 1 0 216px; min-width: 216px; }
 .canceled-toggle { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); white-space: nowrap; font-size: var(--text-xs); }
 .board-filters select { width: auto; height: 32px; font-size: var(--text-sm); }
-/* Five 240px columns + four 16px gaps + 40px padding need 1304px. */
-@media (min-width: 1440px) and (max-width: 1543px) {
-  .app-shell:has(.api-board) { grid-template-columns: minmax(0, 1fr) 1304px; }
-  .app-shell:has(.api-board) .sidebar { padding-inline: 6px; }
-  .app-shell:has(.api-board) .sidebar-account span,
-  .app-shell:has(.api-board) .nav-item > span:not(.project-dot):not(.nav-count) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .app-shell:has(.api-board) .search-trigger { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; height: 44px; padding-inline: 6px; text-align: left; }
-  .app-shell:has(.api-board) .search-trigger > .icon { display: none; }
-  .app-shell:has(.api-board) .search-trigger span { white-space: normal; }
-  .app-shell:has(.api-board) .workspace > .avatar { display: none; }
-  .app-shell:has(.api-board) .workspace-switcher { gap: 4px; }
-}
