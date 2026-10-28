@@ -39,6 +39,8 @@ no-op; domain tables arrive in #3. Local state lives in ignored `.wrangler/`.
 Repeated migration runs skip applied files. Add sequential SQL files rather than
 editing applied migrations; see [ADR 0002](adr/0002-migrations.md).
 Do not provision a remote database or deploy without explicit authorization.
+Production configuration, one-time setup, and manual deployment steps are in
+[DEPLOY.md](DEPLOY.md).
 
 ## Workspace boundaries and CI
 

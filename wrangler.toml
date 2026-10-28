@@ -17,3 +17,22 @@ database_name = "tickets"
 # Local-only placeholder; replace only during explicitly authorized provisioning.
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
+
+# Keep the Cloudflare account on Workers Free; Wrangler does not select billing plans.
+[env.production]
+name = "tickets-production"
+workers_dev = false
+preview_urls = false
+routes = [{ pattern = "tickets.worldwidewebb.co", custom_domain = true }]
+
+# D1 bindings are not inherited by named environments.
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "tickets"
+# TODO(one-time setup): replace with the ID returned by `wrangler d1 create tickets`.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# TODO(#16): add the live-update Durable Objects binding once its Rust class is
+# exported. Add a migration with new_sqlite_classes (never new_classes) for Free.
+# An active binding now would reference a class the scaffold does not export.
