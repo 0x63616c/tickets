@@ -66,7 +66,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
                 </Show>
                 <div class="sidebar-bottom">
                     <A href="/settings/tokens" attr:class="nav-item"><Icon name="settings"/><span>"API tokens"</span></A>
-                    <Show when=move||board.signed_in.get() fallback=||view!{<A href="/login" attr:class="nav-item"><Icon name="arrow"/><span>"Sign in"</span></A>}><button class="nav-item" on:click=move|_|wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{board.signed_in.set(false);let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}})><Icon name="arrow"/><span>"Sign out"</span></button></Show>
+                    <button class="nav-item" on:click=move|_|wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{board.signed_in.set(false);let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}})><Icon name="arrow"/><span>"Sign out"</span></button>
                     <A href="/design" exact=true attr:class="nav-item"><Icon name="grid"/><span>"Design system"</span></A>
                     <Show when=move || location.pathname.get().starts_with("/design")><div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div></Show>
                     <div class="sidebar-account"><Avatar/><span>"Personal workspace"</span><Show when=move || location.pathname.get().starts_with("/design")><IconButton label="Open commands" icon="help" on_click=Callback::new(move |_| state.dialog.set(DialogKind::Command))/></Show></div>

@@ -49,7 +49,7 @@ pub fn ApiProjects() -> impl IntoView {
         <div class="projects-page">
             <div class="projects-heading"><h1>"Projects"</h1><span class="muted">{move||board.projects.get().iter().filter(|p|archived.get() || !p.archived).count()}" projects"</span><label class="canceled-toggle"><input type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Show archived"</label></div>
             <Show when=move||board.loading.get()><p role="status">"Loading projects…"</p></Show>
-            <Show when=move||!board.error.get().is_empty()><p role="alert">{move||board.error.get()}" "<a href="/login">"Sign in"</a><button class="button" on:click=move|_|board.refresh()>"Retry"</button></p></Show>
+            <Show when=move||!board.error.get().is_empty()><p role="alert">{move||board.error.get()}" "<button class="button" on:click=move|_|board.refresh()>"Retry"</button></p></Show>
             <Show when=move||!board.loading.get() && board.error.get().is_empty()>
                 <div class="projects-table"><div class="projects-table-head"><span>"Name"</span><span>"Tickets"</span><span>"GitHub"</span></div>
                 {move||board.projects.get().into_iter().filter(|p|archived.get() || !p.archived).map(|p| {

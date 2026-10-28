@@ -150,7 +150,7 @@ impl Browser {
     }
     pub(crate) fn go(&mut self, url: &str) -> Result<()> {
         self.call("Page.navigate", json!({"url":url}))?;
-        self.wait("!!document.querySelector('.topbar, .auth-page')")?;
+        self.wait("!!document.querySelector('.topbar, .auth-page, .login-page')")?;
         self.eval("document.fonts.ready.then(() => true)")?;
         Ok(())
     }
@@ -164,14 +164,22 @@ impl Browser {
     pub(crate) fn screenshot(&mut self, path: &Path) -> Result<()> {
         // Let layout and font metrics settle before capturing the viewport.
         self.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))")?;
+        let viewport = self.eval("({x:0,y:0,width:innerWidth,height:innerHeight,scale:1})")?;
         let result = self.call(
             "Page.captureScreenshot",
-            json!({"format":"png","captureBeyondViewport":false}),
+            json!({"format":"png","captureBeyondViewport":true,"clip":viewport}),
         )?;
-        fs::write(
-            path,
-            STANDARD.decode(result["data"].as_str().ok_or("missing screenshot")?)?,
-        )?;
+        let png = STANDARD.decode(result["data"].as_str().ok_or("missing screenshot")?)?;
+        let width = u32::from_be_bytes(png.get(16..20).ok_or("missing PNG width")?.try_into()?);
+        let height = u32::from_be_bytes(png.get(20..24).ok_or("missing PNG height")?.try_into()?);
+        if Some(u64::from(width)) != viewport["width"].as_u64()
+            || Some(u64::from(height)) != viewport["height"].as_u64()
+        {
+            return Err(
+                format!("screenshot dimensions {width}×{height} differ from {viewport}").into(),
+            );
+        }
+        fs::write(path, png)?;
         println!("Screenshot: {}", path.display());
         Ok(())
     }
@@ -367,7 +375,7 @@ pub fn board_before(root: &Path) -> super::Result {
 /// Real API, real Worker, real keyboard events; isolated D1 lifecycle is owned by api_smoke.
 pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     let mut b = Browser::start(root)?;
-    b.go("http://127.0.0.1:8795/login")?;
+    b.go("http://127.0.0.1:8795/login?next=%2Fsettings%2Ftokens")?;
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
@@ -506,7 +514,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.eval("[...document.querySelectorAll('.sidebar-bottom button')].find(b=>b.textContent.includes('Sign out')).click();true")?;
     b.wait("location.pathname==='/login'")?;
     b.go("http://127.0.0.1:8795/?canceled=true")?;
-    b.wait("document.querySelector('[role=alert]')?.textContent.includes('Please sign in') && document.querySelectorAll('.ticket-card').length===0")?;
+    b.wait("location.pathname==='/login' && !document.querySelector('.sidebar, .ticket-card')")?;
     println!(
         "PASS: local API seed; populated review column + URL canceled toggle; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
     );
@@ -729,7 +737,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found') && [...document.querySelectorAll('button')].some(b=>b.textContent==='Edit ticket' && b.disabled)")?;
     b.call("Network.clearBrowserCookies", json!({}))?;
     b.go("http://127.0.0.1:8795/ticket?id=2")?;
-    b.wait("document.querySelector('[role=alert] a')?.getAttribute('href')==='/login'")?;
+    b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/ticket?id=2'")?;
     println!(
         "PASS detail: fields, project move/reload, labels attach/detach, both dependency directions and inline 409, dependency removal, CommonMark/GFM, preview and persisted component XSS (script/onerror/javascript/raw HTML), comment CRUD, create shortcut/project selection, failed-save restoration and draft retention, list Enter, desktop/mobile screenshots"
     );

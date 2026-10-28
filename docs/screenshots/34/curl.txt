@@ -1,0 +1,130 @@
+$ curl -sI http://127.0.0.1:8787/
+HTTP/1.1 302 Found
+Location: /login?next=%2F
+Cache-Control: no-store
+
+
+$ curl -sI http://127.0.0.1:8787/ticket?id=1
+HTTP/1.1 302 Found
+Location: /login?next=%2Fticket%3Fid%3D1
+Cache-Control: no-store
+
+
+$ curl -sI http://127.0.0.1:8787/unknown/path?x=2
+HTTP/1.1 302 Found
+Location: /login?next=%2Funknown%2Fpath%3Fx%3D2
+Cache-Control: no-store
+
+
+$ curl -sI http://127.0.0.1:8787/list
+HTTP/1.1 302 Found
+Location: /login?next=%2Flist
+Cache-Control: no-store
+
+
+$ curl -sI http://127.0.0.1:8787/projects
+HTTP/1.1 302 Found
+Location: /login?next=%2Fprojects
+Cache-Control: no-store
+
+
+$ curl -sI http://127.0.0.1:8787/api/v1/projects
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json
+Cache-Control: no-store
+
+
+$ curl -sI http://127.0.0.1:8787/missing-deadbeef.js
+HTTP/1.1 404 Not Found
+
+
+$ curl -sI http://127.0.0.1:8787/fonts/missing.woff2
+HTTP/1.1 404 Not Found
+
+
+$ curl -sI http://127.0.0.1:8787/index.html
+HTTP/1.1 302 Found
+Location: /login?next=%2Findex.html
+Cache-Control: no-store
+
+
+$ curl -sI -b <local-session-cookie> http://127.0.0.1:8787/
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Cache-Control: no-store
+ETag: "d9c68bacfad0bae2cd59f58659cc0d65"
+CF-Cache-Status: HIT
+
+
+$ curl -sI -b <local-session-cookie> http://127.0.0.1:8787/login
+HTTP/1.1 302 Found
+Location: /
+Cache-Control: no-store
+
+
+$ curl -sI -b <local-session-cookie> http://127.0.0.1:8787/login?next=%2Flist
+HTTP/1.1 302 Found
+Location: /list
+Cache-Control: no-store
+
+
+$ curl -sI -b <local-session-cookie> http://127.0.0.1:8787/login?next=%2Flist%3Fq%3Da%252Fb
+HTTP/1.1 302 Found
+Location: /list?q=a%2Fb
+Cache-Control: no-store
+
+
+$ curl -sI -b <local-session-cookie> http://127.0.0.1:8787/login?next=%2Flist%3Fq%3D100%2525
+HTTP/1.1 302 Found
+Location: /list?q=100%25
+Cache-Control: no-store
+
+
+$ curl -sI -b <local-session-cookie> http://127.0.0.1:8787/login?next=%2F%252f%2Fevil.com
+HTTP/1.1 302 Found
+Location: /
+Cache-Control: no-store
+
+
+$ curl -sI -b <local-session-cookie> http://127.0.0.1:8787/login?next=%2F%25252fevil
+HTTP/1.1 302 Found
+Location: /
+Cache-Control: no-store
+
+
+$ curl -sI -b <local-session-cookie> http://127.0.0.1:8787/login?next=%2F%2Fevil.com
+HTTP/1.1 302 Found
+Location: /
+Cache-Control: no-store
+
+
+$ curl -sI http://127.0.0.1:8787/style-7d255b37322538f.css
+HTTP/1.1 200 OK
+Content-Type: text/css; charset=utf-8
+Cache-Control: public, max-age=0, must-revalidate
+ETag: "1e2f80318a5f242ef13a34fb1c36cb00"
+CF-Cache-Status: HIT
+
+
+$ curl -sI http://127.0.0.1:8787/tickets-web-908ffb2a005163fd.js
+HTTP/1.1 200 OK
+Content-Type: text/javascript; charset=utf-8
+Cache-Control: public, max-age=0, must-revalidate
+ETag: "6ced5bec2e8f8e0b27bef57f2baab8b3"
+CF-Cache-Status: HIT
+
+
+$ curl -sI http://127.0.0.1:8787/tickets-web-908ffb2a005163fd_bg.wasm
+HTTP/1.1 200 OK
+Content-Type: application/wasm
+Cache-Control: public, max-age=0, must-revalidate
+ETag: "51eba707477067a9de3b37f19229c536"
+CF-Cache-Status: HIT
+
+
+$ curl -sI http://127.0.0.1:8787/tokens-4652e59afd3ebdd.css
+HTTP/1.1 200 OK
+Content-Type: text/css; charset=utf-8
+Cache-Control: public, max-age=0, must-revalidate
+ETag: "dcdfd0cbb11c6dea3c575c026006ea2c"
+CF-Cache-Status: HIT

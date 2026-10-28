@@ -37,3 +37,5 @@ pub mod auth;
 pub mod github;
 
 pub mod live;
+
+pub mod navigation;
