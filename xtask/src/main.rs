@@ -1,3 +1,8 @@
+mod auth;
+mod auth_verify;
+#[cfg(not(target_arch = "wasm32"))]
+mod screenshots;
+
 use std::{env, error::Error, path::Path, process::Command};
 
 type Result = std::result::Result<(), Box<dyn Error>>;
@@ -41,9 +46,14 @@ fn main() -> Result {
     let mut args = env::args().skip(1);
     let task = args.next();
     if args.next().is_some() {
-        return Err("expected exactly one task: dev, build, migrate, ci".into());
+        return Err("expected exactly one task: dev, build, migrate, ci, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
     }
     match task.as_deref() {
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("auth-screenshots") => screenshots::run(),
+        Some("auth-verify") => auth_verify::run(),
+        Some("auth-hash") => auth::hash(),
+        Some("auth-bench") => auth::bench(),
         Some("build") => build(root),
         Some("dev") => {
             build(root)?;
@@ -87,6 +97,8 @@ fn main() -> Result {
             )?;
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
-        _ => Err("usage: cargo xtask <dev|build|migrate|ci>".into()),
+        _ => {
+            Err("usage: cargo xtask <dev|build|migrate|ci|auth-hash|auth-bench|auth-verify|auth-screenshots>".into())
+        }
     }
 }
