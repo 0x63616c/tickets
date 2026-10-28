@@ -133,3 +133,18 @@
   project isolation. Screenshots are written to `docs/screenshots/kanban/` at
   1440×900 and 390×900. `board-before` captures the previous real `/` route on a
   running local Worker at port 8787 before changing frontend assets.
+
+## List view conventions
+
+- `/list` shares API ticket loading and creation with the board; `/design/list`
+  remains the fixture reference. Group by the six domain statuses, omitting empty
+  groups. Show all projects unless `project` is supplied.
+- List query parameters are `project` (ID), `label` (ID), `assignee` (exact name
+  or `__unassigned`), `status` (display name), `q` (key/title substring), and
+  `sort` (`priority`, `updated`, `created`). Priority defaults to urgent first,
+  none last; dates are newest first, with numeric ID breaking ties.
+- J/K focuses the next/previous visible row; Enter opens a read-only ticket
+  preview pending #9. Native inline selects edit status and priority. Failed
+  writes keep saved state and restore the select; errors remain visible.
+- `CHROME_BIN=<headless-chromium> cargo xtask list-check` verifies the list
+  against isolated local Worker/D1 state and captures 1440×900 / 390×900 images.

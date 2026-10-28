@@ -358,7 +358,7 @@ pub fn board_before(root: &Path) -> super::Result {
 }
 
 /// Real API, real Worker, real keyboard events; isolated D1 lifecycle is owned by api_smoke.
-pub fn board_check(root: &Path, password: &str) -> super::Result {
+pub fn board_check(root: &Path, password: &str, list: bool) -> super::Result {
     let mut b = Browser::start(root)?;
     b.go("http://127.0.0.1:8795/login")?;
     b.text("#username", "fixture")?;
@@ -387,6 +387,9 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
         return true;
     })()"#)?;
     b.eval("document.querySelector('[role=alert]')?.textContent || true")?;
+    if list {
+        return list_check(root, &mut b);
+    }
     b.go("http://127.0.0.1:8795/")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
     b.click(".canceled-toggle input")?;
@@ -496,6 +499,83 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Please sign in') && document.querySelectorAll('.ticket-card').length===0")?;
     println!(
         "PASS: local API seed; five default statuses + URL canceled toggle; 1440px Done visibility; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
+    );
+    Ok(())
+}
+
+fn list_check(root: &Path, b: &mut Browser) -> super::Result {
+    let output = root.join("docs/screenshots/list");
+    fs::create_dir_all(&output)?;
+    b.go("http://127.0.0.1:8795/list")?;
+    if env::var_os("TICKETS_LIST_BEFORE").is_some() {
+        b.wait("document.body.innerText.includes('Page not found')")?;
+        b.screenshot(&output.join("before-desktop.png"))?;
+        b.viewport(390, 900)?;
+        b.screenshot(&output.join("before-mobile.png"))?;
+        return Ok(());
+    }
+    b.wait("document.querySelectorAll('.api-list-row').length===102")?;
+    b.go("http://127.0.0.1:8795/list?project=1")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===7 && document.querySelectorAll('.list-group').length===6")?;
+    b.eval("document.querySelector('#list-ticket-1').focus();true")?;
+    b.key("j", 74, 0)?;
+    b.wait("document.activeElement.id==='list-ticket-2'")?;
+    b.key("k", 75, 0)?;
+    b.wait("document.activeElement.id==='list-ticket-1'")?;
+    b.key("Enter", 13, 0)?;
+    b.wait("document.querySelector('dialog')?.textContent.includes('Remember filters')")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("!document.querySelector('dialog') && document.activeElement.id==='list-ticket-1'")?;
+    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="Status for TKT-1"]');s.value='Todo';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.wait("document.querySelector('#list-ticket-1')?.closest('section').getAttribute('aria-label')==='Todo' && document.querySelector('.ticket-list').getAttribute('aria-busy')==='false'")?;
+    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="Priority for TKT-1"]');s.value='Urgent';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.wait("document.querySelector('[aria-label=\"Priority for TKT-1\"]').value==='Urgent' && document.querySelector('.ticket-list').getAttribute('aria-busy')==='false'")?;
+    b.go("http://127.0.0.1:8795/list?project=1&status=Todo&sort=priority")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===3 && document.querySelector('.api-list-row').id==='list-ticket-1'")?;
+    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="All labels"]');s.value='1';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.wait("location.search.includes('label=1') && document.querySelectorAll('.api-list-row').length===2")?;
+    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="All assignees"]');s.value='agent';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.wait("location.search.includes('assignee=agent') && document.querySelectorAll('.api-list-row').length===1")?;
+    b.go("http://127.0.0.1:8795/list?project=1&status=Todo&sort=priority&label=1&assignee=agent")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===1 && !!document.querySelector('#list-ticket-2')")?;
+    for sort in ["updated", "created"] {
+        b.go(&format!("http://127.0.0.1:8795/list?project=1&sort={sort}"))?;
+        b.wait("document.querySelectorAll('.api-list-row').length===7")?;
+        let expected = if sort == "updated" { 1 } else { 7 };
+        b.wait(&format!("document.querySelector('[aria-label=Todo] .api-list-row').id==='list-ticket-{expected}'"))?;
+    }
+    b.eval("window.savedFetch=window.fetch;window.fetch=(i,o)=>((i instanceof Request?i.method:o?.method)==='PATCH'?Promise.resolve(new Response(JSON.stringify({error:{message:'Verification rejection'}}),{status:409,headers:{'Content-Type':'application/json'}})):window.savedFetch(i,o));true")?;
+    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="Status for TKT-2"]');s.value='Done';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.wait("document.querySelector('[role=alert]')?.textContent.includes('Verification rejection') && document.querySelector('[aria-label=\"Status for TKT-2\"]').value==='Todo'")?;
+    b.eval("window.fetch=window.savedFetch;true")?;
+    b.go("http://127.0.0.1:8795/list?project=1")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===7")?;
+    b.wait("document.querySelector('[aria-label=\"All projects\"]').value==='1'")?;
+    b.screenshot(&output.join("after-desktop.png"))?;
+    b.viewport(390, 900)?;
+    b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+    b.screenshot(&output.join("after-mobile.png"))?;
+    b.go("http://127.0.0.1:8795/list?project=1&q=keyboard&assignee=__unassigned")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===1 && !!document.querySelector('#list-ticket-7')")?;
+    b.key("k", 75, 4)?;
+    b.text(
+        "input[aria-label='Search tickets or commands']",
+        "Review imported",
+    )?;
+    b.wait("document.querySelectorAll('.command-results .menu-item').length===1")?;
+    b.click(".command-results .menu-item")?;
+    b.wait("location.search.includes('q=TKT-4') && document.querySelectorAll('.api-list-row').length===1 && document.activeElement.id==='list-ticket-4'")?;
+    b.go("http://127.0.0.1:8795/list?project=3")?;
+    b.wait("document.body.innerText.includes('No tickets match') && document.querySelectorAll('.api-list-row').length===0")?;
+    b.key("c", 67, 0)?;
+    b.wait("!!document.querySelector('#board-title')")?;
+    b.text("#board-title", "Created from the list")?;
+    b.click("dialog button[type=submit]")?;
+    b.wait("!document.querySelector('dialog') && document.querySelectorAll('.api-list-row').length===1 && document.querySelector('.api-list-row').textContent.includes('EMP-1')")?;
+    b.go("http://127.0.0.1:8795/list?project=3")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===1 && document.body.innerText.includes('Created from the list')")?;
+    println!(
+        "PASS list: pagination, grouping, combined URL filters/reload, sorting, inline persistence, rejected-save restoration, j/k/Enter/Escape, desktop/mobile"
     );
     Ok(())
 }

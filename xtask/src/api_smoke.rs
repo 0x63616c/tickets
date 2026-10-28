@@ -112,7 +112,15 @@ pub fn run(root: &Path, skill: bool) -> Result<()> {
 pub fn board(root: &Path) -> Result<()> {
     run_inner(root, false, true)
 }
+#[cfg(not(target_arch = "wasm32"))]
+pub fn list(root: &Path) -> Result<()> {
+    // Child browser selects the list verification after the shared API seed.
+    run_inner_mode(root, false, true, true)
+}
 fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
+    run_inner_mode(root, skill, board, false)
+}
+fn run_inner_mode(root: &Path, skill: bool, board: bool, _list: bool) -> Result<()> {
     super::build(root)?;
     let mut random = [0u8; 24];
     getrandom::getrandom(&mut random).map_err(|_| "randomness unavailable")?;
@@ -218,7 +226,7 @@ fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
     )?;
     if board {
         #[cfg(not(target_arch = "wasm32"))]
-        return super::design::board_check(root, &password);
+        return super::design::board_check(root, &password, _list);
         #[cfg(target_arch = "wasm32")]
         return Err("board-check requires a native host".into());
     }

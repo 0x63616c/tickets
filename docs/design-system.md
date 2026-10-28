@@ -18,6 +18,11 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 
 The real API-backed board is `/`; see [Kanban](kanban.md) for its persistence,
 keyboard controls, local verification and #16 change-event hook.
+The API-backed list is `/list`: it reuses the grouped fixture rows and inline
+status/priority icons, with project/label/assignee/status filters and sort in the
+URL query. Enter opens a read-only preview until the detail editor in #9.
+Run `cargo xtask list-check` with `CHROME_BIN` for the isolated local verification;
+see the list conventions in `CONTRIBUTING.md`.
 
 The `/design*` routes are local in-memory fixtures. Creation, status changes, labels, comments,
 projects, and dependency selection demonstrate behavior; reload resets them.
