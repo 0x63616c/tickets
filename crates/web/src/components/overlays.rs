@@ -116,7 +116,7 @@ fn CreateTicket() -> impl IntoView {
     let navigate = use_navigate();
     view! {
         <Modal title="New ticket" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
-            <form on:submit=move |ev| {
+            <form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move |ev| {
                 ev.prevent_default();
                 let value = title.get_untracked().trim().to_string();
                 if value.is_empty() { return; }
@@ -125,7 +125,7 @@ fn CreateTicket() -> impl IntoView {
                 state.dialog.set(DialogKind::None); state.toast.set(format!("TKT-{id} created"));
                 navigate(&format!("/design/ticket?id={id}"), Default::default());
             }>
-                <div class="modal-body"><div class="form-project"><Icon name="project"/>{move || state.current_project.get()}<Icon name="chevron"/>"New ticket"</div><TextInput id="ticket-title" label="Title" placeholder="What needs to be done?" value=title/><label class="field">"Description"<textarea rows="5" placeholder="Add details… Markdown is supported." prop:value=move || description.get() on:input=move |ev| description.set(event_target_value(&ev))/></label><label class="field">"Status"<Select label="Ticket status" options=Status::ALL.map(Status::name).to_vec() value=status/></label></div>
+                <div class="modal-body"><div class="form-project"><Icon name="project"/>{move || state.current_project.get()}<Icon name="chevron"/>"New ticket"</div><TextInput id="ticket-title" label="Title" placeholder="What needs to be done?" value=title/><label class="field">"Description"<textarea autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  rows="5" placeholder="Add details… Markdown is supported." prop:value=move || description.get() on:input=move |ev| description.set(event_target_value(&ev))/></label><label class="field">"Status"<Select label="Ticket status" options=Status::ALL.map(Status::name).to_vec() value=status/></label></div>
                 <div class="modal-footer"><Button variant="ghost" on_click=Callback::new(move |_| state.dialog.set(DialogKind::None))>"Cancel"</Button><button class="button button-primary" type="submit" disabled=move || title.get().trim().is_empty()>"Create ticket"</button></div>
             </form>
         </Modal>
@@ -139,8 +139,8 @@ fn CreateProject() -> impl IntoView {
     let navigate = use_navigate();
     view! {
         <Modal title="New project" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
-            <form on:submit=move |ev| { ev.prevent_default(); let value = name.get_untracked().trim().to_string(); if !value.is_empty() { state.current_project.set(value.clone()); state.projects.update(|projects| projects.push(value)); state.dialog.set(DialogKind::None); state.toast.set("Project created".into()); navigate("/design/empty", Default::default()); } }>
-                <div class="modal-body"><TextInput id="project-name" label="Project name" placeholder="e.g. Quantum" value=name/><p class="muted">"Group related tickets in a project. You can link a GitHub project later."</p></div><div class="modal-footer"><Button variant="ghost" on_click=Callback::new(move |_| state.dialog.set(DialogKind::None))>"Cancel"</Button><button class="button button-primary" type="submit" disabled=move || name.get().trim().is_empty()>"Create project"</button></div>
+            <form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move |ev| { ev.prevent_default(); let value = name.get_untracked().trim().to_string(); if !value.is_empty() { state.current_project.set(value.clone()); state.projects.update(|projects| projects.push(value)); state.dialog.set(DialogKind::None); state.toast.set("Project created".into()); navigate("/design/empty", Default::default()); } }>
+                <div class="modal-body"><TextInput id="project-title" label="Project name" placeholder="e.g. Quantum" value=name/><p class="muted">"Group related tickets in a project. You can link a GitHub project later."</p></div><div class="modal-footer"><Button variant="ghost" on_click=Callback::new(move |_| state.dialog.set(DialogKind::None))>"Cancel"</Button><button class="button button-primary" type="submit" disabled=move || name.get().trim().is_empty()>"Create project"</button></div>
             </form>
         </Modal>
     }
@@ -193,7 +193,7 @@ pub fn CommandPalette() -> impl IntoView {
     view! {
         <Modal title="Search and commands" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
             <div class="command-palette" on:keydown=command_key>
-            <div class="command-search"><Icon name="search"/><input aria-label="Search tickets or commands" placeholder="Search tickets…" on:input=move |ev| query.set(event_target_value(&ev))/></div>
+            <div class="command-search"><Icon name="search"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Search tickets or commands" placeholder="Search tickets…" on:input=move |ev| query.set(event_target_value(&ev))/></div>
             <Show when=move||!location.pathname.get().starts_with("/design") fallback=move||view!{<div class="command-results"><p class="menu-heading">"Actions"</p><button class="menu-item" on:click=move |_| state.new_ticket(Status::Todo)><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button><button class="menu-item" on:click=move |_| state.dialog.set(DialogKind::Project)><Icon name="project"/>"New project"</button><p class="menu-heading">"Tickets"</p>{move || {
                 let filtered = state.tickets.get().into_iter().filter(|t| format!("TKT-{} {}", t.id, t.title).to_lowercase().contains(&query.get().to_lowercase())).take(6).collect::<Vec<_>>();
                 if filtered.is_empty() { view! { <p class="command-empty">"No tickets match your search."</p> }.into_any() } else { filtered.into_iter().map(|ticket| view! { <A href=format!("/design/ticket?id={}", ticket.id) attr:class="menu-item" on:click=move |_| state.dialog.set(DialogKind::None)><StatusIcon status=ticket.status/><span class="mono muted">{format!("TKT-{}", ticket.id)}</span><span>{ticket.title}</span></A> }).collect_view().into_any() }

@@ -208,15 +208,20 @@
 ## GitHub import conventions
 
 - Keep GitHub migration tooling in native Rust xtask. `import-github` accepts only
-  local HTTP loopback Tickets URLs; production import is gated on Calum's OK.
+  local HTTP loopback Tickets URLs by default; approved production imports require
+  `--allow-remote` and HTTPS. The coordinator performs the production run after merge.
 - Import identity is `github:<lowercase owner>/<lowercase repo>:<issue number>`.
+  The explicit quantum → voxelite alias preserves the original namespace across
+  the rename; reject other metadata/name mismatches until an alias is defined.
+  Retry only replay-safe GET/PUT/fixed-value PATCH requests; creation and
+  relationship mutations stop for reconciliation on rerun.
   Comments use repository/comment-ID Markdown markers until the API has native
   comment external IDs. Preserve markers on reruns; do not deduplicate by body.
 - Blocked is derived from dependencies, not a seventh stored status. Preserve
   `status:blocked` labels and reconcile blocker → blocked edges after upserts.
 - Run `cargo xtask import-check` for importer changes; it reuses isolated local
   api-smoke state/port 8795 and must run sequentially with other local checks.
-- Importer PRs use `Refs #11` while production import remains pending approval;
+- Importer PRs use `Refs #11` while production import remains pending;
   do not close the issue or mark the production migration complete prematurely.
 
 ## Live updates conventions

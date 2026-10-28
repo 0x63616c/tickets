@@ -322,7 +322,7 @@ pub fn check(root: &Path) -> super::Result {
     browser.click(".dependency-option:not(:disabled)")?;
     browser.wait("document.querySelector('.dependencies').textContent.includes('TKT-6')")?;
     browser.click(".sidebar .nav-item.quiet")?;
-    browser.text("#project-name", "Editor")?;
+    browser.text("#project-title", "Editor")?;
     browser.click("dialog button[type='submit']")?;
     browser.wait("document.querySelector('.breadcrumb-current')?.textContent === 'Editor'")?;
     browser.click(".empty-state .button")?;
@@ -347,7 +347,7 @@ pub fn check(root: &Path) -> super::Result {
     browser.screenshot(&output.join("12-login.png"))?;
     let worker_api = browser.eval("fetch('/api/health').then(r => r.headers.get('content-type')?.includes('application/json')).catch(() => false)")? == true;
     browser.go(&format!("{base}/settings/tokens"))?;
-    browser.wait("!!document.querySelector('#token-name')")?;
+    browser.wait("!!document.querySelector('#token-label')")?;
     if worker_api {
         browser.wait("document.querySelector('.auth-page [role=status]')?.textContent.includes('Please sign in')")?;
         println!("PASS: the local Worker requires authentication for API tokens.");
