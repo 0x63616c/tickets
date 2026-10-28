@@ -156,6 +156,10 @@ pub fn login(root: &Path) -> Result<()> {
 pub fn polish(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "polish")
 }
+#[cfg(not(target_arch = "wasm32"))]
+pub fn contrast(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "contrast")
+}
 fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
     run_inner_mode(root, skill, board, "board")
 }
@@ -316,6 +320,8 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         #[cfg(not(target_arch = "wasm32"))]
         return if _view == "login" {
             super::login::check(root, &password, &c.dir)
+        } else if _view == "contrast" {
+            super::contrast::check(root, &password)
         } else if _view == "polish" {
             super::polish::check(root, &password)
         } else if _view == "live" {

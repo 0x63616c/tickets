@@ -19,12 +19,18 @@ semantic tokens and controls rather than introducing a parallel palette.
 | Hover / active | `#ffffff0a` / `#ffffff0f` |
 | Border / subtle / strong | `#141416` / `#ffffff08` / `#1f2024` |
 | Text / secondary / muted / faint | `#f7f8f8` / `#d0d6e0` / `#8a8f98` / `#797d86` |
+| Action fill / hover / active / disabled | `#535fc4` / `#4854b8` / `#414dab` / `#343b70` |
+| Action text | `#f7f8f8` |
 | Accent / hover / surface / focus | `#5e6ad2` / `#6d79df` / `#0d0e1f` / `#5e6ad2` |
 | Backlog / Todo / In progress | `#8a8f98` / `#d0d6e0` / `#f0bf00` |
 | In review / Done / Canceled | `#27a644` / `#5e6ad2` / `#8a8f98` |
 | Urgent / high / medium / low priority | `#eb5757` / `#d0d6e0` / `#8a8f98` / `#8a8f98` |
 | Success / warning / danger | `#27a644` / `#f0bf00` / `#eb5757` |
 | Feature / bug / infra / design label | `#8b82d9` / `#eb5757` / `#4ea7fc` / `#c6a1b9` |
+
+Filled primary actions use the action tokens, including shortcut text. Hover and
+active fills darken; disabled actions retain full text opacity with a quieter fill.
+Accent tokens remain for links, selection and status meaning.
 
 Chip tint tokens: fill 14%, border 26%, text 55%. Derive these from the label's
 own hue, including custom labels; avoid neutral grey chip fills.

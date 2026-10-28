@@ -19,6 +19,8 @@ mod skill_check;
 use std::{env, error::Error, path::Path, process::Command};
 
 #[cfg(not(target_arch = "wasm32"))]
+mod contrast;
+#[cfg(not(target_arch = "wasm32"))]
 mod design;
 #[cfg(not(target_arch = "wasm32"))]
 mod first_run;
@@ -107,6 +109,8 @@ fn main() -> Result {
         Some("detail-check") => api_smoke::detail(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("polish-check") => api_smoke::polish(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("contrast-check") => api_smoke::contrast(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("projects-check") => api_smoke::projects(root),
         Some("first-run-check") => api_smoke::first_run(root),

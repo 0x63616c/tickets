@@ -33,7 +33,7 @@ pub fn Board() -> impl IntoView {
     let state = expect_context::<DesignState>();
     let query = RwSignal::new(String::new());
     view! {
-        <TopBar/><ProjectHeader/><ViewToolbar query board=true/>
+        <h1 class="sr-only">"Board preview"</h1><TopBar/><ProjectHeader/><ViewToolbar query board=true/>
         <div class="board" aria-label="Ticket board">{Status::ALL.into_iter().map(|status| {
             let over = RwSignal::new(false);
             view! {
@@ -76,7 +76,7 @@ pub fn List() -> impl IntoView {
     let state = expect_context::<DesignState>();
     let query = RwSignal::new(String::new());
     view! {
-        <TopBar/><ProjectHeader view="list"/><ViewToolbar query/>
+        <h1 class="sr-only">"Ticket list preview"</h1><TopBar/><ProjectHeader view="list"/><ViewToolbar query/>
         <div class="ticket-list" aria-label="Tickets grouped by status">{Status::ALL.into_iter().map(|status| view! {
             <Show when=move || !matches!(status, Status::InReview | Status::Canceled) || state.tickets.get().iter().any(|t| t.status == status)>
                 <section class="list-group" aria-label=status.name()>
@@ -114,7 +114,7 @@ pub fn Empty() -> impl IntoView {
         state.current_project.set("Quantum".into());
     }
     view! {
-        <Show when=move || !state.tickets.get().iter().any(|t| t.project == state.current_project.get()) fallback=|| view! { <Board/> }><TopBar title="Project"/>
+        <Show when=move || !state.tickets.get().iter().any(|t| t.project == state.current_project.get()) fallback=|| view! { <Board/> }><h1 class="sr-only">"Empty project preview"</h1><TopBar title="Project"/>
         <div class="view-tabs"><span class="view-tab selected"><Icon name="list"/>"Tickets"</span><span class="muted">{move || state.current_project.get()}</span></div>
         <div class="empty-project">
             <EmptyState title="No tickets yet" description="Add the first ticket to this project." action="New ticket" icon="ticket" on_action=Callback::new(move |_| state.new_ticket(Status::Todo))/>
