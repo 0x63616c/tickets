@@ -56,6 +56,20 @@ pub fn check(root: &Path, password: &str, state: &Path) -> Result<()> {
         ("/", true, 200, None),
         ("/login", true, 302, Some("/")),
         ("/login?next=%2Flist", true, 302, Some("/list")),
+        (
+            "/login?next=%2Flist%3Fq%3Da%252Fb",
+            true,
+            302,
+            Some("/list?q=a%2Fb"),
+        ),
+        (
+            "/login?next=%2Flist%3Fq%3D100%2525",
+            true,
+            302,
+            Some("/list?q=100%25"),
+        ),
+        ("/login?next=%2F%252f%2Fevil.com", true, 302, Some("/")),
+        ("/login?next=%2F%25252fevil", true, 302, Some("/")),
         ("/login?next=%2F%2Fevil.com", true, 302, Some("/")),
     ] {
         let mut cmd = Command::new("curl");
@@ -136,14 +150,19 @@ pub fn check(root: &Path, password: &str, state: &Path) -> Result<()> {
         b.call("Fetch.disable", json!({}))?;
         b.wait("document.querySelector('[role=alert]').textContent.includes('Incorrect') && !document.querySelector('button[type=submit]').disabled")?;
         b.screenshot(&out.join(format!("after-error-{name}.png")))?;
+        b.eval("window.loginErrorHeight=document.querySelector('#login-error').getBoundingClientRect().height;true")?;
+        b.text("#username", "fixture")?;
+        b.wait("document.querySelector('#login-error').textContent === '' && document.querySelector('#login-error').getBoundingClientRect().height === window.loginErrorHeight")?;
     }
     // Exercise rate limiting and a failed connection without spending real login attempts.
     b.eval("window.originalFetch=window.fetch;window.fetch=()=>Promise.resolve(new Response('{}',{status:429}));true")?;
     b.text("#password", "local-attempt")?;
+    b.wait("document.querySelector('#login-error').textContent === ''")?;
     b.click("button[type=submit]")?;
     b.wait("document.querySelector('[role=alert]').textContent.includes('Too many') && !document.querySelector('button[type=submit]').disabled")?;
     b.eval("window.fetch=()=>Promise.reject(new Error('offline'));true")?;
     b.text("#password", "local-attempt")?;
+    b.wait("document.querySelector('#login-error').textContent === '' && document.querySelector('#login-error').getBoundingClientRect().height === window.loginErrorHeight")?;
     b.click("button[type=submit]")?;
     b.wait("document.querySelector('[role=alert]').textContent.includes('Connection failed') && !document.querySelector('button[type=submit]').disabled")?;
     b.eval("window.fetch=window.originalFetch;true")?;

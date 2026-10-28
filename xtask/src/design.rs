@@ -164,14 +164,22 @@ impl Browser {
     pub(crate) fn screenshot(&mut self, path: &Path) -> Result<()> {
         // Let layout and font metrics settle before capturing the viewport.
         self.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))")?;
+        let viewport = self.eval("({x:0,y:0,width:innerWidth,height:innerHeight,scale:1})")?;
         let result = self.call(
             "Page.captureScreenshot",
-            json!({"format":"png","captureBeyondViewport":false}),
+            json!({"format":"png","captureBeyondViewport":true,"clip":viewport}),
         )?;
-        fs::write(
-            path,
-            STANDARD.decode(result["data"].as_str().ok_or("missing screenshot")?)?,
-        )?;
+        let png = STANDARD.decode(result["data"].as_str().ok_or("missing screenshot")?)?;
+        let width = u32::from_be_bytes(png.get(16..20).ok_or("missing PNG width")?.try_into()?);
+        let height = u32::from_be_bytes(png.get(20..24).ok_or("missing PNG height")?.try_into()?);
+        if Some(u64::from(width)) != viewport["width"].as_u64()
+            || Some(u64::from(height)) != viewport["height"].as_u64()
+        {
+            return Err(
+                format!("screenshot dimensions {width}×{height} differ from {viewport}").into(),
+            );
+        }
+        fs::write(path, png)?;
         println!("Screenshot: {}", path.display());
         Ok(())
     }

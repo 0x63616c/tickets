@@ -246,3 +246,6 @@
   `cargo xtask login-before` captures logged-out `/`, `/login` and `/design` from
   an origin/main Worker already running on port 8787. Captures live in
   `docs/screenshots/34/` at 1440×900 and 375×812; no production changes are needed.
+- Capture the emulated viewport explicitly with Chromium's screenshot clip and
+  `captureBeyondViewport`; the headless window can otherwise truncate desktop
+  images to 1024×640. Verify the saved PNG dimensions before publishing evidence.
