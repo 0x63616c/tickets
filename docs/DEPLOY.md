@@ -25,19 +25,17 @@ not enforce an account billing plan. Do not enable paid services.
    Replace the all-zero `database_id` under `[[env.production.d1_databases]]`
    with the returned ID. Leave the top-level local placeholder alone. The binding
    must remain `DB`, with `migrations_dir = "migrations"`.
-3. Once authentication is implemented, enter the bootstrap password and a strong,
-   independently generated session secret through Wrangler's interactive prompts:
+3. Set the single-user login secrets through Wrangler's interactive prompts (see
+   "Authentication secrets" below for generating the hash):
 
    ```sh
-   wrangler secret put BOOTSTRAP_PASSWORD --env production
-   wrangler secret put SESSION_SECRET --env production
+   wrangler secret put BOOTSTRAP_USERNAME --env production
+   wrangler secret put BOOTSTRAP_PASSWORD_HASH --env production
    ```
 
-   These are reserved secret names for the future authentication implementation;
-   the current scaffold does not consume them or provide login. Confirm the names
-   against that implementation before setup. Secret creation may create an empty
-   Worker before its first deployment. Never put values in TOML, command arguments,
-   committed files, or PRs. Day one has one username/password login and no sign-up.
+   Secret creation may create an empty Worker before its first deployment. Never
+   put values in TOML, command arguments, committed files, or PRs. Day one has one
+   username/password login and no sign-up.
 4. Apply versioned migrations to the production database:
 
    ```sh
@@ -99,3 +97,26 @@ Sources: [Workers limits](https://developers.cloudflare.com/workers/platform/lim
 Daily allowances reset at midnight UTC. DO requests include WebSocket connections,
 incoming messages (metered at 20:1), and alarms; hibernation avoids idle duration
 usage when eligible.
+
+## Authentication secrets
+Production deployment requires Calum's explicit authorization. This document does
+not authorize deployment or remote database provisioning.
+
+Set `BOOTSTRAP_USERNAME` and `BOOTSTRAP_PASSWORD_HASH` as Worker secrets through
+an approved secure workflow. Generate a unique passphrase with a password manager;
+`cargo xtask auth-hash` accepts it on stdin, refuses fewer than 16 characters, and
+outputs a randomly salted PBKDF2-SHA256 hash at 100,000 iterations. Avoid command
+arguments and shell history. Never commit the password or hash, or put the hash in
+D1: the Worker secret is authoritative. Migration 0004 drops the unused D1
+password column, so D1 holds no password material.
+
+The hash stores its iteration count; verification accepts canonical positive counts
+up to the runtime maximum of 100,000. Future runtime changes can raise that maximum
+and the generation default without invalidating existing hashes. Regenerate the
+secret to upgrade its work factor. Secret rotation changes future logins; existing
+sessions remain valid until logout or seven-day expiry.
+
+Keep the five-attempts-per-IP-per-15-minutes limiter and constant-time comparisons.
+See [ADR 0003](adr/0003-auth.md) for the accepted tradeoff against OWASP's 600,000
+recommendation and the offline-guessing risk if a secret leaks. Verify production
+CPU telemetry during an authorized deployment; local wall time is not CPU evidence.

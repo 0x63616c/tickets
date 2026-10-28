@@ -52,3 +52,16 @@
   queries using SQLite with foreign keys enabled and the complete migration chain.
 - Render descriptions/comments only through `tickets_core::markdown::render`; the
   returned HTML is sanitized, including raw HTML and forced-disabled task checkboxes.
+
+## Authentication conventions
+- All `/api/*` handlers must pass through the Worker auth gate, except health and
+  login. Invalid Authorization headers must not fall back to a cookie.
+- Cookie-auth mutations require a matching Origin; bearer-auth mutations do not.
+- Never return credential hashes in JSON or log request bodies/authorization.
+- Auth timestamps follow the domain UTC format. Sessions expire after seven days;
+  personal tokens remain active until explicitly revoked.
+- Bootstrap password hashes live only in Worker secrets; D1 has no password column
+  (migration 0004 drops it). Never persist the bootstrap hash in D1.
+- Password hashes store canonical positive PBKDF2-SHA256 iteration counts up to
+  the production WebCrypto maximum (100,000); new hashes use that maximum.
+  Generate a passphrase of at least 16 characters with `cargo xtask auth-hash`.

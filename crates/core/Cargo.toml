@@ -8,3 +8,9 @@ license.workspace = true
 ammonia = "4.2.4"
 pulldown-cmark = "0.13.5"
 serde = { version = "1", features = ["derive"] }
+sha2 = "0.11.1"
+subtle = "2.6.1"
+
+[dev-dependencies]
+pbkdf2 = "0.12"
+sha2-legacy = { version = "0.10", package = "sha2" }

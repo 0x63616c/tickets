@@ -1,4 +1,6 @@
 #[cfg(target_arch = "wasm32")]
+mod ui;
+#[cfg(target_arch = "wasm32")]
 use leptos::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use leptos_router::{
@@ -11,9 +13,11 @@ use leptos_router::{
 fn App() -> impl IntoView {
     view! {
         <Router>
-            <aside><strong>"Tickets"</strong><nav aria-label="Workspace"><A href="/">"All tickets"</A></nav></aside>
+            <aside><strong>"Tickets"</strong><nav aria-label="Workspace"><A href="/">"All tickets"</A><A href="/settings/tokens">"Settings"</A><A href="/login">"Sign in"</A></nav></aside>
             <main>
                 <Routes fallback=|| view! { <h1>"Page not found"</h1><a href="/">"Back to tickets"</a> }>
+                    <Route path=path!("/login") view=ui::Login/>
+                    <Route path=path!("/settings/tokens") view=ui::Tokens/>
                     <Route path=path!("/") view=|| view! {
                         <header><h1>"All tickets"</h1></header>
                         <section aria-label="Tickets placeholder"><h2>"No tickets"</h2><p>"Create a project to start tracking work."</p></section>
