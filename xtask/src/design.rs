@@ -164,7 +164,9 @@ impl Browser {
     pub(crate) fn screenshot(&mut self, path: &Path) -> Result<()> {
         // Let layout and font metrics settle before capturing the viewport.
         self.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))")?;
-        let viewport = self.eval("({x:0,y:0,width:innerWidth,height:innerHeight,scale:1})")?;
+        // CDP clip coordinates are relative to the page, including scroll.
+        let viewport =
+            self.eval("({x:scrollX,y:scrollY,width:innerWidth,height:innerHeight,scale:1})")?;
         let result = self.call(
             "Page.captureScreenshot",
             json!({"format":"png","captureBeyondViewport":true,"clip":viewport}),
