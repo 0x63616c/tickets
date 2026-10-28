@@ -269,6 +269,7 @@ fn LabelPicker() -> impl IntoView {
             if let Err(error) = result {
                 state.error.set(error);
             } else {
+                query.set(String::new());
                 state.board.notice.set("Labels saved.".into());
                 // Wait for Properties to remount after the authoritative read.
                 gloo_timers::future::TimeoutFuture::new(0).await;
@@ -277,7 +278,7 @@ fn LabelPicker() -> impl IntoView {
             state.busy.set(false);
         });
     });
-    view! {<Menu label="Add label" on_input_enter=Callback::new(move |_|choose.run(None))><TextInput id="label-filter" label="Filter or create label" value=query/>
+    view! {<Menu label="Add label" on_input_enter=Callback::new(move |_|choose.run(None))><TextInput id="label-filter" label="Filter or create label" hide_label=true placeholder="Filter or create label…" value=query/>
         {move||{
             let name=query.get().trim().to_string();
             let labels=state.board.labels.get();

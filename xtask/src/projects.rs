@@ -147,6 +147,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.eval("(async()=>{const r=await fetch('/api/v1/labels');const body=await r.json();if(body.data.length!==0)throw Error('expected no labels');return true})()")?;
     b.click(".label-menu summary")?;
     b.wait("document.activeElement.id==='label-filter'")?;
+    b.eval("(()=>{const i=document.querySelector('#label-filter');if(i.getAttribute('aria-label')!=='Filter or create label'||i.placeholder!=='Filter or create label…'||i.closest('label').querySelector('span'))throw Error('label filter accessibility');const r=i.getBoundingClientRect(),m=i.closest('.menu').getBoundingClientRect();if(r.left-5<m.left||r.right+5>m.right)throw Error('label filter focus overflow');return true})()")?;
     b.text("#label-filter", "Feature")?;
     b.wait("document.querySelector('.label-menu .menu-item')?.textContent.includes('Create label Feature')")?;
     for (size, width, height) in [("desktop", 1440, 900), ("mobile", 390, 844)] {
@@ -163,6 +164,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.key("Enter", 13, 0)?;
     b.wait("!!document.querySelector('.property-labels .label-chip') && document.activeElement.matches('.label-menu summary')")?;
     b.click(".label-menu summary")?;
+    b.wait("document.querySelector('#label-filter').value===''")?;
     b.text("#label-filter", "FEATURE")?;
     b.wait("document.querySelectorAll('.label-menu .menu-item').length===1 && !document.querySelector('.label-menu').textContent.includes('Create label')")?;
     b.key("Escape", 27, 0)?;
@@ -172,11 +174,13 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.click(".label-menu .menu-item")?;
     b.wait("!document.querySelector('.property-labels .label-chip')")?;
     b.click(".label-menu summary")?;
+    b.wait("document.querySelector('#label-filter').value===''")?;
     b.text("#label-filter", "feature")?;
     b.key("Enter", 13, 0)?;
     b.wait("!!document.querySelector('.property-labels .label-chip')")?;
     b.eval("(async()=>{const r=await fetch('/api/v1/labels');const body=await r.json();if(body.data.length!==1 || body.data[0].name!=='Feature')throw Error('duplicate label');return true})()")?;
     b.click(".label-menu summary")?;
+    b.wait("document.querySelector('#label-filter').value===''")?;
     b.text("#label-filter", "Bug")?;
     b.click(".label-menu [data-create]")?;
     b.wait("document.querySelectorAll('.property-labels .label-chip').length===2 && document.activeElement.matches('.label-menu summary')")?;
@@ -187,6 +191,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     }
     b.viewport(1440, 900)?;
     b.click(".label-menu summary")?;
+    b.wait("document.querySelector('#label-filter').value==='' && document.querySelectorAll('.label-menu .menu-item').length===2")?;
     b.text("#label-filter", "feat")?;
     b.wait("document.querySelectorAll('.label-menu .menu-item').length===2 && !document.querySelector('.label-menu .menu').textContent.includes('Bug')")?;
     b.text("#label-filter", "   ")?;

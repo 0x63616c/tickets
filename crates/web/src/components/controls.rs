@@ -90,8 +90,9 @@ pub fn TextInput(
     label: &'static str,
     #[prop(default = "")] placeholder: &'static str,
     value: RwSignal<String>,
+    #[prop(default = false)] hide_label: bool,
 ) -> impl IntoView {
-    view! { <label class="field" for=id><span>{label}</span><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  id=id placeholder=placeholder prop:value=move || value.get() on:input=move |ev| value.set(event_target_value(&ev))/></label> }
+    view! { <label class="field" for=id>{(!hide_label).then(|| view! { <span>{label}</span> })}<input aria-label=hide_label.then_some(label) autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  id=id placeholder=placeholder prop:value=move || value.get() on:input=move |ev| value.set(event_target_value(&ev))/></label> }
 }
 
 /// Native select keeps keyboard, touch and assistive-technology behavior consistent.
