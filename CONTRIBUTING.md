@@ -39,7 +39,9 @@
 
 ## Data model conventions
 - Store timestamps as UTC ISO 8601 text (`YYYY-MM-DDTHH:MM:SS.sssZ`). Repository
-  updates set `updated_at`; creation timestamps and ticket project/number are immutable.
+  updates set `updated_at`; creation timestamps are immutable. Explicit API project
+  moves allocate a fresh destination number atomically and advance its counter;
+  an unchanged project preserves its number. Old keys stop resolving after a move.
 - Status values in SQL/JSON are `backlog`, `todo`, `in_progress`, `in_review`,
   `done`, `canceled`. Priority is 0 (none), 1 (urgent), 2 (high), 3 (medium), 4 (low).
 - Project prefixes are 1–10 uppercase ASCII letters; colors are `#RRGGBB`.
@@ -52,6 +54,15 @@
   queries using SQLite with foreign keys enabled and the complete migration chain.
 - Render descriptions/comments only through `tickets_core::markdown::render`; the
   returned HTML is sanitized, including raw HTML and forced-disabled task checkboxes.
+- Domain lists use ascending ID cursors (`data`, `next_cursor`, default limit 50,
+  maximum 100). Full-text search treats q as a literal FTS5 phrase. API mutations
+  reject unknown fields; PATCH null clears nullable fields. Comments use the
+  single-user author `owner`. Errors use `error.code` and `error.message`.
+- After successful domain writes call the no-op `api::change_event` with entity,
+  ID and action, ready for #16. Validate domain documents in core, keep transport
+  in the authenticated Worker adapter, and exercise shared dispatch with SQLite.
+- Run `cargo xtask api-smoke` for an isolated local Worker/D1 end-to-end check;
+  it builds the app and uses port 8795 and generated state under `target/`.
 
 ## Authentication conventions
 - All `/api/*` handlers must pass through the Worker auth gate, except health and

@@ -19,5 +19,24 @@ Token management (only when requested):
   once and `metadata`. Deliver the raw token only through a secure channel.
 - `DELETE /api/v1/tokens/<id>`: immediately revokes access, including your own token.
 
-The domain REST routes are introduced by #5; do not assume they exist yet.
+Domain routes are documented in `docs/API.md`. Lists return `data` and
+`next_cursor`; pass the cursor and a `limit` of 1–100 for subsequent pages.
+Use `/api/v1/projects`, `/tickets`, `/labels` for list/create, and append an ID
+for get/PATCH/delete (projects archive with PATCH `{"archived":true}`).
+Tickets also accept keys such as `EX-12`. Filter tickets by `project`, `status`,
+`label`, `assignee`, `blocked=true|false`, and `q` (title/body full-text phrase).
+Ticket create requires `project_id` and `title`. Status values are backlog, todo,
+in_progress, in_review, done, canceled; priority is 0–4 (none to low).
+Attach/detach labels with POST/DELETE `/tickets/{id}/labels/{label_id}`.
+Add/remove outgoing blocker edges with POST/DELETE
+`/tickets/{blocker}/dependencies/{blocked}`. A cycle, self-edge or duplicate
+returns 409; correct the graph instead of retrying blindly.
+List/create comments at `/tickets/{id}/comments`; get/PATCH/delete a comment at
+`/comments/{id}`. Comment input is `{"body":"Markdown"}`.
+Import with PUT `/tickets/by-external?id={URL-encoded-source:id}`, including
+`project_id`, `title` and optional `external_url`. Repeating the same external ID
+updates the ticket without duplicates. Use namespaced IDs, e.g. `github:org/repo:12`.
+Errors contain `error.code` and `error.message`; 400 is malformed request,
+404 missing resource, 409 conflict, 422 invalid fields. Raw Markdown is in `body`;
+`body_html` is sanitized. Never render raw Markdown as HTML.
 Browser sessions use HttpOnly cookies; cookie mutations require matching Origin.
