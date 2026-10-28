@@ -227,12 +227,12 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         use std::os::unix::process::CommandExt;
         server_command.process_group(0);
     }
-    server_command.arg("--test-scheduled");
     let port = if _view == "login" { 8787 } else { 8795 };
     let mut server = Server(
         server_command
             .args([
                 "dev",
+                "--test-scheduled",
                 "--local",
                 "--ip",
                 "127.0.0.1",
@@ -264,6 +264,16 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
             .into());
         }
         thread::sleep(Duration::from_millis(300));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    if _view != "mirror" {
+        let response = reqwest::blocking::Client::new()
+            .post(format!("http://127.0.0.1:{port}/api/v1/github/webhook"))
+            .body("{}")
+            .send()?;
+        if response.status().as_u16() != 503 {
+            return Err("Unset webhook secret must fail closed".into());
+        }
     }
     c.call("GET", "/api/v1/projects", Value::Null, "", 401)?;
     c.call(
