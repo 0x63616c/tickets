@@ -245,6 +245,8 @@ production setup after merge; development and checks use isolated local D1 only.
 Each entry maps stable repository ID to external-ID identity and project key.
 Projects are ensured by key; QUA is named Quantum, others use the repository name.
 The quantum rename retains the original voxelite identity and comment markers.
+Production deploys pass `GITHUB_WEBHOOK_SECRET` from the GitHub `production`
+environment secret `TICKETS_GITHUB_WEBHOOK_SECRET` (CI `--secrets-file`).
 Set secret `GITHUB_WEBHOOK_SECRET` to the shared webhook signing secret; without
 it the endpoint returns 503, never accepting unsigned requests. Optional secret
 `GITHUB_TOKEN` authenticates reconciliation reads (no token is logged). Local
