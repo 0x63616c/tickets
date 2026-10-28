@@ -269,6 +269,7 @@ pub fn run(root: &Path) -> Result<()> {
         201,
     )?;
     c.call("GET", "/api/v1/labels", Value::Null, "bearer", 200)?;
+    c.call("GET", "/api/v1/labels/1", Value::Null, "bearer", 200)?;
     c.call(
         "PATCH",
         "/api/v1/labels/1",
@@ -349,6 +350,7 @@ pub fn run(root: &Path) -> Result<()> {
         "bearer",
         200,
     )?;
+    c.call("GET", "/api/v1/comments/1", Value::Null, "bearer", 200)?;
     c.call("DELETE", "/api/v1/comments/1", Value::Null, "bearer", 200)?;
     let mut imported = Value::Null;
     for title in ["Import", "Updated"] {
@@ -395,6 +397,16 @@ pub fn run(root: &Path) -> Result<()> {
         "bearer",
         400,
     )?;
+    let token_path = format!("/api/v1/tokens/{}", token["metadata"]["id"]);
+    c.call("DELETE", &token_path, Value::Null, "cookie", 200)?;
+    c.call(
+        "DELETE",
+        "/api/v1/tokens/999999",
+        Value::Null,
+        "cookie",
+        404,
+    )?;
+    c.call("GET", "/api/v1/projects", Value::Null, "bearer", 401)?;
     println!(
         "PASS: authenticated project/ticket/label/dependency/comment routes, filters, pagination, conflicts, sanitized Markdown, idempotent external upsert; local state: {}",
         c.dir.display()
