@@ -66,6 +66,25 @@ the article on narrow screens. Focus remains visible and reduced motion is honor
 All spacing sits on a 4px grid: buttons and fields are 32px high with 12px
 horizontal padding, keyboard hints 20px, label chips 24px, swatches 32px.
 
+The #15 audit uses the same rules on real API routes. Board columns retain a
+240px minimum; In review appears when populated. Native status selects offer all
+six statuses without shifting columns on pickup. Extra columns scroll without
+shrinking the 240px sidebar. List keys
+occupy a fixed 56px slot at both viewport sizes; titles truncate and expose their
+full text on hover. Mobile filters wrap into two readable columns.
+
+Authentication uses the shared `.field` and `.button` rules. Token settings use
+one bordered form with a footer action and compact metadata rows; full timestamps
+remain in `time` attributes/tooltips. Blank assignees use an empty Avatar instead
+of placeholder property text. Comment editors keep their accessible label and
+Write/Preview controls while fitting the desktop article's compact rhythm.
+
+Command rows are 36px and scroll within the dialog; search and footer stay
+visible. Results open the ticket, no matches have an explicit message, Escape
+restores the opener, and shortcuts never stack another dialog over a composer.
+The mobile sidebar has an expanded state, outside dismissal, Tab containment,
+and Escape focus restoration. These changes use only existing tokens.
+
 **Selects** keep the native element for keyboard, touch and assistive technology,
 with `appearance: none` and the `--chevron-down` token: a 14px chevron in
 `#8a8f98`, 12px from the right edge to match the 12px left padding, and 36px of
@@ -169,6 +188,13 @@ second pass removed the tall project introduction, tightened cards/rows, fixed
 multiple selected sidebar items, removed redundant single-user avatars from rows,
 shortened the fixture description to keep the composer visible, and changed the
 empty project to a left-aligned action with visible status columns.
+
+The subsequent real-route audit is in [screenshots/15/README.md](screenshots/15/README.md),
+with paired 1440×900 and 390×900 captures from `origin/main` and the #15 branch.
+Run `cargo xtask polish-check` with `CHROME_BIN` to reproduce it; see
+`CONTRIBUTING.md` for baseline assets and local state conventions. Projects is
+explicitly captured as a design preview until #10; no project API flow or live
+connection state is fabricated by this polish pass.
 
 ## Release measurement
 

@@ -12,7 +12,7 @@ use std::{
 use tungstenite::{Message, WebSocket, stream::MaybeTlsStream};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-struct Browser {
+pub(crate) struct Browser {
     process: Child,
     socket: WebSocket<MaybeTlsStream<TcpStream>>,
     id: u64,
@@ -26,7 +26,7 @@ impl Drop for Browser {
     }
 }
 impl Browser {
-    fn start(root: &Path) -> Result<Self> {
+    pub(crate) fn start(root: &Path) -> Result<Self> {
         let chrome = env::var_os("CHROME_BIN")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/usr/bin/google-chrome"));
@@ -97,7 +97,7 @@ impl Browser {
         )?;
         Ok(browser)
     }
-    fn call(&mut self, method: &str, params: Value) -> Result<Value> {
+    pub(crate) fn call(&mut self, method: &str, params: Value) -> Result<Value> {
         self.id += 1;
         let mut request = json!({"id":self.id,"method":method,"params":params});
         if !self.session.is_empty() {
@@ -124,7 +124,7 @@ impl Browser {
             }
         }
     }
-    fn eval(&mut self, expression: &str) -> Result<Value> {
+    pub(crate) fn eval(&mut self, expression: &str) -> Result<Value> {
         let result = self.call(
             "Runtime.evaluate",
             json!({"expression":expression,"returnByValue":true,"awaitPromise":true}),
@@ -134,7 +134,7 @@ impl Browser {
         }
         Ok(result["result"]["value"].clone())
     }
-    fn wait(&mut self, expression: &str) -> Result<()> {
+    pub(crate) fn wait(&mut self, expression: &str) -> Result<()> {
         let start = Instant::now();
         while self.eval(expression)? != true {
             if start.elapsed() > Duration::from_secs(15) {
@@ -145,20 +145,20 @@ impl Browser {
         }
         Ok(())
     }
-    fn go(&mut self, url: &str) -> Result<()> {
+    pub(crate) fn go(&mut self, url: &str) -> Result<()> {
         self.call("Page.navigate", json!({"url":url}))?;
         self.wait("!!document.querySelector('.topbar, .auth-page')")?;
         self.eval("document.fonts.ready.then(() => true)")?;
         Ok(())
     }
-    fn viewport(&mut self, width: u32, height: u32) -> Result<()> {
+    pub(crate) fn viewport(&mut self, width: u32, height: u32) -> Result<()> {
         self.call(
             "Emulation.setDeviceMetricsOverride",
             json!({"width":width,"height":height,"deviceScaleFactor":1,"mobile":false}),
         )?;
         Ok(())
     }
-    fn screenshot(&mut self, path: &Path) -> Result<()> {
+    pub(crate) fn screenshot(&mut self, path: &Path) -> Result<()> {
         // Let layout and font metrics settle before capturing the viewport.
         self.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))")?;
         let result = self.call(
@@ -172,7 +172,7 @@ impl Browser {
         println!("Screenshot: {}", path.display());
         Ok(())
     }
-    fn click(&mut self, selector: &str) -> Result<()> {
+    pub(crate) fn click(&mut self, selector: &str) -> Result<()> {
         let selector = serde_json::to_string(selector)?;
         let point = self.eval(&format!("(() => {{ const e=document.querySelector({selector}); if(!e) throw Error('Missing control'); e.scrollIntoView({{block:'nearest'}}); const r=e.getBoundingClientRect(); return {{x:r.x+r.width/2,y:r.y+r.height/2}}; }})()"))?;
         for kind in ["mousePressed", "mouseReleased"] {
@@ -183,7 +183,7 @@ impl Browser {
         }
         Ok(())
     }
-    fn text(&mut self, selector: &str, text: &str) -> Result<()> {
+    pub(crate) fn text(&mut self, selector: &str, text: &str) -> Result<()> {
         self.click(selector)?;
         self.eval(&format!(
             "document.querySelector({}).select();true",
@@ -225,7 +225,7 @@ impl Browser {
         self.call("Input.setInterceptDrags", json!({"enabled":false}))?;
         Ok(())
     }
-    fn key(&mut self, key: &str, code: u32, modifiers: u32) -> Result<()> {
+    pub(crate) fn key(&mut self, key: &str, code: u32, modifiers: u32) -> Result<()> {
         for kind in ["keyDown", "keyUp"] {
             self.call(
                 "Input.dispatchKeyEvent",
@@ -475,8 +475,8 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
         "document.querySelectorAll('.ticket-card').length===8 && !document.querySelector('dialog')",
     )?;
     b.click(".canceled-toggle input")?;
-    b.wait("!location.search.includes('canceled') && document.querySelectorAll('.board-column').length===5 && document.querySelector('.board').scrollWidth===document.querySelector('.board').clientWidth && document.querySelector('[aria-label=Done]').getBoundingClientRect().right<=innerWidth")?;
-    b.wait("document.querySelector('.view-footer').textContent.includes('8 tickets') && document.querySelector('.toast').textContent.includes('Ticket created')")?;
+    b.wait("!location.search.includes('canceled') && document.querySelectorAll('.board-column').length===5 && document.querySelector('.board').scrollWidth>document.querySelector('.board').clientWidth && document.querySelector('.sidebar').getBoundingClientRect().width===240 && document.documentElement.scrollWidth<=innerWidth")?;
+    b.wait("document.querySelector('.view-footer').textContent.includes('7 tickets') && document.querySelector('.toast').textContent.includes('Ticket created')")?;
     b.key("k", 75, 4)?;
     b.wait("!!document.querySelector('dialog[aria-label=\"Search and commands\"]')")?;
     b.key("Escape", 27, 0)?;
@@ -499,13 +499,13 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===95 && !document.body.innerText.includes('Created from the board')")?;
     b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
-    b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===5 && !document.querySelector('.add-card').disabled")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===4 && !document.querySelector('.add-card').disabled && document.body.innerText.includes('No tickets yet')")?;
     b.eval("[...document.querySelectorAll('.sidebar-bottom button')].find(b=>b.textContent.includes('Sign out')).click();true")?;
     b.wait("location.pathname==='/login'")?;
     b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Please sign in') && document.querySelectorAll('.ticket-card').length===0")?;
     println!(
-        "PASS: local API seed; five default statuses + URL canceled toggle; 1440px Done visibility; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
+        "PASS: local API seed; populated review column + URL canceled toggle; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
     );
     Ok(())
 }
@@ -571,7 +571,7 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     )?;
     b.wait("document.querySelectorAll('.command-results .menu-item').length===1")?;
     b.click(".command-results .menu-item")?;
-    b.wait("location.search.includes('q=TKT-4') && document.querySelectorAll('.api-list-row').length===1 && document.activeElement.id==='list-ticket-4'")?;
+    b.wait("location.pathname==='/ticket' && location.search==='?id=4' && document.querySelector('.ticket-detail h1')?.textContent==='Review imported labels'")?;
     b.go("http://127.0.0.1:8795/list?project=3")?;
     b.wait("document.body.innerText.includes('No tickets match') && document.querySelectorAll('.api-list-row').length===0")?;
     b.key("c", 67, 0)?;

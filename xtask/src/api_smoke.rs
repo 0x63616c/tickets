@@ -121,6 +121,10 @@ pub fn list(root: &Path) -> Result<()> {
 pub fn detail(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "detail")
 }
+#[cfg(not(target_arch = "wasm32"))]
+pub fn polish(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "polish")
+}
 fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
     run_inner_mode(root, skill, board, "board")
 }
@@ -233,7 +237,11 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     )?;
     if board {
         #[cfg(not(target_arch = "wasm32"))]
-        return super::design::board_check(root, &password, _view);
+        return if _view == "polish" {
+            super::polish::check(root, &password)
+        } else {
+            super::design::board_check(root, &password, _view)
+        };
         #[cfg(target_arch = "wasm32")]
         return Err("board-check requires a native host".into());
     }

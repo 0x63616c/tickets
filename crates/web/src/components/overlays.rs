@@ -17,6 +17,17 @@ pub fn Modal(
     #[prop(default = Signal::derive(|| false))] locked: Signal<bool>,
 ) -> impl IntoView {
     let dialog = NodeRef::<html::Dialog>::new();
+    let opener = StoredValue::new_local(document().active_element());
+    on_cleanup(move || {
+        opener.with_value(|opener| {
+            if let Some(opener) = opener
+                && opener.is_connected()
+                && let Some(opener) = opener.dyn_ref::<web_sys::HtmlElement>()
+            {
+                let _ = opener.focus();
+            }
+        });
+    });
     Effect::new(move || {
         if let Some(node) = dialog.get() {
             let _ = node.show_modal();
@@ -51,6 +62,15 @@ pub fn Overlays() -> impl IntoView {
     let handle = window_event_listener(ev::keydown, move |event| {
         if event.key().eq_ignore_ascii_case("k") && (event.meta_key() || event.ctrl_key()) {
             event.prevent_default();
+            if state.dialog.get_untracked() != DialogKind::Command
+                && document()
+                    .query_selector("dialog[open]")
+                    .ok()
+                    .flatten()
+                    .is_some()
+            {
+                return;
+            }
             state
                 .dialog
                 .set(if state.dialog.get_untracked() == DialogKind::Command {
@@ -164,16 +184,23 @@ pub fn CommandPalette() -> impl IntoView {
     let query = RwSignal::new(String::new());
     let board = expect_context::<crate::pages::board::BoardState>();
     let location = leptos_router::hooks::use_location();
-    let navigate = leptos_router::hooks::use_navigate();
-    let navigate = Callback::new(move |url: String| navigate(&url, Default::default()));
+    if !location.pathname.get_untracked().starts_with("/design")
+        && board.signed_in.get_untracked()
+        && board.projects.get_untracked().is_empty()
+    {
+        board.refresh();
+    }
     view! {
         <Modal title="Search and commands" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
-            <div on:keydown=command_key>
-            <div class="command-search"><Icon name="search"/><input aria-label="Search tickets or commands" placeholder="Search tickets or run a command…" on:input=move |ev| query.set(event_target_value(&ev))/></div>
+            <div class="command-palette" on:keydown=command_key>
+            <div class="command-search"><Icon name="search"/><input aria-label="Search tickets or commands" placeholder="Search tickets…" on:input=move |ev| query.set(event_target_value(&ev))/></div>
             <Show when=move||!location.pathname.get().starts_with("/design") fallback=move||view!{<div class="command-results"><p class="menu-heading">"Actions"</p><button class="menu-item" on:click=move |_| state.new_ticket(Status::Todo)><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button><button class="menu-item" on:click=move |_| state.dialog.set(DialogKind::Project)><Icon name="project"/>"New project"</button><p class="menu-heading">"Tickets"</p>{move || {
                 let filtered = state.tickets.get().into_iter().filter(|t| format!("TKT-{} {}", t.id, t.title).to_lowercase().contains(&query.get().to_lowercase())).take(6).collect::<Vec<_>>();
                 if filtered.is_empty() { view! { <p class="command-empty">"No tickets match your search."</p> }.into_any() } else { filtered.into_iter().map(|ticket| view! { <A href=format!("/design/ticket?id={}", ticket.id) attr:class="menu-item" on:click=move |_| state.dialog.set(DialogKind::None)><StatusIcon status=ticket.status/><span class="mono muted">{format!("TKT-{}", ticket.id)}</span><span>{ticket.title}</span></A> }).collect_view().into_any() }
-            }}</div>}><div class="command-results"><p class="menu-heading">"Tickets"</p>{move||board.tickets.get().into_iter().filter(|t|format!("{} {}",t.key,t.title).to_lowercase().contains(&query.get().to_lowercase())).take(20).map(|t|view!{<button class="menu-item" on:click=move|_|{if !board.select_project(t.project_id) {return;}let list=location.pathname.get_untracked()=="/list";if list {navigate.run(format!("/list?project={}&q={}",t.project_id,t.key));}state.dialog.set(DialogKind::None);request_animation_frame(move||{let prefix=if list {"list-ticket"} else {"ticket"};if let Some(e)=document().get_element_by_id(&format!("{prefix}-{}",t.id)).and_then(|e|e.dyn_into::<web_sys::HtmlElement>().ok()){let _=e.focus();}});} ><StatusIcon status=t.status/><span class="mono muted">{t.key.clone()}</span><span>{t.title}</span></button>}).collect_view()}</div></Show><div class="command-footer"><span><Shortcut>"↑ ↓"</Shortcut>" to navigate"</span><span><Shortcut>"↵"</Shortcut>" to select"</span><span><Shortcut>"esc"</Shortcut>" to close"</span></div>
+            }}</div>}><div class="command-results"><p class="menu-heading">"Tickets"</p>{move||{
+                let filtered=board.tickets.get().into_iter().filter(|t|format!("{} {}",t.key,t.title).to_lowercase().contains(&query.get().to_lowercase())).take(20).collect::<Vec<_>>();
+                if filtered.is_empty() {view!{<p class="command-empty" role="status">{move||if !board.signed_in.get(){"Sign in to search your tickets."}else if board.loading.get(){"Loading tickets…"}else{"No tickets match your search."}}</p>}.into_any()} else {filtered.into_iter().map(|t|view!{<A href=format!("/ticket?id={}",t.id) attr:class="menu-item" on:click=move|_|state.dialog.set(DialogKind::None)><StatusIcon status=t.status/><span class="mono muted">{t.key}</span><span class="menu-title" title=t.title.clone()>{t.title.clone()}</span></A>}).collect_view().into_any()}
+            }}</div></Show><div class="command-footer"><span><Shortcut>"↑ ↓"</Shortcut>" to navigate"</span><span><Shortcut>"↵"</Shortcut>" to open"</span><span><Shortcut>"esc"</Shortcut>" to close"</span></div>
             </div>
         </Modal>
     }

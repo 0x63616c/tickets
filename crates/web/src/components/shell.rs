@@ -2,25 +2,39 @@ use super::*;
 use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_location;
+use web_sys::wasm_bindgen::JsCast;
 
 #[component]
 pub fn AppShell(children: Children) -> impl IntoView {
     let state = expect_context::<DesignState>();
     let board = expect_context::<crate::pages::board::BoardState>();
+    let location = use_location();
     wasm_bindgen_futures::spawn_local(async move {
         board.signed_in.set(
             crate::ui::api("GET", "/api/v1/me", serde_json::Value::Null)
                 .await
                 .is_ok(),
         );
+        if board.signed_in.get_untracked()
+            && location.pathname.get_untracked() == "/settings/tokens"
+        {
+            board.refresh();
+        }
     });
     let mobile_open = RwSignal::new(false);
-    let location = use_location();
+    let toggle = NodeRef::<leptos::html::Button>::new();
+    let close_sidebar = Callback::new(move |_| {
+        mobile_open.set(false);
+        if let Some(toggle) = toggle.get_untracked() {
+            let _ = toggle.focus();
+        }
+    });
     view! {
         <a class="skip-link" href="#main">"Skip to content"</a>
-        <div class="app-shell" class:sidebar-open=move || mobile_open.get()>
-            <aside class="sidebar" aria-label="Workspace">
-                <div class="workspace"><button class="workspace-switcher" aria-label="Switch workspace"><span class="workspace-mark">"T"</span><strong>"Tickets"</strong><Icon name="down"/></button><Avatar/></div>
+        <div class="app-shell" class:sidebar-open=move || mobile_open.get() on:keydown=move |event: web_sys::KeyboardEvent| { if mobile_open.get_untracked() { if event.key()=="Escape" { close_sidebar.run(()); } else { sidebar_key(event); } } }>
+            <Show when=move||mobile_open.get()><button class="sidebar-dismiss" aria-label="Close sidebar" tabindex="-1" on:click=move|_|close_sidebar.run(())/></Show>
+            <aside class="sidebar" id="workspace-sidebar" aria-label="Workspace">
+                <div class="workspace"><a class="workspace-switcher" href="/" aria-label="Tickets home"><span class="workspace-mark">"T"</span><strong>"Tickets"</strong></a><Avatar/></div>
                 <button class="search-trigger" on:click=move |_| state.dialog.set(DialogKind::Command)><Icon name="search"/><span>"Search tickets…"</span><Shortcut>"⌘ K"</Shortcut></button>
                 <Show when=move || location.pathname.get().starts_with("/design") fallback=move || view! {
                     <nav class="sidebar-nav" aria-label="Main navigation" on:click=move |_| mobile_open.set(false)>
@@ -56,12 +70,41 @@ pub fn AppShell(children: Children) -> impl IntoView {
                 </div>
             </aside>
             <div class="app-main">
-                <div class="mobile-bar"><IconButton label="Toggle sidebar" icon="list" on_click=Callback::new(move |_| mobile_open.update(|v| *v = !*v))/><strong>"Tickets"</strong></div>
+                <div class="mobile-bar"><button node_ref=toggle class="icon-button" aria-label="Toggle sidebar" aria-controls="workspace-sidebar" aria-expanded=move||mobile_open.get().to_string() on:click=move|_|{ mobile_open.update(|v| *v = !*v); if mobile_open.get_untracked() { request_animation_frame(move||{if let Ok(Some(first))=document().query_selector(".sidebar a") && let Some(first)=first.dyn_ref::<web_sys::HtmlElement>() {let _=first.focus();}}); } }><Icon name="list"/></button><strong>"Tickets"</strong></div>
                 <main id="main" tabindex="-1">{children()}</main>
             </div>
         </div>
         <Overlays/>
         <Toast/>
+    }
+}
+
+fn sidebar_key(event: web_sys::KeyboardEvent) {
+    if event.key() != "Tab" {
+        return;
+    }
+    let Ok(items) =
+        document().query_selector_all(".sidebar a[href], .sidebar button:not([disabled])")
+    else {
+        return;
+    };
+    let (Some(first), Some(last), Some(active)) = (
+        items.item(0),
+        items.item(items.length().saturating_sub(1)),
+        document().active_element(),
+    ) else {
+        return;
+    };
+    let target = if event.shift_key() && first.is_same_node(Some(&active)) {
+        Some(last)
+    } else if !event.shift_key() && last.is_same_node(Some(&active)) {
+        Some(first)
+    } else {
+        None
+    };
+    if let Some(target) = target.and_then(|node| node.dyn_into::<web_sys::HtmlElement>().ok()) {
+        event.prevent_default();
+        let _ = target.focus();
     }
 }
 
