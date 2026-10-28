@@ -47,15 +47,15 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.eval("document.querySelector('.project-row-action').focus();true")?;
     b.wait("getComputedStyle(document.querySelector('.project-row-action')).opacity==='1'")?;
     b.click(".sidebar a[href='/projects?new=true']")?;
-    b.wait("document.activeElement.id==='project-name'")?;
+    b.wait("document.activeElement.id==='project-title'")?;
     b.click("dialog .modal-footer .button-ghost")?;
     b.wait("!document.querySelector('dialog')")?;
     b.click(".sidebar a[href='/projects?new=true']")?;
-    b.wait("document.activeElement.id==='project-name'")?;
+    b.wait("document.activeElement.id==='project-title'")?;
     b.wait("!document.querySelector('#project-kind') && !document.querySelector('#project-number') && !document.querySelector('input[type=color]') && !document.querySelector('dialog').textContent.includes('Changing the prefix')")?;
     b.click("[aria-label='Infrastructure color']")?;
     b.wait("document.querySelector('[aria-label=\"Infrastructure color\"]').getAttribute('aria-pressed')==='true'")?;
-    b.text("#project-name", "Engine")?;
+    b.text("#project-title", "Engine")?;
     b.text("#project-prefix", "ENG")?;
     b.text(
         "#project-owner",
@@ -76,7 +76,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.text("#project-owner", "example/4")?;
     b.wait("!!document.querySelector('#project-kind')")?;
     b.eval("var s=document.querySelector('#project-kind');s.value='users';s.dispatchEvent(new Event('change',{bubbles:true}));true")?;
-    b.text("#project-name", "Engine renamed")?;
+    b.text("#project-title", "Engine renamed")?;
     b.text("#project-prefix", "REN")?;
     b.text(
         "#project-owner",

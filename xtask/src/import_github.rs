@@ -1,4 +1,4 @@
-//! Local-only, restartable GitHub migration. Never log credentials or source bodies.
+//! Explicitly gated, restartable GitHub migration. Never log credentials or source bodies.
 use reqwest::{Method, Url, blocking::Client};
 use serde_json::{Value, json};
 use std::{
@@ -19,12 +19,23 @@ pub struct Api {
 }
 impl Api {
     pub fn new(base: &str, token: String, github: bool) -> Result<Self> {
+        Self::with_remote(base, token, github, false)
+    }
+    pub fn with_remote(
+        base: &str,
+        token: String,
+        github: bool,
+        allow_remote: bool,
+    ) -> Result<Self> {
         let url = Url::parse(base)?;
         if !github
             && (url.scheme() != "http"
                 || !matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")))
+            && !(allow_remote && url.scheme() == "https" && url.host_str().is_some())
         {
-            return Err("Tickets URL must use HTTP on loopback; production import requires separate approval".into());
+            return Err(
+                "Tickets URL must use HTTP on loopback, or HTTPS with --allow-remote".into(),
+            );
         }
         if url.path() != "/"
             || url.query().is_some()
@@ -36,7 +47,11 @@ impl Api {
         }
         Ok(Self {
             client: Client::builder()
-                .redirect(reqwest::redirect::Policy::none())
+                .redirect(if github {
+                    reqwest::redirect::Policy::limited(5)
+                } else {
+                    reqwest::redirect::Policy::none()
+                })
                 .timeout(Duration::from_secs(60))
                 .user_agent("tickets-import")
                 .build()?,
@@ -46,6 +61,10 @@ impl Api {
         })
     }
     pub fn call(&self, method: Method, path: &str, body: Value) -> Result<Value> {
+        // POST creates (especially comments) and DELETE/link operations are not
+        // replay-safe. A failed response may follow a committed write: rerun the
+        // importer to reconcile rather than blindly repeating those operations.
+        let safe = matches!(method, Method::GET | Method::PUT | Method::PATCH);
         for attempt in 0..4 {
             let mut request = self
                 .client
@@ -59,24 +78,39 @@ impl Api {
             if !body.is_null() {
                 request = request.json(&body);
             }
-            let response = request
-                .send()
-                .map_err(|_| "HTTP transport failed; rerun to reconcile")?;
+            let response = match request.send() {
+                Ok(response) => response,
+                Err(error)
+                    if safe
+                        && attempt < 3
+                        && (error.is_connect() || error.is_timeout() || error.is_request()) =>
+                {
+                    thread::sleep(Duration::from_secs(1 << attempt));
+                    continue;
+                }
+                Err(_) => return Err("HTTP transport failed; rerun to reconcile".into()),
+            };
             let status = response.status();
-            if self.github && (status.as_u16() == 429 || status.as_u16() == 403) && attempt < 3 {
+            if safe
+                && attempt < 3
+                && (status.as_u16() == 429
+                    || status.is_server_error()
+                    || (self.github && status.as_u16() == 403))
+            {
                 let headers = response.headers();
                 let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
                 let delay = headers
                     .get("retry-after")
-                    .and_then(|v| v.to_str().ok()?.parse::<u64>().ok())
+                    .and_then(|v| retry_after(v.to_str().ok()?, SystemTime::now()))
                     .or_else(|| {
                         headers
                             .get("x-ratelimit-reset")
                             .and_then(|v| v.to_str().ok()?.parse::<u64>().ok())
-                            .map(|reset| reset.saturating_sub(now) + 1)
+                            .map(|reset| reset.saturating_sub(now).saturating_add(1))
                     });
-                if let Some(delay) = delay.filter(|d| *d <= 300) {
-                    eprintln!("GitHub rate limit: waiting {delay}s");
+                let delay = delay.unwrap_or(1 << attempt).max(1 << attempt);
+                if delay <= 300 {
+                    eprintln!("API retry: waiting {delay}s");
                     for _ in 0..delay {
                         thread::sleep(Duration::from_secs(1));
                     }
@@ -93,7 +127,7 @@ impl Api {
             }
             return response.json().map_err(|_| "invalid JSON response".into());
         }
-        Err("GitHub retry limit exceeded".into())
+        Err("API retry limit exceeded".into())
     }
     pub fn list(&self, path: &str) -> Result<Vec<Value>> {
         let mut result = Vec::new();
@@ -131,6 +165,22 @@ impl Api {
             }
         }
         Ok(result)
+    }
+}
+fn retry_after(value: &str, now: SystemTime) -> Option<u64> {
+    value.parse().ok().or_else(|| {
+        httpdate::parse_http_date(value).ok().map(|date| {
+            date.duration_since(now)
+                .unwrap_or_default()
+                .as_secs()
+                .saturating_add(1)
+        })
+    })
+}
+fn identity_repo(repo: &str) -> &str {
+    match repo {
+        "0x63616c/quantum" => "0x63616c/voxelite",
+        _ => repo,
     }
 }
 fn id(v: &Value) -> Result<i64> {
@@ -191,6 +241,7 @@ pub fn cli(args: &[String]) -> Result<()> {
     let mut project = None;
     let mut url = "http://127.0.0.1:8787".to_owned();
     let mut dry = false;
+    let mut allow_remote = false;
     let mut args = args.iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -198,6 +249,7 @@ pub fn cli(args: &[String]) -> Result<()> {
             "--project" => project = Some(args.next().ok_or("missing project")?.clone()),
             "--url" => url = args.next().ok_or("missing URL")?.clone(),
             "--dry-run" => dry = true,
+            "--allow-remote" => allow_remote = true,
             _ => return Err(format!("unknown import argument: {arg}").into()),
         }
     }
@@ -219,10 +271,11 @@ pub fn cli(args: &[String]) -> Result<()> {
     {
         return Err("project key must be 1–10 uppercase letters".into());
     }
-    let tickets = Api::new(
+    let tickets = Api::with_remote(
         &url,
         env::var("TICKETS_TOKEN").map_err(|_| "TICKETS_TOKEN required")?,
         false,
+        allow_remote,
     )?;
     let token = match env::var("GITHUB_TOKEN") {
         Ok(t) => t,
@@ -239,6 +292,12 @@ pub fn cli(args: &[String]) -> Result<()> {
 }
 
 pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<()> {
+    let metadata = gh.call(Method::GET, &format!("/repos/{repo}"), Value::Null)?;
+    let canonical = text(&metadata, "full_name")?.to_ascii_lowercase();
+    if identity_repo(&canonical) != identity_repo(repo) {
+        return Err("repository renamed: refusing a new external-ID namespace; keep the original --repo and add an explicit identity alias before importing".into());
+    }
+    let repo = identity_repo(repo);
     let issues: Vec<_> = gh
         .list(&format!(
             "/repos/{repo}/issues?state=all&sort=created&direction=asc"
@@ -583,6 +642,39 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn remote_urls_and_identity() {
+        for url in ["http://localhost", "http://127.0.0.1:8790", "http://[::1]"] {
+            assert!(Api::new(url, "test".into(), false).is_ok());
+        }
+        for url in [
+            "https://tickets.worldwidewebb.co",
+            "https://example.com:443/",
+        ] {
+            assert!(Api::new(url, "test".into(), false).is_err());
+            assert!(Api::with_remote(url, "test".into(), false, true).is_ok());
+        }
+        for url in [
+            "http://example.com",
+            "https://user@example.com",
+            "https://example.com/path",
+            "https://example.com?x",
+            "https://example.com#x",
+            "https://user:pass@example.com",
+        ] {
+            assert!(Api::with_remote(url, "test".into(), false, true).is_err());
+        }
+        assert_eq!(
+            identity_repo("0x63616c/quantum"),
+            identity_repo("0x63616c/voxelite")
+        );
+        assert_eq!(retry_after("12", UNIX_EPOCH), Some(12));
+        assert_eq!(
+            retry_after("Thu, 01 Jan 1970 00:00:10 GMT", UNIX_EPOCH),
+            Some(11)
+        );
+        assert_eq!(retry_after("invalid", UNIX_EPOCH), None);
+    }
     #[test]
     fn dependency_references_are_unique_and_directed() {
         assert_eq!(

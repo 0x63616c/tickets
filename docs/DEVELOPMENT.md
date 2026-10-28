@@ -139,7 +139,7 @@ port 8795 and generated `target/api-smoke-*` state, and stops the Worker on exit
 Use it whenever the skill or API changes; CI also runs it. It supplies generated
 fixture credentials, never credentials from your environment.
 
-## GitHub issue import (local only)
+## GitHub issue import
 
 With a local `wrangler dev` and local D1, create a local personal token through
 Settings → API tokens and set `TICKETS_TOKEN` in your secure environment.
@@ -153,11 +153,28 @@ cargo xtask import-github --repo 0x63616c/voxelite --project QUA
 cargo xtask import-check
 ```
 
-The default Tickets URL is `http://127.0.0.1:8787`; only HTTP loopback URLs are
-accepted, redirects are disabled, and credentials never go in URLs. Production
-import remains **pending Calum's explicit OK**; this command cannot target a
-remote instance. Do not deploy, migrate remote D1, or change Quantum's process
-as part of a local import.
+The default Tickets URL is `http://127.0.0.1:8787`; without `--allow-remote`
+only HTTP loopback URLs are accepted. With the flag, HTTPS base URLs are also
+accepted. Nonlocal plain HTTP, URL credentials, paths, queries and fragments are
+rejected. Tickets redirects remain disabled; GitHub follows up to five redirects
+for renamed repositories.
+
+Calum has approved the production import. The coordinator runs these commands
+**after merge**, with `TICKETS_TOKEN` already set in the secure environment (never
+pass it as an argument or print it). This PR does not perform the import:
+
+```sh
+cargo xtask import-github --repo 0x63616c/voxelite --project QUA --url https://tickets.worldwidewebb.co --allow-remote --dry-run
+cargo xtask import-github --repo 0x63616c/voxelite --project QUA --url https://tickets.worldwidewebb.co --allow-remote
+```
+
+Both `--repo 0x63616c/voxelite` and `--repo 0x63616c/quantum` use the original
+`github:0x63616c/voxelite:N` external IDs and comment markers. This explicit alias
+keeps reruns stable before, during and after the rename. Repository metadata is
+checked before destination writes; other renames fail loudly and require an
+explicit identity alias before importing. Keep the original namespace; do not
+start a new namespace under a renamed repository. Do not deploy or migrate remote
+D1 as part of the import.
 
 All issues, open and closed, are read with pagination; PRs are excluded.
 `QUA` creates **Quantum** for `0x63616c/voxelite`; other repositories use their
@@ -186,17 +203,32 @@ Dry run reads source issues/comments and destination projects/labels, prints
 issue numbers, states and planned counts, and makes no writes. The final write
 report compares source open/closed counts with read-back Tickets counts, fields,
 label names/colors, dependency edges and comment bodies; gaps exit nonzero.
-GitHub rate limits with Retry-After/reset headers retry up to three times with
-a maximum five-minute wait each; longer limits fail for a later rerun. Other
-HTTP failures stop without echoing response bodies or credentials.
+API reads, external-ID PUT upserts and fixed-value PATCH updates retry 429, 5xx
+and transient transport failures up to three times (four attempts total), with
+1/2/4-second exponential backoff. Retry-After seconds and HTTP dates are honored;
+GitHub rate-limit reset headers/403 are also supported. Each wait is bounded to
+five minutes; a longer server delay fails for a later rerun rather than retrying
+early. Response bodies and credentials are never echoed.
+
+Project/label/comment POST creation is not retried: a lost response may follow
+a committed write. Relationship POST/DELETE operations also stop on failure,
+since duplicates/missing links return 409/404. Rerun the importer to reconcile
+these writes through project keys, label names, comment markers and current
+relationships. Never run concurrent imports.
 
 `import-check` reuses api-smoke's isolated local Worker/D1 lifecycle, generated
 credentials, port 8795 and ignored `target/api-smoke-*` state. A Rust HTTP server
 provides paginated GitHub fixtures and a rate-limit response. It checks dry-run
 absence of writes, PR exclusion, open/closed state, Markdown, label colors,
 dependency direction and three comments (including equal bodies with distinct
-IDs). It imports twice, deliberately introducing drift before the second run,
+IDs). It imports repeatedly, deliberately introducing drift before a rerun,
 and checks stable ticket/comment identities and no duplicate projects/labels.
 It also reverses a local dependency and adds an incorrect label before the
 rerun, then confirms an unexpected imported ticket makes reconciliation fail.
 Do not run it concurrently with api-smoke, skill-check or browser checks.
+
+The check also proxies Tickets locally: it returns 429 once for a read and 503
+once after committed PUT and PATCH writes, checking stable identities after retry.
+It also loses a committed comment-create response, verifies safe recovery on
+rerun, follows GitHub 301/307 redirects, rejects an unrecognized rename, and
+imports under both voxelite/quantum names without duplicate tickets or comments.

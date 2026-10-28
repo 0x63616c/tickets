@@ -181,7 +181,7 @@ fn interactions(b: &mut Browser) -> Result {
     // Token creation is exercised, but a secret is never captured in an artifact.
     b.go(&format!("{URL}/settings/tokens"))?;
     b.wait("!!document.querySelector('.tokens li')")?;
-    b.text("#token-name", "Build agent")?;
+    b.text("#token-label", "Build agent")?;
     b.click(".settings-footer button")?;
     b.wait("document.querySelector('.secret code')?.textContent.startsWith('tk_')")?;
     b.click(".secret .button-ghost")?;

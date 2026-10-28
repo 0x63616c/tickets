@@ -1,6 +1,7 @@
 mod api_smoke;
 mod auth;
 mod auth_verify;
+mod autofill;
 #[cfg(not(target_arch = "wasm32"))]
 mod import_check;
 #[cfg(not(target_arch = "wasm32"))]
@@ -129,7 +130,8 @@ fn main() -> Result {
             ),
             Some(other) => Err(format!("unknown migrate flag {other}; expected --remote").into()),
         },
-        Some("ci") => {
+        Some("autofill-check") => autofill::check(root),        Some("ci") => {
+            autofill::check(root)?;
             run(root, "cargo", &["fmt", "--all", "--check"])?;
             run(root, "cargo", &["build", "--workspace", "--locked"])?;
             run(
@@ -163,7 +165,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <dev|build|migrate [--remote]|ci|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <local-url>] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check>".into())
+            Err("usage: cargo xtask <dev|build|migrate [--remote]|ci|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check>".into())
         }
     }
 }
