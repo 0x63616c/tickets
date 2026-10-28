@@ -341,3 +341,17 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .api-board .board-column { flex: 1 0 216px; min-width: 216px; }
 .canceled-toggle { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); white-space: nowrap; font-size: var(--text-xs); }
 .board-filters select { width: auto; height: 32px; font-size: var(--text-sm); }
+/* List properties retain the fixture's 36px row and shared status/priority icons. */
+.api-list-row .inline-property { position: relative; flex: 0 0 16px; display: flex; align-items: center; }
+.inline-property select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; padding: 0; }
+.inline-property:focus-within { outline: 2px solid var(--focus); outline-offset: var(--space-1); border-radius: var(--radius-sm); }
+.api-list-row .row-title { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.api-list-row:focus { background: var(--surface-active); }
+.list-filters { height: auto; min-height: var(--topbar-height); }
+@media (max-width: 760px) { .list-filters select { max-width: 100%; flex: 1; } .api-list-row .ticket-id { width: auto; } }
+.list-tabs { justify-content: flex-start; }
+.api-list-row .row-date { white-space: nowrap; flex-shrink: 0; }
+.list-tabs { gap: var(--space-6); }
+.api-list-row .row-labels { display: flex; overflow: hidden; max-width: 200px; flex-shrink: 0; }
+.api-list-row .row-labels .label-chip { flex-shrink: 0; }
+@media (max-width: 760px) { .api-list-row .row-labels { display: none; } }
