@@ -12,7 +12,7 @@ use std::{
 use tungstenite::{Message, WebSocket, stream::MaybeTlsStream};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-struct Browser {
+pub(crate) struct Browser {
     process: Child,
     socket: WebSocket<MaybeTlsStream<TcpStream>>,
     id: u64,
@@ -26,7 +26,7 @@ impl Drop for Browser {
     }
 }
 impl Browser {
-    fn start(root: &Path) -> Result<Self> {
+    pub(crate) fn start(root: &Path) -> Result<Self> {
         let chrome = env::var_os("CHROME_BIN")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/usr/bin/google-chrome"));
@@ -97,7 +97,7 @@ impl Browser {
         )?;
         Ok(browser)
     }
-    fn call(&mut self, method: &str, params: Value) -> Result<Value> {
+    pub(crate) fn call(&mut self, method: &str, params: Value) -> Result<Value> {
         self.id += 1;
         let mut request = json!({"id":self.id,"method":method,"params":params});
         if !self.session.is_empty() {
@@ -124,7 +124,7 @@ impl Browser {
             }
         }
     }
-    fn eval(&mut self, expression: &str) -> Result<Value> {
+    pub(crate) fn eval(&mut self, expression: &str) -> Result<Value> {
         let result = self.call(
             "Runtime.evaluate",
             json!({"expression":expression,"returnByValue":true,"awaitPromise":true}),
@@ -134,7 +134,7 @@ impl Browser {
         }
         Ok(result["result"]["value"].clone())
     }
-    fn wait(&mut self, expression: &str) -> Result<()> {
+    pub(crate) fn wait(&mut self, expression: &str) -> Result<()> {
         let start = Instant::now();
         while self.eval(expression)? != true {
             if start.elapsed() > Duration::from_secs(15) {
@@ -145,20 +145,20 @@ impl Browser {
         }
         Ok(())
     }
-    fn go(&mut self, url: &str) -> Result<()> {
+    pub(crate) fn go(&mut self, url: &str) -> Result<()> {
         self.call("Page.navigate", json!({"url":url}))?;
         self.wait("!!document.querySelector('.topbar, .auth-page')")?;
         self.eval("document.fonts.ready.then(() => true)")?;
         Ok(())
     }
-    fn viewport(&mut self, width: u32, height: u32) -> Result<()> {
+    pub(crate) fn viewport(&mut self, width: u32, height: u32) -> Result<()> {
         self.call(
             "Emulation.setDeviceMetricsOverride",
             json!({"width":width,"height":height,"deviceScaleFactor":1,"mobile":false}),
         )?;
         Ok(())
     }
-    fn screenshot(&mut self, path: &Path) -> Result<()> {
+    pub(crate) fn screenshot(&mut self, path: &Path) -> Result<()> {
         // Let layout and font metrics settle before capturing the viewport.
         self.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))")?;
         let result = self.call(
@@ -172,7 +172,7 @@ impl Browser {
         println!("Screenshot: {}", path.display());
         Ok(())
     }
-    fn click(&mut self, selector: &str) -> Result<()> {
+    pub(crate) fn click(&mut self, selector: &str) -> Result<()> {
         let selector = serde_json::to_string(selector)?;
         let point = self.eval(&format!("(() => {{ const e=document.querySelector({selector}); if(!e) throw Error('Missing control'); e.scrollIntoView({{block:'nearest'}}); const r=e.getBoundingClientRect(); return {{x:r.x+r.width/2,y:r.y+r.height/2}}; }})()"))?;
         for kind in ["mousePressed", "mouseReleased"] {
@@ -183,7 +183,7 @@ impl Browser {
         }
         Ok(())
     }
-    fn text(&mut self, selector: &str, text: &str) -> Result<()> {
+    pub(crate) fn text(&mut self, selector: &str, text: &str) -> Result<()> {
         self.click(selector)?;
         self.eval(&format!(
             "document.querySelector({}).select();true",
