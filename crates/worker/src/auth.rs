@@ -84,6 +84,20 @@ fn cookie(req: &Request) -> Option<String> {
         .split(';')
         .find_map(|p| p.trim().strip_prefix("tickets_session=").map(str::to_owned))
 }
+/// Navigation accepts only a live session cookie, never an API bearer token.
+pub async fn has_session(req: &Request, env: &Env) -> Result<bool> {
+    let Some(token) = cookie(req).filter(|t| valid_token(t, false)) else {
+        return Ok(false);
+    };
+    Ok(!query(
+        &env.d1("DB")?,
+        crate::auth_queries::SESSION,
+        vec![hash_token(&token).into()],
+    )
+    .await?
+    .is_empty())
+}
+
 /// Common gate for every private API route. An invalid bearer never falls back to cookies.
 pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
     let path = req.path();

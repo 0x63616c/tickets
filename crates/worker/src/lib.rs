@@ -16,7 +16,82 @@ pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             Err(_) => Ok(Response::from_json(&serde_json::json!({"error":{"code":"internal","message":"Request could not be completed"}}))?.with_status(500)),
         };
     }
-    env.assets("ASSETS")?.fetch_request(req).await
+    let path = req.path();
+    // Only build-produced assets are public; unknown paths (even with dots) are gated.
+    let public = path.starts_with("/fonts/")
+        || path == "/favicon.ico"
+        || (path.matches('/').count() == 1
+            && path.rsplit_once('-').is_some_and(|(_, tail)| {
+                tail.split_once('.').is_some_and(|(hash, ext)| {
+                    hash.strip_suffix("_bg").unwrap_or(hash).len() >= 8
+                        && hash
+                            .strip_suffix("_bg")
+                            .unwrap_or(hash)
+                            .bytes()
+                            .all(|b| b.is_ascii_hexdigit())
+                        && matches!(ext, "js" | "wasm" | "css")
+                })
+            }));
+    if !public {
+        let url = req.url()?;
+        let signed_in = auth::has_session(&req, &env).await?;
+        let destination = if path == "/login" {
+            if signed_in {
+                let next = url
+                    .query_pairs()
+                    .find(|(k, _)| k == "next")
+                    .map(|(_, v)| v.into_owned())
+                    .unwrap_or_default();
+                Some(tickets_core::navigation::safe_next(&next).to_owned())
+            } else {
+                None
+            }
+        } else if !signed_in {
+            let current = format!(
+                "{}{}",
+                url.path(),
+                url.query().map(|q| format!("?{q}")).unwrap_or_default()
+            );
+            let encoded: String = tickets_core::navigation::safe_next(&current)
+                .bytes()
+                .map(|b| {
+                    if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
+                        (b as char).to_string()
+                    } else {
+                        format!("%{b:02X}")
+                    }
+                })
+                .collect();
+            Some(format!("/login?next={encoded}"))
+        } else {
+            None
+        };
+        if let Some(destination) = destination {
+            let mut response = Response::empty()?.with_status(302);
+            response.headers_mut().set("Location", &destination)?;
+            response.headers_mut().set("Cache-Control", "no-store")?;
+            return Ok(response);
+        }
+    }
+    let asset_request = if public {
+        req
+    } else {
+        let mut url = req.url()?;
+        url.set_path("/index.html");
+        url.set_query(None);
+        Request::new(url.as_str(), req.method())?
+    };
+    let mut response = env.assets("ASSETS")?.fetch_request(asset_request).await?;
+    if !public {
+        // Binding responses have immutable headers; copy them before setting cache policy.
+        let headers = Headers::new();
+        for (name, value) in response.headers().entries() {
+            headers.set(&name, &value)?;
+        }
+        headers.set("Cache-Control", "no-store")?;
+        response = response.with_headers(headers);
+    }
+    Ok(response)
 }
 pub mod repository;
 
