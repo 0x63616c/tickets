@@ -16,7 +16,7 @@ fn App() -> impl IntoView {
                 <Routes fallback=|| view! { <h1>"Page not found"</h1><a href="/">"Back to tickets"</a> }>
                     <Route path=path!("/") view=|| view! {
                         <header><h1>"All tickets"</h1></header>
-                        <section aria-label="Tickets placeholder"><h2>"Your workspace starts here"</h2><p>"Tickets and projects will appear here as the workspace takes shape."</p></section>
+                        <section aria-label="Tickets placeholder"><h2>"No tickets"</h2><p>"Create a project to start tracking work."</p></section>
                     }/>
                 </Routes>
             </main>
