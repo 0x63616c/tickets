@@ -8,7 +8,7 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 
 | Route | Reference |
 | --- | --- |
-| `/` and `/design/board` | Four-column Kanban; status menu and drag alternatives; counts, labels, blockers |
+| `/design/board` | Four-column Kanban; status menu and drag alternatives; counts, labels, blockers |
 | `/design/list` | 36px rows grouped by status; aligned ID, label, comment, project, and date fields |
 | `/design/ticket` | TKT-7; sanitized Markdown, task list, comments, properties, both dependency directions |
 | `/design/ticket?id=6` | A specific fixture ticket; all ticket links retain their ID |
@@ -16,7 +16,10 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 | `/design/projects` | Project list and New project flow |
 | `/design` | Buttons, inputs, selects, status/priority icons, labels, avatars, connection states, overlays, tokens |
 
-These are local in-memory fixtures. Creation, status changes, labels, comments,
+The real API-backed board is `/`; see [Kanban](kanban.md) for its persistence,
+keyboard controls, local verification and #16 change-event hook.
+
+The `/design*` routes are local in-memory fixtures. Creation, status changes, labels, comments,
 projects, and dependency selection demonstrate behavior; reload resets them.
 The sidebar identifies the preview as Sample data. Ticket API integration, GitHub sync,
 and live transport remain separate. The existing `/login` and `/settings/tokens`
