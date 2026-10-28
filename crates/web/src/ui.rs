@@ -16,7 +16,10 @@ async fn api(method: &str, path: &str, body: Value) -> Result<Value, String> {
     }
     let value: Value = response.json().await.map_err(|_| "Invalid response")?;
     if !response.ok() {
-        return Err(value["error"].as_str().unwrap_or("Request failed").into());
+        return Err(value["error"]["message"]
+            .as_str()
+            .unwrap_or("Request failed")
+            .into());
     }
     Ok(value)
 }
