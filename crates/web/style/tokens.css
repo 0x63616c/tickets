@@ -1,24 +1,24 @@
-/* Shared visual contract for #7–#10 and #16. Linear reference values, dark only. */
+/* Shared visual contract for #7–#10 and #16. Linear reference values pushed to near-pure black (#32), dark only. */
 @font-face { font-family: 'Inter Variable'; src: url('/fonts/InterVariable.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
 @font-face { font-family: 'Geist Mono'; src: url('/fonts/GeistMono.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
 :root {
   color-scheme: dark;
-  --bg: #050506;
-  --sidebar: #0a0a0b;
-  --surface: #0e0f10;
-  --surface-raised: #131415;
+  --bg: #000000;
+  --sidebar: #030303;
+  --surface: #070708;
+  --surface-raised: #0a0a0b;
   --surface-hover: #ffffff0a;
   --surface-active: #ffffff0f;
-  --border: #1c1d21;
+  --border: #141416;
   --border-subtle: #ffffff08;
-  --border-strong: #2a2b31;
+  --border-strong: #1f2024;
   --text: #f7f8f8;
   --text-secondary: #d0d6e0;
   --text-muted: #8a8f98;
   --text-faint: #797d86;
   --accent: #5e6ad2;
   --accent-hover: #6d79df;
-  --accent-surface: #14152a;
+  --accent-surface: #0d0e1f;
   --focus: #5e6ad2;
   --status-backlog: #8a8f98;
   --status-todo: #d0d6e0;

@@ -92,16 +92,17 @@ right padding so text never runs under it. Inline selects (board cards, detail
 properties) use the same chevron with a transparent fill and a hover tint; card
 selects size to their content so the chevron sits beside the value.
 
-**Sidebar** is `#0a0a0b` against the `#050506` canvas with a 1px `#1c1d21`
+**Sidebar** is `#030303` against the pure `#000000` canvas with a 1px `#141416`
 divider. A workspace switcher (20px mark, name, chevron, avatar) sits on top.
 Items are `#d0d6e0` with 16px icons; hover is a faint tint; the active item is a
-`#131415` pill with white text and an accent icon. Section headers are 11px
+`#0a0a0b` pill with white text and an accent icon. Section headers are 11px
 uppercase `#797d86`. Projects show an 8px colored dot.
 
-**Palette** is deep and near-black: canvas `#050506`, sidebar and properties
-`#0a0a0b`, surfaces `#0e0f10` (cards, inputs) and `#131415` (raised, active),
-borders `#1c1d21` and `#2a2b31`. All body text meets WCAG AA on every surface;
-the faint tier `#797d86` was lifted from `#62666d` to keep 4.5:1 on `#131415`.
+**Palette** is near-pure black (#32): canvas `#000000`, sidebar and properties
+`#030303`, surfaces `#070708` (cards, inputs) and `#0a0a0b` (raised, active),
+borders `#141416` and `#1f2024`. Depth comes from borders more than fills. All
+body text meets WCAG AA on every surface; the faint tier `#797d86` keeps 4.8:1
+even on `#0a0a0b`.
 
 **Tinted chips.** A label chip takes its own hue (`--c`): fill at 14%
 (`--tint-fill`), border at 26% (`--tint-border`), text mixed 55% toward white
