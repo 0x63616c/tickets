@@ -83,3 +83,14 @@
 - Password hashes store canonical positive PBKDF2-SHA256 iteration counts up to
   the production WebCrypto maximum (100,000); new hashes use that maximum.
   Generate a passphrase of at least 16 characters with `cargo xtask auth-hash`.
+
+## Agent skill verification
+
+- When changing the agent skill or API, run `cargo xtask skill-check`. It extracts
+  every fenced `sh` curl example from `.agents/skills/tickets/SKILL.md`, executes
+  it directly (no shell), and checks the adjacent `# expect` HTTP status and JSON
+  subset. Keep examples as curl argv with only `$TICKETS_URL`/`$TICKETS_TOKEN`
+  substitutions and backslash continuations; every command needs an expectation.
+  Array assertions match length and order; object assertions allow extra fields.
+  The task reuses api-smoke's isolated local D1 lifecycle and port 8795, so do not
+  run both concurrently. CI runs the skill check; no production access is used.
