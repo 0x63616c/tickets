@@ -460,3 +460,13 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
   .api-project-row > .project-row-action { display: inline-flex; }
   .api-project-row > span:nth-child(2) { padding-right: 24px; }
 }
+
+/* Standalone authentication: no application chrome is mounted on /login. */
+.login-page { min-height: 100svh; display: grid; place-items: center; padding: var(--space-6); background: var(--bg); }
+.login-page .login { width: 100%; max-width: 336px; padding: var(--space-8) 0; }
+.login-wordmark { color: var(--text); font-size: var(--text-title); font-weight: var(--weight-bold); margin-bottom: var(--space-10); }
+.login-page h1 { font-size: var(--text-xl); font-weight: var(--weight-semibold); margin-bottom: var(--space-2); }
+.login-page p { color: var(--text-muted); }
+.login-page .field input { width: 100%; min-height: 42px; font-size: var(--text-lg); }
+.login-page .button { width: 100%; min-height: 42px; }
+.login-page .login-error { display: block; color: var(--danger); min-height: 20px; margin: 0; font-size: var(--text-sm); }

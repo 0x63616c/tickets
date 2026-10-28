@@ -23,7 +23,7 @@ fn App() -> impl IntoView {
     provide_context(components::DesignState::new());
     provide_context(pages::board::BoardState::new());
     view! {
-        <Router><components::AppShell>
+        <Router><Show when=|| window().location().pathname().unwrap_or_default() == "/login" fallback=|| view! { <components::AppShell>
             <Routes fallback=|| view! { <components::TopBar/><div class="empty-state"><h1>"Page not found"</h1><a class="button button-secondary" href="/">"Back to tickets"</a></div> }>
                 <Route path=path!("/") view=pages::ApiBoard/>
                 <Route path=path!("/list") view=pages::list::ApiList/>
@@ -35,10 +35,9 @@ fn App() -> impl IntoView {
                 <Route path=path!("/design/ticket") view=pages::TicketDetail/>
                 <Route path=path!("/design/empty") view=pages::Empty/>
                 <Route path=path!("/design/projects") view=pages::Projects/>
-                <Route path=path!("/login") view=|| view! { <div class="auth-page"><ui::Login/></div> }/>
                 <Route path=path!("/settings/tokens") view=|| view! { <div class="auth-page"><ui::Tokens/></div> }/>
             </Routes>
-        </components::AppShell></Router>
+        </components::AppShell> }><ui::Login/></Show></Router>
     }
 }
 
