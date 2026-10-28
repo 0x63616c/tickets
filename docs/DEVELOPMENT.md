@@ -147,8 +147,8 @@ GitHub authentication uses `GITHUB_TOKEN`, falling back to `gh auth token`.
 Neither credential is printed. The User-Agent is `tickets-import`.
 
 ```sh
-cargo xtask import-github --repo 0x63616c/voxelite --project QUA --dry-run
-cargo xtask import-github --repo 0x63616c/voxelite --project QUA
+cargo xtask import-github --repo 0x63616c/quantum --project QUA --dry-run
+cargo xtask import-github --repo 0x63616c/quantum --project QUA
 # A second local instance can use --url http://127.0.0.1:8790
 cargo xtask import-check
 ```
@@ -164,8 +164,8 @@ Calum has approved the production import. The coordinator runs these commands
 pass it as an argument or print it). This PR does not perform the import:
 
 ```sh
-cargo xtask import-github --repo 0x63616c/voxelite --project QUA --url https://tickets.worldwidewebb.co --allow-remote --dry-run
-cargo xtask import-github --repo 0x63616c/voxelite --project QUA --url https://tickets.worldwidewebb.co --allow-remote
+cargo xtask import-github --repo 0x63616c/quantum --project QUA --url https://tickets.worldwidewebb.co --allow-remote --dry-run
+cargo xtask import-github --repo 0x63616c/quantum --project QUA --url https://tickets.worldwidewebb.co --allow-remote
 ```
 
 Both `--repo 0x63616c/voxelite` and `--repo 0x63616c/quantum` use the original
@@ -177,7 +177,7 @@ start a new namespace under a renamed repository. Do not deploy or migrate remot
 D1 as part of the import.
 
 All issues, open and closed, are read with pagination; PRs are excluded.
-`QUA` creates **Quantum** for `0x63616c/voxelite`; other repositories use their
+`QUA` creates **Quantum** for `0x63616c/quantum` (formerly `0x63616c/voxelite`); other repositories use their
 repository name. An existing project is selected by key, including archived
 projects. Existing tickets are upserted by `github:<owner>/<repo>:<number>`;
 external URLs link back to GitHub. Closed issues become Done, other issues Todo.
@@ -241,7 +241,7 @@ content fresh within seconds and cron repairs missed edits. The coordinator does
 production setup after merge; development and checks use isolated local D1 only.
 
 `GITHUB_MIRROR` is a Worker var in both default and production environments:
-`1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/voxelite:QUA`.
+`1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/quantum:QUA`.
 Each entry maps stable repository ID to external-ID identity and project key.
 Projects are ensured by key; QUA is named Quantum, others use the repository name.
 The quantum rename retains the original voxelite identity and comment markers.
