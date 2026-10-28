@@ -27,3 +27,7 @@ mod tests {
         assert_eq!(health.version, "0.1.0");
     }
 }
+
+pub mod dependency;
+pub mod domain;
+pub mod markdown;
