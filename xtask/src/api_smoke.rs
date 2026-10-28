@@ -13,6 +13,10 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 struct Server(Child);
 impl Drop for Server {
     fn drop(&mut self) {
+        #[cfg(unix)]
+        let _ = Command::new("kill")
+            .args(["-TERM", "--", &format!("-{}", self.0.id())])
+            .output();
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
@@ -102,6 +106,13 @@ impl Client {
     }
 }
 pub fn run(root: &Path, skill: bool) -> Result<()> {
+    run_inner(root, skill, false)
+}
+#[cfg(not(target_arch = "wasm32"))]
+pub fn board(root: &Path) -> Result<()> {
+    run_inner(root, false, true)
+}
+fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
     super::build(root)?;
     let mut random = [0u8; 24];
     getrandom::getrandom(&mut random).map_err(|_| "randomness unavailable")?;
@@ -130,7 +141,7 @@ pub fn run(root: &Path, skill: bool) -> Result<()> {
     fs::write(
         &config,
         format!(
-            "name='tickets-api-smoke'\nmain='{}'\ncompatibility_date='2026-10-27'\n[assets]\ndirectory='{}'\nbinding='ASSETS'\nrun_worker_first=['/api','/api/*']\n[[d1_databases]]\nbinding='DB'\ndatabase_name='api-smoke'\ndatabase_id='00000000-0000-0000-0000-000000000000'\nmigrations_dir='{}'\n",
+            "name='tickets-api-smoke'\nmain='{}'\ncompatibility_date='2026-10-27'\n[assets]\ndirectory='{}'\nbinding='ASSETS'\nnot_found_handling='single-page-application'\nrun_worker_first=['/api','/api/*']\n[[d1_databases]]\nbinding='DB'\ndatabase_name='api-smoke'\ndatabase_id='00000000-0000-0000-0000-000000000000'\nmigrations_dir='{}'\n",
             root.join("crates/worker/build/worker/shim.mjs").display(),
             root.join("crates/web/dist").display(),
             root.join("migrations").display()
@@ -148,8 +159,14 @@ pub fn run(root: &Path, skill: bool) -> Result<()> {
         return Err("local migrations failed".into());
     }
     let log = fs::File::create(dir.join("worker.log"))?;
+    let mut server_command = Command::new("wrangler");
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        server_command.process_group(0);
+    }
     let mut server = Server(
-        Command::new("wrangler")
+        server_command
             .args([
                 "dev",
                 "--local",
@@ -199,6 +216,12 @@ pub fn run(root: &Path, skill: bool) -> Result<()> {
         "cookie",
         201,
     )?;
+    if board {
+        #[cfg(not(target_arch = "wasm32"))]
+        return super::design::board_check(root, &password);
+        #[cfg(target_arch = "wasm32")]
+        return Err("board-check requires a native host".into());
+    }
     if skill {
         return super::skill_check::run(root, token["token"].as_str().ok_or("missing token")?);
     }

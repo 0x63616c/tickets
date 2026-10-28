@@ -17,6 +17,7 @@ struct Browser {
     socket: WebSocket<MaybeTlsStream<TcpStream>>,
     id: u64,
     session: String,
+    drag: Option<Value>,
 }
 impl Drop for Browser {
     fn drop(&mut self) {
@@ -76,6 +77,7 @@ impl Browser {
             socket,
             id: 0,
             session: String::new(),
+            drag: None,
         };
         let target = browser.call("Target.createTarget", json!({"url":"about:blank"}))?;
         let session = browser.call(
@@ -107,6 +109,9 @@ impl Browser {
             let message = self.socket.read()?;
             if let Message::Text(text) = message {
                 let response: Value = serde_json::from_str(&text)?;
+                if response["method"] == "Input.dragIntercepted" {
+                    self.drag = Some(response["params"]["data"].clone());
+                }
                 if response["method"] == "Runtime.exceptionThrown" {
                     return Err(format!("Browser exception: {}", response["params"]).into());
                 }
@@ -133,6 +138,7 @@ impl Browser {
         let start = Instant::now();
         while self.eval(expression)? != true {
             if start.elapsed() > Duration::from_secs(15) {
+                let _ = self.screenshot(Path::new("target/browser-failure.png"));
                 return Err(format!("Timed out: {expression}").into());
             }
             thread::sleep(Duration::from_millis(100));
@@ -182,6 +188,39 @@ impl Browser {
         self.call("Input.insertText", json!({"text":text}))?;
         Ok(())
     }
+    fn drag(&mut self, from: &str, to: &str) -> Result<()> {
+        let point = |selector: &str| {
+            format!(
+                "(()=>{{const e=document.querySelector({});e.scrollIntoView({{block:'nearest'}});const r=e.getBoundingClientRect();return {{x:r.x+r.width/2,y:r.y+24}}}})()",
+                serde_json::to_string(selector).unwrap()
+            )
+        };
+        let target = self.eval(&point(to))?;
+        let source = self.eval(&point(from))?;
+        self.call("Input.setInterceptDrags", json!({"enabled":true}))?;
+        self.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":source["x"],"y":source["y"]}),
+        )?;
+        self.call("Input.dispatchMouseEvent",json!({"type":"mousePressed","x":source["x"],"y":source["y"],"button":"left","clickCount":1}))?;
+        for offset in [8., 16., 24.] {
+            self.call("Input.dispatchMouseEvent",json!({"type":"mouseMoved","x":source["x"].as_f64().unwrap()+offset,"y":source["y"],"button":"left","buttons":1}))?;
+        }
+        self.eval("new Promise(r=>setTimeout(()=>r(true),100))")?;
+        let data = self
+            .drag
+            .take()
+            .ok_or("Mouse did not start a native drag")?;
+        for kind in ["dragEnter", "dragOver", "drop"] {
+            self.call(
+                "Input.dispatchDragEvent",
+                json!({"type":kind,"x":target["x"],"y":target["y"],"data":data}),
+            )?;
+        }
+        self.call("Input.dispatchMouseEvent",json!({"type":"mouseReleased","x":target["x"],"y":target["y"],"button":"left","clickCount":1}))?;
+        self.call("Input.setInterceptDrags", json!({"enabled":false}))?;
+        Ok(())
+    }
     fn key(&mut self, key: &str, code: u32, modifiers: u32) -> Result<()> {
         for kind in ["keyDown", "keyUp"] {
             self.call(
@@ -189,6 +228,7 @@ impl Browser {
                 json!({"type":kind,"key":key,"windowsVirtualKeyCode":code,"modifiers":modifiers}),
             )?;
         }
+        self.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))")?;
         Ok(())
     }
 }
@@ -300,6 +340,162 @@ pub fn check(root: &Path) -> super::Result {
     browser.screenshot(&output.join("13-token-access.png"))?;
     println!(
         "PASS: routes, fonts, overflow at 1440/390px, keyboard status move with focus retained, drag/drop events, filtering, Cmd+K with search focus, arrow navigation, Escape, C, creation, labels, sanitized comments, dependencies, project creation and project selection, existing login and token screens."
+    );
+    Ok(())
+}
+
+/// Capture the actual root route before replacing the fixture-backed implementation.
+pub fn board_before(root: &Path) -> super::Result {
+    let mut browser = Browser::start(root)?;
+    browser.go("http://127.0.0.1:8787/")?;
+    browser.wait("document.querySelectorAll('.ticket-card').length > 0")?;
+    let output = root.join("docs/screenshots/kanban");
+    fs::create_dir_all(&output)?;
+    browser.screenshot(&output.join("before-desktop.png"))?;
+    browser.viewport(390, 900)?;
+    browser.screenshot(&output.join("before-mobile.png"))?;
+    Ok(())
+}
+
+/// Real API, real Worker, real keyboard events; isolated D1 lifecycle is owned by api_smoke.
+pub fn board_check(root: &Path, password: &str) -> super::Result {
+    let mut b = Browser::start(root)?;
+    b.go("http://127.0.0.1:8795/login")?;
+    b.text("#username", "fixture")?;
+    b.text("#password", password)?;
+    b.click("button[type=submit]")?;
+    b.wait("location.pathname === '/settings/tokens'")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("document.body.innerText.includes('No projects yet')")?;
+    b.eval(r#"(async()=>{
+        const api=async(path,body,method='POST')=>{const r=await fetch('/api/v1/'+path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error('Seed request failed');return r.json()};
+        await api('projects',{name:'Tickets',key_prefix:'TKT',color:'#7170ff'});
+        await api('projects',{name:'Quantum',key_prefix:'QUA',color:'#4ea7fc'});
+        await api('projects',{name:'Empty project',key_prefix:'EMP',color:'#7170ff'});
+        await api('labels',{name:'Feature',color:'#7170ff'});
+        const statuses=['backlog','todo','in_progress','in_review','done','canceled'];
+        const titles=['Remember filters when switching views','Group the ticket list by status','Move tickets between board columns','Review imported labels','Set up the Rust workspace','Retire the old importer'];
+        for(let i=0;i<6;i++){
+            await api('tickets',{project_id:1,title:titles[i],status:statuses[i],priority:2,assignee:i%2?'agent':null,sort_order:1024});
+            await api('tickets/'+(i+1)+'/labels/1',{});
+        }
+        await api('tickets',{project_id:1,title:'Add a keyboard shortcut reference',status:'todo',priority:4,sort_order:2048});
+        await api('tickets/1/dependencies/2',{});
+        await api('tickets',{project_id:2,title:'Quantum board stays separate',status:'todo'});
+        // Cross a page boundary; the board must fetch every page, including resolved blockers.
+        for(let i=0;i<94;i++)await api('tickets',{project_id:2,title:'Pagination ticket '+i});
+        return true;
+    })()"#)?;
+    b.eval("document.querySelector('[role=alert]')?.textContent || true")?;
+    b.go("http://127.0.0.1:8795/")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===6")?;
+    b.click(".canceled-toggle input")?;
+    b.wait("location.search.includes('canceled=true') && document.querySelectorAll('.ticket-card').length===7")?;
+    b.wait("document.querySelectorAll('.board-column').length===6 && document.body.innerText.includes('Blocked by TKT-1') && !!document.querySelector('.card-meta .avatar[title=agent]') && !document.querySelector('#ticket-1 .card-meta').textContent.includes('Unassigned')")?;
+    b.eval("document.querySelector('#ticket-1').focus()")?;
+    b.key("ArrowRight", 39, 0)?;
+    b.wait("document.activeElement.id==='ticket-2'")?;
+    b.eval("document.querySelector('#ticket-2').focus()")?;
+    b.key(" ", 32, 0)?;
+    b.key("ArrowRight", 39, 0)?;
+    b.key(" ", 32, 0)?;
+    b.wait("document.body.innerText.includes('Order saved') && document.querySelector('.board').getAttribute('aria-busy')!=='true'")?;
+    b.wait("document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='In progress' && document.activeElement.id==='ticket-2'")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress'")?;
+    b.eval("document.querySelector('#ticket-2').focus()")?;
+    b.key(" ", 32, 0)?;
+    b.key("ArrowUp", 38, 0)?;
+    b.key(" ", 32, 0)?;
+    b.wait("document.body.innerText.includes('Order saved')")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
+    // Escape restores the draft, never issuing a write.
+    b.eval("document.querySelector('#ticket-2').focus()")?;
+    b.key(" ", 32, 0)?;
+    b.key("ArrowLeft", 37, 0)?;
+    b.key("Escape", 27, 0)?;
+    b.wait("document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress'")?;
+    // Actual HTML drag event handlers, including a within-column insertion target.
+    b.drag("#ticket-7", "#ticket-2")?;
+    b.wait("document.body.innerText.includes('Order saved') && document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-7'")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-7'")?;
+    b.drag("#ticket-2", "#ticket-7")?;
+    b.wait("document.body.innerText.includes('Order saved') && document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
+    // Native status select supplies the touch / keyboard alternative.
+    b.eval(r#"(()=>{const s=document.querySelector('#ticket-7 select');s.value='Todo';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.wait("document.querySelector('#ticket-7')?.closest('section').getAttribute('aria-label')==='Todo' && document.body.innerText.includes('Order saved')")?;
+    b.eval(r#"(()=>{const s=document.querySelector('[aria-label="Filter by label"]');s.value='1';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.wait("document.querySelectorAll('.ticket-card').length===6")?;
+    b.eval(r#"(()=>{const s=document.querySelector('[aria-label="Filter by assignee"]');s.value='agent';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.wait("document.querySelectorAll('.ticket-card').length===3")?;
+    b.text("input[aria-label='Filter tickets']", "Review imported")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===1 && !!document.querySelector('#ticket-4')")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===7")?;
+    // Reject a move at the API boundary, then verify optimistic rollback and focus.
+    b.eval("window.boardFetch=window.fetch;window.fetch=(input,init)=>((input instanceof Request?input.method:init?.method)==='PATCH'?Promise.resolve(new Response(JSON.stringify({error:{message:'Verification rejection'}}),{status:409,headers:{'Content-Type':'application/json'}})):window.boardFetch(input,init));document.querySelector('#ticket-2').focus();true")?;
+    b.key(" ", 32, 0)?;
+    b.key("ArrowRight", 39, 0)?;
+    b.key(" ", 32, 0)?;
+    b.wait("document.body.innerText.includes('Previous order restored') && document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress' && document.activeElement.id==='ticket-2'")?;
+    b.eval("window.fetch=window.boardFetch;true")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===7")?;
+    // Reject the second write of a reorder, exercising compensation of a saved rank.
+    b.eval("window.boardFetch=window.fetch;window.patchCount=0;window.fetch=(input,init)=>((input instanceof Request?input.method:init?.method)==='PATCH' && ++window.patchCount===2?Promise.resolve(new Response(JSON.stringify({error:{message:'Second-write rejection'}}),{status:409,headers:{'Content-Type':'application/json'}})):window.boardFetch(input,init));document.querySelector('#ticket-2').focus();true")?;
+    b.key(" ", 32, 0)?;
+    b.key("ArrowDown", 40, 0)?;
+    b.key(" ", 32, 0)?;
+    b.wait("document.body.innerText.includes('Previous order restored') && window.patchCount===3 && document.activeElement.id==='ticket-2'")?;
+    b.eval("window.fetch=window.boardFetch;true")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
+    b.eval("document.querySelector('.topbar .button-primary').focus();true")?;
+    b.key("c", 67, 0)?;
+    b.wait("!!document.querySelector('#board-title') && document.querySelectorAll('dialog').length===1")?;
+    b.key("Escape", 27, 0)?;
+    b.click(".topbar .button-primary")?;
+    b.text("#board-title", "Created from the board")?;
+    b.click("dialog button[type=submit]")?;
+    b.wait(
+        "document.querySelectorAll('.ticket-card').length===8 && !document.querySelector('dialog')",
+    )?;
+    b.click(".canceled-toggle input")?;
+    b.wait("!location.search.includes('canceled') && document.querySelectorAll('.board-column').length===5 && document.querySelector('.board').scrollWidth===document.querySelector('.board').clientWidth && document.querySelector('[aria-label=Done]').getBoundingClientRect().right<=innerWidth")?;
+    b.wait("document.querySelector('.view-footer').textContent.includes('8 tickets') && document.querySelector('.toast').textContent.includes('Ticket created')")?;
+    b.key("k", 75, 4)?;
+    b.wait("!!document.querySelector('dialog[aria-label=\"Search and commands\"]')")?;
+    b.key("Escape", 27, 0)?;
+    b.click(".search-trigger")?;
+    b.text(
+        "input[aria-label='Search tickets or commands']",
+        "Review imported",
+    )?;
+    b.wait("document.querySelectorAll('.command-results .menu-item').length===1 && document.querySelector('.command-results').textContent.includes('TKT-4')")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("!document.querySelector('dialog') && document.querySelector('.sidebar-bottom').textContent.includes('Sign out') && !document.querySelector('.sidebar-bottom').textContent.includes('Sign in')")?;
+    b.click(".toast button")?;
+    let output = root.join("docs/screenshots/kanban");
+    fs::create_dir_all(&output)?;
+    b.screenshot(&output.join("after-desktop.png"))?;
+    b.viewport(390, 900)?;
+    b.wait("document.documentElement.scrollWidth <= innerWidth")?;
+    b.screenshot(&output.join("after-mobile.png"))?;
+    // Project switching must clear filters and never leak tickets from another project.
+    b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===95 && !document.body.innerText.includes('Created from the board')")?;
+    b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===5 && !document.querySelector('.add-card').disabled")?;
+    b.eval("[...document.querySelectorAll('.sidebar-bottom button')].find(b=>b.textContent.includes('Sign out')).click();true")?;
+    b.wait("location.pathname==='/login'")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("document.querySelector('[role=alert]')?.textContent.includes('Please sign in') && document.querySelectorAll('.ticket-card').length===0")?;
+    println!(
+        "PASS: local API seed; five default statuses + URL canceled toggle; 1440px Done visibility; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
     );
     Ok(())
 }

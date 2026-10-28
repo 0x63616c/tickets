@@ -63,6 +63,10 @@ fn main() -> Result {
         Some("auth-bench") => auth::bench(),
         #[cfg(not(target_arch = "wasm32"))]
         Some("design-check") => design::check(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("board-before") => design::board_before(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("board-check") => api_smoke::board(root),
         Some("build") => build(root),
         Some("dev") => {
             build(root)?;
@@ -107,7 +111,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <dev|build|migrate|ci|api-smoke|skill-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check>".into())
+            Err("usage: cargo xtask <dev|build|migrate|ci|api-smoke|skill-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check>".into())
         }
     }
 }

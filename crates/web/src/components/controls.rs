@@ -77,7 +77,7 @@ pub fn Select(
 }
 
 #[component]
-pub fn LabelChip(#[prop(into)] name: String) -> impl IntoView {
+pub fn LabelChip(#[prop(into)] name: String, #[prop(optional)] color: String) -> impl IntoView {
     let class = match name.as_str() {
         "Feature" => "feature",
         "Bug" => "bug",
@@ -85,15 +85,20 @@ pub fn LabelChip(#[prop(into)] name: String) -> impl IntoView {
         "Design" => "design",
         _ => "neutral",
     };
-    view! { <span class=format!("label-chip label-{class}")><svg viewBox="0 0 8 8" width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/></svg><span>{name}</span></span> }
+    let tint = if tickets_core::domain::validate_color(&color).is_ok() {
+        format!("--c:{color}")
+    } else {
+        String::new()
+    };
+    view! { <span class=format!("label-chip label-{class}") style=tint><svg viewBox="0 0 8 8" width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/></svg><span>{name}</span></span> }
 }
 
 #[component]
 pub fn Avatar(
-    #[prop(default = "You")] label: &'static str,
-    #[prop(default = "Y")] initials: &'static str,
+    #[prop(default = "You".into(), into)] label: String,
+    #[prop(default = "Y".into(), into)] initials: String,
 ) -> impl IntoView {
-    view! { <span class="avatar" role="img" aria-label=label title=label>{initials}</span> }
+    view! { <span class="avatar" role="img" aria-label=label.clone() title=label>{initials}</span> }
 }
 
 #[derive(Clone, Copy)]

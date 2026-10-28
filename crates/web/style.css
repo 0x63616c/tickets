@@ -228,8 +228,8 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .specimen-content:has(> .button) { gap: 8px; }
 .form-specimen { align-items: end; }.form-specimen .field:first-child { width: 280px; }.form-specimen .field:last-child { width: 160px; }
 .field { display: flex; flex-direction: column; gap: 8px; font-size: var(--text-sm); color: var(--text-secondary); }
-.field input, .field select, .field textarea { background-color: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-md); min-height: 32px; padding: 6px 12px; line-height: 18px; color: var(--text); width: 100%; }
-.field select { padding-right: 36px; }
+.field input, .field select, .field textarea, .board-filters select { background-color: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-md); min-height: 32px; padding: 6px 12px; line-height: 18px; color: var(--text); width: 100%; }
+.field select, .board-filters select { padding-right: 36px; }
 .field textarea { resize: vertical; }.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
 .icon-label { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); color: var(--text-secondary); }
 .shortcut-sample { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--text-xs); }
@@ -325,3 +325,19 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .auth-page [role=alert], .auth-page [role=status] { margin-top: 12px; }
 @media (max-width: 760px) { .auth-page section { padding: 24px 16px; } }
 .status-review { color: var(--status-review); }
+
+/* API board controls reuse the fixture's surfaces, density and spacing. */
+.board-filters { flex-wrap: wrap; padding-block: var(--space-1); gap: var(--space-2); }
+.board-filters .filter-input { flex: 1; min-width: 160px; }
+.board-filters select { max-width: 200px; }
+.board-message { margin: var(--space-4) var(--space-6); color: var(--text-secondary); }
+.ticket-card.drag-over { outline: 1px solid var(--accent); }
+.api-ticket .card-labels { flex-wrap: wrap; }
+.api-ticket .label-chip { max-width: 100%; }
+.api-ticket .label-chip span { overflow: hidden; text-overflow: ellipsis; }
+
+.api-board { display: flex; gap: 16px; }
+/* Five columns fit beside the 240px sidebar at 1440px; narrower viewports scroll. */
+.api-board .board-column { flex: 1 0 216px; min-width: 216px; }
+.canceled-toggle { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); white-space: nowrap; font-size: var(--text-xs); }
+.board-filters select { width: auto; height: 32px; font-size: var(--text-sm); }

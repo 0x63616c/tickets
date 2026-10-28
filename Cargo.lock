@@ -2176,6 +2176,7 @@ dependencies = [
  "gloo-net 0.7.0",
  "leptos",
  "leptos_router",
+ "serde",
  "serde_json",
  "tickets-core",
  "wasm-bindgen-futures",
