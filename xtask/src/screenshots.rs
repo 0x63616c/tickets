@@ -108,7 +108,7 @@ pub fn run() -> Result<()> {
         // Exercise the Leptos create handler without retaining the one-time secret.
         call(
             "Runtime.evaluate",
-            json!({"expression":"(()=>{const e=document.querySelector('#token-name');e.value='Browser verification';e.dispatchEvent(new Event('input',{bubbles:true}));e.form.requestSubmit();})()"}),
+            json!({"expression":"(()=>{const e=document.querySelector('#token-label');e.value='Browser verification';e.dispatchEvent(new Event('input',{bubbles:true}));e.form.requestSubmit();})()"}),
         )?;
         thread::sleep(Duration::from_secs(1));
         let shown = call(

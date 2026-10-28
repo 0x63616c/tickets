@@ -1,6 +1,7 @@
 mod api_smoke;
 mod auth;
 mod auth_verify;
+mod autofill;
 #[cfg(not(target_arch = "wasm32"))]
 mod import_check;
 #[cfg(not(target_arch = "wasm32"))]
@@ -129,7 +130,8 @@ fn main() -> Result {
             ),
             Some(other) => Err(format!("unknown migrate flag {other}; expected --remote").into()),
         },
-        Some("ci") => {
+        Some("autofill-check") => autofill::check(root),        Some("ci") => {
+            autofill::check(root)?;
             run(root, "cargo", &["fmt", "--all", "--check"])?;
             run(root, "cargo", &["build", "--workspace", "--locked"])?;
             run(

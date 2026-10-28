@@ -47,7 +47,7 @@ pub fn ApiProjects() -> impl IntoView {
     view! {
         <header class="topbar"><div class="breadcrumbs"><Icon name="project"/>"Projects"</div><button class="button button-primary" disabled=move||board.loading.get() || !board.signed_in.get() on:click=move|_|editor.set(Some(None))><Icon name="plus"/>"New project"</button></header>
         <div class="projects-page">
-            <div class="projects-heading"><h1>"Projects"</h1><span class="muted">{move||board.projects.get().iter().filter(|p|archived.get() || !p.archived).count()}" projects"</span><label class="canceled-toggle"><input type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Show archived"</label></div>
+            <div class="projects-heading"><h1>"Projects"</h1><span class="muted">{move||board.projects.get().iter().filter(|p|archived.get() || !p.archived).count()}" projects"</span><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Show archived"</label></div>
             <Show when=move||board.loading.get()><p role="status">"Loading projects…"</p></Show>
             <Show when=move||!board.error.get().is_empty()><p role="alert">{move||board.error.get()}" "<button class="button" on:click=move|_|board.refresh()>"Retry"</button></p></Show>
             <Show when=move||!board.loading.get() && board.error.get().is_empty()>
@@ -111,7 +111,7 @@ fn ProjectEditor(project: Option<Project>, on_close: Callback<()>) -> impl IntoV
     let busy = RwSignal::new(false);
     let error = RwSignal::new(String::new());
     view! { <Modal title=if id.is_some(){"Edit project"}else{"New project"} on_close locked=Signal::derive(move||busy.get())>
-        <form class="project-form" on:submit=move|e|{
+        <form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="project-form" on:submit=move|e|{
             e.prevent_default();
             if busy.get_untracked(){return;}
             error.set(String::new());
@@ -133,14 +133,14 @@ fn ProjectEditor(project: Option<Project>, on_close: Callback<()>) -> impl IntoV
                 busy.set(false);
             });
         }>
-        <div class="modal-body"><TextInput id="project-name" label="Name" value=name/>
+        <div class="modal-body"><TextInput id="project-title" label="Name" value=name/>
         <TextInput id="project-prefix" label="Key prefix" placeholder="TKT" value=prefix/>
         <Show when=move||id.is_some()><p class="muted">"Changing the prefix updates existing ticket keys."</p></Show>
         <fieldset class="project-colors"><legend>"Icon color"</legend><div class="project-swatches">{[("#5e6ad2","Accent","--accent"),("#8b82d9","Feature","--label-feature"),("#eb5757","Bug","--label-bug"),("#4ea7fc","Infrastructure","--label-infra"),("#c6a1b9","Design","--label-design"),("#27a644","Green","--success"),("#f0bf00","Yellow","--warning")].into_iter().map(|(value,label,token)|view!{<button type="button" class="project-swatch" aria-label=format!("{label} color") aria-pressed=move||(color.get()==value).to_string() style=format!("--swatch:var({token})") on:click=move|_|color.set(value.into())/>}).collect_view()}</div></fieldset>
         <TextInput id="project-owner" label="GitHub Project" placeholder="github.com/orgs/example/projects/1 or example/1" value=owner/>
-        <Show when=move||{let value=owner.get(); !value.trim().is_empty() && !value.contains("github.com/") && !value.contains("://")}><label class="field" for="project-kind">"Owner type"<select id="project-kind" prop:value=kind on:change=move|e|kind.set(event_target_value(&e))><option value="users">"User"</option><option value="orgs">"Organization"</option></select></label></Show>
+        <Show when=move||{let value=owner.get(); !value.trim().is_empty() && !value.contains("github.com/") && !value.contains("://")}><label class="field" for="project-kind">"Owner type"<select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  id="project-kind" prop:value=kind on:change=move|e|kind.set(event_target_value(&e))><option value="users">"User"</option><option value="orgs">"Organization"</option></select></label></Show>
         <TextInput id="project-repo" label="Repository name (optional)" placeholder="repo" value=repo/>
-        <Show when=move||id.is_some()><label class="canceled-toggle"><input type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Archived"</label><p class="muted">"Archived projects leave the sidebar. Tickets are kept and remain editable."</p></Show>
+        <Show when=move||id.is_some()><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Archived"</label><p class="muted">"Archived projects leave the sidebar. Tickets are kept and remain editable."</p></Show>
         <Show when=move||!error.get().is_empty()><p role="alert">{error}</p></Show>
         </div><div class="modal-footer"><button class="button button-ghost" type="button" disabled=busy on:click=move|_|on_close.run(())>"Cancel"</button><button class="button button-primary" type="submit" disabled=busy>{move||if busy.get(){"Saving…"}else if id.is_some(){"Save project"}else{"Create project"}}</button></div>
         </form>
