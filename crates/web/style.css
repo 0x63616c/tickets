@@ -170,9 +170,10 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1
 .markdown-heading { color: var(--text); font-size: var(--text-base); font-weight: 550; margin: 20px 0 8px; }
 .markdown ul { padding-left: 20px; margin: 8px 0 16px; }
 .markdown li { margin: 5px 0; }
-.markdown li:has(input) { list-style: none; margin-left: -20px; display: flex; align-items: baseline; gap: 8px; }
-.markdown input { accent-color: var(--accent); width: 13px; height: 13px; margin: 0; }
-.markdown code { color: var(--text-secondary); background: var(--surface-active); border: 1px solid var(--border-strong); border-radius: 3px; padding: 1px 4px; }
+.markdown li:has(input) { list-style: none; margin-left: -20px; display: block; }
+.markdown li li:has(> input) { margin-left: 0; }
+.markdown input { accent-color: var(--accent); display: inline; width: 13px; height: 13px; margin: 0 8px 0 0; vertical-align: baseline; }
+.markdown code { display: inline; overflow-wrap: anywhere; box-decoration-break: clone; color: var(--text-secondary); background: var(--surface-active); border: 1px solid var(--border-strong); border-radius: 3px; padding: 1px 4px; }
 .markdown strong { color: var(--text); font-weight: 500; }
 .markdown a { color: var(--accent); text-decoration: underline; }
 .markdown pre { overflow-x: auto; padding: 12px; background: var(--surface); }
