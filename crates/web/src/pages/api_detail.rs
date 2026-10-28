@@ -102,6 +102,24 @@ fn DetailPage(id: i64) -> impl IntoView {
         state.loading.set(false);
     });
     let edit = RwSignal::new(false);
+    let pending_live = RwSignal::new(false);
+    Effect::new(move |_| {
+        if board.live_revision.get() > 0 {
+            pending_live.set(true);
+        }
+    });
+    Effect::new(move |_| {
+        if pending_live.get() && !state.busy.get() && !state.loading.get() && !edit.get() {
+            pending_live.set(false);
+            state.loading.set(true);
+            spawn_local(async move {
+                if let Err(error) = state.load().await {
+                    state.error.set(error);
+                }
+                state.loading.set(false);
+            });
+        }
+    });
     let dependency = RwSignal::new(false);
     let handle = window_event_listener(ev::keydown, move |e| {
         let typing = e
@@ -126,7 +144,7 @@ fn DetailPage(id: i64) -> impl IntoView {
     });
     on_cleanup(move || handle.remove());
     view! {
-        <header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><a href="/">{move||state.ticket.get().and_then(|t|board.projects.get().into_iter().find(|p|p.id==t.project_id)).map(|p|p.name).unwrap_or_default()}</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key).unwrap_or_default()}</span></div><div class="topbar-actions"><button class="button button-ghost" disabled=move||state.busy.get() || state.ticket.get().is_none() on:click=move|_|edit.set(true)>"Edit ticket"</button><button class="button button-primary" disabled=move||board.loading.get() || board.project.get()==0 on:click=move|_|board.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
+        <header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><a href="/">{move||state.ticket.get().and_then(|t|board.projects.get().into_iter().find(|p|p.id==t.project_id)).map(|p|p.name).unwrap_or_default()}</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key).unwrap_or_default()}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-ghost" disabled=move||state.busy.get() || state.ticket.get().is_none() on:click=move|_|edit.set(true)>"Edit ticket"</button><button class="button button-primary" disabled=move||board.loading.get() || board.project.get()==0 on:click=move|_|board.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
         <Show when=move||state.loading.get()><p class="board-message" role="status">"Loading ticket…"</p></Show>
         <Show when=move||!state.error.get().is_empty() && !edit.get() && !dependency.get()><div class="board-message" role="alert">{move||state.error.get()}<Show when=move||state.error.get().contains("sign in")><a href="/login">"Sign in"</a></Show><button class="button" disabled=move||state.busy.get() on:click=move|_|{state.busy.set(true);spawn_local(async move{state.error.set(String::new());if let Err(e)=state.load().await{state.error.set(e);}state.busy.set(false);});}>"Reload ticket"</button></div></Show>
         <Show when=move||state.ticket.get().is_some()><div class="detail-layout" aria-busy=move||state.busy.get().to_string()>

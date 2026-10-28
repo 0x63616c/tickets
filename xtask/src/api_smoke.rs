@@ -126,6 +126,10 @@ pub fn detail(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "detail")
 }
 #[cfg(not(target_arch = "wasm32"))]
+pub fn live(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "live")
+}
+#[cfg(not(target_arch = "wasm32"))]
 pub fn projects(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "projects")
 }
@@ -174,6 +178,8 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
             root.join("migrations").display()
         ),
     )?;
+    use std::io::Write;
+    fs::OpenOptions::new().append(true).open(&config)?.write_all(b"\n[[durable_objects.bindings]]\nname='BOARD_ROOMS'\nclass_name='BoardRoom'\n[[migrations]]\ntag='v1-board-room'\nnew_sqlite_classes=['BoardRoom']\n")?;
     let state = dir.join("state");
     let status = Command::new("wrangler")
         .args(["d1", "migrations", "apply", "DB", "--local", "--config"])
@@ -251,6 +257,12 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         #[cfg(not(target_arch = "wasm32"))]
         return if _view == "polish" {
             super::polish::check(root, &password)
+        } else if _view == "live" {
+            super::live::check(
+                root,
+                &password,
+                token["token"].as_str().ok_or("missing token")?,
+            )
         } else if _view == "projects" {
             super::projects::check(root, &password)
         } else {

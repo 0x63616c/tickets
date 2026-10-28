@@ -61,16 +61,17 @@
   maximum 100). Full-text search treats q as a literal FTS5 phrase. API mutations
   reject unknown fields; PATCH null clears nullable fields. Comments use the
   single-user author `owner`. Errors use `error.code` and `error.message`.
-- After successful domain writes call the no-op `api::change_event` with entity,
-  ID and action, ready for #16. Validate domain documents in core, keep transport
-  in the authenticated Worker adapter, and exercise shared dispatch with SQLite.
+- After successful domain writes return internal change metadata for the Worker
+  to notify project rooms; notification failure must never fail the write. Validate
+  domain documents in core, keep transport in the authenticated Worker adapter,
+  and exercise shared dispatch with SQLite.
 - Keep each API request within six D1 calls including authentication, independent
   of page size, and each SQL statement within 100 bound parameters. The Workers
   Free plan allows only 50 queries per invocation. Ticket reads use one SELECT
   with ordered JSON aggregates for labels/dependencies; never query per result row.
   Counting Store regressions cover 100-ticket pages and mutation responses with
-  the shared bearer/session auth statements (list/get: 2 calls; create/upsert: 4;
-  PATCH with a project field and dependency creation: 5).
+  the shared bearer/session auth statements (list/get: 2 calls; create: 4; upsert: 5;
+  PATCH with a project field: 6; dependency creation: 5).
 - Run `cargo xtask api-smoke` for an isolated local Worker/D1 end-to-end check;
   it builds the app and uses port 8795 and generated state under `target/`.
 
@@ -217,3 +218,16 @@
   api-smoke state/port 8795 and must run sequentially with other local checks.
 - Importer PRs use `Refs #11` while production import remains pending approval;
   do not close the issue or mark the production migration complete prematurely.
+
+## Live updates conventions
+
+- `/api/v1/live/{project_id}` upgrades only after the common session/bearer gate;
+  session upgrades require matching Origin. Each project uses one `BoardRoom` keyed
+  by its numeric ID, with SQLite migrations and hibernating WebSockets. Never poll
+  from an alarm or retain socket lists in object memory.
+- Change events are typed invalidations, not ordered patches. D1 remains authoritative.
+  Reconcile duplicate/own events and refetch after every reconnect. Defer incoming
+  reconciliation during local board moves and detail writes/edits.
+- `CHROME_BIN=<headless-chromium> cargo xtask live-check` verifies two-client
+  broadcasts and two isolated browser windows, capturing `docs/screenshots/16/`.
+  Use `TICKETS_BEFORE_ASSETS` for the real main baseline and separate fixture target.

@@ -1,4 +1,8 @@
-//! Cloudflare entry point; all private API routes pass through the auth gate.
+#[cfg(target_arch = "wasm32")]
+mod live;
+#[cfg(target_arch = "wasm32")]
+pub use live::BoardRoom;
+// Cloudflare entry point; all private API routes pass through the auth gate.
 #[cfg(target_arch = "wasm32")]
 mod auth;
 #[cfg(target_arch = "wasm32")]

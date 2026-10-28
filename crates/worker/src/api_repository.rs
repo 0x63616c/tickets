@@ -27,6 +27,21 @@ fn selection(entity: &str) -> &str {
 
 pub(crate) struct ApiRepository<'a, S>(pub &'a S);
 impl<S: Store> ApiRepository<'_, S> {
+    pub async fn ticket_projects(&self, id: i64) -> Result<Vec<i64>> {
+        let related: Vec<Value> = self.0.query("SELECT DISTINCT project_id FROM tickets WHERE id IN (SELECT blocked_id FROM ticket_dependencies WHERE blocker_id=? UNION SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=?)", vec![id.into(), id.into()]).await?;
+        Ok(related
+            .iter()
+            .filter_map(|v| v["project_id"].as_i64())
+            .collect())
+    }
+    pub async fn external_projects(&self, external: &str) -> Result<Vec<i64>> {
+        let related: Vec<Value> = self.0.query("SELECT DISTINCT project_id FROM tickets WHERE external_id=? OR id IN (SELECT blocked_id FROM ticket_dependencies WHERE blocker_id=(SELECT id FROM tickets WHERE external_id=?) UNION SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=(SELECT id FROM tickets WHERE external_id=?))", vec![external.into(), external.into(), external.into()]).await?;
+        Ok(related
+            .iter()
+            .filter_map(|v| v["project_id"].as_i64())
+            .collect())
+    }
+
     async fn rows(&self, sql: &str, p: Vec<Value>) -> Result<Vec<Value>> {
         self.0.query(sql, p).await
     }
@@ -164,7 +179,13 @@ impl<S: Store> ApiRepository<'_, S> {
         )
         .await
     }
-    pub async fn link(&self, kind: &str, ticket: i64, other: i64, add: bool) -> Result<()> {
+    pub async fn link(
+        &self,
+        kind: &str,
+        ticket: i64,
+        other: i64,
+        add: bool,
+    ) -> Result<Option<i64>> {
         let r = Repository::new(self.0);
         if kind == "labels" {
             self.get("labels", other).await?;
@@ -174,7 +195,7 @@ impl<S: Store> ApiRepository<'_, S> {
                 self.one("DELETE FROM ticket_labels WHERE ticket_id=? AND label_id=? RETURNING ticket_id",vec![ticket.into(),other.into()]).await?;
             }
         } else {
-            self.get("tickets", other).await?;
+            let project = self.get("tickets", other).await?["project_id"].as_i64();
             let edge = Dependency {
                 blocker_id: ticket,
                 blocked_id: other,
@@ -184,8 +205,9 @@ impl<S: Store> ApiRepository<'_, S> {
             } else {
                 self.one("DELETE FROM ticket_dependencies WHERE blocker_id=? AND blocked_id=? RETURNING blocker_id",vec![ticket.into(),other.into()]).await?;
             }
+            return Ok(project);
         }
-        Ok(())
+        Ok(None)
     }
     pub async fn list(
         &self,
