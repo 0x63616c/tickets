@@ -73,10 +73,11 @@ BOOTSTRAP_PASSWORD_HASH="<generated-pbkdf2-hash>"
 ```
 
 Run `cargo xtask auth-hash` and supply your password on standard input (at least
-12 bytes; trailing newlines are removed). It prints a salted WebCrypto-compatible
-hash. Avoid putting passwords in command arguments or shell history. Redirect the
+16 characters; trailing newlines are removed). It prints a salted WebCrypto-compatible
+hash. Use a generated passphrase; length alone does not ensure entropy. Avoid putting
+passwords in command arguments or shell history. Redirect the
 hash into your local configuration securely. The format is
-`pbkdf2-sha256$600000$<16-byte-salt-hex>$<32-byte-digest-hex>`.
+`pbkdf2-sha256$100000$<16-byte-salt-hex>$<32-byte-digest-hex>`.
 The Worker secrets are authoritative: changing them changes future login credentials;
 existing sessions remain valid until logout or their seven-day expiry. User id 1 is
 created on the first successful login. There is no signup or invitation endpoint.
@@ -106,8 +107,8 @@ Wrangler on port 8787, and run `cargo xtask auth-verify`. It uses curl, stores
 transient cookies under target, and consumes the login rate-limit window.
 Before rerunning, clear only the local fixture counter with
 `wrangler d1 execute DB --local --command 'DELETE FROM login_attempts'`.
-Do not run this check against production. Production PBKDF2 support is a known
-open blocker described in [ADR 0003](adr/0003-auth.md).
+Do not run this check against production. See [ADR 0003](adr/0003-auth.md) for
+the accepted 100,000-iteration policy and residual risk.
 
 `cargo xtask auth-screenshots` uses Chromium DevTools (host only) to capture login
 and authenticated token metadata and exercise create/dismiss/revoke in Leptos.

@@ -216,7 +216,21 @@ fn auth_expiry_revocation_and_hash_only_storage() {
                 [],
             )
             .unwrap();
+        store
+            .0
+            .execute_batch(include_str!(
+                "../../../migrations/0004_secret_only_password.sql"
+            ))
+            .unwrap();
+        let password_hash: String = store
+            .0
+            .query_row("SELECT password_hash FROM users WHERE id=1", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert!(password_hash.is_empty());
         let hash = hash_token("test credential");
+
         store.query::<Value>("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,1,'2000-01-01T00:00:00.000Z')",vec![hash.clone().into()]).await.unwrap();
         assert!(
             store

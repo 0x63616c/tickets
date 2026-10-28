@@ -22,6 +22,20 @@ fn expect(expected: u16, result: (u16, Value)) -> Result<Value> {
     Ok(result.1)
 }
 pub fn run() -> Result<()> {
+    // Check the fixture policy before consuming rate-limit attempts.
+    let vars = fs::read_to_string(".dev.vars")?;
+    let hash = vars
+        .lines()
+        .find_map(|line| line.strip_prefix("BOOTSTRAP_PASSWORD_HASH="))
+        .ok_or("missing local bootstrap hash")?
+        .trim()
+        .trim_matches(['"', '\'']);
+    let (iterations, _, _) =
+        tickets_core::auth::password_parts(hash).ok_or("invalid local bootstrap hash")?;
+    if iterations != tickets_core::auth::PASSWORD_ITERATIONS {
+        return Err("regenerate the local fixture hash with cargo xtask auth-hash".into());
+    }
+    println!("Verifying local WebCrypto policy: {iterations} iterations");
     let origin = ["-H", "Origin: http://localhost:8787"];
     expect(200, request("/api/health", "GET", &[])?)?;
     expect(401, request("/api/v1/me", "GET", &[])?)?;

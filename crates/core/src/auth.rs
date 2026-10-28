@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
-pub const PASSWORD_ITERATIONS: u32 = 600_000;
+pub const PASSWORD_ITERATIONS: u32 = 100_000;
+pub const MAX_PASSWORD_ITERATIONS: u32 = 100_000;
 pub fn hash_token(token: &str) -> String {
     hex(&Sha256::digest(token.as_bytes()))
 }
@@ -11,7 +12,7 @@ pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 pub fn unhex(value: &str) -> Option<Vec<u8>> {
-    if !value.len().is_multiple_of(2) || !value.is_ascii() {
+    if !value.len().is_multiple_of(2) || !value.bytes().all(|c| c.is_ascii_hexdigit()) {
         return None;
     }
     (0..value.len())
@@ -36,15 +37,23 @@ pub fn valid_token(token: &str, api: bool) -> bool {
 pub fn active(expires: &str, now: &str, revoked: Option<&str>) -> bool {
     revoked.is_none() && expires > now
 }
-/// Secret format: pbkdf2-sha256$600000$<16-byte salt hex>$<32-byte digest hex>.
-pub fn password_parts(value: &str) -> Option<(Vec<u8>, Vec<u8>)> {
+/// Secret format: pbkdf2-sha256$<iterations>$<16-byte salt hex>$<32-byte digest hex>.
+pub fn password_parts(value: &str) -> Option<(u32, Vec<u8>, Vec<u8>)> {
     let parts: Vec<_> = value.split('$').collect();
-    if parts.len() != 4 || parts[0] != "pbkdf2-sha256" || parts[1] != "600000" {
+    if parts.len() != 4 || parts[0] != "pbkdf2-sha256" {
+        return None;
+    }
+    let count = parts[1];
+    if count.is_empty() || count.starts_with('0') || !count.bytes().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let iterations = count.parse::<u32>().ok()?;
+    if iterations > MAX_PASSWORD_ITERATIONS {
         return None;
     }
     let salt = unhex(parts[2])?;
     let hash = unhex(parts[3])?;
-    (salt.len() == 16 && hash.len() == 32).then_some((salt, hash))
+    (salt.len() == 16 && hash.len() == 32).then_some((iterations, salt, hash))
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ApiToken {
@@ -57,6 +66,46 @@ pub struct ApiToken {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn strict_password_iterations() {
+        let salt = "ab".repeat(16);
+        let digest = "cd".repeat(32);
+        for count in [1, 99999, 100000] {
+            assert_eq!(
+                password_parts(&format!("pbkdf2-sha256${count}${salt}${digest}"))
+                    .unwrap()
+                    .0,
+                count
+            );
+        }
+        for count in [
+            "",
+            "0",
+            "01",
+            "+1",
+            "-1",
+            " 1",
+            "1 ",
+            "1.0",
+            "1e5",
+            "100001",
+            "600000",
+            "4294967296",
+            "١",
+        ] {
+            assert!(password_parts(&format!("pbkdf2-sha256${count}${salt}${digest}")).is_none());
+        }
+        for value in [
+            format!("other$100000${salt}${digest}"),
+            format!("pbkdf2-sha256$100000${}${digest}", "+a".repeat(16)),
+            format!("pbkdf2-sha256$100000${salt}${digest}$extra"),
+            format!("pbkdf2-sha256$100000$ab${digest}"),
+            format!("pbkdf2-sha256$100000${salt}$cd"),
+            format!("pbkdf2-sha256$100000${salt}${}", "zz".repeat(32)),
+        ] {
+            assert!(password_parts(&value).is_none());
+        }
+    }
     #[test]
     fn credentials() {
         assert_eq!(
@@ -75,7 +124,7 @@ mod tests {
         assert!(!active("2026-02-02", "2026-02-01", Some("revoked")));
         assert!(
             password_parts(&format!(
-                "pbkdf2-sha256$600000${}${}",
+                "pbkdf2-sha256$100000${}${}",
                 "ab".repeat(16),
                 "cd".repeat(32)
             ))
@@ -91,13 +140,13 @@ mod password_tests {
     #[test]
     fn pbkdf2_known_vector_and_wrong_password() {
         let mut result = [0; 32];
-        pbkdf2::pbkdf2_hmac::<sha2_legacy::Sha256>(b"password", b"salt", 600_000, &mut result);
+        pbkdf2::pbkdf2_hmac::<sha2_legacy::Sha256>(b"password", b"salt", 100_000, &mut result);
         assert_eq!(
             hex(&result),
-            "669cfe52482116fda1aa2cbe409b2f56c8e4563752b7a28f6eaab614ee005178"
+            "0394a2ede332c9a13eb82e9b24631604c31df978b4e2f0fbd2c549944f9d79a5"
         );
         let mut wrong = [0; 32];
-        pbkdf2::pbkdf2_hmac::<sha2_legacy::Sha256>(b"wrong", b"salt", 600_000, &mut wrong);
+        pbkdf2::pbkdf2_hmac::<sha2_legacy::Sha256>(b"wrong", b"salt", 100_000, &mut wrong);
         assert!(!constant_eq(&result, &wrong));
     }
 }

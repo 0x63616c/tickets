@@ -17,7 +17,7 @@ fn random() -> Result<String> {
     crypto()?.get_random_values_with_u8_array(&mut bytes)?;
     Ok(hex(&bytes))
 }
-async fn derive(password: &str, salt: &[u8]) -> Result<Vec<u8>> {
+async fn derive(password: &str, salt: &[u8], iterations: u32) -> Result<Vec<u8>> {
     let subtle = crypto()?.subtle();
     let usages = Array::of1(&"deriveBits".into());
     let key = JsFuture::from(subtle.import_key_with_str(
@@ -32,7 +32,7 @@ async fn derive(password: &str, salt: &[u8]) -> Result<Vec<u8>> {
     for (k, v) in [
         ("name", JsValue::from_str("PBKDF2")),
         ("hash", "SHA-256".into()),
-        ("iterations", PASSWORD_ITERATIONS.into()),
+        ("iterations", iterations.into()),
         ("salt", Uint8Array::from(salt).into()),
     ] {
         Reflect::set(&algorithm, &k.into(), &v)?;
@@ -113,15 +113,15 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
         };
         let username = env.secret("BOOTSTRAP_USERNAME")?.to_string();
         let secret = env.secret("BOOTSTRAP_PASSWORD_HASH")?.to_string();
-        let (salt, expected) = password_parts(&secret)
+        let (iterations, salt, expected) = password_parts(&secret)
             .ok_or_else(|| Error::RustError("Invalid bootstrap hash configuration".into()))?;
-        let actual = derive(&input.password, &salt).await?;
+        let actual = derive(&input.password, &salt, iterations).await?;
         if !(constant_eq(&actual, &expected)
             & constant_eq(input.username.as_bytes(), username.as_bytes()))
         {
             return denied();
         }
-        query(&db,"INSERT INTO users(id,username,password_hash) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET username=excluded.username,password_hash=excluded.password_hash",vec![username.into(),secret.into()]).await?;
+        query(&db,"INSERT INTO users(id,username,password_hash) VALUES(1,?,'') ON CONFLICT(id) DO UPDATE SET username=excluded.username,password_hash=''",vec![username.into()]).await?;
         let token = random()?;
         query(
             &db,
