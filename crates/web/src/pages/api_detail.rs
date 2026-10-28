@@ -187,15 +187,15 @@ fn DetailPage(id: i64) -> impl IntoView {
         <Show when=move||state.ticket.get().is_some()><div class="detail-layout" aria-busy=move||state.busy.get().to_string()>
             <article class="ticket-detail"><div class="detail-overline"><a href="/" class="back-link"><Icon name="board"/>"Board"</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key)}</span></div>
             <Show when=move||state.mirrored()><p class="muted github-sync">"Synced from GitHub"{move||state.ticket.get().and_then(|t|t.external_url).map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener">"Open on GitHub ↗"</a>})}</p></Show>
-            <h1>{move||state.ticket.get().map(|t|t.title)}</h1><div class="detail-description">{move||state.ticket.get().map(|t|view!{<Markdown source=t.body/>})}</div>
+            <h1>{move||state.ticket.get().map(|t|t.title)}</h1><aside class="properties" aria-label="Ticket properties"><h2>"Properties"</h2>
+            <For each=move||vec![state.revision.get()] key=|r|*r children=move|_|view!{<Properties/>}/>
+            </aside><div class="detail-description">{move||state.ticket.get().map(|t|view!{<Markdown source=t.body/>})}</div>
             <section class="dependencies" aria-label="Dependencies"><div class="section-heading"><h2>"Dependencies"</h2><Show when=move||!state.mirrored()><button class="button button-ghost" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|dependency.set(true)><Icon name="plus"/>"Add dependency"</button></Show></div>
             {move||state.ticket.get().map(|t|{let empty=t.blocks.is_empty() && t.blocked_by.is_empty();view!{ {empty.then(||view!{<p class="muted dependency-empty">"No dependencies"</p>})}
                 {t.blocked_by.into_iter().map(|related|view!{<DependencyRow related incoming=true/>}).collect_view()}{t.blocks.into_iter().map(|related|view!{<DependencyRow related incoming=false/>}).collect_view()}
             }})}</section>
             <section class="activity" aria-label="Comments and activity"><div class="section-heading"><h2>"Activity"</h2></div><For each=move||state.comments.get() key=|c|(c.id,c.body.clone()) children=|comment|view!{<ApiComment comment/>}/><Show when=move||!state.mirrored()><CommentEditor/></Show></section>
-            </article><aside class="properties" aria-label="Ticket properties"><h2>"Properties"</h2>
-            <For each=move||vec![state.revision.get()] key=|r|*r children=move|_|view!{<Properties/>}/>
-            </aside></div></Show>
+            </article></div></Show>
         {move||edit.get().then(||view!{<EditTicket close=Callback::new(move|_|edit.set(false))/>})}
         {move||dependency.get().then(||view!{<DependencyEditor close=Callback::new(move|_|dependency.set(false))/>})}
         {move||board.composer.get().map(|status|view!{<BoardComposer status/>})}

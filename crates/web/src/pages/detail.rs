@@ -40,6 +40,25 @@ fn TicketContent(ticket: Ticket) -> impl IntoView {
             <article class="ticket-detail">
                 <div class="detail-overline"><A href="/design/board" attr:class="back-link"><Icon name="board"/>"Board"</A><span class="breadcrumb-slash">"/"</span><span class="mono">{format!("TKT-{id}")}</span></div>
                 <h1>{ticket.title}</h1>
+                <aside class="properties" aria-label="Ticket properties">
+                    <h2>"Properties"</h2>
+                    <div class="property"><span>"Status"</span><div>{move || view! { <StatusIcon status=Status::from_name(&status.get())/> }}<Select label="Status" options=Status::ALL.map(Status::name).to_vec() value=status on_change=Callback::new(move |value: String| state.move_ticket(id, Status::from_name(&value)))/></div></div>
+                    <div class="property"><span>"Priority"</span><div>{move || view! { <PriorityIcon priority=Priority::ALL.into_iter().find(|p| p.name() == priority.get()).unwrap_or(Priority::None)/> }}<Select label="Priority" options=Priority::ALL.map(Priority::name).to_vec() value=priority on_change=Callback::new(move |value: String| state.tickets.update(|tickets| { if let Some(t) = tickets.iter_mut().find(|t| t.id == id) { t.priority = Priority::ALL.into_iter().find(|p| p.name() == value).unwrap_or(Priority::None); } }))/></div></div>
+                    <div class="property-section">
+                        <h2>"Labels"</h2>
+                        <div class="property-labels"><LabelChip name=ticket.label/>{move || current.get().extra_labels.into_iter().map(|name| view! { <LabelChip name/> }).collect_view()}</div>
+                        <Menu label="Add label"><span class="menu-heading">"Labels"</span>
+                            {["Feature", "Bug", "Infrastructure", "Design"].into_iter().filter(|label| *label != ticket.label).map(move |label| view! {
+                                <button class="menu-item" aria-pressed=move || current.get().extra_labels.iter().any(|l| l == label) on:click=move |_| {
+                                    state.tickets.update(|tickets| { if let Some(t) = tickets.iter_mut().find(|t| t.id == id) { if t.extra_labels.iter().any(|l| l == label) { t.extra_labels.retain(|l| l != label); } else { t.extra_labels.push(label.into()); } } });
+                                }><LabelChip name=label/>{move || current.get().extra_labels.iter().any(|l| l == label).then(|| view! { <Icon name="check"/> })}</button>
+                            }).collect_view()}
+                        </Menu>
+                    </div>
+                    <div class="property-section"><h2>"Project"</h2><A href="/design/board" attr:class="property-project"><span class="project-dot" style="--dot:var(--accent)"/><span>{ticket.project}</span><Icon name="chevron"/></A></div>
+                    <div class="property-section"><h2>"Links"</h2><a class="subtle-link" href=format!("https://github.com/0x63616c/tickets/issues/{id}") target="_blank" rel="noreferrer"><Icon name="link"/>"GitHub issue"<Icon name="external"/></a></div>
+                    <div class="property-section property-dates"><span>"Created Oct 24"</span><span>"Updated today"</span></div>
+                </aside>
                 <div class="detail-description"><Markdown source=ticket.description/></div>
                 <section class="dependencies" aria-label="Dependencies">
                     <div class="section-heading"><h2>"Dependencies"</h2><Button variant="ghost" on_click=Callback::new(move |_| state.dialog.set(DialogKind::Dependency))><Icon name="plus"/>"Add dependency"</Button></div>
@@ -81,25 +100,6 @@ fn TicketContent(ticket: Ticket) -> impl IntoView {
                     </form>
                 </section>
             </article>
-            <aside class="properties" aria-label="Ticket properties">
-                <h2>"Properties"</h2>
-                <div class="property"><span>"Status"</span><div>{move || view! { <StatusIcon status=Status::from_name(&status.get())/> }}<Select label="Status" options=Status::ALL.map(Status::name).to_vec() value=status on_change=Callback::new(move |value: String| state.move_ticket(id, Status::from_name(&value)))/></div></div>
-                <div class="property"><span>"Priority"</span><div>{move || view! { <PriorityIcon priority=Priority::ALL.into_iter().find(|p| p.name() == priority.get()).unwrap_or(Priority::None)/> }}<Select label="Priority" options=Priority::ALL.map(Priority::name).to_vec() value=priority on_change=Callback::new(move |value: String| state.tickets.update(|tickets| { if let Some(t) = tickets.iter_mut().find(|t| t.id == id) { t.priority = Priority::ALL.into_iter().find(|p| p.name() == value).unwrap_or(Priority::None); } }))/></div></div>
-                <div class="property-section">
-                    <h2>"Labels"</h2>
-                    <div class="property-labels"><LabelChip name=ticket.label/>{move || current.get().extra_labels.into_iter().map(|name| view! { <LabelChip name/> }).collect_view()}</div>
-                    <Menu label="Add label"><span class="menu-heading">"Labels"</span>
-                        {["Feature", "Bug", "Infrastructure", "Design"].into_iter().filter(|label| *label != ticket.label).map(move |label| view! {
-                            <button class="menu-item" aria-pressed=move || current.get().extra_labels.iter().any(|l| l == label) on:click=move |_| {
-                                state.tickets.update(|tickets| { if let Some(t) = tickets.iter_mut().find(|t| t.id == id) { if t.extra_labels.iter().any(|l| l == label) { t.extra_labels.retain(|l| l != label); } else { t.extra_labels.push(label.into()); } } });
-                            }><LabelChip name=label/>{move || current.get().extra_labels.iter().any(|l| l == label).then(|| view! { <Icon name="check"/> })}</button>
-                        }).collect_view()}
-                    </Menu>
-                </div>
-                <div class="property-section"><h2>"Project"</h2><A href="/design/board" attr:class="property-project"><span class="project-dot" style="--dot:var(--accent)"/><span>{ticket.project}</span><Icon name="chevron"/></A></div>
-                <div class="property-section"><h2>"Links"</h2><a class="subtle-link" href=format!("https://github.com/0x63616c/tickets/issues/{id}") target="_blank" rel="noreferrer"><Icon name="link"/>"GitHub issue"<Icon name="external"/></a></div>
-                <div class="property-section property-dates"><span>"Created Oct 24"</span><span>"Updated today"</span></div>
-            </aside>
         </div>
     }
 }
