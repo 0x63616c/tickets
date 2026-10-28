@@ -67,7 +67,7 @@ fn TicketContent(ticket: Ticket) -> impl IntoView {
                         <Comment author="Agent" initials="A" time="10:41" text="Agreed. I’ll preserve **keyboard focus** and announce the new status after a move."/>
                     })}
                     {move || current.get().added_comments.into_iter().map(|text| view! { <Comment author="You" initials="Y" time="Just now" text/> }).collect_view()}
-                    <form class="comment-form" on:submit=move |ev| {
+                    <form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="comment-form" on:submit=move |ev| {
                         ev.prevent_default();
                         let value = comment.get_untracked().trim().to_string();
                         if !value.is_empty() {
@@ -76,7 +76,7 @@ fn TicketContent(ticket: Ticket) -> impl IntoView {
                             state.toast.set("Comment added".into());
                         }
                     }>
-                        <textarea aria-label="Write a comment" rows="2" placeholder="Leave a comment…" prop:value=move || comment.get() on:input=move |ev| comment.set(event_target_value(&ev))/>
+                        <textarea autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Write a comment" rows="2" placeholder="Leave a comment…" prop:value=move || comment.get() on:input=move |ev| comment.set(event_target_value(&ev))/>
                         <div><span>"Markdown supported"</span><button class="button button-secondary" type="submit" disabled=move || comment.get().trim().is_empty()>"Comment"<Icon name="arrow"/></button></div>
                     </form>
                 </section>

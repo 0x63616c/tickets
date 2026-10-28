@@ -62,7 +62,7 @@ pub fn TextInput(
     #[prop(default = "")] placeholder: &'static str,
     value: RwSignal<String>,
 ) -> impl IntoView {
-    view! { <label class="field" for=id><span>{label}</span><input id=id placeholder=placeholder prop:value=move || value.get() on:input=move |ev| value.set(event_target_value(&ev))/></label> }
+    view! { <label class="field" for=id><span>{label}</span><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  id=id placeholder=placeholder prop:value=move || value.get() on:input=move |ev| value.set(event_target_value(&ev))/></label> }
 }
 
 /// Native select keeps keyboard, touch and assistive-technology behavior consistent.
@@ -73,7 +73,7 @@ pub fn Select(
     value: RwSignal<String>,
     #[prop(optional)] on_change: Option<Callback<String>>,
 ) -> impl IntoView {
-    view! { <select aria-label=label prop:value=move || value.get() on:change=move |ev| { let next = event_target_value(&ev); value.set(next.clone()); if let Some(callback) = on_change { callback.run(next); } }>{options.into_iter().map(|option| view! { <option value=option selected=move || value.get() == option>{option}</option> }).collect_view()}</select> }
+    view! { <select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=label prop:value=move || value.get() on:change=move |ev| { let next = event_target_value(&ev); value.set(next.clone()); if let Some(callback) = on_change { callback.run(next); } }>{options.into_iter().map(|option| view! { <option value=option selected=move || value.get() == option>{option}</option> }).collect_view()}</select> }
 }
 
 #[component]
