@@ -246,3 +246,8 @@ impl Store for worker::D1Database {
         result.results().map_err(|e| Error::Storage(e.to_string()))
     }
 }
+impl<S: Store> Store for &S {
+    async fn query<T: DeserializeOwned>(&self, sql: &str, params: Vec<Value>) -> Result<Vec<T>> {
+        (**self).query(sql, params).await
+    }
+}
