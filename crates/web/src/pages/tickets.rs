@@ -9,7 +9,7 @@ use leptos_router::components::A;
 fn ViewToolbar(query: RwSignal<String>, #[prop(default = false)] board: bool) -> impl IntoView {
     view! {
         <div class="view-toolbar">
-            <div class="filter-input"><Icon name="filter"/><input aria-label="Filter tickets" placeholder="Filter tickets…" prop:value=move || query.get() on:input=move |ev| query.set(event_target_value(&ev))/><Show when=move || !query.get().is_empty()><IconButton label="Clear filter" icon="close" on_click=Callback::new(move |_| query.set(String::new()))/></Show></div>
+            <div class="filter-input"><Icon name="filter"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Filter tickets" placeholder="Filter tickets…" prop:value=move || query.get() on:input=move |ev| query.set(event_target_value(&ev))/><Show when=move || !query.get().is_empty()><IconButton label="Clear filter" icon="close" on_click=Callback::new(move |_| query.set(String::new()))/></Show></div>
             <span class="toolbar-caption">{if board { "Drag tickets to change status" } else { "All tickets" }}</span><span class="toolbar-divider"/><span class="display-label">"Grouped by status"</span>
         </div>
     }
@@ -64,7 +64,7 @@ pub fn TicketCard(ticket: Ticket) -> impl IntoView {
             {ticket.blocked.then(|| view! { <span class="blocked-note"><Icon name="blocked"/>"Blocked by TKT-5"</span> })}
             <div class="card-labels"><LabelChip name=ticket.label/>{ticket.extra_labels.into_iter().map(|name| view! { <LabelChip name/> }).collect_view()}</div>
             <div class="card-bottom">
-                <div class="card-status"><StatusIcon status=ticket.status/><select aria-label=format!("Move TKT-{id} to status") prop:value=ticket.status.name() on:change=move |ev| state.move_ticket(id, Status::from_name(&event_target_value(&ev)))>{Status::ALL.into_iter().map(|s| view! { <option value=s.name() selected=s == ticket.status>{s.name()}</option> }).collect_view()}</select></div>
+                <div class="card-status"><StatusIcon status=ticket.status/><select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=format!("Move TKT-{id} to status") prop:value=ticket.status.name() on:change=move |ev| state.move_ticket(id, Status::from_name(&event_target_value(&ev)))>{Status::ALL.into_iter().map(|s| view! { <option value=s.name() selected=s == ticket.status>{s.name()}</option> }).collect_view()}</select></div>
                 <div class="card-meta">{(ticket.comments > 0).then(|| view! { <span class="comment-count" aria-label=format!("{} comments", ticket.comments)><Icon name="comment"/>{ticket.comments}</span> })}</div>
             </div>
         </article>
