@@ -29,8 +29,7 @@ routes = [{ pattern = "tickets.worldwidewebb.co", custom_domain = true }]
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "tickets"
-# TODO(one-time setup): replace with the ID returned by `wrangler d1 create tickets`.
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "aac62c45-1f61-4858-956f-c0e4556b52ab"
 migrations_dir = "migrations"
 
 # TODO(#16): add the live-update Durable Objects binding once its Rust class is

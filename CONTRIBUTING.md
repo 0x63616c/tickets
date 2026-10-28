@@ -25,8 +25,11 @@
 - Never put personal info (emails, names, addresses) in commits, code, headers or payloads.
 
 ## Deploys
-- Production (`tickets.worldwidewebb.co`) is configured but **never deployed without Calum's
-  explicit OK**. Local dev uses `wrangler dev` with a local D1.
+- Every merge to `main` deploys to production (`tickets.worldwidewebb.co`) via the CI
+  `deploy` job, after all checks pass (approved by Calum). Only merge work that is ready to
+  ship, and keep migrations backwards compatible. Never deploy manually or touch production
+  resources outside CI without Calum's explicit OK. Local dev uses `wrangler dev` with a
+  local D1. See [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Rust workspace conventions
 - Pin the stable toolchain and wasm target in `rust-toolchain.toml`; commit `Cargo.lock`.
