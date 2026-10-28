@@ -117,8 +117,10 @@
 
 - The API board lives at `/`; `/design*` retains its fixture-only state. Projects
   are selected in the sidebar. Hide Canceled by default; `?canceled=true` reveals it.
-  Use equal flex columns with a 240px minimum and 16px gaps. At 1440px the
-  sidebar contracts to leave 1304px for five columns; narrower boards scroll.
+  Match the fixture's four default columns; show In review when populated.
+  Status selects always offer all six statuses. Use equal flex
+  columns with a 240px minimum and 16px gaps. The sidebar stays 240px; extra
+  columns scroll inside the board. The footer counts tickets in visible statuses.
 - Sort a project/status column by `sort_order`, then numeric ticket ID to resolve
   ties (including the API default of zero). A move assigns gapped integer ranks
   `1024, 2048, …` to the destination column and PATCHes only changed rows. Include
@@ -159,7 +161,7 @@
   project moves, which change the displayed key. Detail inherits its ticket's project
   for creation; the shared composer permits selecting any project and defaults to Todo.
 - Save ticket title/description explicitly with Edit ticket. Property selects save
-  immediately; assignee has an explicit Save action (blank clears it). Saved state
+  immediately; assignee saves on change/Enter (blank clears it). Saved state
   stays visible on failure. The dependency dialog displays the API's exact error
   inline and remains open after a rejected addition.
 - Description/comment previews and saved bodies use the shared sanitized Markdown
@@ -172,3 +174,18 @@
   to the absolute `crates/web/dist` directory built from origin/main in a temporary
   worktree. This captures the previous real detail route and list preview, plus
   the fixture target separately. Remove the temporary worktree after capturing.
+
+## Polish audit conventions
+
+- `CHROME_BIN=<headless-chromium> cargo xtask polish-check` seeds isolated local
+  Worker/D1 state and audits the real board, list, detail, composer, commands,
+  login, tokens, and empty states at 1440×900 and 390×900. It checks keyboard
+  focus, overflow, compact row/control geometry, long text, and token lifecycle.
+  Token secrets must be dismissed before screenshots; capture metadata only.
+- Capture `before` from assets built in a temporary worktree of the base commit,
+  using `TICKETS_BEFORE_ASSETS`. Capture `/design*` targets separately. Each pair
+  uses the same seed, route, viewport, dark scheme, and loaded fonts. Keep the base
+  SHA and any fixture-only boundaries in the screenshot directory's README.
+- Search results open the selected ticket. Empty results have explicit copy;
+  dialogs restore opener focus, and mobile navigation contains keyboard focus.
+  Preserve native selects and the shared chevron rather than drawing new controls.

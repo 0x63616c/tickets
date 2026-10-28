@@ -112,9 +112,93 @@ pub fn check(root: &Path, password: &str) -> Result {
             b.go(&format!("{URL}/{route}"))?;
             b.screenshot(&output.join(format!("{name}-target-desktop.png")))?;
         }
+    } else {
+        interactions(&mut b)?;
     }
     println!(
         "PASS polish: {phase} captures of real board, list, detail, creation, commands, login, tokens and empty states at 1440×900 / 390×900; Projects preview explicitly labelled"
+    );
+    Ok(())
+}
+
+fn interactions(b: &mut Browser) -> Result {
+    b.go(&format!("{URL}/"))?;
+    b.wait("document.querySelectorAll('.api-ticket').length===15 && document.querySelectorAll('.board-column').length===4")?;
+    b.wait("document.querySelector('.sidebar').getBoundingClientRect().width===240 && [...document.querySelectorAll('.board-column')].every(e=>e.getBoundingClientRect().width>=240)")?;
+    // Picking up a card does not shift columns. Moving to review reveals its group.
+    b.eval("document.querySelector('#ticket-9').focus();true")?;
+    b.key(" ", 32, 0)?;
+    b.wait("document.querySelectorAll('.board-column').length===4 && document.activeElement.id==='ticket-9'")?;
+    b.key("ArrowRight", 39, 0)?;
+    b.wait("document.querySelector('#ticket-9').closest('section').getAttribute('aria-label')==='In review'")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("document.querySelectorAll('.board-column').length===4 && document.activeElement.id==='ticket-9' && document.querySelector('#ticket-9').closest('section').getAttribute('aria-label')==='In progress'")?;
+    b.key("ArrowRight", 39, 0)?;
+    b.wait("document.activeElement.id==='ticket-13'")?;
+    b.click(".topbar .button-primary")?;
+    b.wait("document.activeElement.id==='board-title'")?;
+    b.key("k", 75, 4)?;
+    b.wait("document.querySelectorAll('dialog').length===1 && !!document.querySelector('#board-title')")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("!document.querySelector('dialog') && document.activeElement.matches('.topbar .button-primary')")?;
+    b.click(".search-trigger")?;
+    b.text(".command-search input", "No matching ticket")?;
+    b.wait(
+        "document.querySelector('.command-empty')?.textContent==='No tickets match your search.'",
+    )?;
+    b.key("Escape", 27, 0)?;
+    b.wait("document.activeElement.matches('.search-trigger')")?;
+    b.click(".search-trigger")?;
+    b.text(".command-search input", "Move tickets")?;
+    b.key("ArrowDown", 40, 0)?;
+    b.wait("document.activeElement.matches('.command-results .menu-item') && getComputedStyle(document.activeElement).outlineWidth==='2px'")?;
+    b.key("Enter", 13, 0)?;
+    b.wait("location.pathname==='/ticket' && location.search==='?id=9' && !!document.querySelector('.comment')")?;
+    b.wait("document.querySelector('.comment-form button[type=submit]').getBoundingClientRect().bottom<=900 && getComputedStyle(document.querySelector('.property select')).backgroundImage!=='none'")?;
+    b.viewport(390, 900)?;
+    b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+    b.click("[aria-label='Toggle sidebar']")?;
+    b.wait("document.querySelector('[aria-label=\"Toggle sidebar\"]').getAttribute('aria-expanded')==='true' && document.querySelector('.sidebar').getBoundingClientRect().width===240")?;
+    b.wait("document.activeElement.matches('.sidebar .workspace-switcher')")?;
+    b.key("Tab", 9, 8)?;
+    b.wait("document.activeElement.matches('.sidebar-bottom a:last-of-type')")?;
+    b.key("Tab", 9, 0)?;
+    b.wait("document.activeElement.matches('.sidebar .workspace-switcher')")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("document.activeElement.getAttribute('aria-label')==='Toggle sidebar' && !document.querySelector('.sidebar-dismiss')")?;
+    b.go(&format!("{URL}/list?project=1"))?;
+    b.wait("document.querySelectorAll('.api-list-row').length===15")?;
+    b.wait("[...document.querySelectorAll('.board-filters select')].every(e=>e.getBoundingClientRect().width>=140) && [...document.querySelectorAll('.api-list-row')].every(e=>e.getBoundingClientRect().height===36) && new Set([...document.querySelectorAll('.api-list-row .row-title')].map(e=>e.getBoundingClientRect().x)).size===1")?;
+    // Long user-supplied text must remain contained at both viewport sizes.
+    b.eval(r#"(async()=>{const r=await fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Preserve keyboard focus when moving tickets across projects with a very long title — '+ 'LongTitle'.repeat(20)})});if(!r.ok)throw Error('long title seed failed');return true})()"#)?;
+    for width in [1440, 390] {
+        b.viewport(width, 900)?;
+        for route in ["/", "/list?project=1", "/ticket?id=1"] {
+            b.go(&format!("{URL}{route}"))?;
+            b.wait("document.body.innerText.includes('LongTitle') && document.documentElement.scrollWidth<=innerWidth")?;
+        }
+    }
+    // Token creation is exercised, but a secret is never captured in an artifact.
+    b.go(&format!("{URL}/settings/tokens"))?;
+    b.wait("!!document.querySelector('.tokens li')")?;
+    b.text("#token-name", "Build agent")?;
+    b.click(".settings-footer button")?;
+    b.wait("document.querySelector('.secret code')?.textContent.startsWith('tk_')")?;
+    b.click(".secret .button-ghost")?;
+    b.wait("!document.querySelector('.secret code') && document.querySelectorAll('.tokens li').length===2")?;
+    b.click(".tokens li:last-child button")?;
+    b.wait("document.querySelector('.tokens li:last-child').textContent.includes('Revoked')")?;
+    b.call("Network.clearBrowserCookies", json!({}))?;
+    b.go(&format!("{URL}/settings/tokens"))?;
+    b.wait("document.querySelector('.settings-footer button').disabled && document.querySelector('.auth-page a[href=\"/login\"]')?.textContent==='Sign in'")?;
+    b.go(&format!("{URL}/login"))?;
+    b.eval("window.signInTop=document.querySelector('button[type=submit]').getBoundingClientRect().top;true")?;
+    b.text("#username", "fixture")?;
+    b.text("#password", "incorrect")?;
+    b.click("button[type=submit]")?;
+    b.wait("document.querySelector('[role=alert]').textContent==='Incorrect username or password.' && document.querySelector('#password').value==='' && document.querySelector('button[type=submit]').getBoundingClientRect().top===window.signInTop")?;
+    println!(
+        "PASS polish interactions: 240px sidebar/columns, review move/cancel/focus, skip empty columns, modal focus restoration/no stacking, command empty/keyboard/open, visible comment submit, shared chevrons, mobile sidebar/Escape, readable mobile filters, aligned 36px rows, long text containment, token create/dismiss/revoke (no secret capture)"
     );
     Ok(())
 }

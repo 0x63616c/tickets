@@ -225,7 +225,7 @@ impl Browser {
         self.call("Input.setInterceptDrags", json!({"enabled":false}))?;
         Ok(())
     }
-    fn key(&mut self, key: &str, code: u32, modifiers: u32) -> Result<()> {
+    pub(crate) fn key(&mut self, key: &str, code: u32, modifiers: u32) -> Result<()> {
         for kind in ["keyDown", "keyUp"] {
             self.call(
                 "Input.dispatchKeyEvent",
@@ -475,8 +475,8 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
         "document.querySelectorAll('.ticket-card').length===8 && !document.querySelector('dialog')",
     )?;
     b.click(".canceled-toggle input")?;
-    b.wait("!location.search.includes('canceled') && document.querySelectorAll('.board-column').length===5 && document.querySelector('.board').scrollWidth===document.querySelector('.board').clientWidth && document.querySelector('[aria-label=Done]').getBoundingClientRect().right<=innerWidth")?;
-    b.wait("document.querySelector('.view-footer').textContent.includes('8 tickets') && document.querySelector('.toast').textContent.includes('Ticket created')")?;
+    b.wait("!location.search.includes('canceled') && document.querySelectorAll('.board-column').length===5 && document.querySelector('.board').scrollWidth>document.querySelector('.board').clientWidth && document.querySelector('.sidebar').getBoundingClientRect().width===240 && document.documentElement.scrollWidth<=innerWidth")?;
+    b.wait("document.querySelector('.view-footer').textContent.includes('7 tickets') && document.querySelector('.toast').textContent.includes('Ticket created')")?;
     b.key("k", 75, 4)?;
     b.wait("!!document.querySelector('dialog[aria-label=\"Search and commands\"]')")?;
     b.key("Escape", 27, 0)?;
@@ -499,13 +499,13 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===95 && !document.body.innerText.includes('Created from the board')")?;
     b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
-    b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===5 && !document.querySelector('.add-card').disabled")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===4 && !document.querySelector('.add-card').disabled && document.body.innerText.includes('No tickets yet')")?;
     b.eval("[...document.querySelectorAll('.sidebar-bottom button')].find(b=>b.textContent.includes('Sign out')).click();true")?;
     b.wait("location.pathname==='/login'")?;
     b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Please sign in') && document.querySelectorAll('.ticket-card').length===0")?;
     println!(
-        "PASS: local API seed; five default statuses + URL canceled toggle; 1440px Done visibility; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
+        "PASS: local API seed; populated review column + URL canceled toggle; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
     );
     Ok(())
 }
@@ -571,7 +571,7 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     )?;
     b.wait("document.querySelectorAll('.command-results .menu-item').length===1")?;
     b.click(".command-results .menu-item")?;
-    b.wait("location.search.includes('q=TKT-4') && document.querySelectorAll('.api-list-row').length===1 && document.activeElement.id==='list-ticket-4'")?;
+    b.wait("location.pathname==='/ticket' && location.search==='?id=4' && document.querySelector('.ticket-detail h1')?.textContent==='Review imported labels'")?;
     b.go("http://127.0.0.1:8795/list?project=3")?;
     b.wait("document.body.innerText.includes('No tickets match') && document.querySelectorAll('.api-list-row').length===0")?;
     b.key("c", 67, 0)?;
