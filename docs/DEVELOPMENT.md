@@ -25,7 +25,12 @@ changes stop the dev server and run `cargo xtask dev` again, then refresh the
 browser. This rebuilds the assets and refreshes Wrangler's asset manifest. Run each command from
 the workspace root so Cargo can resolve the xtask alias.
 
-Visit http://localhost:8787 for the Leptos CSR workspace. Ticket CRUD arrives separately. Static assets use SPA fallback; `/api` and `/api/*` always
+Visit http://localhost:8787 for the Leptos CSR design preview. `/design` is the
+component gallery; board, list, ticket, project and empty-state routes are listed
+in [the design system](design-system.md). Changes use in-memory fixtures and reset
+on reload. API-backed ticket CRUD arrives separately. The existing `/login` and
+`/settings/tokens` routes remain API-backed; see Local authentication below.
+Static assets use SPA fallback; `/api` and `/api/*` always
 reach the Worker and unknown API routes return 404 rather than HTML.
 
 ```sh
@@ -60,7 +65,7 @@ artifacts are cached with Swatinem/rust-cache. There are no deploy steps.
 For UI changes capture dark-mode before/after screenshots under
 `docs/screenshots/` and reference raw branch URLs in the PR. There was no runnable
 UI before the scaffold: its before screenshot is an explicitly labelled empty
-dark baseline. Design and frontend ADR 0001 are reserved for #6.
+dark baseline. Later UI changes use the real previous UI as their before image.
 
 ## Local authentication
 
@@ -116,6 +121,15 @@ Set `TICKETS_CHROME` to your Chromium executable, or put `chromium` on PATH.
 Run auth-verify first to prepare its ignored browser storage. Screenshot captures
 never include the one-time secret. The before screenshot for #4 reuses the actual
 scaffold capture from the base branch, whose UI was unchanged by #3.
+
+For a faster frontend-only loop, run `trunk serve --port 8086` from `crates/web`
+with `NO_COLOR=true` and `CARGO_TARGET_DIR` pointing to this worktree's `target/`.
+Run `cargo xtask design-check` from the repository root to capture and check those
+routes (default server: `http://127.0.0.1:8086`). To check the Worker instead, set
+`TICKETS_DESIGN_URL=http://127.0.0.1:8787`. Use `CHROME_BIN` for an installed
+Chromium executable if `/usr/bin/google-chrome` is unavailable or managed by a
+proxy policy. The task writes screenshots under `docs/screenshots/design/` and
+browser logs/profile data under ignored `target/`.
 
 `cargo xtask skill-check` builds the app and runs every curl example in the
 [agent skill](../.agents/skills/tickets/SKILL.md) against a fresh local Worker/D1.

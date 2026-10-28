@@ -7,6 +7,9 @@ mod skill_check;
 
 use std::{env, error::Error, path::Path, process::Command};
 
+#[cfg(not(target_arch = "wasm32"))]
+mod design;
+
 type Result = std::result::Result<(), Box<dyn Error>>;
 
 fn run(directory: &Path, program: &str, args: &[&str]) -> Result {
@@ -58,6 +61,8 @@ fn main() -> Result {
         Some("auth-verify") => auth_verify::run(),
         Some("auth-hash") => auth::hash(),
         Some("auth-bench") => auth::bench(),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("design-check") => design::check(root),
         Some("build") => build(root),
         Some("dev") => {
             build(root)?;
@@ -102,7 +107,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <dev|build|migrate|ci|api-smoke|skill-check|auth-hash|auth-bench|auth-verify|auth-screenshots>".into())
+            Err("usage: cargo xtask <dev|build|migrate|ci|api-smoke|skill-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check>".into())
         }
     }
 }

@@ -2177,6 +2177,7 @@ dependencies = [
  "leptos",
  "leptos_router",
  "serde_json",
+ "tickets-core",
  "wasm-bindgen-futures",
  "web-sys",
 ]

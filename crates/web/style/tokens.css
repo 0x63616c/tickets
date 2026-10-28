@@ -1,0 +1,63 @@
+/* Shared visual contract for #7–#10 and #16. Linear reference values, dark only. */
+@font-face { font-family: 'Inter Variable'; src: url('/fonts/InterVariable.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('/fonts/GeistMono.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
+:root {
+  color-scheme: dark;
+  --bg: #050506;
+  --sidebar: #0a0a0b;
+  --surface: #0e0f10;
+  --surface-raised: #131415;
+  --surface-hover: #ffffff0a;
+  --surface-active: #ffffff0f;
+  --border: #1c1d21;
+  --border-subtle: #ffffff08;
+  --border-strong: #2a2b31;
+  --text: #f7f8f8;
+  --text-secondary: #d0d6e0;
+  --text-muted: #8a8f98;
+  --text-faint: #797d86;
+  --accent: #5e6ad2;
+  --accent-hover: #6d79df;
+  --accent-surface: #14152a;
+  --focus: #5e6ad2;
+  --status-backlog: #8a8f98;
+  --status-todo: #d0d6e0;
+  --status-progress: #f0bf00;
+  --status-review: #27a644;
+  --status-done: #5e6ad2;
+  --status-canceled: #8a8f98;
+  --priority-urgent: #eb5757;
+  --priority-high: #d0d6e0;
+  --priority-medium: #8a8f98;
+  --priority-low: #8a8f98;
+  --success: #27a644;
+  --warning: #f0bf00;
+  --danger: #eb5757;
+  --label-feature: #8b82d9;
+  --label-bug: #eb5757;
+  --label-infra: #4ea7fc;
+  --label-design: #c6a1b9;
+  /* Tinted chips: fill and border are the hue at low alpha, text a lighter tint. */
+  --tint-fill: 14%; --tint-border: 26%; --tint-text: 55%;
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+  --text-xs: 11px; --text-sm: 12px; --text-base: 13px; --text-md: 14px;
+  --text-lg: 16px; --text-xl: 20px; --text-title: 24px;
+  --weight-medium: 510; --weight-semibold: 590; --weight-bold: 680;
+  --leading: 1.5;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --space-12: 48px; --space-16: 64px;
+  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-modal: 12px;
+  --shadow-popover: 0 4px 24px #0003;
+  --scrim: #0009;
+  --duration-fast: 100ms; --duration-normal: 150ms; --duration-slow: 200ms;
+  --ease: cubic-bezier(.25, .46, .45, .94);
+  --chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='M3.5 5.25 7 8.75l3.5-3.5' stroke='%238a8f98' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --select-padding-x: 12px; --select-chevron-size: 14px;
+  --sidebar-width: 240px;
+  --topbar-height: 44px;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0ms; --duration-normal: 0ms; --duration-slow: 0ms; }
+}
