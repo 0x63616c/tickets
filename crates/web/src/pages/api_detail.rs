@@ -30,12 +30,21 @@ struct DetailState {
     revision: RwSignal<u64>,
 }
 impl DetailState {
-    async fn load(self) -> Result<(), String> {
+    async fn load(self, background: bool) -> Result<(), String> {
+        let revision = self.revision.get_untracked();
         let ticket: BoardTicket = serde_json::from_value(
             api("GET", &format!("/api/v1/tickets/{}", self.id), Value::Null).await?,
         )
         .map_err(|e| e.to_string())?;
         let comments = all::<CommentRecord>(&format!("tickets/{}/comments", self.id)).await?;
+        if background
+            && (crate::live::editing()
+                || self.busy.get_untracked()
+                || revision != self.revision.get_untracked())
+        {
+            self.board.live_revision.update(|r| *r += 1);
+            return Ok(());
+        }
         self.board.project.set(ticket.project_id);
         self.board.apply_change_event(ticket.clone(), false);
         self.ticket.set(Some(ticket));
@@ -53,7 +62,7 @@ impl DetailState {
             match api(method, &path, body).await {
                 Ok(_) => {
                     done.run(());
-                    if let Err(e) = self.load().await {
+                    if let Err(e) = self.load(false).await {
                         self.error.set(format!("Saved, but could not reload: {e}"));
                     }
                     self.board.notice.set("Saved.".into());
@@ -96,7 +105,7 @@ fn DetailPage(id: i64) -> impl IntoView {
     provide_context(state);
     board.refresh();
     spawn_local(async move {
-        if let Err(e) = state.load().await {
+        if let Err(e) = state.load(false).await {
             state.error.set(e);
         }
         state.loading.set(false);
@@ -104,16 +113,21 @@ fn DetailPage(id: i64) -> impl IntoView {
     let edit = RwSignal::new(false);
     let pending_live = RwSignal::new(false);
     Effect::new(move |_| {
-        if board.live_revision.get() > 0 {
+        if board.catchup_revision.get() > 0 {
             pending_live.set(true);
         }
     });
     Effect::new(move |_| {
-        if pending_live.get() && !state.busy.get() && !state.loading.get() && !edit.get() {
+        if pending_live.get()
+            && !state.busy.get()
+            && !state.loading.get()
+            && !edit.get()
+            && !crate::live::editing()
+        {
             pending_live.set(false);
             state.loading.set(true);
             spawn_local(async move {
-                if let Err(error) = state.load().await {
+                if let Err(error) = state.load(true).await {
                     state.error.set(error);
                 }
                 state.loading.set(false);
@@ -145,8 +159,8 @@ fn DetailPage(id: i64) -> impl IntoView {
     on_cleanup(move || handle.remove());
     view! {
         <header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><a href="/">{move||state.ticket.get().and_then(|t|board.projects.get().into_iter().find(|p|p.id==t.project_id)).map(|p|p.name).unwrap_or_default()}</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key).unwrap_or_default()}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-ghost" disabled=move||state.busy.get() || state.ticket.get().is_none() on:click=move|_|edit.set(true)>"Edit ticket"</button><button class="button button-primary" disabled=move||board.loading.get() || board.project.get()==0 on:click=move|_|board.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
-        <Show when=move||state.loading.get()><p class="board-message" role="status">"Loading ticket…"</p></Show>
-        <Show when=move||!state.error.get().is_empty() && !edit.get() && !dependency.get()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.busy.get() on:click=move|_|{state.busy.set(true);spawn_local(async move{state.error.set(String::new());if let Err(e)=state.load().await{state.error.set(e);}state.busy.set(false);});}>"Reload ticket"</button></div></Show>
+        <Show when=move||state.loading.get() && state.ticket.get().is_none()><p class="board-message" role="status">"Loading ticket…"</p></Show>
+        <Show when=move||!state.error.get().is_empty() && !edit.get() && !dependency.get()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.busy.get() on:click=move|_|{state.busy.set(true);spawn_local(async move{state.error.set(String::new());if let Err(e)=state.load(false).await{state.error.set(e);}state.busy.set(false);});}>"Reload ticket"</button></div></Show>
         <Show when=move||state.ticket.get().is_some()><div class="detail-layout" aria-busy=move||state.busy.get().to_string()>
             <article class="ticket-detail"><div class="detail-overline"><a href="/" class="back-link"><Icon name="board"/>"Board"</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key)}</span></div>
             <h1>{move||state.ticket.get().map(|t|t.title)}</h1><div class="detail-description">{move||state.ticket.get().map(|t|view!{<Markdown source=t.body/>})}</div>
@@ -222,7 +236,7 @@ fn CommentEditor(
 ) -> impl IntoView {
     let state = expect_context::<DetailState>();
     let body = RwSignal::new(initial);
-    view! {<form class="comment-form" on:submit=move|e|{e.prevent_default();let path=id.map(|id|format!("/api/v1/comments/{id}")).unwrap_or_else(||format!("/api/v1/tickets/{}/comments",state.id));state.write(if id.is_some(){"PATCH"}else{"POST"},path,json!({"body":body.get_untracked()}),Callback::new(move|_|{body.set(String::new());if let Some(close)=close{close.run(());}}));}><MarkdownEditor body label="Write a comment"/><div><span>"Markdown supported"</span>{close.map(|close|view!{<button class="button button-ghost" type="button" disabled=move||state.busy.get() on:click=move|_|close.run(())>"Cancel"</button>})}<button class="button button-secondary" type="submit" disabled=move||state.busy.get() || body.get().trim().is_empty()>{if id.is_some(){"Save comment"}else{"Comment"}}<Icon name="arrow"/></button></div></form>}
+    view! {<form class="comment-form" class:has-draft=move||id.is_some() || !body.get().is_empty() on:submit=move|e|{e.prevent_default();let path=id.map(|id|format!("/api/v1/comments/{id}")).unwrap_or_else(||format!("/api/v1/tickets/{}/comments",state.id));state.write(if id.is_some(){"PATCH"}else{"POST"},path,json!({"body":body.get_untracked()}),Callback::new(move|_|{body.set(String::new());if let Some(close)=close{close.run(());}}));}><MarkdownEditor body label="Write a comment"/><div><span>"Markdown supported"</span>{close.map(|close|view!{<button class="button button-ghost" type="button" disabled=move||state.busy.get() on:click=move|_|close.run(())>"Cancel"</button>})}<button class="button button-secondary" type="submit" disabled=move||state.busy.get() || body.get().trim().is_empty()>{if id.is_some(){"Save comment"}else{"Comment"}}<Icon name="arrow"/></button></div></form>}
 }
 #[component]
 pub(crate) fn MarkdownEditor(body: RwSignal<String>, label: &'static str) -> impl IntoView {

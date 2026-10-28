@@ -47,7 +47,7 @@ pub fn ApiProjects() -> impl IntoView {
     view! {
         <header class="topbar"><div class="breadcrumbs"><Icon name="project"/>"Projects"</div><button class="button button-primary" disabled=move||board.loading.get() || !board.signed_in.get() on:click=move|_|editor.set(Some(None))><Icon name="plus"/>"New project"</button></header>
         <div class="projects-page">
-            <div class="projects-heading"><h1>"Projects"</h1><span class="muted">{move||board.projects.get().iter().filter(|p|archived.get() || !p.archived).count()}" projects"</span><label class="canceled-toggle"><input type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Show archived"</label></div>
+            <div class="projects-heading"><h1>"Projects"</h1><span class="muted">{move||crate::count::count_label(board.projects.get().iter().filter(|p|archived.get() || !p.archived).count(), "project")}</span><label class="canceled-toggle"><input type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Show archived"</label></div>
             <Show when=move||board.loading.get()><p role="status">"Loading projects…"</p></Show>
             <Show when=move||!board.error.get().is_empty()><p role="alert">{move||board.error.get()}" "<button class="button" on:click=move|_|board.refresh()>"Retry"</button></p></Show>
             <Show when=move||!board.loading.get() && board.error.get().is_empty()>

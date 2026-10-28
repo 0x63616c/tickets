@@ -236,7 +236,7 @@ pub fn ApiList() -> impl IntoView {
             <For each=move||{rows(state, location).into_iter().filter(|t|t.status==status).collect::<Vec<_>>()} key=|t|(t.id,format!("{t:?}")) children=move|ticket|view!{<ListRow ticket selected/>}/></section></Show>
         }).collect_view()}</div>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && rows(state, location).is_empty()><div class="empty-project"><div class="empty-state"><Icon name="filter"/><h2>"No tickets match this view"</h2><p>"Try another filter or add a ticket."</p><button class="button" on:click=move|_|location.navigate.run("/list".into())>"Clear filters"</button><button class="button button-primary" disabled=move||state.project.get()==0 on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"</button></div></div></Show>
-        <div class="view-footer"><span>{move||format!("{} tickets",rows(state, location).len())}</span><span>"J / K: navigate · Enter: open · C: create"</span></div>
+        <div class="view-footer"><span>{move||crate::count::count_label(rows(state, location).len(), "ticket")}</span><span>"J / K: navigate · Enter: open · C: create"</span></div>
         {move||state.composer.get().map(|status|view!{<BoardComposer status/>})}
     }
 }
