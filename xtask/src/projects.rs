@@ -10,7 +10,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     fs::create_dir_all(&output)?;
     let mut b = Browser::start(root)?;
     b.call("Network.clearBrowserCookies", json!({}))?;
-    b.go("http://127.0.0.1:8795/login")?;
+    b.go("http://127.0.0.1:8795/login?next=%2Fsettings%2Ftokens")?;
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;

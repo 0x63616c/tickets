@@ -68,7 +68,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     let phase = if before { "before" } else { "after" };
     let login = |browser: &mut Browser| -> super::Result {
         browser.viewport(1440, 900)?;
-        browser.go("http://127.0.0.1:8795/login")?;
+        browser.go("http://127.0.0.1:8795/login?next=%2Fsettings%2Ftokens")?;
         browser.text("#username", "fixture")?;
         browser.text("#password", password)?;
         browser.click("button[type=submit]")?;

@@ -22,6 +22,7 @@ impl Drop for Server {
     }
 }
 struct Client {
+    port: u16,
     dir: std::path::PathBuf,
 }
 impl Client {
@@ -66,7 +67,7 @@ impl Client {
             }
             "cookie" => {
                 cmd.arg("-b").arg(self.dir.join("cookies.local"));
-                cmd.args(["-H", "Origin: http://127.0.0.1:8795"]);
+                cmd.args(["-H", &format!("Origin: http://127.0.0.1:{}", self.port)]);
             }
             "csrf" => {
                 cmd.arg("-b").arg(self.dir.join("cookies.local"));
@@ -76,8 +77,12 @@ impl Client {
                 cmd.args(["-H", "Authorization: Bearer invalid"]);
             }
             "login" => {
-                cmd.args(["-H", "Origin: http://127.0.0.1:8795", "-c"])
-                    .arg(self.dir.join("cookies.local"));
+                cmd.args([
+                    "-H",
+                    &format!("Origin: http://127.0.0.1:{}", self.port),
+                    "-c",
+                ])
+                .arg(self.dir.join("cookies.local"));
             }
             _ => {}
         }
@@ -86,7 +91,9 @@ impl Client {
             fs::write(&file, body)?;
             cmd.arg("--data-binary").arg(format!("@{}", file.display()));
         }
-        let out = cmd.arg(format!("http://127.0.0.1:8795{path}")).output()?;
+        let out = cmd
+            .arg(format!("http://127.0.0.1:{}{path}", self.port))
+            .output()?;
         if !out.status.success() {
             return Err("local request failed".into());
         }
@@ -134,6 +141,10 @@ pub fn projects(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "projects")
 }
 #[cfg(not(target_arch = "wasm32"))]
+pub fn login(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "login")
+}
+#[cfg(not(target_arch = "wasm32"))]
 pub fn polish(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "polish")
 }
@@ -169,7 +180,7 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     fs::write(
         &config,
         format!(
-            "name='tickets-api-smoke'\nmain='{}'\ncompatibility_date='2026-10-27'\n[assets]\ndirectory='{}'\nbinding='ASSETS'\nnot_found_handling='single-page-application'\nrun_worker_first=['/api','/api/*']\n[[d1_databases]]\nbinding='DB'\ndatabase_name='api-smoke'\ndatabase_id='00000000-0000-0000-0000-000000000000'\nmigrations_dir='{}'\n",
+            "name='tickets-api-smoke'\nmain='{}'\ncompatibility_date='2026-10-27'\n[assets]\ndirectory='{}'\nbinding='ASSETS'\nnot_found_handling='none'\nrun_worker_first=true\n[[d1_databases]]\nbinding='DB'\ndatabase_name='api-smoke'\ndatabase_id='00000000-0000-0000-0000-000000000000'\nmigrations_dir='{}'\n",
             root.join("crates/worker/build/worker/shim.mjs").display(),
             std::env::var_os("TICKETS_BEFORE_ASSETS")
                 .map(std::path::PathBuf::from)
@@ -198,6 +209,7 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         use std::os::unix::process::CommandExt;
         server_command.process_group(0);
     }
+    let port = if _view == "login" { 8787 } else { 8795 };
     let mut server = Server(
         server_command
             .args([
@@ -206,7 +218,7 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
                 "--ip",
                 "127.0.0.1",
                 "--port",
-                "8795",
+                &port.to_string(),
                 "--inspector-port",
                 "0",
                 "--config",
@@ -219,7 +231,7 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
             .stdin(Stdio::null())
             .spawn()?,
     );
-    let c = Client { dir };
+    let c = Client { dir, port };
     let start = Instant::now();
     loop {
         if c.call("GET", "/api/health", Value::Null, "", 200).is_ok() {
@@ -255,7 +267,9 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     }
     if board {
         #[cfg(not(target_arch = "wasm32"))]
-        return if _view == "polish" {
+        return if _view == "login" {
+            super::login::check(root, &password, &c.dir)
+        } else if _view == "polish" {
             super::polish::check(root, &password)
         } else if _view == "live" {
             super::live::check(

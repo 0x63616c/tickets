@@ -231,3 +231,18 @@
 - `CHROME_BIN=<headless-chromium> cargo xtask live-check` verifies two-client
   broadcasts and two isolated browser windows, capturing `docs/screenshots/16/`.
   Use `TICKETS_BEFORE_ASSETS` for the real main baseline and separate fixture target.
+
+## Login navigation conventions
+
+- The Worker runs before assets. Only fonts, favicon and Trunk hashed JS/CSS/Wasm
+  paths bypass session lookup; missing public assets return 404. Asset SPA fallback
+  stays disabled: the Worker serves `index.html` only after the navigation gate.
+  Missing cookies cost zero D1 queries; a well-formed cookie costs one session SELECT.
+- `/login` mounts outside AppShell. Shared core `navigation::safe_next` validates
+  decoded relative destinations on both Worker and client; API 401s navigate to
+  login with the current path and query. Never redirect API responses themselves.
+- `cargo xtask login-check` uses isolated local D1 and generated local credentials
+  to verify navigation, assets, form errors/loading, next and desktop/mobile layout.
+  `cargo xtask login-before` captures logged-out `/`, `/login` and `/design` from
+  an origin/main Worker already running on port 8787. Captures live in
+  `docs/screenshots/34/` at 1440×900 and 375×812; no production changes are needed.

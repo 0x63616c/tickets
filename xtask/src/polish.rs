@@ -27,7 +27,7 @@ pub fn check(root: &Path, password: &str) -> Result {
     fs::create_dir_all(&output)?;
     let mut b = Browser::start(root)?;
     b.call("Network.clearBrowserCookies", json!({}))?;
-    b.go(&format!("{URL}/login"))?;
+    b.go(&format!("{URL}/login?next=%2Fsettings%2Ftokens"))?;
     pair(&mut b, &output, phase, "login")?;
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
@@ -190,8 +190,8 @@ fn interactions(b: &mut Browser) -> Result {
     b.wait("document.querySelector('.tokens li:last-child').textContent.includes('Revoked')")?;
     b.call("Network.clearBrowserCookies", json!({}))?;
     b.go(&format!("{URL}/settings/tokens"))?;
-    b.wait("document.querySelector('.settings-footer button').disabled && document.querySelector('.auth-page a[href=\"/login\"]')?.textContent==='Sign in'")?;
-    b.go(&format!("{URL}/login"))?;
+    b.wait("location.pathname==='/login' && !document.querySelector('.sidebar')")?;
+    b.go(&format!("{URL}/login?next=%2Fsettings%2Ftokens"))?;
     b.eval("window.signInTop=document.querySelector('button[type=submit]').getBoundingClientRect().top;true")?;
     b.text("#username", "fixture")?;
     b.text("#password", "incorrect")?;
