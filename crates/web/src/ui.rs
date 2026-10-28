@@ -3,7 +3,7 @@ use leptos::prelude::*;
 use serde_json::{Value, json};
 use wasm_bindgen_futures::spawn_local;
 
-async fn api(method: &str, path: &str, body: Value) -> Result<Value, String> {
+pub(crate) async fn api(method: &str, path: &str, body: Value) -> Result<Value, String> {
     let builder = RequestBuilder::new(path).method(method.parse().unwrap());
     let request = if method == "GET" {
         builder.build().map_err(|_| "Request failed")?

@@ -109,3 +109,25 @@
   Array assertions match length and order; object assertions allow extra fields.
   The task reuses api-smoke's isolated local D1 lifecycle and port 8795, so do not
   run both concurrently. CI runs the skill check; no production access is used.
+
+## Kanban ordering and verification
+
+- The API board lives at `/`; `/design*` retains its fixture-only state. Projects
+  are selected in the board header until the project management view (#10) lands.
+- Sort a project/status column by `sort_order`, then numeric ticket ID to resolve
+  ties (including the API default of zero). A move assigns gapped integer ranks
+  `1024, 2048, …` to the destination column and PATCHes only changed rows. Include
+  filtered-out cards in that order so filters do not discard their positions.
+  These per-ticket writes are sequential, not atomic. On failure, compensate
+  completed writes and restore the local snapshot; if compensation fails, ask
+  the user to reload and reconcile with the server. #16 should defer incoming
+  events during a local move, then refetch authoritative state.
+- Cards: Tab to focus; arrows navigate. Space picks up, arrows change column or
+  position, Space saves, Escape cancels. Status selects remain the touch-friendly
+  alternative. Mouse drops on a card insert before it; drops on a column append.
+- `CHROME_BIN=<headless-chromium> cargo xtask board-check` builds the app, starts
+  an isolated local Worker/D1, seeds through the API, and verifies keyboard/mouse
+  moves, ordering after reload, filters, pagination, rollback, focus, creation and
+  project isolation. Screenshots are written to `docs/screenshots/kanban/` at
+  1440×900 and 390×900. `board-before` captures the previous real `/` route on a
+  running local Worker at port 8787 before changing frontend assets.

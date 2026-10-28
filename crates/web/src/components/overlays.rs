@@ -10,7 +10,12 @@ use web_sys::wasm_bindgen::JsCast;
 
 /// Native dialog provides focus containment, Escape and inert background.
 #[component]
-pub fn Modal(title: &'static str, children: Children, on_close: Callback<()>) -> impl IntoView {
+pub fn Modal(
+    title: &'static str,
+    children: Children,
+    on_close: Callback<()>,
+    #[prop(default = Signal::derive(|| false))] locked: Signal<bool>,
+) -> impl IntoView {
     let dialog = NodeRef::<html::Dialog>::new();
     Effect::new(move || {
         if let Some(node) = dialog.get() {
@@ -23,6 +28,9 @@ pub fn Modal(title: &'static str, children: Children, on_close: Callback<()>) ->
         }
     });
     let close = Callback::new(move |_| {
+        if locked.get_untracked() {
+            return;
+        }
         if let Some(node) = dialog.get_untracked() {
             node.close();
         }

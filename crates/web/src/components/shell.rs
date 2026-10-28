@@ -6,6 +6,7 @@ use leptos_router::hooks::use_location;
 #[component]
 pub fn AppShell(children: Children) -> impl IntoView {
     let state = expect_context::<DesignState>();
+    let board = expect_context::<crate::pages::board::BoardState>();
     let mobile_open = RwSignal::new(false);
     let location = use_location();
     view! {
@@ -13,6 +14,17 @@ pub fn AppShell(children: Children) -> impl IntoView {
         <div class="app-shell" class:sidebar-open=move || mobile_open.get()>
             <aside class="sidebar" aria-label="Workspace">
                 <div class="workspace"><button class="workspace-switcher" aria-label="Switch workspace"><span class="workspace-mark">"T"</span><strong>"Tickets"</strong><Icon name="down"/></button><Avatar/></div>
+                <Show when=move || location.pathname.get().starts_with("/design") fallback=move || view! {
+                    <nav class="sidebar-nav" aria-label="Main navigation" on:click=move |_| mobile_open.set(false)>
+                        <div class="nav-section-label">"Projects"</div>
+                        {move || board.projects.get().into_iter().map(|p| {
+                            let id = p["id"].as_i64().unwrap_or_default();
+                            view! { <A href="/" attr:class="nav-item project-nav" on:click=move |ev| { if !board.select_project(id) {ev.prevent_default();} }><span class="project-dot" style=format!("--dot:{}",p["color"].as_str().unwrap_or_default())/><span>{p["name"].as_str().unwrap_or_default().to_owned()}</span></A> }
+                        }).collect_view()}
+                        <div class="nav-section-label">"Views"</div>
+                        <A href="/" attr:class="nav-item"><Icon name="board"/>"Board"</A>
+                    </nav>
+                }>
                 <button class="search-trigger" on:click=move |_| state.dialog.set(DialogKind::Command)><Icon name="search"/><span>"Search tickets…"</span><Shortcut>"⌘ K"</Shortcut></button>
                 <nav class="sidebar-nav" aria-label="Main navigation" on:click=move |_| mobile_open.set(false)>
                     <A href="/design/projects" attr:class="nav-item"><Icon name="project"/><span>"Projects"</span><span class="nav-count">{move || state.projects.get().len() + 2}</span></A>
@@ -25,12 +37,13 @@ pub fn AppShell(children: Children) -> impl IntoView {
                     <A href="/design/board" attr:class="nav-item"><Icon name="board"/><span>"Board"</span></A>
                     <A href="/design/list" attr:class="nav-item"><Icon name="list"/><span>"List"</span></A>
                 </nav>
+                </Show>
                 <div class="sidebar-bottom">
                     <A href="/settings/tokens" attr:class="nav-item"><Icon name="settings"/><span>"API tokens"</span></A>
                     <A href="/login" attr:class="nav-item"><Icon name="arrow"/><span>"Sign in"</span></A>
                     <A href="/design" exact=true attr:class="nav-item"><Icon name="grid"/><span>"Design system"</span></A>
-                    <Show when=move || location.pathname.get() == "/" || location.pathname.get().starts_with("/design")><div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div></Show>
-                    <div class="sidebar-account"><Avatar/><span>"Personal workspace"</span><IconButton label="Open commands" icon="help" on_click=Callback::new(move |_| state.dialog.set(DialogKind::Command))/></div>
+                    <Show when=move || location.pathname.get().starts_with("/design")><div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div></Show>
+                    <div class="sidebar-account"><Avatar/><span>"Personal workspace"</span><Show when=move || location.pathname.get().starts_with("/design")><IconButton label="Open commands" icon="help" on_click=Callback::new(move |_| state.dialog.set(DialogKind::Command))/></Show></div>
                 </div>
             </aside>
             <div class="app-main">
@@ -38,7 +51,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
                 <main id="main" tabindex="-1">{children()}</main>
             </div>
         </div>
-        <Overlays/>
+        <Show when=move || location.pathname.get().starts_with("/design")><Overlays/></Show>
         <Toast/>
     }
 }
