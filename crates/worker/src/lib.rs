@@ -17,21 +17,7 @@ pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         };
     }
     let path = req.path();
-    // Only build-produced assets are public; unknown paths (even with dots) are gated.
-    let public = path.starts_with("/fonts/")
-        || path == "/favicon.ico"
-        || (path.matches('/').count() == 1
-            && path.rsplit_once('-').is_some_and(|(_, tail)| {
-                tail.split_once('.').is_some_and(|(hash, ext)| {
-                    hash.strip_suffix("_bg").unwrap_or(hash).len() >= 8
-                        && hash
-                            .strip_suffix("_bg")
-                            .unwrap_or(hash)
-                            .bytes()
-                            .all(|b| b.is_ascii_hexdigit())
-                        && matches!(ext, "js" | "wasm" | "css")
-                })
-            }));
+    let public = is_public_asset(&path);
     if !public {
         let url = req.url()?;
         let signed_in = auth::has_session(&req, &env).await?;
@@ -98,3 +84,44 @@ pub mod repository;
 pub mod api;
 mod api_repository;
 pub mod auth_queries;
+
+// Only build-produced assets are public; unknown paths (even with dots) are gated.
+#[cfg(any(target_arch = "wasm32", test))]
+fn is_public_asset(path: &str) -> bool {
+    path.starts_with("/fonts/")
+        || matches!(
+            path,
+            "/favicon.ico" | "/favicon.svg" | "/favicon-32.png" | "/apple-touch-icon.png"
+        )
+        || (path.matches('/').count() == 1
+            && path.rsplit_once('-').is_some_and(|(_, tail)| {
+                tail.split_once('.').is_some_and(|(hash, ext)| {
+                    hash.strip_suffix("_bg").unwrap_or(hash).len() >= 8
+                        && hash
+                            .strip_suffix("_bg")
+                            .unwrap_or(hash)
+                            .bytes()
+                            .all(|b| b.is_ascii_hexdigit())
+                        && matches!(ext, "js" | "wasm" | "css")
+                })
+            }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_public_asset;
+
+    #[test]
+    fn icon_paths_are_public_exactly() {
+        for path in ["/favicon.svg", "/favicon-32.png", "/apple-touch-icon.png"] {
+            assert!(is_public_asset(path), "{path} must be public");
+            for suffix in [".bak", "/x"] {
+                let nearby = format!("{path}{suffix}");
+                assert!(!is_public_asset(&nearby), "{nearby} must stay gated");
+            }
+        }
+        for path in ["/secret.png", "/icons/favicon.svg", "/login", "/"] {
+            assert!(!is_public_asset(path), "{path} must stay gated");
+        }
+    }
+}
