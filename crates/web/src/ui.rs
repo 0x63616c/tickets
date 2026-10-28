@@ -67,14 +67,14 @@ pub fn Login() -> impl IntoView {
     let (error, set_error) = signal(String::new());
     let (busy, set_busy) = signal(false);
     let next = login_next();
-    view! { <main class="login-page"><section class="login"><div class="login-wordmark">"Tickets"</div><h1>"Sign in to Tickets"</h1><p>"Use your workspace credentials."</p>
+    view! { <main class="login-page"><section class="login"><div class="login-wordmark"><span class="workspace-switcher"><span class="workspace-mark">"T"</span><strong>"Tickets"</strong></span></div><h1>"Sign in"</h1><p>"Use your workspace credentials."</p>
     <form method="post" action="/api/v1/login" aria-busy=busy on:submit=move |ev| { ev.prevent_default(); if busy.get_untracked() { return; } let next = next.clone(); set_busy.set(true); set_error.set(String::new()); spawn_local(async move {
         let result=api("POST","/api/v1/login",json!({"username":username.get_untracked(),"password":password.get_untracked()})).await;
         set_password.set(String::new()); set_busy.set(false);
         match result { Ok(_)=> { let _=web_sys::window().unwrap().location().set_href(tickets_core::navigation::safe_next(&next)); }, Err(e)=>set_error.set(e) }
     }); }>
-    <label class="field" for="username"><span>"Username"</span><input id="username" name="username" autofocus autocomplete="username" required prop:value=username on:input=move |e|set_username.set(event_target_value(&e))/></label>
-    <label class="field" for="password"><span>"Password"</span><input id="password" name="password" aria-describedby="login-error" aria-invalid=move||error.get().starts_with("Incorrect") type="password" autocomplete="current-password" required prop:value=password on:input=move |e|set_password.set(event_target_value(&e))/></label>
+    <label class="field" for="username"><span>"Username"</span><input id="username" name="username" autofocus autocomplete="username" required prop:value=username on:input=move |e|{set_username.set(event_target_value(&e));set_error.set(String::new());}/></label>
+    <label class="field" for="password"><span>"Password"</span><input id="password" name="password" aria-describedby="login-error" aria-invalid=move||error.get().starts_with("Incorrect") type="password" autocomplete="current-password" required prop:value=password on:input=move |e|{set_password.set(event_target_value(&e));set_error.set(String::new());}/></label>
     <p id="login-error" class="login-error" role="alert">{error}</p><button class="button button-primary" type="submit" disabled=busy>{move ||if busy.get(){"Signing in…"}else{"Sign in"}}</button>
     </form></section></main> }
 }

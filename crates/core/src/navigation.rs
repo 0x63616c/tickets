@@ -5,15 +5,42 @@ pub fn safe_next(value: &str) -> &str {
         || value.starts_with("//")
         || value.contains('\\')
         || value.chars().any(char::is_control)
-        // Reject encoded separators/control bytes too, including nested encodings.
-        || value.as_bytes().windows(3).any(|w| {
-            w[0] == b'%' && u8::from_str_radix(std::str::from_utf8(&w[1..]).unwrap_or(""), 16)
-                .is_ok_and(|b| b < 32 || b == 127 || b == b'\\' || b == b'/' || b == b'%')
-        })
+        || unsafe_encoded_path(value.split(['?', '#']).next().unwrap_or(""))
     {
         "/"
     } else {
         value
+    }
+}
+
+// Decode path escapes repeatedly so nested percent encodings cannot hide separators.
+fn unsafe_encoded_path(path: &str) -> bool {
+    let mut bytes = path.as_bytes().to_vec();
+    loop {
+        let mut decoded = Vec::with_capacity(bytes.len());
+        let mut changed = false;
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == b'%'
+                && i + 2 < bytes.len()
+                && let Ok(byte) =
+                    u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+            {
+                if byte < 32 || byte == 127 || byte == b'/' || byte == b'\\' {
+                    return true;
+                }
+                decoded.push(byte);
+                changed = true;
+                i += 3;
+            } else {
+                decoded.push(bytes[i]);
+                i += 1;
+            }
+        }
+        if !changed {
+            return false;
+        }
+        bytes = decoded;
     }
 }
 
@@ -32,9 +59,14 @@ mod tests {
             "/a\\b",
             "/\nfoo",
             "/%2fevil.com",
+            "/%2f/evil.com",
             "/%5Cevil",
             "/%0dfoo",
             "/%252fevil",
+            "/%25250afoo",
+            "/%7ffoo",
+            "/list?q=raw\\backslash",
+            "/list?q=raw\ncontrol",
         ] {
             assert_eq!(safe_next(value), "/", "{value:?}");
         }
@@ -46,6 +78,12 @@ mod tests {
             "/",
             "/ticket?id=1",
             "/list?q=hello%20world",
+            "/list?q=a%2Fb",
+            "/list?q=100%25",
+            "/list?q=%5c%00%252f",
+            "/list#%2f%25",
+            "/percent%25literal",
+            "/percent%2525literal",
             "/unknown?x=1&y=2",
         ] {
             assert_eq!(safe_next(value), value);
