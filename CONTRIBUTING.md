@@ -189,3 +189,17 @@
 - Search results open the selected ticket. Empty results have explicit copy;
   dialogs restore opener focus, and mobile navigation contains keyboard focus.
   Preserve native selects and the shared chevron rather than drawing new controls.
+
+## Projects conventions
+
+- `/projects` uses the `/design/projects` table and shared Modal, fields and icon.
+  Project color tints its initial badge; show its key prefix in muted mono when no description exists. Keep row actions at the right edge, revealed on hover/focus (always visible on touch). The header contains the sole project count. Archive hides sidebar entries only;
+  Show archived permits editing/restoring them. Tickets remain accessible.
+- Project dialogs use compact swatches from the shared color tokens. Use one GitHub Project field for a URL or owner/number; show owner type only for short input and the prefix-change hint only while editing.
+- GitHub linking makes no network requests. Core parses owner/number or an HTTPS
+  `github.com/users|orgs/<owner>/projects/<number>` URL; persist the owner type in
+  `github_project_kind` (default `users`). Repository is a name under that owner.
+- `CHROME_BIN=<headless-chromium> cargo xtask projects-check` verifies UI project
+  lifecycle against isolated local D1 and captures desktop/mobile dark screenshots.
+  Set `TICKETS_BEFORE_ASSETS` to origin/main assets for the real before route and
+  separate fixture target, following the detail/polish baseline conventions.

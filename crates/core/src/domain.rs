@@ -80,6 +80,7 @@ pub struct Project {
     #[serde(deserialize_with = "deserialize_bool")]
     pub archived: bool,
     pub github_owner: Option<String>,
+    pub github_project_kind: String,
     pub github_project_number: Option<i64>,
     pub github_repo: Option<String>,
     pub next_ticket_number: i64,

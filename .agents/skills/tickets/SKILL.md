@@ -24,6 +24,10 @@ subsets in comments are checked by `cargo xtask skill-check` against local D1.
 
 Check access, list projects and choose an appropriate unarchived project. Create
 one only if needed; prefixes are 1–10 uppercase ASCII letters, colors `#RRGGBB`.
+Link with `github_owner`, positive `github_project_number`, `github_project_kind`
+(`users` default or `orgs`), and optional `github_repo` (repository name).
+Archive/restore with PATCH `archived`; tickets are retained. Clear nullable GitHub
+fields with null. Linking stores metadata only and never calls GitHub.
 
 ```sh
 # expect {"status":200,"body":{"authenticated":true}}
@@ -36,6 +40,9 @@ curl -sS "$TICKETS_URL/api/v1/projects" -H "Authorization: Bearer $TICKETS_TOKEN
 # expect {"status":201,"body":{"id":2}}
 curl -sS "$TICKETS_URL/api/v1/projects" -H "Authorization: Bearer $TICKETS_TOKEN" \
   -H 'Content-Type: application/json' -d '{"name":"Destination","key_prefix":"DST","color":"#789abc"}'
+# expect {"status":200,"body":{"github_owner":"example-org","github_project_kind":"orgs","github_project_number":7,"github_repo":"example"}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/projects/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"github_owner":"example-org","github_project_kind":"orgs","github_project_number":7,"github_repo":"example"}'
 ```
 
 ## Create, read, update and move tickets

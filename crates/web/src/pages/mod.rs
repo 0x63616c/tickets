@@ -9,3 +9,4 @@ pub use tickets::*;
 
 pub(crate) mod api_detail;
 pub(crate) mod list;
+pub(crate) mod projects;

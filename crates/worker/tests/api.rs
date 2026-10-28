@@ -802,3 +802,44 @@ fn unexpected_storage_data_returns_internal_error() {
         }
     });
 }
+
+#[test]
+fn project_link_kind_and_archive_preserve_tickets() {
+    block_on(async {
+        let db = Sqlite::new();
+        let p=call(&db,"POST","/api/v1/projects",json!({"name":"Engine","key_prefix":"ENG","color":"#5e6ad2","github_owner":"example","github_project_number":7,"github_project_kind":"orgs","github_repo":"engine"}),201).await;
+        assert_eq!(p["github_project_kind"], "orgs");
+        call(
+            &db,
+            "POST",
+            "/api/v1/tickets",
+            json!({"project_id":1,"title":"Keep ticket"}),
+            201,
+        )
+        .await;
+        call(
+            &db,
+            "PATCH",
+            "/api/v1/projects/1",
+            json!({"name":"Renamed","key_prefix":"REN","archived":true}),
+            200,
+        )
+        .await;
+        let ticket = call(&db, "GET", "/api/v1/tickets/1", Value::Null, 200).await;
+        assert_eq!(ticket["key"], "REN-1");
+        let p = call(&db, "GET", "/api/v1/projects/1", Value::Null, 200).await;
+        assert_eq!(p["github_project_kind"], "orgs");
+        assert_eq!(p["github_repo"], "engine");
+        call(
+            &db,
+            "PATCH",
+            "/api/v1/projects/1",
+            json!({"github_project_kind":"invalid"}),
+            422,
+        )
+        .await;
+        let p=call(&db,"PATCH","/api/v1/projects/1",json!({"archived":false,"github_owner":null,"github_project_number":null,"github_repo":null,"github_project_kind":"users"}),200).await;
+        assert_eq!(p["github_owner"], Value::Null);
+        assert_eq!(p["github_project_kind"], "users");
+    });
+}

@@ -10,6 +10,7 @@ pub fn validate(entity: &str, input: &Value) -> Result<(), String> {
             "color",
             "archived",
             "github_owner",
+            "github_project_kind",
             "github_project_number",
             "github_repo",
         ],
@@ -59,6 +60,11 @@ pub fn validate(entity: &str, input: &Value) -> Result<(), String> {
             "sort_order" => {
                 if !v.as_f64().is_some_and(f64::is_finite) {
                     return Err("sort_order must be finite".into());
+                }
+            }
+            "github_project_kind" => {
+                if !matches!(v.as_str(), Some("users" | "orgs")) {
+                    return Err("github_project_kind must be users or orgs".into());
                 }
             }
             "archived" => {

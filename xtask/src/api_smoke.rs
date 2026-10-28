@@ -122,6 +122,10 @@ pub fn detail(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "detail")
 }
 #[cfg(not(target_arch = "wasm32"))]
+pub fn projects(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "projects")
+}
+#[cfg(not(target_arch = "wasm32"))]
 pub fn polish(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "polish")
 }
@@ -239,6 +243,8 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         #[cfg(not(target_arch = "wasm32"))]
         return if _view == "polish" {
             super::polish::check(root, &password)
+        } else if _view == "projects" {
+            super::projects::check(root, &password)
         } else {
             super::design::board_check(root, &password, _view)
         };

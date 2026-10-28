@@ -39,7 +39,11 @@ PATCH changes only supplied fields; explicit null clears nullable fields.
 
 Project fields: `name`, `key_prefix` (1–10 uppercase ASCII letters), `color`
 (`#RRGGBB`), `archived` (boolean), nullable `github_owner`, `github_repo`,
-`github_project_number` (positive integer). Archive with `{"archived":true}`;
+`github_project_number` (positive integer), and `github_project_kind`
+(`users` by default, or `orgs`). The kind preserves GitHub’s user/organization
+URL distinction; no GitHub API requests are made. The UI accepts an owner and
+number or a pasted `https://github.com/users|orgs/<owner>/projects/<number>` URL.
+`github_repo` is the optional repository name under that owner. Archive with `{"archived":true}`;
 restore with false. Archive does not delete tickets or prohibit imports.
 Changing a prefix changes the displayed keys for that project's existing tickets.
 
@@ -48,7 +52,7 @@ curl -sS "$TICKETS_URL/api/v1/projects" -H "Authorization: Bearer $TICKETS_TOKEN
 curl -sS "$TICKETS_URL/api/v1/projects" -H "Authorization: Bearer $TICKETS_TOKEN" \
   -H 'Content-Type: application/json' -d '{"name":"Example","key_prefix":"EX","color":"#789abc"}'
 curl -sS -X PATCH "$TICKETS_URL/api/v1/projects/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
-  -H 'Content-Type: application/json' -d '{"github_owner":"example-org","github_repo":"example","github_project_number":7,"archived":true}'
+  -H 'Content-Type: application/json' -d '{"github_owner":"example-org","github_project_kind":"orgs","github_repo":"example","github_project_number":7,"archived":true}'
 ```
 
 ## Tickets
