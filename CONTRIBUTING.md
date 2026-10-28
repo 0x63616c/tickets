@@ -264,3 +264,18 @@
   for agents. Keep API writes available for importer compatibility.
 - Run `cargo xtask mirror-check` for ingestion changes; its local lifecycle shares
   port 8795 with import/skill checks. Screenshots live under docs/screenshots/39/.
+
+
+## Live catch-up conventions
+
+- Browser visibility, focus, online and a 60-second visible-tab interval share the
+  live invalidation debounce. Hidden tabs make no catch-up requests. Refreshes keep
+  saved content visible and defer while moving tickets, editing fields or holding
+  comment drafts. Recheck before applying responses so an edit begun during a read
+  is preserved. Existing paginated REST reads retain the per-invocation D1 budget;
+  there is no server-side polling or replay storage.
+- Shared count labels use the web count helper (singular only at one), including
+  fixture views and accessibility labels. Bare numeric badges retain their numbers.
+- Issue #36 evidence is captured by `cargo xtask live-check` in
+  `docs/screenshots/36/`; use origin/main assets via `TICKETS_BEFORE_ASSETS`
+  for the real before route and a separate design target.

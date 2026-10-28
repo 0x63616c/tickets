@@ -184,6 +184,13 @@ D1 writes succeed even when notification fails. There is no replay log.
 clients, then checks a move in two browser windows plus list/detail and reconnect.
 See [architecture](ARCHITECTURE.md) for free-tier constraints and consistency limits.
 
+The browser also reconciles when a tab becomes visible, on window focus/online,
+and every 60 seconds while visible. These triggers and stream invalidations share
+a 350 ms debounce and one board/list fetch at a time. Reads retain the displayed
+content and wait for local edits, comment drafts and board moves. Each catch-up
+uses the existing paginated REST endpoints (projects, tickets, labels, plus ticket
+and comments on detail); no new D1 query, replay log or Durable Object alarm is used.
+
 ## GitHub mirror webhook
 
 `POST /api/v1/github/webhook` is exempt from bearer/session authentication only.

@@ -9,27 +9,85 @@ use gloo_timers::future::TimeoutFuture;
 use leptos::prelude::*;
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 use tickets_core::live::ChangeEvent;
+use wasm_bindgen_futures::spawn_local;
+use web_sys::wasm_bindgen::{JsCast, closure::Closure};
 
 pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
     let dirty = RwSignal::new(false);
     let online = RwSignal::new(window().navigator().on_line());
     let went_offline = window_event_listener(leptos::ev::offline, move |_| online.set(false));
-    let went_online = window_event_listener(leptos::ev::online, move |_| online.set(true));
+    let request = move || dirty.set(true);
+    let went_online = window_event_listener(leptos::ev::online, move |_| {
+        online.set(true);
+        request();
+    });
+    let focus = window_event_listener(leptos::ev::focus, move |_| request());
+    let visibility = Closure::<dyn Fn()>::new(move || {
+        if !document().hidden() {
+            request();
+        }
+    });
+    document()
+        .add_event_listener_with_callback("visibilitychange", visibility.as_ref().unchecked_ref())
+        .expect("visibility listener");
+    let timer = gloo_timers::callback::Interval::new(60_000, move || {
+        if !document().hidden() {
+            request();
+        }
+    });
+    let visibility = StoredValue::new_local(visibility);
+    let _timer = StoredValue::new_local(timer);
     on_cleanup(move || {
         went_offline.remove();
         went_online.remove();
+        focus.remove();
+        visibility.with_value(|listener| {
+            let _ = document().remove_event_listener_with_callback(
+                "visibilitychange",
+                listener.as_ref().unchecked_ref(),
+            );
+        });
     });
+    // A single debounce coalesces room broadcasts, reconnects and browser events.
     Effect::new(move |_| {
         let revision = board.live_revision.get();
         if revision > 0 {
             dirty.set(true);
         }
     });
+    let scheduled = RwSignal::new(false);
     Effect::new(move |_| {
-        if dirty.get() && !board.busy.get() && board.dragged.get().is_none() && !board.loading.get()
+        let active = ["/", "/list", "/ticket", "/projects"].contains(&path.get().as_str());
+        if dirty.get()
+            && active
+            && online.get()
+            && !document().hidden()
+            && board.signed_in.get()
+            && !board.busy.get()
+            && board.dragged.get().is_none()
+            && board.composer.get().is_none()
+            && !board.refreshing.get()
+            && !scheduled.get()
         {
-            dirty.set(false);
-            board.refresh();
+            scheduled.set(true);
+            spawn_local(async move {
+                TimeoutFuture::new(350).await;
+                if online.get_untracked()
+                    && ["/", "/list", "/ticket", "/projects"]
+                        .contains(&path.get_untracked().as_str())
+                    && !document().hidden()
+                    && !editing()
+                    && !board.busy.get_untracked()
+                    && board.dragged.get_untracked().is_none()
+                    && board.composer.get_untracked().is_none()
+                    && !board.refreshing.get_untracked()
+                {
+                    dirty.set(false);
+                    board.catch_up();
+                    board.catchup_revision.update(|r| *r += 1);
+                }
+                scheduled.set(false);
+            });
         }
     });
     let subscriptions = Memo::new(move |_| {
@@ -133,4 +191,17 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
 pub(crate) fn LiveIndicator() -> impl IntoView {
     let board = expect_context::<BoardState>();
     view! { {move || view! { <crate::components::ConnectionIndicator state=board.connection.get()/> }} }
+}
+
+// Preserve native inputs, Markdown drafts and modal editors during reconciliation.
+pub(crate) fn editing() -> bool {
+    document()
+        .query_selector("dialog[open], .comment-form.has-draft")
+        .ok()
+        .flatten()
+        .is_some()
+        || document().active_element().is_some_and(|el| {
+            ["INPUT", "TEXTAREA", "SELECT"].contains(&el.tag_name().as_str())
+                || el.has_attribute("contenteditable")
+        })
 }

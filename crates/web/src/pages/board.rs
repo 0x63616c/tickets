@@ -82,11 +82,13 @@ pub(crate) struct BoardState {
     query: RwSignal<String>,
     pub(crate) busy: RwSignal<bool>,
     pub(crate) loading: RwSignal<bool>,
+    pub(crate) refreshing: RwSignal<bool>,
     pub(crate) error: RwSignal<String>,
     pub(crate) notice: RwSignal<String>,
     pub(crate) signed_in: RwSignal<bool>,
     pub(crate) dragged: RwSignal<Option<i64>>,
     pub(crate) live_revision: RwSignal<u64>,
+    pub(crate) catchup_revision: RwSignal<u64>,
     pub(crate) connection: RwSignal<ConnectionState>,
     snapshot: RwSignal<Vec<BoardTicket>>,
     pub(crate) composer: RwSignal<Option<Status>>,
@@ -103,11 +105,13 @@ impl BoardState {
             query: RwSignal::new(String::new()),
             busy: RwSignal::new(false),
             loading: RwSignal::new(true),
+            refreshing: RwSignal::new(false),
             error: RwSignal::new(String::new()),
             notice: expect_context::<DesignState>().toast,
             signed_in: RwSignal::new(false),
             dragged: RwSignal::new(None),
             live_revision: RwSignal::new(0),
+            catchup_revision: RwSignal::new(0),
             connection: RwSignal::new(ConnectionState::Offline),
             snapshot: RwSignal::new(vec![]),
             composer: RwSignal::new(None),
@@ -125,7 +129,20 @@ impl BoardState {
         true
     }
     pub(crate) fn refresh(self) {
-        self.loading.set(true);
+        self.fetch(false);
+    }
+    pub(crate) fn catch_up(self) {
+        self.fetch(true);
+    }
+    fn fetch(self, background: bool) {
+        if self.refreshing.get_untracked() {
+            return;
+        }
+        let snapshot = self.tickets.get_untracked();
+        self.refreshing.set(true);
+        if !background {
+            self.loading.set(true);
+        }
         self.error.set(String::new());
         spawn_local(async move {
             let result = async {
@@ -138,6 +155,18 @@ impl BoardState {
             .await;
             match result {
                 Ok((projects, tickets, labels)) => {
+                    if background
+                        && (self.busy.get_untracked()
+                            || self.dragged.get_untracked().is_some()
+                            || self.composer.get_untracked().is_some()
+                            || self.tickets.get_untracked() != snapshot
+                            || crate::live::editing())
+                    {
+                        self.loading.set(false);
+                        self.refreshing.set(false);
+                        self.live_revision.update(|r| *r += 1);
+                        return;
+                    }
                     self.signed_in.set(true);
                     if !projects
                         .iter()
@@ -153,6 +182,7 @@ impl BoardState {
                 Err(e) => self.error.set(e),
             }
             self.loading.set(false);
+            self.refreshing.set(false);
         });
     }
     fn visible(self, t: &BoardTicket) -> bool {
@@ -494,7 +524,7 @@ pub fn ApiBoard() -> impl IntoView {
             <div class="column-cards"><For each=move||state.column(s,true) key=|t| (id(t),format!("{t:?}")) children=move|ticket|view!{<ApiCard ticket/>}/></div><button class="add-card" disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/>"New ticket"</button></section>
             </Show>
         }).collect_view()}</div></Show>
-        <div class="view-footer" id="board-keys"><span>{move||format!("{} tickets",state.tickets.get().iter().filter(|t|state.visible(t) && (t.status!=Status::Canceled || show_canceled.get())).count())}</span><span>"Space: pick up / drop · Arrows: move · Esc: cancel"</span></div>
+        <div class="view-footer" id="board-keys"><span>{move||crate::count::count_label(state.tickets.get().iter().filter(|t|state.visible(t) && (t.status!=Status::Canceled || show_canceled.get())).count(), "ticket")}</span><span>"Space: pick up / drop · Arrows: move · Esc: cancel"</span></div>
         {move||state.composer.get().map(|s|view!{<BoardComposer status=s/>})}
     }
 }
