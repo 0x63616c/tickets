@@ -179,3 +179,15 @@ state to avoid duplicate creates/comments; use external upsert for imports.
 # expect {"status":404}
 curl -sS -i "$TICKETS_URL/api/v1/tickets/EX-1" -H "Authorization: Bearer $TICKETS_TOKEN"
 ```
+
+## Live subscriptions
+
+For a long-lived watcher, connect a WebSocket to `/api/v1/live/{project_id}` using
+`Authorization: Bearer $TICKETS_TOKEN` in the upgrade headers (never in the URL).
+The owner can access all projects. On each typed `{project_id,entity,id,action}`
+text event, refetch the relevant REST data. Link IDs identify the originating
+ticket; labels are global. Events are best effort invalidations, may duplicate,
+and have no replay. Reconnect with backoff plus jitter and refetch after reconnect.
+Do not send application messages. See the API reference for cookie/Origin rules.
+Ordinary REST mutations automatically notify watchers; no separate publish call
+is required, and notification failures never fail a committed mutation.

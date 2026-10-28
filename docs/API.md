@@ -156,6 +156,30 @@ cookie and bearer access plus all domain route families, and stops the server.
 Its generated credentials and logs stay in an ignored `target/api-smoke-*` folder.
 No remote database or deployment is involved.
 
-After each successful domain mutation, `api::change_event` receives a
-`ChangeEvent { entity, id, action }`. For label/dependency links, ID is the
-originating ticket. This no-op hook is the integration point for #16.
+### Project WebSocket
+
+`GET /api/v1/live/{project_id}` with `Upgrade: websocket` subscribes to one project.
+Use the same bearer header or session cookie as REST. Missing/invalid credentials
+return 401; cookie upgrades require a matching Origin (403 otherwise). An unknown
+project returns 404; a normal authenticated GET returns 426. Day one has one owner,
+so all authenticated credentials can see every project, including archived ones.
+Never put tokens in query strings. Browser WebSockets automatically send cookies.
+
+Each text frame is a `tickets_core::live::ChangeEvent`, for example:
+
+```json
+{"project_id":1,"entity":"tickets","id":42,"action":"update"}
+```
+
+Entities are `projects`, `tickets`, `labels`, `dependencies`, `comments`; actions
+are `create`, `update`, `upsert`, `delete`. Link events identify the originating
+ticket. Events invalidate cached data; refetch authoritative REST state, including
+comments/dependencies as needed. Delivery is best effort and frames may duplicate
+or arrive out of order. Reconnect with exponential backoff and jitter, then refetch.
+The stream is receive-only; sending application messages closes it with 1008.
+Cross-project moves notify both rooms; global labels notify all existing rooms.
+D1 writes succeed even when notification fails. There is no replay log.
+
+`cargo xtask live-check` tests local upgrade authentication and two WebSocket
+clients, then checks a move in two browser windows plus list/detail and reconnect.
+See [architecture](ARCHITECTURE.md) for free-tier constraints and consistency limits.

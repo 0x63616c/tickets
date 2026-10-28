@@ -27,10 +27,13 @@ impl Drop for Browser {
 }
 impl Browser {
     pub(crate) fn start(root: &Path) -> Result<Self> {
+        Self::start_named(root, "design-browser")
+    }
+    pub(crate) fn start_named(root: &Path, name: &str) -> Result<Self> {
         let chrome = env::var_os("CHROME_BIN")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/usr/bin/google-chrome"));
-        let profile = root.join("target/design-browser");
+        let profile = root.join("target").join(name);
         fs::create_dir_all(&profile)?;
         let port_file = profile.join("DevToolsActivePort");
         if port_file.exists() {
