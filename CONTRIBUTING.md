@@ -27,3 +27,12 @@
 ## Deploys
 - Production (`tickets.worldwidewebb.co`) is configured but **never deployed without Calum's
   explicit OK**. Local dev uses `wrangler dev` with a local D1.
+
+## Rust workspace conventions
+- Pin the stable toolchain and wasm target in `rust-toolchain.toml`; commit `Cargo.lock`.
+- Keep `crates/core` free of wasm dependencies. Gate runtime-specific Worker and web
+  code/dependencies on wasm32 so workspace host tests remain runnable.
+- Run clippy on wasm32 as well as the host to cover runtime-specific implementations.
+- Use `cargo xtask build`, `cargo xtask dev`, and `cargo xtask ci`; see `docs/DEVELOPMENT.md`.
+- For the initial scaffold only, with no pre-existing runnable UI, the before
+  screenshot is an explicitly labelled empty dark baseline.

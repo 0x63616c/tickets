@@ -1,0 +1,12 @@
+[package]
+name = "tickets-worker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+worker = { version = "=0.8.7", features = ["d1"] }
+tickets-core = { path = "../core" }
