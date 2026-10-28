@@ -27,7 +27,8 @@ pub(crate) struct BoardTicket {
     pub comment_count: Option<usize>,
     pub created_at: String,
     pub updated_at: String,
-    pub body_html: String,
+    pub body: String,
+    pub blocks: Vec<i64>,
 }
 fn id(t: &BoardTicket) -> i64 {
     t.id
@@ -35,7 +36,7 @@ fn id(t: &BoardTicket) -> i64 {
 fn status(t: &BoardTicket) -> Status {
     t.status
 }
-async fn all<T: DeserializeOwned>(path: &str) -> Result<Vec<T>, String> {
+pub(crate) async fn all<T: DeserializeOwned>(path: &str) -> Result<Vec<T>, String> {
     #[derive(Deserialize)]
     struct Page<T> {
         data: Vec<T>,
@@ -470,7 +471,7 @@ fn ApiCard(ticket: BoardTicket) -> impl IntoView {
     view! {<article id=format!("ticket-{ticket_id}") class="ticket-card api-ticket" tabindex="0" aria-label=format!("{key}: {}",ticket.title.clone()) aria-describedby="board-keys" class:drag-over=move||state.dragged.get()==Some(ticket_id) draggable=move||(!state.busy.get()).to_string()
         on:keydown=move|e|state.keyboard(ticket_id,e) on:dragstart=move|e|{state.pickup(ticket_id);if let Some(data)=e.data_transfer(){let _=data.set_data("text/plain",&ticket_id.to_string());}} on:dragend=move|_|state.cancel()
         on:dragover=move|e|{e.prevent_default();e.stop_propagation();} on:drop=move|e|{e.prevent_default();e.stop_propagation();if let Some(moving)=state.dragged.get_untracked() && moving!=ticket_id{state.move_to(moving,s,Some(ticket_id));}}>
-        <div class="card-top"><span class="mono ticket-id">{key.clone()}</span><span title=priority.name()><PriorityIcon priority/></span></div><div class="card-title">{ticket.title.clone()}</div>
+        <div class="card-top"><span class="mono ticket-id">{key.clone()}</span><span title=priority.name()><PriorityIcon priority/></span></div><a class="card-title" href=format!("/ticket?id={ticket_id}")>{ticket.title.clone()}</a>
         {move||{let keys=blocked(); (!keys.is_empty()).then(||view!{<span class="blocked-note"><Icon name="blocked"/>{format!("Blocked by {}",keys.join(", "))}</span>})}}
         <div class="card-labels">{ticket.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</div>
         <div class="card-bottom"><div class="card-status"><StatusIcon status=s/><select aria-label=format!("Move {key} to status") disabled=move||state.busy.get() || state.dragged.get().is_some() prop:value=s.name() on:change=move|e|state.move_to(ticket_id,Status::from_name(&event_target_value(&e)),None)>{Status::ALL.into_iter().map(|v|view!{<option value=v.name() selected=v==s>{v.name()}</option>}).collect_view()}</select></div><span class="card-meta">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<span class="comment-count"><Icon name="comment"/>{n}</span>})}{ticket.assignee.map(|name|{let initials=name.split_whitespace().take(2).filter_map(|s|s.chars().next()).collect::<String>().to_uppercase();view!{<Avatar label=name initials/>}})}</span></div>
@@ -481,8 +482,9 @@ pub(crate) fn BoardComposer(status: Status) -> impl IntoView {
     let state = expect_context::<BoardState>();
     let title = RwSignal::new(String::new());
     let body = RwSignal::new(String::new());
+    let project = RwSignal::new(state.project.get_untracked());
     let error = RwSignal::new(String::new());
     let busy = RwSignal::new(false);
-    view! {<Modal title="New ticket" locked=Signal::derive(move||busy.get()) on_close=Callback::new(move|_|state.composer.set(None))><form on:submit=move|e|{e.prevent_default();if busy.get_untracked() || title.get_untracked().trim().is_empty(){return;}busy.set(true);spawn_local(async move{match api("POST","/api/v1/tickets",json!({"project_id":state.project.get_untracked(),"title":title.get_untracked(),"body":body.get_untracked(),"status":status,"sort_order":state.column(status,false).iter().map(|t|t.sort_order).fold(0.0,f64::max)+1024.})).await {Ok(value)=>{match serde_json::from_value::<BoardTicket>(value){Ok(ticket)=>{state.apply_change_event(ticket,false);state.composer.set(None);state.notice.set("Ticket created.".into());},Err(e)=>{let message=format!("Invalid created ticket response: {e}. Reload the board.");state.error.set(message.clone());error.set(message);}}},Err(e)=>{state.error.set(e.clone());error.set(e)}}busy.set(false);});}>
-    <div class="modal-body"><TextInput id="board-title" label="Title" value=title/><label class="field"><span>"Description"</span><textarea prop:value=move||body.get() on:input=move|e|body.set(event_target_value(&e))/></label><p class="muted">{move||state.projects.get().iter().find(|p|p.id==state.project.get()).map(|p|p.name.clone()).unwrap_or_default()}" · "{status.name()}</p><p role="alert">{move||error.get()}</p></div><div class="modal-footer"><button class="button button-primary" type="submit" disabled=move||busy.get() || title.get().trim().is_empty()>"Create ticket"</button></div></form></Modal>}
+    view! {<Modal title="New ticket" locked=Signal::derive(move||busy.get()) on_close=Callback::new(move|_|state.composer.set(None))><form on:submit=move|e|{e.prevent_default();if busy.get_untracked() || title.get_untracked().trim().is_empty(){return;}busy.set(true);spawn_local(async move{match api("POST","/api/v1/tickets",json!({"project_id":project.get_untracked(),"title":title.get_untracked(),"body":body.get_untracked(),"status":status,"sort_order":state.tickets.get_untracked().iter().filter(|t|t.project_id==project.get_untracked() && t.status==status).map(|t|t.sort_order).fold(0.0,f64::max)+1024.})).await {Ok(value)=>{match serde_json::from_value::<BoardTicket>(value){Ok(ticket)=>{state.apply_change_event(ticket,false);state.composer.set(None);state.notice.set("Ticket created.".into());},Err(e)=>{let message=format!("Invalid created ticket response: {e}. Reload the board.");state.error.set(message.clone());error.set(message);}}},Err(e)=>{state.error.set(e.clone());error.set(e)}}busy.set(false);});}>
+    <div class="modal-body"><TextInput id="board-title" label="Title" value=title/><super::api_detail::MarkdownEditor body label="Description"/><label class="field"><span>"Project"</span><select aria-label="New ticket project" prop:value=move||project.get().to_string() on:change=move|e|{if let Ok(id)=event_target_value(&e).parse::<i64>(){project.set(id);}}>{move||state.projects.get().into_iter().map(|p|view!{<option value=p.id.to_string() selected=move||p.id==project.get()>{p.name}</option>}).collect_view()}</select></label><p class="muted">{status.name()}</p><p role="alert">{move||error.get()}</p></div><div class="modal-footer"><button class="button button-primary" type="submit" disabled=move||busy.get() || title.get().trim().is_empty()>"Create ticket"</button></div></form></Modal>}
 }

@@ -355,3 +355,19 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .api-list-row .row-labels { display: flex; overflow: hidden; max-width: 200px; flex-shrink: 0; }
 .api-list-row .row-labels .label-chip { flex-shrink: 0; }
 @media (max-width: 760px) { .api-list-row .row-labels { display: none; } }
+
+/* Detail editors retain the fixture layout and shared control tokens. */
+.markdown-editor { width: 100%; min-width: 0; }
+.comment-form > .markdown-editor { display: block; padding: 8px; }
+.editor-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.editor-tabs [aria-pressed="true"] { background: var(--surface-active); color: var(--text); }
+.markdown-preview { min-height: 96px; padding: 12px; }
+.assignee-editor { display: flex; align-items: center; gap: 8px; }
+.assignee-editor input { min-width: 0; width: 100%; }
+.dependency-options { max-height: 320px; overflow-y: auto; }
+.properties select { max-width: 100%; }
+.comment-content { min-width: 0; }
+@media (max-width: 760px) { .comment-heading { flex-wrap: wrap; } }
+.assignee-editor .field { min-width: 0; flex: 1; }
+.comment-form .field textarea { background: transparent; border: 0; }
+.ticket-detail h1 { overflow-wrap: anywhere; }
