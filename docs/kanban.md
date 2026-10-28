@@ -1,11 +1,12 @@
 # API-backed Kanban (#7)
 
-The real board is `/`. Pick a project in the sidebar or header. Every status has
-its own column, with horizontal scrolling at narrow widths. `/design/board`
+The real board is `/`. Pick a project in the sidebar. Five statuses are visible by default; Show canceled persists `?canceled=true`.
+Columns share space equally with a 240px minimum and 16px gaps. The sidebar
+contracts at 1440px to fit all five; narrower boards scroll horizontally. `/design/board`
 remains the in-memory visual reference.
 
 Cards use the shared status/priority icons and label chips; they show the API key,
-title, assignee (or Unassigned), and a Blocked indicator when a prerequisite is
+title, assignee initials when assigned, optional API comment counts, and a Blocked by key indicator when a prerequisite is
 neither Done nor Canceled. The board loads every API page, including prerequisites
 in other projects, before calculating that indicator.
 
@@ -34,7 +35,7 @@ builds release assets, starts local `wrangler dev`, applies tracked migrations
 to isolated D1 under `target/`, signs in through the actual UI, and seeds via API.
 It checks:
 
-- Six status columns, real metadata, active blockers, project isolation and empty
+- Five default columns and the URL-persisted sixth column, real metadata, active blockers, project isolation and empty
   projects, including a dataset crossing the API's 100-ticket page boundary.
 - Native mouse drag between/within columns; keyboard move/reorder, cancellation,
   persisted ordering after reload, and restored focus.
@@ -43,7 +44,8 @@ It checks:
 - Ticket creation and signed-out loading errors.
 
 Dark screenshots are in [screenshots/kanban](screenshots/kanban): before is the
-actual root route on main at `d446c24`; after is the API-backed route on this
+actual root route independently rebuilt on main at `d446c24` in a temporary
+worktree (main itself maps `/` to the fixture Board; no `/design` URL was used); after is the API-backed route on this
 branch, at the same 1440×900 and 390×900 viewports with fonts loaded. The after
 dataset is deliberately smaller and includes the additional status columns.
 
@@ -51,7 +53,7 @@ dataset is deliberately smaller and includes the additional status columns.
 
 This view's part is visible without instructions: choose a project, click New
 ticket, enter a title, then drag or choose a status on the card. Labels and
-assignees have named filters; unassigned and blocked states use words. Keyboard
+assignees have named filters; blockers use ticket keys. Keyboard
 move instructions appear in the desktop footer and pickup announcement.
 Project creation (#10), editing labels/dependencies and opening ticket details
 (#9), and the list view (#8) remain their own implementation issues. The real

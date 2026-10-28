@@ -365,7 +365,7 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
     b.wait("location.pathname === '/settings/tokens'")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.body.innerText.includes('No projects yet')")?;
     b.eval(r#"(async()=>{
         const api=async(path,body,method='POST')=>{const r=await fetch('/api/v1/'+path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error('Seed request failed');return r.json()};
@@ -388,8 +388,10 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
     })()"#)?;
     b.eval("document.querySelector('[role=alert]')?.textContent || true")?;
     b.go("http://127.0.0.1:8795/")?;
-    b.wait("document.querySelectorAll('.ticket-card').length===7")?;
-    b.wait("document.querySelectorAll('.board-column').length===6 && document.body.innerText.includes('Blocked') && document.body.innerText.includes('agent')")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===6")?;
+    b.click(".canceled-toggle input")?;
+    b.wait("location.search.includes('canceled=true') && document.querySelectorAll('.ticket-card').length===7")?;
+    b.wait("document.querySelectorAll('.board-column').length===6 && document.body.innerText.includes('Blocked by TKT-1') && !!document.querySelector('.card-meta .avatar[title=agent]') && !document.querySelector('#ticket-1 .card-meta').textContent.includes('Unassigned')")?;
     b.eval("document.querySelector('#ticket-1').focus()")?;
     b.key("ArrowRight", 39, 0)?;
     b.wait("document.activeElement.id==='ticket-2'")?;
@@ -399,14 +401,14 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
     b.key(" ", 32, 0)?;
     b.wait("document.body.innerText.includes('Order saved') && document.querySelector('.board').getAttribute('aria-busy')!=='true'")?;
     b.wait("document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='In progress' && document.activeElement.id==='ticket-2'")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress'")?;
     b.eval("document.querySelector('#ticket-2').focus()")?;
     b.key(" ", 32, 0)?;
     b.key("ArrowUp", 38, 0)?;
     b.key(" ", 32, 0)?;
     b.wait("document.body.innerText.includes('Order saved')")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
     // Escape restores the draft, never issuing a write.
     b.eval("document.querySelector('#ticket-2').focus()")?;
@@ -417,11 +419,11 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
     // Actual HTML drag event handlers, including a within-column insertion target.
     b.drag("#ticket-7", "#ticket-2")?;
     b.wait("document.body.innerText.includes('Order saved') && document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-7'")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-7'")?;
     b.drag("#ticket-2", "#ticket-7")?;
     b.wait("document.body.innerText.includes('Order saved') && document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
     // Native status select supplies the touch / keyboard alternative.
     b.eval(r#"(()=>{const s=document.querySelector('#ticket-7 select');s.value='Todo';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
@@ -432,7 +434,7 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelectorAll('.ticket-card').length===3")?;
     b.text("input[aria-label='Filter tickets']", "Review imported")?;
     b.wait("document.querySelectorAll('.ticket-card').length===1 && !!document.querySelector('#ticket-4')")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===7")?;
     // Reject a move at the API boundary, then verify optimistic rollback and focus.
     b.eval("window.boardFetch=window.fetch;window.fetch=(input,init)=>((input instanceof Request?input.method:init?.method)==='PATCH'?Promise.resolve(new Response(JSON.stringify({error:{message:'Verification rejection'}}),{status:409,headers:{'Content-Type':'application/json'}})):window.boardFetch(input,init));document.querySelector('#ticket-2').focus();true")?;
@@ -441,7 +443,7 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
     b.key(" ", 32, 0)?;
     b.wait("document.body.innerText.includes('Previous order restored') && document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress' && document.activeElement.id==='ticket-2'")?;
     b.eval("window.fetch=window.boardFetch;true")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===7")?;
     // Reject the second write of a reorder, exercising compensation of a saved rank.
     b.eval("window.boardFetch=window.fetch;window.patchCount=0;window.fetch=(input,init)=>((input instanceof Request?input.method:init?.method)==='PATCH' && ++window.patchCount===2?Promise.resolve(new Response(JSON.stringify({error:{message:'Second-write rejection'}}),{status:409,headers:{'Content-Type':'application/json'}})):window.boardFetch(input,init));document.querySelector('#ticket-2').focus();true")?;
@@ -450,14 +452,33 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
     b.key(" ", 32, 0)?;
     b.wait("document.body.innerText.includes('Previous order restored') && window.patchCount===3 && document.activeElement.id==='ticket-2'")?;
     b.eval("window.fetch=window.boardFetch;true")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
+    b.eval("document.querySelector('.topbar .button-primary').focus();true")?;
+    b.key("c", 67, 0)?;
+    b.wait("!!document.querySelector('#board-title') && document.querySelectorAll('dialog').length===1")?;
+    b.key("Escape", 27, 0)?;
     b.click(".topbar .button-primary")?;
     b.text("#board-title", "Created from the board")?;
     b.click("dialog button[type=submit]")?;
     b.wait(
         "document.querySelectorAll('.ticket-card').length===8 && !document.querySelector('dialog')",
     )?;
+    b.click(".canceled-toggle input")?;
+    b.wait("!location.search.includes('canceled') && document.querySelectorAll('.board-column').length===5 && document.querySelector('.board').scrollWidth===document.querySelector('.board').clientWidth && document.querySelector('[aria-label=Done]').getBoundingClientRect().right<=innerWidth")?;
+    b.wait("document.querySelector('.view-footer').textContent.includes('8 tickets') && document.querySelector('.toast').textContent.includes('Ticket created')")?;
+    b.key("k", 75, 4)?;
+    b.wait("!!document.querySelector('dialog[aria-label=\"Search and commands\"]')")?;
+    b.key("Escape", 27, 0)?;
+    b.click(".search-trigger")?;
+    b.text(
+        "input[aria-label='Search tickets or commands']",
+        "Review imported",
+    )?;
+    b.wait("document.querySelectorAll('.command-results .menu-item').length===1 && document.querySelector('.command-results').textContent.includes('TKT-4')")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("!document.querySelector('dialog') && document.querySelector('.sidebar-bottom').textContent.includes('Sign out') && !document.querySelector('.sidebar-bottom').textContent.includes('Sign in')")?;
+    b.click(".toast button")?;
     let output = root.join("docs/screenshots/kanban");
     fs::create_dir_all(&output)?;
     b.screenshot(&output.join("after-desktop.png"))?;
@@ -465,15 +486,16 @@ pub fn board_check(root: &Path, password: &str) -> super::Result {
     b.wait("document.documentElement.scrollWidth <= innerWidth")?;
     b.screenshot(&output.join("after-mobile.png"))?;
     // Project switching must clear filters and never leak tickets from another project.
-    b.eval(r#"(()=>{const s=document.querySelector('[aria-label="Project"]');s.value='2';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===95 && !document.body.innerText.includes('Created from the board')")?;
-    b.eval(r#"(()=>{const s=document.querySelector('[aria-label="Project"]');s.value='3';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
-    b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===6 && !document.querySelector('.add-card').disabled")?;
-    b.eval("fetch('/api/v1/logout',{method:'POST'}).then(r=>r.ok)")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===5 && !document.querySelector('.add-card').disabled")?;
+    b.eval("[...document.querySelectorAll('.sidebar-bottom button')].find(b=>b.textContent.includes('Sign out')).click();true")?;
+    b.wait("location.pathname==='/login'")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Please sign in') && document.querySelectorAll('.ticket-card').length===0")?;
     println!(
-        "PASS: local API seed; six statuses; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
+        "PASS: local API seed; five default statuses + URL canceled toggle; 1440px Done visibility; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
     );
     Ok(())
 }
