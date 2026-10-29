@@ -191,25 +191,25 @@ content and wait for local edits, comment drafts and board moves. Each catch-up
 uses the existing paginated REST endpoints (projects, tickets, labels, plus ticket
 and comments on detail); no new D1 query, replay log or Durable Object alarm is used.
 
-## GitHub mirror webhook
+## GitHub webhook and imported tickets
 
-`POST /api/v1/github/webhook` is exempt from bearer/session authentication only.
-It requires `X-Hub-Signature-256: sha256=<hex HMAC-SHA256>` over the exact raw
-request bytes, using the `GITHUB_WEBHOOK_SECRET` Worker secret. Missing/invalid
-signatures return 401; an unset/empty secret returns 503. The body limit is 1 MiB
-(413). Malformed JSON returns 400, non-POST requests 405. Do not send API tokens.
+Tickets is the sole system of record since 2026-10-29; GitHub Issues is retired.
+`POST /api/v1/github/webhook` remains independently HMAC authenticated for
+pull-request integration. It requires `X-Hub-Signature-256: sha256=<hex>` over
+exact raw bytes using `GITHUB_WEBHOOK_SECRET`. Missing/invalid signatures return
+401; unset/empty secret returns 503. Body limit is 1 MiB (413), malformed JSON
+400, non-POST requests 405. Signed ping returns 200. Signed `issues`,
+`issue_comment` and `label` events return 202 with `ignored: true` and reason
+`issue mirror retired`, without database access. No issue cron runs.
 
-Configured repository IDs are accepted independently of repository names/renames.
-Unknown repository IDs and pull requests return 202 ignored. Signed `ping` returns
-200. Issues are upserted from their full payload; deleted/transferred issues delete
-the mirrored ticket. Issue comments are created/edited/deleted by the import marker.
-Label edits update name/color; label deletions remove the global label and links.
-Successful changes and unknown events return 204. Replay is safe. Notifications
-invalidate the project room after commit; notification failure cannot undo a write.
+Tickets with `github:` external IDs are native editable tickets. Preserve
+`external_id`/`external_url` as provenance; the detail page links to their origin.
+Imported comments keep `<!-- tickets-import:github:... -->` markers and original
+GitHub author/timestamp attribution in sanitized Markdown; API author is `owner`.
+Use normal authenticated mutations for editing imported tickets and comments.
 
-Tickets whose `external_id` starts with `github:` are mirrors. Their UI is read-only;
-agents should make changes on GitHub. Existing authenticated API mutations remain
-available for import/reconciliation. The mirror owns title, body, state, assignee,
-URL, labels and imported comments, overwriting local changes on its next update.
-GitHub comment authors appear in the marker-backed Markdown body; the API `author`
-field retains `owner`. Render only sanitized `body_html`; markers are invisible.
+`cargo xtask import-github --repo owner/repo --project PREFIX --dry-run` migrates
+into an existing project. Open issues are the default; use `--state all|open|closed`,
+`--since YYYY-MM-DD` for a closed_at cutoff, `--exclude N,M`, and `--close-github`
+to comment/close only after verified import. The quantum/voxelite alias preserves
+existing QUA identities. See [migration usage](DEVELOPMENT.md#github-import).

@@ -192,13 +192,19 @@ Do not send application messages. See the API reference for cookie/Origin rules.
 Ordinary REST mutations automatically notify watchers; no separate publish call
 is required, and notification failures never fail a committed mutation.
 
-## GitHub mirrors
+## GitHub migration provenance
 
-Tickets with `external_id` beginning `github:` are read-only for agents too.
-Make changes on GitHub using `external_url`; webhook/cron ingestion overwrites
-local edits. Never mutate mirror tickets, labels or comments through this API.
-The API still permits writes for the importer. Both voxelite and quantum use
-`github:0x63616c/voxelite:N`; preserve issue identities and comment markers.
-GitHub author logins appear in imported comment bodies; render sanitized HTML.
-The signed webhook endpoint is documented in docs/API.md and is not an agent
-write endpoint. GitHub remains the source of truth; nothing syncs back.
+Tickets is the sole system of record since 2026-10-29. GitHub Issues is retired.
+Use native keys QUA, TIK, APP (apps), WWW (world-wide-webb), BOX (grok-box-config).
+Imported `github:` tickets support all normal edits. Preserve external IDs/URLs
+and imported comment markers, original authors and timestamps as provenance.
+Both quantum and voxelite retain `github:0x63616c/voxelite:N` identities.
+
+The native one-shot tool is `cargo xtask import-github --repo owner/repo --project
+PREFIX --dry-run` (existing project, open issues by default). Options include
+`--state all|open|closed`, `--since YYYY-MM-DD` for closed_at, `--exclude N,M`,
+and `--close-github` to post the Tickets URL and close verified source issues
+without duplicate movement comments. Production imports require explicit owner
+authorization and `--allow-remote` with HTTPS; never infer authorization from
+these examples. The signed webhook stays alive for PR integration; issue events
+are ignored and there is no issue-mirror cron. See docs/DEVELOPMENT.md.
