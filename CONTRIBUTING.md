@@ -168,7 +168,7 @@
   `sort` (`priority`, `updated`, `created`). Priority defaults to urgent first,
   none last; dates are newest first, with numeric ID breaking ties.
 - J/K focuses the next/previous visible row; Enter opens the ticket
-  detail editor. Native inline selects edit status and priority. Failed
+  detail editor. Shared SelectField controls edit status and priority. Failed
   writes keep saved state and restore the select; errors remain visible.
 - `CHROME_BIN=<headless-chromium> cargo xtask list-check` verifies the list
   against isolated local Worker/D1 state and captures 1440×900 / 390×900 images.
@@ -213,7 +213,7 @@
   SHA and any fixture-only boundaries in the screenshot directory's README.
 - Search results open the selected ticket. Empty results have explicit copy;
   dialogs restore opener focus, and mobile navigation contains keyboard focus.
-  Preserve native selects and the shared chevron rather than drawing new controls.
+  Use the shared SelectField/Combobox/DropdownMenu and chevron; never reintroduce native selects.
 
 ## Projects conventions
 
@@ -269,8 +269,8 @@
 
 ## Login navigation conventions
 
-- The Worker runs before assets. Only fonts, favicon and Trunk hashed JS/CSS/Wasm
-  paths bypass session lookup; missing public assets return 404. Asset SPA fallback
+- The Worker runs before assets. Only fonts, favicon, Trunk hashed JS/CSS/Wasm
+  and the exact hashed DOM-bridge snippet path bypass session lookup; missing public assets return 404. Asset SPA fallback
   stays disabled: the Worker serves `index.html` only after the navigation gate.
   Missing cookies cost zero D1 queries; a well-formed cookie costs one session SELECT.
 - `/login` mounts outside AppShell. Shared core `navigation::safe_next` validates
@@ -326,7 +326,7 @@
   attached match; clicking an existing row toggles it.
 - Before creating, refresh the complete label list and reuse a case-insensitive
   match. Default colors use a stable lowercase-name hash over the four label
-  hues in `tokens.css`. Use shared Menu, TextInput and LabelChip controls.
+  hues in `tokens.css`. Use shared Combobox, TextInput and LabelChip controls.
 - `cargo xtask projects-check` covers creation from zero labels, keyboard focus,
   case-insensitive reuse and persistence. Issue #45 captures use
   `docs/screenshots/45/` at 1440×900 and 390×844; `TICKETS_BEFORE_ASSETS`
@@ -417,3 +417,23 @@ Windows line endings; apply repository formatting checks to our own files.
 - `cargo xtask mirror-check` also runs signed PR acceptance and captures before/after
   dark desktop/mobile evidence under `docs/screenshots/32`. Set
   `TICKETS_BEFORE_ASSETS` to base-commit assets for before captures.
+
+## Component review (TIK-38)
+
+Default to isolated component PNGs before full-page captures. Run `cargo xtask build`,
+then `CHROME_BIN=/usr/bin/google-chrome cargo xtask component-shot all --output docs/screenshots/<TICKET>` (or a single
+name, e.g. `select`, `modal`, `icons`, `busy-button`). The fixture-only
+`/design/c/<name>?variant=...` route excludes auth and API transport. Skeleton
+variants are board/list/detail/projects. The harness uses an OS-assigned local
+port, loaded fonts, dark background, tight component bounds and 2× DPR. It shuts
+down its own server and browser; it does not share port 8795 with API checks.
+Use `--output docs/screenshots/<TICKET>` and copy the PNGs to
+`/workspace/tickets-polish/<TICKET>/`. `--before-assets <dist>` captures a previous
+build's actual components/loading states; record that build's SHA in the evidence
+README. Native OS select popups are not captured by Chrome's page screenshot;
+show the baseline focused trigger alongside the new open listbox. Full-page
+screenshots remain required when changing a page layout.
+
+See docs/design-system.md for shared component signatures, controlled async values,
+presence ownership, motion/reduced-motion tokens and fixture variants. Keep all
+project icon schema changes additive and validate values in core.

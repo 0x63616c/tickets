@@ -58,13 +58,13 @@ pub fn TicketCard(ticket: Ticket) -> impl IntoView {
     let state = expect_context::<DesignState>();
     let id = ticket.id;
     view! {
-        <article class="ticket-card" draggable="true" on:dragstart=move |ev| { state.dragged.set(Some(id)); if let Some(data) = ev.data_transfer() { let _ = data.set_data("text/plain", &id.to_string()); } } on:dragend=move |_| state.dragged.set(None)>
+        <article class="ticket-card" data-motion-key=format!("fixture-{id}") draggable="true" on:dragstart=move |ev| { state.dragged.set(Some(id)); if let Some(data) = ev.data_transfer() { let _ = data.set_data("text/plain", &id.to_string()); } } on:dragend=move |_| state.dragged.set(None)>
             <div class="card-top"><span class="mono ticket-id">{format!("TKT-{id}")}</span><span title=ticket.priority.name()><PriorityIcon priority=ticket.priority/></span></div>
             <A href=format!("/design/ticket?id={id}") attr:class="card-title">{ticket.title}</A>
             {ticket.blocked.then(|| view! { <span class="blocked-note"><Icon name="blocked"/>"Blocked by TKT-5"</span> })}
             <div class="card-labels"><LabelChip name=ticket.label/>{ticket.extra_labels.into_iter().map(|name| view! { <LabelChip name/> }).collect_view()}</div>
             <div class="card-bottom">
-                <div class="card-status"><StatusIcon status=ticket.status/><select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=format!("Move TKT-{id} to status") prop:value=ticket.status.name() on:change=move |ev| state.move_ticket(id, Status::from_name(&event_target_value(&ev)))>{Status::ALL.into_iter().map(|s| view! { <option value=s.name() selected=s == ticket.status>{s.name()}</option> }).collect_view()}</select></div>
+                <div class="card-status"><StatusIcon status=ticket.status/><SelectField label=format!("Move TKT-{id} to status") value=Signal::derive(move||ticket.status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|state.move_ticket(id,Status::from_name(&next)))/></div>
                 <div class="card-meta">{(ticket.comments > 0).then(|| view! { <span class="comment-count" aria-label=crate::count::count_label(ticket.comments as usize, "comment")><Icon name="comment"/>{ticket.comments}</span> })}</div>
             </div>
         </article>
@@ -92,11 +92,11 @@ pub fn List() -> impl IntoView {
 #[component]
 fn TicketRow(ticket: Ticket) -> impl IntoView {
     view! {
-        <A href=format!("/design/ticket?id={}", ticket.id) attr:class="ticket-row">
+        <A href=format!("/design/ticket?id={}", ticket.id) attr:class="ticket-row" attr:data-motion-key=format!("fixture-{}",ticket.id)>
             <span title=ticket.priority.name()><PriorityIcon priority=ticket.priority/></span><span class="mono ticket-id">{format!("TKT-{}", ticket.id)}</span><StatusIcon status=ticket.status/><span class="row-title">{ticket.title}</span>
             {ticket.blocked.then(|| view! { <span class="row-blocked" title="Blocked by TKT-5"><Icon name="blocked"/>"Blocked"</span> })}
             <LabelChip name=ticket.label/><span class="row-comments">{(ticket.comments > 0).then(|| view! { <Icon name="comment"/>{ticket.comments} })}</span>
-            <span class="row-project"><Icon name="project"/>{ticket.project}</span><span class="row-date">{match ticket.id % 4 { 0 => "Oct 24", 1 => "Oct 25", 2 => "Oct 26", _ => "Oct 27" }}</span>
+            <span class="row-project"><ProjectIcon name=ticket.project.clone()/>{ticket.project}</span><span class="row-date">{match ticket.id % 4 { 0 => "Oct 24", 1 => "Oct 25", 2 => "Oct 26", _ => "Oct 27" }}</span>
         </A>
     }
 }
@@ -131,8 +131,8 @@ pub fn Projects() -> impl IntoView {
         <div class="projects-page">
             <div class="projects-heading"><h1>"Projects"</h1><span class="muted">{move || crate::count::count_label(state.projects.get().len() + 2, "project")}</span></div>
             <div class="projects-table"><div class="projects-table-head"><span>"Name"</span><span>"Tickets"</span><span>"GitHub"</span></div>
-                <A href="/design/board" attr:class="project-row" on:click=move |_| state.current_project.set("Tickets".into())><div><span class="project-mark">"T"</span><div><strong>"Tickets"</strong><p>"Projects, tickets, and dependencies"</p></div></div><span class="muted">{move || state.tickets.get().iter().filter(|t| t.project == "Tickets").count()}</span><span class="muted">"0x63616c/tickets"<Icon name="external"/></span></A>
-                <A href="/design/empty" attr:class="project-row" on:click=move |_| state.current_project.set("Quantum".into())><div><span class="project-mark">"Q"</span><div><strong>"Quantum"</strong><p>"Voxel engine and editor"</p></div></div><span class="muted">"0"</span><span class="muted">"Not linked"</span></A>
+                <A href="/design/board" attr:class="project-row" on:click=move |_| state.current_project.set("Tickets".into())><div><ProjectIcon name="Tickets" icon="ticket"/><div><strong>"Tickets"</strong><p>"Projects, tickets, and dependencies"</p></div></div><span class="muted">{move || state.tickets.get().iter().filter(|t| t.project == "Tickets").count()}</span><span class="muted">"0x63616c/tickets"<Icon name="external"/></span></A>
+                <A href="/design/empty" attr:class="project-row" on:click=move |_| state.current_project.set("Quantum".into())><div><ProjectIcon name="Quantum" icon="box" color="#4ea7fc"/><div><strong>"Quantum"</strong><p>"Voxel engine and editor"</p></div></div><span class="muted">"0"</span><span class="muted">"Not linked"</span></A>
                 {move || state.projects.get().into_iter().map(|name| { let project = name.clone(); view! { <A href="/design/empty" attr:class="project-row" on:click=move |_| state.current_project.set(project.clone())><div><Icon name="project"/><strong>{name}</strong></div><span class="muted">"0"</span><span class="muted">"Not linked"</span></A> } }).collect_view()}
             </div>
         </div>

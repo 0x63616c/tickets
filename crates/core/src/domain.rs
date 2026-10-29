@@ -71,8 +71,26 @@ pub fn ticket_key(prefix: &str, number: i64) -> Result<String, String> {
     }
     Ok(format!("{prefix}-{number}"))
 }
+/// Named project glyphs share the web SVG family; other values are short emoji sequences.
+pub const PROJECT_GLYPHS: &[&str] = &[
+    "project", "ticket", "board", "grid", "code", "globe", "box", "bolt", "star", "layers",
+];
+pub fn validate_project_icon(icon: &str) -> Result<(), String> {
+    if PROJECT_GLYPHS.contains(&icon) {
+        return Ok(());
+    }
+    // Bounded Unicode sequences allow joined emoji, variation selectors and skin tones.
+    // Reject text, whitespace, controls and markup; render the value as escaped text.
+    if icon.is_empty() || icon.chars().count() > 16 || !icon.chars().any(|c| matches!(c as u32, 0x1f000..=0x1faff | 0x2600..=0x27bf))
+        || icon.chars().any(|c| !matches!(c as u32, 0x1f000..=0x1faff | 0x2600..=0x27bf | 0xfe0f | 0x200d | 0xe0020..=0xe007f)) {
+        return Err("icon must be a supported glyph or a short emoji sequence".into());
+    }
+    Ok(())
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Project {
+    #[serde(default)]
+    pub icon: Option<String>,
     pub id: i64,
     pub name: String,
     pub key_prefix: String,

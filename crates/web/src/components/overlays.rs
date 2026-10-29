@@ -15,11 +15,17 @@ pub fn Modal(
     children: Children,
     on_close: Callback<()>,
     #[prop(default = Signal::derive(|| false))] locked: Signal<bool>,
+    #[prop(default = Signal::derive(|| true))] open: Signal<bool>,
 ) -> impl IntoView {
+    let presence = use_context::<super::motion::Presence>();
+    let entered = RwSignal::new(false);
     let dialog = NodeRef::<html::Dialog>::new();
     let opener = StoredValue::new_local(document().active_element());
     on_cleanup(move || {
-        opener.with_value(|opener| {
+        // Cleanup runs before the dialog leaves the top layer. Restore after removal,
+        // when the opener is no longer inert; do not retain a disposed StoredValue.
+        let opener = opener.get_value();
+        request_animation_frame(move || {
             if let Some(opener) = opener
                 && opener.is_connected()
                 && let Some(opener) = opener.dyn_ref::<web_sys::HtmlElement>()
@@ -31,6 +37,9 @@ pub fn Modal(
     Effect::new(move || {
         if let Some(node) = dialog.get() {
             let _ = node.show_modal();
+            request_animation_frame(move || {
+                let _ = entered.try_set(true);
+            });
             if let Ok(Some(input)) = node.query_selector("input")
                 && let Some(input) = input.dyn_ref::<web_sys::HtmlElement>()
             {
@@ -42,13 +51,10 @@ pub fn Modal(
         if locked.get_untracked() {
             return;
         }
-        if let Some(node) = dialog.get_untracked() {
-            node.close();
-        }
         on_close.run(());
     });
     view! {
-        <dialog node_ref=dialog class="modal" aria-label=title on:cancel=move |ev: web_sys::Event| { ev.prevent_default(); close.run(()); }>
+        <dialog node_ref=dialog class="modal" data-state=move||if entered.get() && presence.map(|p|p.open.get()).unwrap_or_else(||open.get()){"open"}else{"closed"} aria-label=title on:cancel=move |ev: web_sys::Event| { ev.prevent_default(); close.run(()); }>
             <div class="modal-header"><h2>{title}</h2><IconButton label="Close dialog" icon="close" on_click=close/></div>
             {children()}
         </dialog>
@@ -98,7 +104,14 @@ pub fn Overlays() -> impl IntoView {
         }
     });
     on_cleanup(move || handle.remove());
-    view! { {move || match state.dialog.get() {
+    let shown = present_value(Signal::derive(move || {
+        if state.dialog.get() == DialogKind::None {
+            None
+        } else {
+            Some(state.dialog.get())
+        }
+    }));
+    view! { {move || match shown.get().unwrap_or(DialogKind::None) {
         DialogKind::None => ().into_any(),
         DialogKind::Ticket => view! { <CreateTicket/> }.into_any(),
         DialogKind::Project => view! { <CreateProject/> }.into_any(),
@@ -115,7 +128,7 @@ fn CreateTicket() -> impl IntoView {
     let description = RwSignal::new(String::new());
     let navigate = use_navigate();
     view! {
-        <Modal title="New ticket" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
+        <Modal open=Signal::derive(move||state.dialog.get()!=DialogKind::None) title="New ticket" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
             <form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move |ev| {
                 ev.prevent_default();
                 let value = title.get_untracked().trim().to_string();
@@ -125,7 +138,7 @@ fn CreateTicket() -> impl IntoView {
                 state.dialog.set(DialogKind::None); state.toast.set(format!("TKT-{id} created"));
                 navigate(&format!("/design/ticket?id={id}"), Default::default());
             }>
-                <div class="modal-body"><div class="form-project"><Icon name="project"/>{move || state.current_project.get()}<Icon name="chevron"/>"New ticket"</div><TextInput id="ticket-title" label="Title" placeholder="What needs to be done?" value=title/><label class="field">"Description"<textarea autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  rows="5" placeholder="Add details… Markdown is supported." prop:value=move || description.get() on:input=move |ev| description.set(event_target_value(&ev))/></label><label class="field">"Status"<Select label="Ticket status" options=Status::ALL.map(Status::name).to_vec() value=status/></label></div>
+                <div class="modal-body"><div class="form-project">{move||view!{<ProjectIcon name=state.current_project.get()/>}}{move || state.current_project.get()}<Icon name="chevron"/>"New ticket"</div><TextInput id="ticket-title" label="Title" placeholder="What needs to be done?" value=title/><label class="field">"Description"<textarea autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  rows="5" placeholder="Add details… Markdown is supported." prop:value=move || description.get() on:input=move |ev| description.set(event_target_value(&ev))/></label><label class="field">"Status"<Select label="Ticket status" options=Status::ALL.map(Status::name).to_vec() value=status/></label></div>
                 <div class="modal-footer"><Button variant="ghost" on_click=Callback::new(move |_| state.dialog.set(DialogKind::None))>"Cancel"</Button><button class="button button-primary" type="submit" disabled=move || title.get().trim().is_empty()>"Create ticket"</button></div>
             </form>
         </Modal>
@@ -138,7 +151,7 @@ fn CreateProject() -> impl IntoView {
     let name = RwSignal::new(String::new());
     let navigate = use_navigate();
     view! {
-        <Modal title="New project" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
+        <Modal open=Signal::derive(move||state.dialog.get()!=DialogKind::None) title="New project" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
             <form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move |ev| { ev.prevent_default(); let value = name.get_untracked().trim().to_string(); if !value.is_empty() { state.current_project.set(value.clone()); state.projects.update(|projects| projects.push(value)); state.dialog.set(DialogKind::None); state.toast.set("Project created".into()); navigate("/design/empty", Default::default()); } }>
                 <div class="modal-body"><TextInput id="project-title" label="Project name" placeholder="e.g. Quantum" value=name/><p class="muted">"Group related tickets in a project. You can link a GitHub project later."</p></div><div class="modal-footer"><Button variant="ghost" on_click=Callback::new(move |_| state.dialog.set(DialogKind::None))>"Cancel"</Button><button class="button button-primary" type="submit" disabled=move || name.get().trim().is_empty()>"Create project"</button></div>
             </form>
@@ -152,7 +165,7 @@ fn AddDependency() -> impl IntoView {
     let query = RwSignal::new(String::new());
     let direction = RwSignal::new("Is blocked by".to_string());
     view! {
-        <Modal title="Add dependency" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
+        <Modal open=Signal::derive(move||state.dialog.get()!=DialogKind::None) title="Add dependency" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
             <div class="modal-body">
                 <div class="dependency-direction"><span class="mono">{move || format!("TKT-{}", state.selected_ticket.get())}</span><Select label="Dependency direction" options=vec!["Is blocked by", "Blocks"] value=direction/></div>
                 <p class="muted">{move || if direction.get() == "Is blocked by" { "The selected ticket must be finished first." } else { "This ticket must be finished before the selected ticket." }}</p>
@@ -191,7 +204,7 @@ pub fn CommandPalette() -> impl IntoView {
         board.refresh();
     }
     view! {
-        <Modal title="Search and commands" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
+        <Modal open=Signal::derive(move||state.dialog.get()!=DialogKind::None) title="Search and commands" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
             <div class="command-palette" on:keydown=command_key>
             <div class="command-search"><Icon name="search"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Search tickets or commands" placeholder="Search tickets…" on:input=move |ev| query.set(event_target_value(&ev))/></div>
             <Show when=move||!location.pathname.get().starts_with("/design") fallback=move||view!{<div class="command-results"><p class="menu-heading">"Actions"</p><button class="menu-item" on:click=move |_| state.new_ticket(Status::Todo)><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button><button class="menu-item" on:click=move |_| state.dialog.set(DialogKind::Project)><Icon name="project"/>"New project"</button><p class="menu-heading">"Tickets"</p>{move || {
@@ -244,5 +257,8 @@ fn command_key(event: web_sys::KeyboardEvent) {
 #[component]
 pub fn Toast() -> impl IntoView {
     let state = expect_context::<DesignState>();
-    view! { <Show when=move || !state.toast.get().is_empty()><div class="toast" role="status" aria-live="polite"><Icon name="check"/><span>{move || state.toast.get()}</span><IconButton label="Dismiss notification" icon="close" on_click=Callback::new(move |_| state.toast.set(String::new()))/></div></Show> }
+    let message = present_value(Signal::derive(move || {
+        (!state.toast.get().is_empty()).then(|| state.toast.get())
+    }));
+    view! { <Show when=move || message.get().is_some()><div data-state=move||if state.toast.get().is_empty(){"closed"}else{"open"} class="toast" role="status" aria-live="polite"><Icon name="check"/><span>{move || message.get().unwrap_or_default()}</span><IconButton label="Dismiss notification" icon="close" on_click=Callback::new(move |_| state.toast.set(String::new()))/></div></Show> }
 }

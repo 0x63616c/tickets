@@ -38,7 +38,7 @@ PATCH changes only supplied fields; explicit null clears nullable fields.
 | PATCH | `/projects/{id}` | Any editable project fields, including `archived` |
 
 Project fields: `name`, `key_prefix` (1–10 uppercase ASCII letters), `color`
-(`#RRGGBB`), `archived` (boolean), nullable `github_owner`, `github_repo`,
+(`#RRGGBB`), nullable `icon`, `archived` (boolean), nullable `github_owner`, `github_repo`,
 `github_project_number` (positive integer), and `github_project_kind`
 (`users` by default, or `orgs`). The kind preserves GitHub’s user/organization
 URL distinction; no GitHub API requests are made. The UI accepts an owner and
@@ -251,3 +251,13 @@ in that order. Equal-time conflicting edits of the same state retain the first
 snapshot. Exact redeliveries produce no writes/activity. Stale/replayed snapshots return 202. Ingestion uses one atomic
 D1 statement with eight parameters, plus one project lookup for live invalidation;
 it does not query per key. Signed malformed PR payloads return 400.
+
+### Project icons
+
+`icon` is optional on POST and PATCH and returned on every project read. Omitted
+PATCH fields are preserved; `null` clears the icon and restores the colored initial.
+Use a named glyph (`project`, `ticket`, `board`, `grid`, `code`, `globe`, `box`,
+`bolt`, `star`, `layers`) or an emoji sequence of at most 16 Unicode scalars,
+including joiners, variation selectors, skin tones and flag sequences. Blank,
+plain text, controls and markup are rejected with 422. `color` applies to glyphs
+and the fallback tile; emoji retain their native color. Migration 0009 is additive.

@@ -3,6 +3,8 @@ mod auth;
 mod auth_verify;
 mod autofill;
 #[cfg(not(target_arch = "wasm32"))]
+mod component;
+#[cfg(not(target_arch = "wasm32"))]
 mod github_pr_check;
 #[cfg(not(target_arch = "wasm32"))]
 mod import_check;
@@ -78,10 +80,13 @@ fn main() -> Result {
     } else {
         1
     };
-    if args.len() > max_args && task.as_deref() != Some("import-github") {
+    if args.len() > max_args && !matches!(task.as_deref(), Some("import-github" | "component-shot"))
+    {
         return Err("expected exactly one task: dev, build, migrate, ci, api-smoke, skill-check, live-check, import-github, import-check, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
     }
     match task.as_deref() {
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("component-shot") => component::run(root,&args[1..]),
         #[cfg(not(target_arch = "wasm32"))]
         Some("import-github") => import_github::cli(&args[1..]),
         #[cfg(not(target_arch = "wasm32"))]

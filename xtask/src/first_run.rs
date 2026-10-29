@@ -40,19 +40,21 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelectorAll('.api-ticket').length===2 && document.querySelector('#ticket-1 .card-title')?.textContent==='Prepare release' && document.querySelector('#ticket-2 .card-title')?.textContent==='Publish release'")?;
     b.screenshot(&output.join("first-run-tickets.png"))?;
     // The card's visible status select is also the touch-friendly Kanban move control.
-    b.click("#ticket-1 select")?;
+    b.wait("!document.querySelector('#ticket-1 [role=combobox]').disabled")?;
+    b.click("#ticket-1 [role=combobox]")?;
+    b.wait("document.querySelector('#ticket-1 [role=combobox]').getAttribute('aria-expanded')==='true' && document.activeElement?.getAttribute('role')==='option'")?;
     b.key("ArrowDown", 40, 0)?;
     b.key("Enter", 13, 0)?;
-    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='In progress' && !document.querySelector('#ticket-1 select').disabled")?;
+    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='In progress' && !document.querySelector('#ticket-1 [role=combobox]').disabled")?;
     b.screenshot(&output.join("first-run-kanban.png"))?;
     b.click("#ticket-2 .card-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
-    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-trigger")?;
     b.wait("document.querySelectorAll('.label-menu .menu-item').length===0")?;
     b.text("#label-filter", "Release")?;
     b.wait("document.querySelector('.label-menu [data-create]')?.textContent.includes('Create label Release')")?;
     b.click(".label-menu [data-create]")?;
-    b.wait("document.querySelector('.property-labels .label-chip')?.textContent.includes('Release') && !document.querySelector('.label-menu').open")?;
+    b.wait("document.querySelector('.property-labels .label-chip')?.textContent.includes('Release') && document.querySelector('.menu-trigger').getAttribute('aria-expanded')==='false'")?;
     b.screenshot(&output.join("first-run-label.png"))?;
     b.click(".dependencies .section-heading button")?;
     b.wait("document.querySelector('[aria-label=Direction]')?.value==='Is blocked by'")?;
@@ -87,7 +89,8 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
     // Also navigate while a successful save response is still in flight.
     b.wait("!document.querySelector('[aria-label=Priority]').disabled")?;
-    b.eval("window.fetch=async(input,init)=>{const response=await window.detailFetch(input,init);const method=input instanceof Request?input.method:init?.method;if(method==='PATCH'){window.saveHeld=true;await new Promise(resolve=>window.releaseSave=resolve);}return response;};const priority=document.querySelector('[aria-label=Priority]');priority.value='High';priority.dispatchEvent(new Event('change',{bubbles:true}));true")?;
+    b.eval("window.fetch=async(input,init)=>{const response=await window.detailFetch(input,init);const method=input instanceof Request?input.method:init?.method;if(method==='PATCH'){window.saveHeld=true;await new Promise(resolve=>window.releaseSave=resolve);}return response;};true")?;
+    b.choose("[aria-label=Priority]", "High")?;
     b.wait("window.saveHeld===true")?;
     b.click(".dependency-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Prepare release'")?;

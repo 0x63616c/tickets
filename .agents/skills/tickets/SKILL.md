@@ -26,6 +26,9 @@ Check access, list projects and choose an appropriate unarchived project. Create
 one only if needed; prefixes are 1–10 uppercase ASCII letters, colors `#RRGGBB`.
 Link with `github_owner`, positive `github_project_number`, `github_project_kind`
 (`users` default or `orgs`), and optional `github_repo` (repository name).
+Set optional `icon` to a named glyph (`project`, `ticket`, `board`, `grid`, `code`,
+`globe`, `box`, `bolt`, `star`, `layers`) or a short emoji (up to 16 Unicode scalars).
+PATCH `icon: null` restores the colored initial; omission preserves it.
 Archive/restore with PATCH `archived`; tickets are retained. Clear nullable GitHub
 fields with null. Linking stores metadata only and never calls GitHub.
 
@@ -43,6 +46,22 @@ curl -sS "$TICKETS_URL/api/v1/projects" -H "Authorization: Bearer $TICKETS_TOKEN
 # expect {"status":200,"body":{"github_owner":"example-org","github_project_kind":"orgs","github_project_number":7,"github_repo":"example"}}
 curl -sS -X PATCH "$TICKETS_URL/api/v1/projects/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
   -H 'Content-Type: application/json' -d '{"github_owner":"example-org","github_project_kind":"orgs","github_project_number":7,"github_repo":"example"}'
+```
+
+## Project icon round trip
+
+```sh
+# expect {"status":200,"body":{"icon":"box"}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/projects/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"icon":"box"}'
+# expect {"status":200,"body":{"icon":"box"}}
+curl -sS "$TICKETS_URL/api/v1/projects/1" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":200,"body":{"icon":null}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/projects/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"icon":null}'
+# expect {"status":422}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/projects/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"icon":"unknown"}'
 ```
 
 ## Create, read, update and move tickets

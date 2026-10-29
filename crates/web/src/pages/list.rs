@@ -114,20 +114,6 @@ fn edit(state: BoardState, id: i64, field: &'static str, value: serde_json::Valu
             },
             Err(e) => {
                 state.error.set(e);
-                if let Some(ticket) = state.tickets.get_untracked().iter().find(|t| t.id == id) {
-                    for (property, value) in [
-                        ("Status", ticket.status.name()),
-                        ("Priority", ticket.priority.name()),
-                    ] {
-                        if let Ok(Some(element)) = document().query_selector(&format!(
-                            "[aria-label='{property} for {}']",
-                            ticket.key
-                        )) && let Ok(select) = element.dyn_into::<web_sys::HtmlSelectElement>()
-                        {
-                            select.set_value(value);
-                        }
-                    }
-                }
             }
         }
         state.busy.set(false);
@@ -141,7 +127,7 @@ fn Filter(
     options: Signal<Vec<(String, String)>>,
 ) -> impl IntoView {
     let location = expect_context::<ListLocation>();
-    view! {<select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=label prop:value=move||param(location, name) on:change=move|e|set_param(location, name,event_target_value(&e))><option value="">{label}</option>{move||options.get().into_iter().map(|(value,text)|view!{<option value=value.clone() selected=move||param(location,name)==value>{text}</option>}).collect_view()}</select>}
+    view! {<SelectField label=label value=Signal::derive(move||param(location,name)) options=Signal::derive(move||std::iter::once(SelectOption::new("",label)).chain(options.get().into_iter().map(|(v,t)|SelectOption::new(v,t))).collect()) on_change=Callback::new(move|next:String|set_param(location,name,next))/>}
 }
 #[component]
 pub fn ApiList() -> impl IntoView {
@@ -222,16 +208,16 @@ pub fn ApiList() -> impl IntoView {
     });
     on_cleanup(move || handle.remove());
     view! {
-        <h1 class="sr-only">"Ticket list"</h1><header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><span class="breadcrumb-current">{move||{let id=param(location, "project");state.projects.get().into_iter().find(|p|p.id.to_string()==id).map(|p|p.name).unwrap_or_else(||"All projects".into())}}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-primary" disabled=move||state.loading.get() || state.busy.get() || state.project.get()==0 on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
+        <h1 class="sr-only">"Ticket list"</h1><header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><span class="breadcrumb-current">{move||{let id=param(location, "project");state.projects.get().into_iter().find(|p|p.id.to_string()==id).map(|p|view!{<ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/>{p.name}}.into_any()).unwrap_or_else(||"All projects".into_any())}}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-primary" disabled=move||state.loading.get() || state.busy.get() || state.project.get()==0 on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
         <div class="view-tabs list-tabs"><a href="/" class="view-tab"><Icon name="board"/>"Board"</a><span class="view-tab selected"><Icon name="list"/>"List"</span><Show when=move||!param(location, "project").is_empty()><crate::pages::projects::ProjectLinks/></Show></div>
         <div class="view-toolbar board-filters list-filters"><div class="filter-input"><Icon name="filter"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Filter tickets" placeholder="Filter tickets…" prop:value=move||param(location, "q") on:input=move|e|set_param(location, "q",event_target_value(&e))/></div>
-        <Filter name="project" label="All projects" options=Signal::derive(move||state.projects.get().into_iter().map(|p|(p.id.to_string(),p.name)).collect())/>
+        <SelectField label="All projects" value=Signal::derive(move||param(location,"project")) options=Signal::derive(move||std::iter::once(SelectOption::new("","All projects")).chain(state.projects.get().into_iter().map(SelectOption::project)).collect()) on_change=Callback::new(move|v:String|set_param(location,"project",v))/>
         <Filter name="label" label="All labels" options=Signal::derive(move||state.labels.get().into_iter().map(|l|(l.id.to_string(),l.name)).collect())/>
         <Filter name="assignee" label="All assignees" options=Signal::derive(move||{let mut names:Vec<_>=state.tickets.get().into_iter().filter_map(|t|t.assignee).collect();names.sort();names.dedup();let mut options=vec![("__unassigned".into(),"Unassigned".into())];options.extend(names.into_iter().map(|n|(n.clone(),n)));options})/>
         <Filter name="status" label="All statuses" options=Signal::derive(||Status::ALL.into_iter().map(|s|(s.name().into(),s.name().into())).collect())/>
-        <select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Sort tickets" prop:value=move||{let s=param(location, "sort");if s.is_empty(){"priority".into()}else{s}} on:change=move|e|set_param(location, "sort",event_target_value(&e))><option value="priority">"Sort: Priority"</option><option value="updated">"Sort: Updated"</option><option value="created">"Sort: Created"</option></select>
+        <SelectField label="Sort tickets" value=Signal::derive(move||{let s=param(location,"sort");if s.is_empty(){"priority".into()}else{s}}) options=Signal::derive(move||vec![SelectOption::new("priority","Sort: Priority"),SelectOption::new("updated","Sort: Updated"),SelectOption::new("created","Sort: Created")]) on_change=Callback::new(move|next:String|set_param(location,"sort",next))/>
         <button class="button button-ghost" on:click=move|_|location.navigate.run("/list".into())>"Clear filters"</button></div>
-        <Show when=move||state.loading.get()><p class="board-message" role="status">"Loading tickets…"</p></Show>
+        <Show when=move||state.loading.get()><LoadingSkeleton layout="list"/></Show>
         <Show when=move||!state.error.get().is_empty()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.loading.get() || state.busy.get() on:click=move|_|state.refresh()>"Reload list"</button></div></Show>
         <div class="ticket-list" aria-label="Tickets grouped by status" aria-busy=move||state.busy.get().to_string()>{Status::ALL.into_iter().map(|status|view!{
             <Show when=move||rows(state, location).iter().any(|t|t.status==status)><section class="list-group" aria-label=status.name()><div class="list-group-heading"><StatusIcon status/><h2>{status.name()}</h2><span class="count">{move||rows(state, location).iter().filter(|t|t.status==status).count()}</span><button class="list-add" disabled=move||state.busy.get() || state.loading.get() aria-label=format!("Add ticket to {}",status.name()) on:click=move|_|state.composer.set(Some(status))><Icon name="plus"/></button></div>
@@ -239,7 +225,7 @@ pub fn ApiList() -> impl IntoView {
         }).collect_view()}</div>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && rows(state, location).is_empty()><div class="empty-project"><div class="empty-state"><Icon name="filter"/><h2>"No tickets match this view"</h2><p>"Try another filter or add a ticket."</p><button class="button" on:click=move|_|location.navigate.run("/list".into())>"Clear filters"</button><button class="button button-primary" disabled=move||state.project.get()==0 on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"</button></div></div></Show>
         <div class="view-footer"><span>{move||crate::count::count_label(rows(state, location).len(), "ticket")}</span><span>"J / K: navigate · Enter: open · C: create"</span></div>
-        {move||state.composer.get().map(|status|view!{<BoardComposer status/>})}
+        {let shown=present_value(state.composer.into());move||shown.get().map(|status|view!{<BoardComposer status/>})}
     }
 }
 #[component]
@@ -249,14 +235,14 @@ fn ListRow(ticket: BoardTicket, selected: Callback<i64>) -> impl IntoView {
     let status = ticket.status;
     let priority = ticket.priority;
     let blockers = ticket.blocked_by.clone();
-    view! {<article class="ticket-row api-list-row" id=format!("list-ticket-{id}") tabindex="0" aria-label=format!("{}: {}",ticket.key,ticket.title)>
-        <span class="inline-property"><PriorityIcon priority/><select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=format!("Priority for {}",ticket.key) disabled=move||state.busy.get() prop:value=priority.name() on:change=move|e|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==event_target_value(&e)){edit(state,id,"priority",json!(p));}}>{Priority::ALL.into_iter().map(|p|view!{<option value=p.name() selected=p==priority>{p.name()}</option>}).collect_view()}</select></span>
-        <span class="mono ticket-id">{ticket.key.clone()}</span><span class="inline-property"><StatusIcon status/><select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=format!("Status for {}",ticket.key) disabled=move||state.busy.get() prop:value=status.name() on:change=move|e|edit(state,id,"status",json!(Status::from_name(&event_target_value(&e))))>{Status::ALL.into_iter().map(|s|view!{<option value=s.name() selected=s==status>{s.name()}</option>}).collect_view()}</select></span>
+    view! {<article class="ticket-row api-list-row" data-motion-key=format!("ticket-{id}") id=format!("list-ticket-{id}") tabindex="0" aria-label=format!("{}: {}",ticket.key,ticket.title)>
+        <span class="inline-property"><PriorityIcon priority/><SelectField label=format!("Priority for {}",ticket.key) value=Signal::derive(move||priority.name().to_string()) options=Signal::derive(move||options(&Priority::ALL.map(Priority::name))) on_change=Callback::new(move|next:String|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==next){edit(state,id,"priority",json!(p));}}) disabled=Signal::derive(move||state.busy.get())/></span>
+        <span class="mono ticket-id">{ticket.key.clone()}</span><span class="inline-property"><StatusIcon status/><SelectField label=format!("Status for {}",ticket.key) value=Signal::derive(move||status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|edit(state,id,"status",json!(Status::from_name(&next)))) disabled=Signal::derive(move||state.busy.get())/></span>
         <button class="row-title" title=ticket.title.clone() on:click=move|_|selected.run(id)>{ticket.title.clone()}</button>
         {move||{let keys=blockers.iter().filter_map(|id|state.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|t.key).collect::<Vec<_>>();(!keys.is_empty()).then(||view!{<span class="row-blocked" title=format!("Blocked by {}",keys.join(", "))><Icon name="blocked"/>"Blocked"</span>})}}
         <span class="row-labels">{ticket.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</span>
         <span class="row-comments">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<Icon name="comment"/>{n}})}</span>
-        <span class="row-project"><Icon name="project"/>{move||state.projects.get().iter().find(|p|p.id==ticket.project_id).map(|p|p.name.clone()).unwrap_or_default()}</span><time class="row-date" datetime=ticket.updated_at.clone()>{display_date(&ticket.updated_at)}</time>
+        <span class="row-project">{move||state.projects.get().into_iter().find(|p|p.id==ticket.project_id).map(|p|view!{<ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/>{p.name}})}</span><time class="row-date" datetime=ticket.updated_at.clone()>{display_date(&ticket.updated_at)}</time>
     </article>}
 }
 

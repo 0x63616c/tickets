@@ -7,6 +7,7 @@ pub fn validate(entity: &str, input: &Value) -> Result<(), String> {
         "projects" => &[
             "name",
             "key_prefix",
+            "icon",
             "color",
             "archived",
             "github_owner",
@@ -43,6 +44,11 @@ pub fn validate(entity: &str, input: &Value) -> Result<(), String> {
             }
             "key_prefix" => validate_prefix(v.as_str().ok_or("expected prefix string")?)?,
             "color" => validate_color(v.as_str().ok_or("expected color string")?)?,
+            "icon" => {
+                if !v.is_null() {
+                    validate_project_icon(v.as_str().ok_or("icon must be a string or null")?)?;
+                }
+            }
             "status" => {
                 serde_json::from_value::<Status>(v.clone()).map_err(|_| "invalid status")?;
             }
@@ -164,4 +170,26 @@ pub fn positive_id(s: &str) -> Result<i64, String> {
         .ok()
         .filter(|n| *n > 0)
         .ok_or_else(|| "Expected positive integer id".into())
+}
+
+#[cfg(test)]
+mod icon_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn project_icons_are_nullable_bounded_and_never_markup() {
+        for icon in [json!(null), json!("box"), json!("🚀"), json!("👩🏽‍💻")] {
+            assert!(validate("projects", &json!({"icon":icon})).is_ok());
+        }
+        for icon in [
+            json!(42),
+            json!(""),
+            json!("unknown"),
+            json!("<svg>"),
+            json!("🚀\n"),
+            json!("🚀".repeat(17)),
+        ] {
+            assert!(validate("projects", &json!({"icon":icon})).is_err());
+        }
+    }
 }

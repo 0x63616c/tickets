@@ -18,7 +18,10 @@ Read `CONTRIBUTING.md` first; everything there applies.
 - Never commit secrets, API tokens, or personal info. Tokens are stored hashed only.
 - Before opening a PR run: `cargo fmt --all --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
-- UI changes: attach before/after dark-mode screenshots to the PR.
+- UI changes: default to `cargo xtask component-shot <name>` after building;
+  `/design/c/<name>` renders fixture-only, tightly cropped 2× dark PNGs.
+  Attach before/after dark-mode PNGs to the PR; add full-page captures for layout
+  changes. See CONTRIBUTING.md and docs/design-system.md for variants and baselines.
 - First-run acceptance: run `CHROME_BIN=<headless-chromium> cargo xtask first-run-check`;
   see CONTRIBUTING.md for its empty-D1, UI-only contract and screenshot outputs.
 - If a convention is missing, add it to `CONTRIBUTING.md` / this file in the same PR.

@@ -24,6 +24,7 @@ jobs:
       - run: cargo xtask import-check
       - run: CHROME_BIN=google-chrome cargo xtask mirror-check
       - run: CHROME_BIN=google-chrome cargo xtask first-run-check
+      - run: CHROME_BIN=google-chrome cargo xtask component-shot all
       - name: Upload Chromium startup logs
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

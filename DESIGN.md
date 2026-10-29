@@ -48,9 +48,23 @@ Spacing tokens 1/2/3/4/5/6/8/10/12/16 map to
 4/8/12/16/20/24/32/40/48/64px. Radii sm/md/lg/modal are 4/6/8/12px.
 Sidebar width is 240px and topbar height 44px. Select horizontal padding is
 12px, chevron size 14px. Popover shadow is `0 4px 24px #0003`; scrim is `#0009`.
-Fast/normal/slow durations are 100/150/200ms with
-`cubic-bezier(.25, .46, .45, .94)`. Reduced-motion preferences set all three
-durations to zero.
+Motion acknowledges input and preserves continuity. Enter/exit use
+`cubic-bezier(.23, 1, .32, 1)`; on-screen movement uses
+`cubic-bezier(.77, 0, .175, 1)`. Press / popover / modal / exit / tooltip / movement
+are 120 / 180 / 240 / 120 / 125 / 200ms. Never use ease-in or scale from zero.
+Modals fade and scale from .97 while staying centered; anchored surfaces use the
+trigger's origin and flip above it near the viewport bottom. Exits are shorter.
+Presence retains content through exit; rapid reopen cancels pending removal.
+Animate transform and opacity only. Pressables scale to .97; hover rules require
+`(hover:hover) and (pointer:fine)`. Keyboard-driven frequent actions are immediate.
+Reduced motion removes movement and spinner cycling while retaining short opacity
+and color feedback. Skeletons are static, without an endless shimmer.
+
+Shared Select/DropdownMenu/Combobox replace browser selects. Keep the compact
+32px controls, clear focus rings, named options and saved-state authority. Use
+project glyphs from the shared SVG family or a user-selected emoji; absent icons
+keep a colored initial tile. These foundations supersede the previous native
+select and single-easing contract (TIK-38).
 
 ## Accessibility
 

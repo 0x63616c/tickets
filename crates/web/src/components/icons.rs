@@ -5,6 +5,12 @@ use leptos::prelude::*;
 #[component]
 pub fn Icon(#[prop(default = "plus")] name: &'static str) -> impl IntoView {
     let path = match name {
+        "code" => "m5 4-4 4 4 4m6-8 4 4-4 4M9 2 7 14",
+        "globe" => "M14 8A6 6 0 1 1 2 8a6 6 0 0 1 12 0ZM2 8h12M8 2c-4 4-4 8 0 12 4-4 4-8 0-12Z",
+        "box" => "m8 1 6 3v8l-6 3-6-3V4Zm-6 3 6 3 6-3M8 7v8",
+        "bolt" => "M9 1 3 9h4v6l6-8H9Z",
+        "star" => "m8 1 2 4 4.5.7-3.3 3.2.8 4.6-4-2.2-4 2.2.8-4.6L1.5 5.7 6 5Z",
+        "layers" => "m8 2 7 4-7 4-7-4Zm-7 7 7 4 7-4M1 12l7 4 7-4",
         "search" => "M11 11l3 3M12 7a5 5 0 1 1-10 0 5 5 0 0 1 10 0",
         "board" => "M2 3h4v10H2zM10 3h4v6h-4z",
         "list" => "M5 4h9M5 8h9M5 12h9M2 4h.01M2 8h.01M2 12h.01",

@@ -83,7 +83,7 @@ pub fn check(root: &Path, password: &str) -> Result {
     b.wait("!document.querySelector('.api-list-row') && document.body.innerText.includes('No tickets')")?;
     pair(&mut b, &output, phase, "list-empty")?;
     b.go(&format!("{URL}/ticket?id=9"))?;
-    b.wait("document.querySelectorAll('.comment').length===2 && document.querySelectorAll('.property select option').length>10")?;
+    b.wait("document.querySelectorAll('.comment').length===2 && document.querySelectorAll('.property [role=option]').length>10")?;
     pair(&mut b, &output, phase, "ticket-detail")?;
     b.viewport(390, 900)?;
     b.eval("document.querySelector('.properties').scrollIntoView();true")?;
@@ -92,7 +92,7 @@ pub fn check(root: &Path, password: &str) -> Result {
     b.go(&format!("{URL}/"))?;
     b.wait("document.querySelectorAll('.api-ticket').length===15")?;
     b.eval("[...document.querySelectorAll('.project-nav')].find(e=>e.textContent.includes('Quantum')).click();true")?;
-    b.wait("document.querySelector('.breadcrumb-current')?.textContent==='Quantum' && !document.querySelector('.api-ticket')")?;
+    b.wait("document.querySelector('.breadcrumb-current')?.textContent.endsWith('Quantum') && !document.querySelector('.api-ticket')")?;
     pair(&mut b, &output, phase, "empty-project")?;
     b.go(&format!("{URL}/settings/tokens"))?;
     b.wait("!!document.querySelector('.tokens li')")?;
@@ -154,7 +154,7 @@ fn interactions(b: &mut Browser) -> Result {
     b.wait("document.activeElement.matches('.command-results .menu-item') && getComputedStyle(document.activeElement).outlineWidth==='2px'")?;
     b.key("Enter", 13, 0)?;
     b.wait("location.pathname==='/t/TKT-9' && !!document.querySelector('.comment')")?;
-    b.wait("document.querySelector('.comment-form button[type=submit]').getBoundingClientRect().bottom<=900 && getComputedStyle(document.querySelector('.property select')).backgroundImage!=='none'")?;
+    b.wait("document.querySelector('.comment-form button[type=submit]').getBoundingClientRect().bottom<=900 && !!document.querySelector('.property .select-trigger > .icon')")?;
     b.viewport(390, 900)?;
     b.wait("document.documentElement.scrollWidth<=innerWidth")?;
     b.click("[aria-label='Toggle sidebar']")?;
@@ -168,7 +168,7 @@ fn interactions(b: &mut Browser) -> Result {
     b.wait("document.activeElement.getAttribute('aria-label')==='Toggle sidebar' && !document.querySelector('.sidebar-dismiss')")?;
     b.go(&format!("{URL}/list?project=1"))?;
     b.wait("document.querySelectorAll('.api-list-row').length===15")?;
-    b.wait("[...document.querySelectorAll('.board-filters select')].every(e=>e.getBoundingClientRect().width>=140) && [...document.querySelectorAll('.api-list-row')].every(e=>e.getBoundingClientRect().height===36) && new Set([...document.querySelectorAll('.api-list-row .row-title')].map(e=>e.getBoundingClientRect().x)).size===1")?;
+    b.wait("[...document.querySelectorAll('.board-filters .select-trigger')].every(e=>e.getBoundingClientRect().width>=140) && [...document.querySelectorAll('.api-list-row')].every(e=>e.getBoundingClientRect().height===36) && new Set([...document.querySelectorAll('.api-list-row .row-title')].map(e=>e.getBoundingClientRect().x)).size===1")?;
     // Long user-supplied text must remain contained at both viewport sizes.
     b.eval(r#"(async()=>{const r=await fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Preserve keyboard focus when moving tickets across projects with a very long title — '+ 'LongTitle'.repeat(20)})});if(!r.ok)throw Error('long title seed failed');return true})()"#)?;
     for width in [1440, 390] {

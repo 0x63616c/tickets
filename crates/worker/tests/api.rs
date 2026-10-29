@@ -937,3 +937,42 @@ fn committed_changes_keep_project_scope_including_moves_and_dependencies() {
         assert_eq!(deleted.change.unwrap().projects, vec![2]);
     });
 }
+
+#[test]
+fn project_icon_round_trip_and_clear() {
+    block_on(async {
+        let db = Sqlite::new();
+        let project = call(
+            &db,
+            "POST",
+            "/api/v1/projects",
+            json!({"name":"Icons","key_prefix":"ICO","color":"#123456"}),
+            201,
+        )
+        .await;
+        assert_eq!(project["icon"], Value::Null);
+        for icon in [json!("box"), json!("🚀"), Value::Null] {
+            let saved = call(
+                &db,
+                "PATCH",
+                "/api/v1/projects/1",
+                json!({"icon":icon}),
+                200,
+            )
+            .await;
+            assert_eq!(saved["icon"], icon);
+            assert_eq!(
+                call(&db, "GET", "/api/v1/projects/1", Value::Null, 200).await["icon"],
+                icon
+            );
+        }
+        call(
+            &db,
+            "PATCH",
+            "/api/v1/projects/1",
+            json!({"icon":"<script>"}),
+            422,
+        )
+        .await;
+    });
+}
