@@ -976,3 +976,87 @@ fn project_icon_round_trip_and_clear() {
         .await;
     });
 }
+
+#[test]
+fn project_open_counts_include_only_unresolved_tickets() {
+    block_on(async {
+        let db = Sqlite::new();
+        call(
+            &db,
+            "POST",
+            "/api/v1/projects",
+            json!({"name":"Sample","key_prefix":"EX","color":"#5e6ad2"}),
+            201,
+        )
+        .await;
+        call(
+            &db,
+            "POST",
+            "/api/v1/projects",
+            json!({"name":"Empty","key_prefix":"EM","color":"#5e6ad2"}),
+            201,
+        )
+        .await;
+        for status in [
+            "backlog",
+            "todo",
+            "in_progress",
+            "in_review",
+            "done",
+            "canceled",
+        ] {
+            call(
+                &db,
+                "POST",
+                "/api/v1/tickets",
+                json!({"project_id":1,"title":"Sample","status":status}),
+                201,
+            )
+            .await;
+        }
+        let projects = call(&db, "GET", "/api/v1/projects", Value::Null, 200).await;
+        assert_eq!(projects["data"][0]["open_ticket_count"], 4);
+        assert_eq!(projects["data"][1]["open_ticket_count"], 0);
+        call(
+            &db,
+            "PATCH",
+            "/api/v1/tickets/1",
+            json!({"status":"done"}),
+            200,
+        )
+        .await;
+        assert_eq!(
+            call(&db, "GET", "/api/v1/projects/1", Value::Null, 200).await["open_ticket_count"],
+            3
+        );
+    });
+}
+
+#[test]
+fn account_name_migration_and_shared_queries() {
+    use tickets_worker::{auth_queries, repository::Store};
+    block_on(async {
+        let db = Sqlite::new();
+        db.0.execute("INSERT INTO users(id,username) VALUES(1,'sample-user')", [])
+            .unwrap();
+        let rows: Vec<Value> = db
+            .query(auth_queries::ACCOUNT, vec![json!(1)])
+            .await
+            .unwrap();
+        assert!(rows[0]["display_name"].is_null());
+        let rows: Vec<Value> = db
+            .query(
+                auth_queries::UPDATE_ACCOUNT,
+                vec![json!("Sample User"), json!(1)],
+            )
+            .await
+            .unwrap();
+        assert_eq!(rows[0]["display_name"], "Sample User");
+        let rows: Vec<Value> = db
+            .query(auth_queries::UPDATE_ACCOUNT, vec![Value::Null, json!(1)])
+            .await
+            .unwrap();
+        assert_eq!(rows[0]["username"], "sample-user");
+        assert!(rows[0]["display_name"].is_null());
+    });
+}

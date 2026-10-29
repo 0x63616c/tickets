@@ -90,6 +90,8 @@ pub fn validate_project_icon(icon: &str) -> Result<(), String> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Project {
     #[serde(default)]
+    pub open_ticket_count: u64,
+    #[serde(default)]
     pub icon: Option<String>,
     pub id: i64,
     pub name: String,

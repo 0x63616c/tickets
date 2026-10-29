@@ -54,6 +54,7 @@ fn reply(value: Value, status: u16) -> Result<Response> {
             401 => "unauthorized",
             403 => "forbidden",
             404 => "not_found",
+            422 => "validation",
             429 => "rate_limited",
             _ => "internal",
         };
@@ -184,9 +185,13 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
     } else {
         crate::auth_queries::SESSION
     };
-    if query(&db, sql, vec![hash.clone().into()]).await?.is_empty() {
+    let authenticated = query(&db, sql, vec![hash.clone().into()]).await?;
+    let Some(user_id) = authenticated
+        .first()
+        .and_then(|row| row["user_id"].as_i64())
+    else {
         return denied();
-    }
+    };
     if changing && !bearer && !same_origin(&req) {
         return reply(json!({"error":"Origin required"}), 403);
     }
@@ -202,7 +207,16 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
         return crate::live::upgrade(req, &env, &db, project).await;
     }
     match (method,path.as_str()) {
-        (Method::Get,"/api/v1/me")=>reply(json!({"authenticated":true}),200),
+        (Method::Get,"/api/v1/me")=> {
+            let account=query(&db,crate::auth_queries::ACCOUNT,vec![user_id.into()]).await?;
+            reply(json!({"authenticated":true,"username":account[0]["username"],"display_name":account[0]["display_name"]}),200)
+        },
+        (Method::Patch,"/api/v1/me")=> {
+            let input=match req.json::<Value>().await { Ok(v)=>v, Err(_)=>return reply(json!({"error":"Malformed JSON"}),400) };
+            let name=match display_name(&input) { Ok(v)=>v, Err(e)=>return reply(json!({"error":e}),422) };
+            let account=query(&db,crate::auth_queries::UPDATE_ACCOUNT,vec![json!(name),user_id.into()]).await?;
+            reply(json!({"authenticated":true,"username":account[0]["username"],"display_name":account[0]["display_name"]}),200)
+        },
         (Method::Post,"/api/v1/logout")=> {
             if !bearer { query(&db,"DELETE FROM sessions WHERE token_hash=?",vec![hash.into()]).await?; }
             let mut r=reply(json!({"ok":true}),200)?;

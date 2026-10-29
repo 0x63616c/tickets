@@ -23,6 +23,8 @@ const TICKET_SELECT: &str = "tickets.*,
 fn selection(entity: &str) -> &str {
     if entity == "tickets" {
         TICKET_SELECT
+    } else if entity == "projects" {
+        "projects.*, (SELECT count(*) FROM tickets WHERE project_id=projects.id AND status NOT IN ('done','canceled')) AS open_ticket_count"
     } else {
         "*"
     }

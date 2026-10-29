@@ -5,6 +5,9 @@ use leptos::prelude::*;
 #[component]
 pub fn Icon(#[prop(default = "plus")] name: &'static str) -> impl IntoView {
     let path = match name {
+        "home" => "m2 7 6-5 6 5v7H9v-4H7v4H2Z",
+        "user" => "M11 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM2 14v-1a6 6 0 0 1 12 0v1",
+        "appearance" => "M14 8A6 6 0 1 1 8 2a4.5 4.5 0 0 0 6 6Z",
         "code" => "m5 4-4 4 4 4m6-8 4 4-4 4M9 2 7 14",
         "globe" => "M14 8A6 6 0 1 1 2 8a6 6 0 0 1 12 0ZM2 8h12M8 2c-4 4-4 8 0 12 4-4 4-8 0-12Z",
         "box" => "m8 1 6 3v8l-6 3-6-3V4Zm-6 3 6 3 6-3M8 7v8",

@@ -27,6 +27,8 @@ pub fn Gallery() -> impl IntoView {
 }
 
 pub const COMPONENTS: &[&str] = &[
+    "sidebar",
+    "user-menu",
     "select",
     "menu",
     "combobox",
@@ -67,6 +69,7 @@ fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
     let project = RwSignal::new("Tickets".to_string());
     let tabs = RwSignal::new("Write".to_string());
     match name {
+        "sidebar" | "user-menu"=>view!{<Sidebar/>}.into_any(),
         "select"=>view!{<label class="field"><span>"Status"</span><Select label="Example status" options=Status::ALL.map(Status::name).to_vec() value=selected/></label>}.into_any(),
         "menu"=>view!{<DropdownMenu label="Ticket actions"><MenuItem on_select=Callback::new(move|_|{}) shortcut="E"><Icon name="ticket"/>"Edit ticket"</MenuItem><MenuItem on_select=Callback::new(move|_|{}) shortcut="⌘ C"><Icon name="link"/>"Copy link"</MenuItem><MenuSeparator/><MenuItem checked=Signal::derive(move||checked.get()) on_select=Callback::new(move|_|checked.update(|v|*v= !*v))>"Show completed"</MenuItem></DropdownMenu>}.into_any(),
         "combobox"=>view!{<Combobox label="Add label" input_id="label-filter" options=Signal::derive(||options(&["Feature","Bug","Infrastructure","Design"])) selected=labels on_toggle=Callback::new(move|v:String|labels.update(|ls|{if ls.contains(&v){ls.retain(|l|*l!=v);}else{ls.push(v);}}))/>}.into_any(),

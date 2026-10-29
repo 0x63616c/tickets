@@ -55,8 +55,8 @@ pub fn LabelChip(#[prop(into)] name: String, #[prop(optional)] color: String) ->
 
 #[component]
 pub fn Avatar(
-    #[prop(default = "You".into(), into)] label: String,
-    #[prop(default = "Y".into(), into)] initials: String,
+    #[prop(default = "Unassigned".into(), into)] label: String,
+    #[prop(default = "".into(), into)] initials: String,
 ) -> impl IntoView {
     view! { <span class="avatar" role="img" aria-label=label.clone() title=label>{initials}</span> }
 }

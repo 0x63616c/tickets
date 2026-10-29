@@ -24,6 +24,8 @@ use leptos_router::{
 #[cfg(target_arch = "wasm32")]
 #[component]
 fn App() -> impl IntoView {
+    pages::settings::apply_appearance();
+    provide_context(pages::settings::AccountState::new());
     provide_context(components::DesignState::new());
     provide_context(pages::board::BoardState::new());
     if window()
@@ -38,17 +40,22 @@ fn App() -> impl IntoView {
         <Router><Show when=|| window().location().pathname().unwrap_or_default() == "/login" fallback=|| view! { <components::AppShell>
             <Routes fallback=|| view! { <components::TopBar/><div class="empty-state"><h1>"Page not found"</h1><a class="button button-secondary" href="/">"Back to tickets"</a></div> }>
                 <Route path=path!("/") view=pages::ApiBoard/>
+                <Route path=path!("/home") view=pages::ApiBoard/>
                 <Route path=path!("/list") view=pages::list::ApiList/>
                 <Route path=path!("/t/:key") view=pages::api_detail::ApiDetail/>
                 <Route path=path!("/ticket") view=pages::api_detail::ApiDetail/>
                 <Route path=path!("/projects") view=pages::projects::ApiProjects/>
                 <Route path=path!("/design") view=pages::Gallery/>
+                <Route path=path!("/design/home") view=pages::Board/>
                 <Route path=path!("/design/board") view=pages::Board/>
                 <Route path=path!("/design/list") view=pages::List/>
                 <Route path=path!("/design/ticket") view=pages::TicketDetail/>
                 <Route path=path!("/design/empty") view=pages::Empty/>
                 <Route path=path!("/design/projects") view=pages::Projects/>
-                <Route path=path!("/settings/tokens") view=|| view! { <div class="auth-page"><ui::Tokens/></div> }/>
+                <Route path=path!("/settings/tokens") view=|| view!{<leptos_router::components::Redirect path="/settings/api-tokens"/>}/>
+                <Route path=path!("/settings") view=|| view!{<leptos_router::components::Redirect path="/settings/account"/>}/>
+                <Route path=path!("/settings/:section") view=pages::settings::Settings/>
+                <Route path=path!("/design/settings/:section") view=pages::settings::Settings/>
             </Routes>
         </components::AppShell> }><ui::Login/></Show></Router>
     }.into_any()

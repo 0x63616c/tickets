@@ -1,34 +1,30 @@
 use super::*;
-use leptos::prelude::*;
+use leptos::{ev, prelude::*};
 use leptos_router::components::A;
 use leptos_router::hooks::use_location;
 use web_sys::wasm_bindgen::JsCast;
 
 #[component]
 pub fn AppShell(children: Children) -> impl IntoView {
-    let state = expect_context::<DesignState>();
     let board = expect_context::<crate::pages::board::BoardState>();
     let location = use_location();
     crate::live::subscribe(board, location.pathname);
-    wasm_bindgen_futures::spawn_local(async move {
-        board.signed_in.set(
-            crate::ui::api("GET", "/api/v1/me", serde_json::Value::Null)
-                .await
-                .is_ok(),
-        );
-        if board.signed_in.get_untracked()
-            && location.pathname.get_untracked() == "/settings/tokens"
-        {
-            board.refresh();
-        }
-    });
+    let account = expect_context::<crate::pages::settings::AccountState>();
+    let fixture = location.pathname.get_untracked().starts_with("/design");
+    if fixture {
+        fixture_account(account);
+    } else {
+        account.load();
+    }
+    if !fixture && location.pathname.get_untracked().starts_with("/settings") {
+        board.refresh();
+    }
     Effect::new(move |_| {
         let cleanup = install_motion();
         on_cleanup(move || {
             let _ = cleanup.call0(&wasm_bindgen::JsValue::NULL);
         });
     });
-    let signing_out = RwSignal::new(false);
     let mobile_open = RwSignal::new(false);
     let toggle = NodeRef::<leptos::html::Button>::new();
     let close_sidebar = Callback::new(move |_| {
@@ -41,52 +37,170 @@ pub fn AppShell(children: Children) -> impl IntoView {
         <a class="skip-link" href="#main">"Skip to content"</a>
         <div class="app-shell" class:sidebar-open=move || mobile_open.get() on:keydown=move |event: web_sys::KeyboardEvent| { if mobile_open.get_untracked() { if event.key()=="Escape" { close_sidebar.run(()); } else { sidebar_key(event); } } }>
             <Show when=move||mobile_open.get()><button class="sidebar-dismiss" aria-label="Close sidebar" tabindex="-1" on:click=move|_|close_sidebar.run(())/></Show>
-            <aside class="sidebar" id="workspace-sidebar" aria-label="Workspace">
-                <div class="workspace"><a class="workspace-switcher" href="/" aria-label="Tickets home"><span class="workspace-mark">"T"</span><strong>"Tickets"</strong></a><Avatar/></div>
-                <button class="search-trigger" on:click=move |_| state.dialog.set(DialogKind::Command)><Icon name="search"/><span>"Search tickets…"</span><Shortcut>"⌘ K"</Shortcut></button>
-                <Show when=move || location.pathname.get().starts_with("/design") fallback=move || view! {
-                    <nav class="sidebar-nav" aria-label="Main navigation" on:click=move |_| mobile_open.set(false)>
-                        <A href="/projects" attr:class="nav-item"><Icon name="project"/><span>"Projects"</span><span class="nav-count">{move||board.projects.get().iter().filter(|p|!p.archived).count()}</span></A>
-                        <div class="nav-section-label">"Projects"</div>
-                        {move || board.projects.get().into_iter().filter(|p|!p.archived).map(|p| {
-                            let id = p.id;
-                            view! { <A href="/" attr:class="nav-item project-nav" on:click=move |ev| { if !board.select_project(id) {ev.prevent_default();} }><ProjectIcon name=p.name.clone() icon=p.icon.clone().unwrap_or_default() color=p.color.clone()/><span>{p.name}</span><span class="nav-count">{move||board.tickets.get().iter().filter(|t|t.project_id==id).count()}</span></A> }
-                        }).collect_view()}
-                        <a class="nav-item quiet" href="/projects?new=true"><Icon name="plus"/><span>"New project"</span></a>
-                        <div class="nav-section-label">"Views"</div>
-                        <A href="/" attr:class="nav-item"><Icon name="board"/>"Board"</A>
-                        <A href="/list" attr:class="nav-item"><Icon name="list"/>"List"</A>
-                    </nav>
-                }>
-
-                <nav class="sidebar-nav" aria-label="Main navigation" on:click=move |_| mobile_open.set(false)>
-                    <A href="/design/projects" attr:class="nav-item"><Icon name="project"/><span>"Projects"</span><span class="nav-count">{move || state.projects.get().len() + 2}</span></A>
-                    <div class="nav-section-label">"Projects"</div>
-                    <A href="/design/board" attr:class="nav-item project-nav" on:click=move |_| state.current_project.set("Tickets".into())><ProjectIcon name="Tickets" icon="ticket"/><span>"Tickets"</span><span class="nav-count">{move || state.tickets.get().iter().filter(|t| t.project == "Tickets").count()}</span></A>
-                    <A href="/design/empty" attr:class="nav-item" on:click=move |_| state.current_project.set("Quantum".into())><ProjectIcon name="Quantum" icon="box" color="#4ea7fc"/><span>"Quantum"</span></A>
-                    {move || state.projects.get().into_iter().map(|name| { let project = name.clone(); view! { <A href="/design/empty" attr:class="nav-item project-nav" on:click=move |_| state.current_project.set(project.clone())><ProjectIcon name=name.clone() color="#27a644"/><span>{name}</span></A> } }).collect_view()}
-                    <button class="nav-item quiet" on:click=move |_| state.dialog.set(DialogKind::Project)><Icon name="plus"/><span>"New project"</span></button>
-                    <div class="nav-section-label">"Views"</div>
-                    <A href="/design/board" attr:class="nav-item"><Icon name="board"/><span>"Board"</span></A>
-                    <A href="/design/list" attr:class="nav-item"><Icon name="list"/><span>"List"</span></A>
-                </nav>
-                </Show>
-                <div class="sidebar-bottom">
-                    <A href="/settings/tokens" attr:class="nav-item"><Icon name="settings"/><span>"API tokens"</span></A>
-                    <BusyButton kind="button" class="nav-item" variant="ghost" busy=signing_out status_label="Signing out" on_click=Callback::new(move|_|{signing_out.set(true);wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{board.signed_in.set(false);let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}signing_out.set(false);});})><Icon name="arrow"/><span>"Sign out"</span></BusyButton>
-                    <A href="/design" exact=true attr:class="nav-item"><Icon name="grid"/><span>"Design system"</span></A>
-                    <Show when=move || location.pathname.get().starts_with("/design")><div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div></Show>
-                    <div class="sidebar-account"><Avatar/><span>"Personal workspace"</span><Show when=move || location.pathname.get().starts_with("/design")><IconButton label="Open commands" icon="help" on_click=Callback::new(move |_| state.dialog.set(DialogKind::Command))/></Show></div>
-                </div>
-            </aside>
+            <Sidebar on_navigate=Callback::new(move |_| mobile_open.set(false))/>
             <div class="app-main">
-                <div class="mobile-bar"><button node_ref=toggle class="icon-button" aria-label="Toggle sidebar" aria-controls="workspace-sidebar" aria-expanded=move||mobile_open.get().to_string() on:click=move|_|{ mobile_open.update(|v| *v = !*v); if mobile_open.get_untracked() { request_animation_frame(move||{if let Ok(Some(first))=document().query_selector(".sidebar a") && let Some(first)=first.dyn_ref::<web_sys::HtmlElement>() {let _=first.focus();}}); } }><Icon name="list"/></button><strong>"Tickets"</strong></div>
+                <div class="mobile-bar"><button node_ref=toggle class="icon-button" aria-label="Toggle sidebar" aria-controls="workspace-sidebar" aria-expanded=move||mobile_open.get().to_string() on:click=move|_|{ mobile_open.update(|v| *v = !*v); if mobile_open.get_untracked() { request_animation_frame(move||{if let Ok(Some(first))=document().query_selector(".sidebar button") && let Some(first)=first.dyn_ref::<web_sys::HtmlElement>() {let _=first.focus();}}); } }><Icon name="list"/></button><strong>"Tickets"</strong></div>
                 <main id="main" tabindex="-1">{children()}</main>
             </div>
         </div>
         <Overlays/>
         <Toast/>
     }
+}
+
+fn fixture_account(account: crate::pages::settings::AccountState) {
+    account.account.set(crate::pages::settings::Account {
+        username: "sample-user".into(),
+        display_name: Some("Sample User".into()),
+    });
+    account.loaded.set(true);
+    let board = expect_context::<crate::pages::board::BoardState>();
+    board.projects.set(serde_json::from_value(serde_json::json!([
+        {"id":1,"name":"Tickets","key_prefix":"TKT","color":"#5e6ad2","icon":"ticket","archived":false,"github_owner":"example","github_repo":"tickets","github_project_kind":"users","github_project_number":null,"next_ticket_number":1,"open_ticket_count":12},
+        {"id":2,"name":"Quantum","key_prefix":"QUA","color":"#4ea7fc","icon":"box","archived":false,"github_owner":"example","github_repo":"quantum","github_project_kind":"users","github_project_number":null,"next_ticket_number":1,"open_ticket_count":8},
+        {"id":3,"name":"Apps","key_prefix":"APP","color":"#27a644","icon":"grid","archived":false,"github_owner":null,"github_repo":null,"github_project_kind":"users","github_project_number":null,"next_ticket_number":1,"open_ticket_count":3}
+    ])).expect("valid project fixtures"));
+    board.loading.set(false);
+}
+
+#[component]
+pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl IntoView {
+    let state = expect_context::<DesignState>();
+    let board = expect_context::<crate::pages::board::BoardState>();
+    let account = expect_context::<crate::pages::settings::AccountState>();
+    let location = use_location();
+    let fixture = location.pathname.get_untracked().starts_with("/design");
+    if fixture {
+        fixture_account(account);
+    }
+    let shortcuts = RwSignal::new(false);
+    let count_revision = RwSignal::new(0_u64);
+    Effect::new(move |_| {
+        board.tickets.track();
+        if fixture || board.loading.get_untracked() {
+            return;
+        }
+        count_revision.update(|r| *r += 1);
+        let revision = count_revision.get_untracked();
+        wasm_bindgen_futures::spawn_local(async move {
+            if let Ok(projects) =
+                crate::pages::board::all::<tickets_core::domain::Project>("projects").await
+                && !count_revision.is_disposed()
+                && count_revision.get_untracked() == revision
+            {
+                board.projects.set(projects);
+            }
+        });
+    });
+    let signing_out = RwSignal::new(false);
+    let navigate = leptos_router::hooks::use_navigate();
+    let go = Callback::new(move |path: String| {
+        if let Some(cb) = on_navigate {
+            cb.run(());
+        }
+        navigate(&path, Default::default());
+    });
+    let settings = if fixture {
+        "/design/settings/account"
+    } else {
+        "/settings/account"
+    };
+    let home = if fixture { "/design/home" } else { "/home" };
+    let board_path = if fixture { "/design/board" } else { "/" };
+    let list = if fixture { "/design/list" } else { "/list" };
+    let projects = if fixture {
+        "/design/projects"
+    } else {
+        "/projects"
+    };
+    let stamp = StoredValue::new(0.0);
+    let handle = window_event_listener(ev::keydown, move |e| {
+        let editing = e
+            .target()
+            .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+            .is_some_and(|el| {
+                el.closest("input,textarea,select,[contenteditable=true]")
+                    .ok()
+                    .flatten()
+                    .is_some()
+            });
+        if editing
+            || e.meta_key()
+            || e.ctrl_key()
+            || e.alt_key()
+            || e.repeat()
+            || document()
+                .query_selector("dialog[open],.popup[data-state=open]:not([hidden])")
+                .ok()
+                .flatten()
+                .is_some()
+        {
+            stamp.set_value(0.);
+            return;
+        }
+        let now = js_sys::Date::now();
+        if e.key() == "?" {
+            e.prevent_default();
+            shortcuts.set(true);
+        } else if e.key().eq_ignore_ascii_case("g") {
+            stamp.set_value(now);
+        } else {
+            if now - stamp.get_value() < 1000. {
+                let path = match e.key().to_lowercase().as_str() {
+                    "b" => Some(board_path),
+                    "l" => Some(list),
+                    "h" => Some(home),
+                    _ => None,
+                };
+                if let Some(path) = path {
+                    e.prevent_default();
+                    go.run(path.into());
+                }
+            }
+            stamp.set_value(0.);
+        }
+    });
+    on_cleanup(move || handle.remove());
+    view! {<aside class="sidebar" id="workspace-sidebar" aria-label="Workspace">
+        <div class="workspace user-menu"><DropdownMenu class="account-dropdown" trigger_class="button button-ghost account-trigger" label="Tickets" icon="ticket" disclosure=true>
+            <div class="account-menu-heading"><strong>{move||account.account.get().label()}</strong><span>"Tickets account"</span></div><MenuSeparator/>
+            <MenuItem on_select=Callback::new(move|_|go.run(settings.into()))><Icon name="settings"/>"Settings"</MenuItem>
+            <MenuItem on_select=Callback::new(move|_|shortcuts.set(true)) shortcut="?"><Icon name="help"/>"Keyboard shortcuts"</MenuItem><MenuSeparator/>
+            <MenuItem on_select=Callback::new(move|_|{if fixture || signing_out.get_untracked(){return;}signing_out.set(true);wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}signing_out.set(false);});})><Icon name="arrow"/>{move||if signing_out.get(){"Signing out…"}else{"Sign out"}}</MenuItem>
+        </DropdownMenu></div>
+        <nav class="sidebar-nav" aria-label="Main navigation" on:click=move|e: web_sys::MouseEvent|{if e.target().and_then(|t|t.dyn_into::<web_sys::Element>().ok()).is_some_and(|t|t.closest("a").ok().flatten().is_some()) && let Some(cb)=on_navigate {cb.run(());}}>
+            <Tooltip text="Home · G then H"><A href=home attr:class="nav-item" exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
+            <button class="nav-item search-trigger" on:click=move|_|{state.dialog.set(DialogKind::Command);if let Some(cb)=on_navigate{cb.run(());}}><Icon name="search"/><span>"Search tickets"</span><Shortcut>"⌘ K"</Shortcut></button>
+            <SidebarSection title="Projects" storage="tickets.sidebar.projects" id="sidebar-projects">
+                <A href=projects attr:class="nav-item" on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="project"/><span>"All projects"</span></A>
+                {move||board.projects.get().into_iter().filter(|p|!p.archived).map(|p|{let id=p.id;let name=p.name.clone();let active=Signal::derive(move||if fixture {state.current_project.get()==name && ["/design/board","/design/empty"].contains(&location.pathname.get().as_str())}else{board.project.get()==id && location.pathname.get()=="/"});view!{
+                    <a href=if fixture && id!=1 {"/design/empty"}else{board_path} class="nav-item project-nav" class:active=move||active.get() aria-current=move||active.get().then_some("page") aria-label=format!("{}, {} open tickets",p.name,p.open_ticket_count)
+                        on:click=move|ev|{if fixture{state.current_project.set(p.name.clone());}else if !board.select_project(id){ev.prevent_default();return;}
+                        if let Some(cb)=on_navigate{cb.run(());}}>
+                        <ProjectIcon name=p.name.clone() icon=p.icon.clone().unwrap_or_default() color=p.color.clone()/><span>{p.name.clone()}</span><span class="nav-count" title="Open tickets">{p.open_ticket_count}</span>
+                    </a>
+                }}).collect_view()}
+                <a class="nav-item quiet" href=if fixture {"/design/projects"}else{"/projects?new=true"}><Icon name="plus"/><span>"New project"</span></a>
+            </SidebarSection>
+            <SidebarSection title="Views" storage="tickets.sidebar.views" id="sidebar-views">
+                <Tooltip text="Board · G then B"><A href=board_path exact=true attr:class="nav-item"><Icon name="board"/><span>"Board"</span></A></Tooltip>
+                <Tooltip text="List · G then L"><A href=list attr:class="nav-item"><Icon name="list"/><span>"List"</span></A></Tooltip>
+            </SidebarSection>
+        </nav>
+        {fixture.then(||view!{<div class="sidebar-bottom"><div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div></div>})}
+    </aside>
+    <Presence show=shortcuts><Modal title="Keyboard shortcuts" on_close=Callback::new(move|_|shortcuts.set(false))><div class="modal-body shortcut-list">{[("Search tickets","⌘ / Ctrl K"),("New ticket","C"),("Home","G then H"),("Board","G then B"),("List","G then L"),("Next / previous list ticket","J / K"),("Open focused ticket","Enter"),("Close menu or dialog","Esc")].into_iter().map(|(name,key)|view!{<div><span>{name}</span><Shortcut>{key}</Shortcut></div>}).collect_view()}</div></Modal></Presence>}
+}
+
+#[component]
+fn SidebarSection(
+    title: &'static str,
+    storage: &'static str,
+    id: &'static str,
+    children: Children,
+) -> impl IntoView {
+    let open = RwSignal::new(crate::pages::settings::stored(storage, "open") != "closed");
+    view! {<section class="sidebar-section"><button class="nav-section-toggle" aria-expanded=move||open.get().to_string() aria-controls=id on:click=move|_|{open.update(|v|*v= !*v);crate::pages::settings::persist(storage,if open.get_untracked(){"open"}else{"closed"});}><span>{title}</span><Icon name="chevron"/></button><div id=id class="sidebar-section-items" hidden=move||!open.get()>{children()}</div></section>}
 }
 
 fn sidebar_key(event: web_sys::KeyboardEvent) {
@@ -98,21 +212,24 @@ fn sidebar_key(event: web_sys::KeyboardEvent) {
     else {
         return;
     };
-    let (Some(first), Some(last), Some(active)) = (
-        items.item(0),
-        items.item(items.length().saturating_sub(1)),
-        document().active_element(),
-    ) else {
+    let visible = (0..items.length())
+        .filter_map(|i| items.item(i))
+        .filter_map(|n| n.dyn_into::<web_sys::HtmlElement>().ok())
+        .filter(|e| e.get_bounding_client_rect().height() > 0.)
+        .collect::<Vec<_>>();
+    let (Some(first), Some(last), Some(active)) =
+        (visible.first(), visible.last(), document().active_element())
+    else {
         return;
     };
     let target = if event.shift_key() && first.is_same_node(Some(&active)) {
-        Some(last)
+        Some(last.clone())
     } else if !event.shift_key() && last.is_same_node(Some(&active)) {
-        Some(first)
+        Some(first.clone())
     } else {
         None
     };
-    if let Some(target) = target.and_then(|node| node.dyn_into::<web_sys::HtmlElement>().ok()) {
+    if let Some(target) = target {
         event.prevent_default();
         let _ = target.focus();
     }

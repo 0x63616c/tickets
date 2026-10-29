@@ -32,7 +32,7 @@ pub fn check(root: &Path, password: &str) -> Result {
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
-    b.wait("location.pathname === '/settings/tokens'")?;
+    b.wait("['/settings/tokens','/settings/api-tokens'].includes(location.pathname)")?;
     b.go(&format!("{URL}/"))?;
     b.wait("document.body.innerText.includes('No projects yet')")?;
     pair(&mut b, &output, phase, "empty-workspace")?;

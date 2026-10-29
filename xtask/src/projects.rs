@@ -14,7 +14,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
-    b.wait("location.pathname==='/settings/tokens'")?;
+    b.wait("['/settings/tokens','/settings/api-tokens'].includes(location.pathname)")?;
     b.eval(r#"(async()=>{
         const api=async(path,body)=>{const r=await fetch('/api/v1/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error(path);return r.json()};
         await api('projects',{name:'Tickets',key_prefix:'TKT',color:'#5e6ad2',github_owner:'example',github_project_number:7,github_project_kind:'orgs',github_repo:'tickets'});

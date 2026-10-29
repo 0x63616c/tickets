@@ -22,7 +22,10 @@ export function hide_popup(panel) {
   try { if (panel.matches(':popover-open')) panel.hidePopover(); } catch (_) { /* fallback */ }
 }
 export function install_motion() {
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduced = { get matches() { return document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches; } };
+  const scheme = matchMedia('(prefers-color-scheme: light)');
+  const schemeChanged = () => { try { if (localStorage.getItem('tickets.theme') === 'system') document.documentElement.dataset.theme = scheme.matches ? 'light' : 'dark'; } catch (_) {} };
+  scheme.addEventListener('change', schemeChanged);
   let records = new Map(), frame = 0, keyboard = false, replay = false, route = location.pathname;
   const selector = '[data-motion-key]';
   const keydown = () => { keyboard = true; };
@@ -86,7 +89,7 @@ export function install_motion() {
   document.addEventListener('click',navigate,true);
   document.addEventListener('keydown',keydown,true);
   document.addEventListener('pointerdown',pointerdown,true);
-  return () => { observer.disconnect(); cancelAnimationFrame(frame); document.removeEventListener('click',navigate,true); document.removeEventListener('keydown',keydown,true); document.removeEventListener('pointerdown',pointerdown,true); };
+  return () => { scheme.removeEventListener('change', schemeChanged); observer.disconnect(); cancelAnimationFrame(frame); document.removeEventListener('click',navigate,true); document.removeEventListener('keydown',keydown,true); document.removeEventListener('pointerdown',pointerdown,true); };
 }
 
 export function watch_popup(trigger, panel) {

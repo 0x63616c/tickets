@@ -145,6 +145,11 @@ pub fn projects(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "projects")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn settings(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "settings")
+}
+
 pub fn first_run(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "first-run")
 }
@@ -270,6 +275,10 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         thread::sleep(Duration::from_millis(300));
     }
     // First-run must reach login with no prior API auth, token or domain writes.
+    #[cfg(not(target_arch = "wasm32"))]
+    if _view == "settings" {
+        return super::settings::check(root, &password);
+    }
     #[cfg(not(target_arch = "wasm32"))]
     if _view == "first-run" {
         return super::first_run::check(root, &password);

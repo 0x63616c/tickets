@@ -18,6 +18,8 @@ mod login;
 mod mirror_check;
 #[cfg(not(target_arch = "wasm32"))]
 mod screenshots;
+#[cfg(not(target_arch = "wasm32"))]
+mod settings;
 mod skill_check;
 
 use std::{env, error::Error, path::Path, process::Command};
@@ -85,6 +87,10 @@ fn main() -> Result {
         return Err("expected exactly one task: dev, build, migrate, ci, api-smoke, skill-check, live-check, import-github, import-check, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
     }
     match task.as_deref() {
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("settings-shot") => settings::shots(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("settings-check") => api_smoke::settings(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("component-shot") => component::run(root,&args[1..]),
         #[cfg(not(target_arch = "wasm32"))]

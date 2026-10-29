@@ -87,7 +87,7 @@ pub fn Login() -> impl IntoView {
     </form></section></main> }
 }
 #[component]
-pub fn Tokens() -> impl IntoView {
+pub fn Tokens(#[prop(default = false)] fixture: bool) -> impl IntoView {
     #[derive(Clone, serde::Deserialize)]
     struct Token {
         id: i64,
@@ -106,10 +106,13 @@ pub fn Tokens() -> impl IntoView {
     let (created, set_created) = signal(String::new());
     let (message, set_message) = signal(String::new());
     let (busy, set_busy) = signal(false);
-    let signing_out = RwSignal::new(false);
     let revoking = RwSignal::new(None::<i64>);
     let (authorized, set_authorized) = signal(false);
     let refresh = move || {
+        if fixture {
+            set_authorized.set(true);
+            return;
+        }
         spawn_local(async move {
             match api("GET", "/api/v1/tokens", Value::Null).await {
                 Ok(v) => match serde_json::from_value(v) {
@@ -124,9 +127,9 @@ pub fn Tokens() -> impl IntoView {
         })
     };
     refresh();
-    view! { <header class="topbar"><h1>"API tokens"</h1><Show when=move||authorized.get()><BusyButton kind="button" variant="ghost" busy=signing_out status_label="Signing out" on_click=Callback::new(move |_|{signing_out.set(true);spawn_local(async move { match api("POST","/api/v1/logout",Value::Null).await{Ok(_)=>{let _=web_sys::window().unwrap().location().set_href("/login");},Err(e)=>set_message.set(e)} signing_out.set(false); });})>"Sign out"</BusyButton></Show></header>
+    view! { <h1>"API tokens"</h1>
     <section><div class="settings-panel"><div class="settings-intro"><h2>"Personal API tokens"</h2><p>"Give each agent its own token. Revoke it when access is no longer needed."</p></div>
-    <form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move |ev| { ev.prevent_default(); if busy.get_untracked(){return;} set_busy.set(true); set_created.set(String::new()); set_message.set(String::new()); spawn_local(async move {
+    <form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move |ev| { ev.prevent_default(); if busy.get_untracked() || fixture {return;} set_busy.set(true); set_created.set(String::new()); set_message.set(String::new()); spawn_local(async move {
         match api("POST","/api/v1/tokens",json!({"name":name.get_untracked()})).await { Ok(v)=>match serde_json::from_value::<Created>(v){Ok(v)=>{set_created.set(v.token);set_name.set(String::new());refresh();},Err(e)=>set_message.set(format!("Invalid token response: {e}"))},Err(e)=>set_message.set(e) } set_busy.set(false);
     }); }><div class="settings-fields"><label class="field" for="token-label"><span>"Token name"</span><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  id="token-label" placeholder="Build agent" required maxlength="100" disabled=move||!authorized.get() prop:value=name on:input=move |e|set_name.set(event_target_value(&e))/></label></div><div class="settings-footer"><BusyButton busy disabled=Signal::derive(move||!authorized.get() || name.get().trim().is_empty())>"Create token"</BusyButton></div></form></div>
     <Show when=move ||!created.get().is_empty()><div class="secret"><h2>"Copy your token"</h2><p>"This token is shown only once. Copy it before leaving this page."</p><code>{created}</code><button class="button" on:click=move |_|spawn_local(async move { let promise=web_sys::window().unwrap().navigator().clipboard().write_text(&created.get_untracked()); set_message.set(if wasm_bindgen_futures::JsFuture::from(promise).await.is_ok(){"Token copied."}else{"Copy failed. Select the token and copy it manually."}.into()); })>"Copy token"</button><button class="button button-ghost" on:click=move |_|set_created.set(String::new())>"Dismiss"</button></div></Show>

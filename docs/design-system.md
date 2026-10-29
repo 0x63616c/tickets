@@ -35,7 +35,7 @@ desktop/mobile screenshots; see the detail conventions in `CONTRIBUTING.md`.
 The `/design*` routes are local in-memory fixtures. Creation, status changes, labels, comments,
 projects, and dependency selection demonstrate behavior; reload resets them.
 The sidebar identifies the preview as Sample data. Ticket API integration, GitHub sync,
-and live transport remain separate. The existing `/login` and `/settings/tokens`
+and live transport remain separate. The existing `/login` and `/settings/api-tokens`
 screens retain their API behavior and now use these design tokens. Do not treat the fixture statuses
 as a statement about the GitHub issues' actual progress.
 
@@ -93,7 +93,9 @@ Arrow keys, Home/End, typeahead, Enter/Space, Escape and Tab work in all instanc
 Selection returns focus to the trigger. Failed writes keep the saved value.
 
 **Sidebar** is `#030303` against the pure `#000000` canvas with a 1px `#141416`
-divider. A workspace switcher (20px mark, name, chevron, avatar) sits on top.
+divider. A shared account dropdown (product glyph, Tickets, chevron) sits on top; the
+menu shows the saved display name or authenticated username. No placeholder avatar
+or workspace footer. Home and search precede collapsible Projects and Views.
 Items are `#d0d6e0` with 16px icons; hover is a faint tint; the active item is a
 `#0a0a0b` pill with white text and an accent icon. Section headers are 11px
 uppercase `#797d86`. Projects use the shared 20px ProjectIcon tile.
@@ -294,3 +296,10 @@ same browser and crop mechanism; held local requests reveal actual loading and
 submitting states. Native OS select menus are not part of Chrome page screenshots;
 the baseline shows the focused native trigger, while the after image includes the
 new rendered listbox. Add full-page captures when a page's layout changes.
+
+
+TIK-40 adds `/design/settings/{account,api-tokens,projects,appearance}` and isolated
+`/design/c/sidebar` and `/design/c/user-menu` fixtures. All use Sample User and
+example repository metadata. Settings uses a compact sub-navigation with the
+Design system link in its footer. Theme and reduced motion overrides persist
+per browser; dark remains the default. Density remains the pinned compact scale.

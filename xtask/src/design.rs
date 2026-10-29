@@ -393,7 +393,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
-    b.wait("location.pathname === '/settings/tokens'")?;
+    b.wait("['/settings/tokens','/settings/api-tokens'].includes(location.pathname)")?;
     b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.body.innerText.includes('No projects yet')")?;
     b.eval(r#"(async()=>{

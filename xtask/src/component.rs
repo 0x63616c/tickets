@@ -15,6 +15,8 @@ use std::{
     time::Duration,
 };
 const NAMES: &[&str] = &[
+    "sidebar",
+    "user-menu",
     "select",
     "menu",
     "combobox",
@@ -69,6 +71,8 @@ impl FixtureServer {
                             .filter(|p| p.starts_with(&assets) && p.is_file());
                         let (body, mime) = if path.starts_with("/api/v1/projects") {
                             (br##"{"data":[{"id":1,"name":"Tickets","key_prefix":"TKT","color":"#5e6ad2","archived":false,"icon":null,"github_owner":null,"github_repo":null,"github_project_number":null,"github_project_kind":"users","next_ticket_number":1}],"next_cursor":null}"##.to_vec(),"application/json")
+                        } else if path == "/api/v1/tokens" {
+                            (b"[]".to_vec(), "application/json")
                         } else if path.starts_with("/api/") {
                             (
                                 br#"{"authenticated":true,"data":[],"next_cursor":null}"#.to_vec(),
@@ -148,6 +152,7 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
             "select" => b.click("[role=combobox]")?,
             "modal" => b.click(".component-stage > button")?,
             "menu" | "combobox" => b.click(".menu-trigger")?,
+            "user-menu" => b.click(".account-trigger")?,
             "tooltip" => {
                 b.eval("document.querySelector('.icon-button').focus();true")?;
             }
@@ -202,12 +207,17 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
     println!("PASS component PNGs: fixture data, dark, 2× DPR, tight bounds, loaded fonts");
     Ok(())
 }
-fn crop(b: &mut Browser, selector: &str, path: &Path) -> super::Result {
+pub(crate) fn crop(b: &mut Browser, selector: &str, path: &Path) -> super::Result {
+    b.eval("Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))).then(()=>true)")?;
+    b.wait("[...document.querySelectorAll('.popup:not([hidden])')].every(p=>getComputedStyle(p).opacity==='1')")?;
+    b.eval(
+        "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))",
+    )?;
     let selector = serde_json::to_string(selector)?;
     let clip=b.eval(&format!("(()=>{{const e=document.querySelector({selector}),r=e.getBoundingClientRect();if(e.classList.contains('component-stage')){{e.querySelectorAll('.popup:not([hidden])').forEach(p=>{{const q=p.getBoundingClientRect();r.width=Math.max(r.right,q.right)-r.left;r.height=Math.max(r.bottom,q.bottom)-r.top;}});}}return {{x:Math.max(0,Math.floor(r.x)-8),y:Math.max(0,Math.floor(r.y)-8),width:Math.ceil(r.width)+16,height:Math.ceil(r.height)+16,scale:1}}}})()"))?;
     let result = b.call(
         "Page.captureScreenshot",
-        json!({"format":"png","captureBeyondViewport":true,"clip":clip}),
+        json!({"format":"png","captureBeyondViewport":false,"clip":clip}),
     )?;
     fs::write(
         path,
@@ -218,6 +228,7 @@ fn crop(b: &mut Browser, selector: &str, path: &Path) -> super::Result {
 }
 fn capture_before(b: &mut Browser, base: &str, name: &str, output: &Path) -> super::Result {
     let route = match name {
+        "sidebar" | "user-menu" => "/design/board",
         "menu" | "combobox" => "/design/ticket",
         "icons" => "/design/projects",
         "loader" | "skeletons" => "/",
@@ -232,6 +243,14 @@ fn capture_before(b: &mut Browser, base: &str, name: &str, output: &Path) -> sup
     }
     b.go(&format!("{base}{route}"))?;
     let selector = match name {
+        "sidebar" => {
+            b.wait("!!document.querySelector('.sidebar')")?;
+            ".sidebar"
+        }
+        "user-menu" => {
+            b.wait("!!document.querySelector('.workspace')")?;
+            ".workspace"
+        }
         "modal" | "tabs" => {
             b.wait("!document.querySelector('.topbar .button-primary').disabled")?;
             b.click(".topbar .button-primary")?;

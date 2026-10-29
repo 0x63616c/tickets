@@ -28,6 +28,14 @@ Pagination is not a snapshot: concurrent updates can change matching results.
 IDs and relationship IDs are positive integers. Unknown mutation fields are rejected.
 PATCH changes only supplied fields; explicit null clears nullable fields.
 
+## Account
+
+`GET /api/v1/me` returns `authenticated`, `username`, and nullable `display_name`.
+`PATCH /api/v1/me` accepts only `display_name`: trimmed text of at most 80 Unicode
+characters, without control characters. Null or blank clears the name. Both
+routes require authentication; cookie writes require Origin. Sign-in credentials
+remain managed by deployment secrets, separate from this account label.
+
 ## Projects
 
 | Method | Path | Document / behavior |
@@ -36,6 +44,9 @@ PATCH changes only supplied fields; explicit null clears nullable fields.
 | GET | `/projects/{id}` | Project |
 | POST | `/projects` | Required `name`, `key_prefix`, `color` |
 | PATCH | `/projects/{id}` | Any editable project fields, including `archived` |
+
+Project reads include read-only `open_ticket_count`, counting all statuses except
+`done` and `canceled` in the same SQL query, independent of ticket pagination.
 
 Project fields: `name`, `key_prefix` (1–10 uppercase ASCII letters), `color`
 (`#RRGGBB`), nullable `icon`, `archived` (boolean), nullable `github_owner`, `github_repo`,
