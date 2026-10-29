@@ -384,3 +384,13 @@ Windows line endings; apply repository formatting checks to our own files.
   blocked list/detail routes at 1440×900 and 390×844 in `docs/screenshots/55/`.
   Set `TICKETS_BEFORE_ASSETS` to origin/main assets from a temporary worktree for
   the before images; after captures also assert visibility and content order.
+
+## Chromium startup diagnostics
+
+- Browser checks use a fresh ignored profile and OS-assigned DevTools port for
+  each launch attempt. Retry only launch/connect (three attempts, 30 seconds
+  each); never retry assertions. Every owned child is killed and reaped on exit.
+- Per-attempt stderr is retained in `target/*chromium*-attempt-*.log`, including
+  successful launches. Startup errors include the final 30 log lines. CI uploads
+  `target/*chromium*.log` when the check job fails; use these logs to distinguish
+  profile/process failures from slow startup before changing launch policy.

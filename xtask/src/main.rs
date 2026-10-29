@@ -19,6 +19,8 @@ mod skill_check;
 use std::{env, error::Error, path::Path, process::Command};
 
 #[cfg(not(target_arch = "wasm32"))]
+mod chromium;
+#[cfg(not(target_arch = "wasm32"))]
 mod contrast;
 #[cfg(not(target_arch = "wasm32"))]
 mod design;
