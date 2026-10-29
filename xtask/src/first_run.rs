@@ -40,7 +40,9 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelectorAll('.api-ticket').length===2 && document.querySelector('#ticket-1 .card-title')?.textContent==='Prepare release' && document.querySelector('#ticket-2 .card-title')?.textContent==='Publish release'")?;
     b.screenshot(&output.join("first-run-tickets.png"))?;
     // The card's visible status select is also the touch-friendly Kanban move control.
+    b.wait("!document.querySelector('#ticket-1 [role=combobox]').disabled")?;
     b.click("#ticket-1 [role=combobox]")?;
+    b.wait("document.querySelector('#ticket-1 [role=combobox]').getAttribute('aria-expanded')==='true' && document.activeElement?.getAttribute('role')==='option'")?;
     b.key("ArrowDown", 40, 0)?;
     b.key("Enter", 13, 0)?;
     b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='In progress' && !document.querySelector('#ticket-1 [role=combobox]').disabled")?;
