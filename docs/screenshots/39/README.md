@@ -10,7 +10,9 @@ with a GitHub comment, assignee and label. No production data or credentials.
 - Desktop: 1440×900. Mobile: 390×900.
 - `target-desktop.png`: separate `/design/ticket` fixture reference, not a baseline.
 
-`CHROME_BIN=<local Chromium> cargo xtask mirror-check` verifies the read-only
+Historical captures only: the issue mirror was retired on 2026-10-29.
+`cargo xtask mirror-check` now verifies native imported tickets and captures
+`docs/screenshots/tik-33/`. The original check verified the read-only
 controls, keyboard no-op, board drag attribute, list controls, and captures after.
 The check first verifies two issues (including closed history) and PR exclusion,
 then removes the second issue to retain the baseline screenshot seed.

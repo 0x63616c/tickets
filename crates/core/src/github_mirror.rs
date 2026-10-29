@@ -1,4 +1,4 @@
-//! GitHub is authoritative. Keep importer and runtime identity/content identical.
+//! One-shot GitHub migration mapping and shared webhook signature validation.
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -28,6 +28,8 @@ pub struct Issue {
     pub title: String,
     pub body: Option<String>,
     pub state: String,
+    #[serde(default)]
+    pub state_reason: Option<String>,
     pub html_url: String,
     #[serde(default)]
     pub labels: Vec<Label>,
@@ -42,8 +44,28 @@ impl Issue {
     pub fn external_id(&self, repo: &str) -> String {
         format!("github:{}:{}", identity_repo(repo), self.number)
     }
+    pub fn status(&self) -> &'static str {
+        match (self.state.as_str(), self.state_reason.as_deref()) {
+            ("closed", Some("not_planned")) => "canceled",
+            ("closed", _) => "done",
+            _ => "todo",
+        }
+    }
+    pub fn priority(&self) -> u8 {
+        self.labels
+            .iter()
+            .filter_map(|label| match label.name.as_str() {
+                "priority:p0" => Some(1),
+                "priority:p1" => Some(2),
+                "priority:p2" => Some(3),
+                "priority:p3" => Some(4),
+                _ => None,
+            })
+            .min()
+            .unwrap_or(0)
+    }
     pub fn upsert(&self, project: i64) -> serde_json::Value {
-        json!({"project_id":project,"title":self.title,"body":self.body.as_deref().unwrap_or(""),"status":if self.state=="closed" {"done"} else {"todo"},"assignee":self.assignees.first().map(|u|&u.login),"external_url":self.html_url})
+        json!({"project_id":project,"title":self.title,"body":self.body.as_deref().unwrap_or(""),"status":self.status(),"priority":self.priority(),"assignee":self.assignees.first().map(|u|&u.login),"external_url":self.html_url})
     }
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -54,6 +76,8 @@ pub struct Comment {
     pub user: Option<User>,
     #[serde(default)]
     pub issue_url: String,
+    #[serde(default)]
+    pub created_at: String,
     #[serde(default)]
     pub updated_at: String,
 }
@@ -72,67 +96,16 @@ impl Comment {
             .map(|u| format!("**@{}** on GitHub\n\n", u.login))
             .unwrap_or_default();
         format!(
-            "{}\n\n{author}{}",
+            "{}\n\n{author}{}{}",
             self.marker(repo),
+            if self.created_at.is_empty() {
+                String::new()
+            } else {
+                format!("_Originally posted {}_\n\n", self.created_at)
+            },
             self.body.as_deref().unwrap_or("")
         )
     }
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Repo {
-    pub id: u64,
-    pub identity: String,
-    pub key: String,
-}
-impl Repo {
-    pub fn name(&self) -> &str {
-        if self.key == "QUA" {
-            "Quantum"
-        } else {
-            self.identity.rsplit('/').next().unwrap_or(&self.identity)
-        }
-    }
-}
-pub fn config(input: &str) -> Result<Vec<Repo>, String> {
-    let mut repos = Vec::<Repo>::new();
-    if input.trim().is_empty() {
-        return Ok(repos);
-    }
-    for entry in input.split(',') {
-        let (id, rest) = entry
-            .split_once('=')
-            .ok_or("expected repository ID=identity:KEY")?;
-        let id = id.parse::<u64>().map_err(|_| "invalid repository ID")?;
-        let (identity, key) = rest.split_once(':').ok_or("expected identity:KEY")?;
-        let parts: Vec<_> = identity.split('/').collect();
-        if id == 0
-            || parts.len() != 2
-            || parts.iter().any(|p| {
-                p.is_empty()
-                    || *p == "."
-                    || *p == ".."
-                    || !p
-                        .bytes()
-                        .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
-            })
-        {
-            return Err("invalid repository identity".into());
-        }
-        crate::domain::validate_prefix(key)?;
-        let identity = identity_repo(&identity.to_ascii_lowercase()).to_owned();
-        if repos
-            .iter()
-            .any(|r| r.id == id || r.identity == identity || r.key == key)
-        {
-            return Err("duplicate mirror repository or project".into());
-        }
-        repos.push(Repo {
-            id,
-            identity,
-            key: key.to_owned(),
-        });
-    }
-    Ok(repos)
 }
 /// Decode exactly GitHub's SHA-256 signature; compare digest bytes in constant time.
 pub fn signature_matches(header: &str, digest: &[u8]) -> bool {
@@ -158,6 +131,26 @@ pub fn signature_matches(header: &str, digest: &[u8]) -> bool {
 mod tests {
     use super::*;
     #[test]
+    fn migration_state_priority_and_attribution() {
+        let mut value = json!({"number":3,"title":"Title","body":null,"state":"open","html_url":"https://github.com/a/b/issues/3","labels":[{"name":"priority:p2","color":"abcdef"}]});
+        for (state, reason, expected) in [
+            ("open", None, "todo"),
+            ("closed", Some("completed"), "done"),
+            ("closed", Some("not_planned"), "canceled"),
+            ("closed", None, "done"),
+        ] {
+            value["state"] = json!(state);
+            value["state_reason"] = json!(reason);
+            let issue: Issue = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(issue.upsert(1)["status"], expected);
+            assert_eq!(issue.upsert(1)["priority"], 3);
+        }
+        let c:Comment=serde_json::from_value(json!({"id":1,"body":"Hello","user":{"login":"octocat"},"created_at":"2026-10-01T00:00:00Z"})).unwrap();
+        assert!(c.body("a/b").contains("**@octocat** on GitHub"));
+        assert!(c.body("a/b").contains("2026-10-01T00:00:00Z"));
+        assert_eq!(c.marker("0x63616c/quantum"), c.marker("0x63616c/voxelite"));
+    }
+    #[test]
     fn mapping() {
         let issue:Issue=serde_json::from_value(json!({"number":3,"title":"Title","body":null,"state":"closed","html_url":"https://github.com/a/b/issues/3","assignees":[{"login":"agent"}]})).unwrap();
         assert_eq!(
@@ -180,67 +173,10 @@ mod tests {
         assert!(html.contains("@agent"));
     }
     #[test]
-    fn configuration() {
-        assert_eq!(
-            config("1=0x63616c/quantum:QUA").unwrap()[0].identity,
-            "0x63616c/voxelite"
-        );
-        for bad in [
-            "0=a/b:A",
-            "a=a/b:A",
-            "1=a:A",
-            "1=a/b:lower",
-            "1=a/b:A,1=a/c:B",
-            "1=a/b:A,2=a/c:A",
-        ] {
-            assert!(config(bad).is_err(), "{bad}")
-        }
-    }
-    #[test]
     fn signatures() {
         let header = format!("sha256={}", "ab".repeat(32));
         assert!(signature_matches(&header, &[0xab; 32]));
         assert!(!signature_matches(&header, &[0xac; 32]));
         assert!(!signature_matches("", &[0; 32]));
-    }
-}
-
-/// A sweep keeps `since` fixed across pages, retaining the high-water timestamp
-/// even when GitHub ends pagination with an empty page. Call only after commit.
-pub fn advance_cursor(
-    since: &str,
-    high_water: &str,
-    page: u32,
-    timestamps: &[String],
-    full: bool,
-) -> (String, String, u32) {
-    let high = timestamps
-        .iter()
-        .map(String::as_str)
-        .chain([high_water, since])
-        .max()
-        .unwrap_or(since)
-        .to_owned();
-    if full {
-        (since.to_owned(), high, page + 1)
-    } else {
-        (high.clone(), high, 1)
-    }
-}
-#[cfg(test)]
-mod cursor_tests {
-    use super::*;
-    #[test]
-    fn only_committed_pages_advance() {
-        let (since, high, page) = advance_cursor("a", "a", 1, &["b".into(), "b".into()], true);
-        assert_eq!((&*since, &*high, page), ("a", "b", 2));
-        assert_eq!(
-            advance_cursor(&since, &high, page, &[], false),
-            ("b".into(), "b".into(), 1)
-        );
-        assert_eq!(
-            advance_cursor("b", "b", 1, &[], false),
-            ("b".into(), "b".into(), 1)
-        );
     }
 }

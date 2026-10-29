@@ -1,5 +1,10 @@
 # Tickets v1 verification (#1)
 
+Historical V1 verification snapshot. Since 2026-10-29 Tickets is the sole system
+of record; the issue mirror described below is retired. Current migration and
+verification instructions live in CONTRIBUTING.md and DEVELOPMENT.md.
+
+
 Evidence for each item on the v1 spec (#1), recorded on 2026-10-28 against
 production (`https://tickets.worldwidewebb.co`) and local `wrangler dev`.
 

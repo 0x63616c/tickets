@@ -44,14 +44,9 @@ new_sqlite_classes = ["BoardRoom"]
 name = "BOARD_ROOMS"
 class_name = "BoardRoom"
 
-[vars]
-GITHUB_MIRROR = "1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/quantum:QUA"
-
-[env.production.vars]
-GITHUB_MIRROR = "1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/quantum:QUA"
-
+# No scheduled issue reconciliation: Tickets is the system of record.
 [triggers]
-crons = ["*/10 * * * *"]
+crons = []
 
 [env.production.triggers]
-crons = ["*/10 * * * *"]
+crons = []

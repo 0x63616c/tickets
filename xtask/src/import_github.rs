@@ -73,7 +73,7 @@ impl Api {
             if self.github {
                 request = request
                     .header("Accept", "application/vnd.github+json")
-                    .header("X-GitHub-Api-Version", "2022-11-28");
+                    .header("X-GitHub-Api-Version", "2026-03-10");
             }
             if !body.is_null() {
                 request = request.json(&body);
@@ -192,8 +192,12 @@ fn text<'a>(v: &'a Value, key: &str) -> Result<&'a str> {
         .ok_or_else(|| format!("missing {key}").into())
 }
 fn blockers(body: &str) -> BTreeSet<u64> {
-    body.split("Blocked by #")
-        .skip(1)
+    body.split(['\n', '\r'])
+        .flat_map(|line| {
+            line.split("Blocked by #")
+                .skip(1)
+                .chain(line.split("Depends on #").skip(1))
+        })
         .filter_map(|s| {
             s.chars()
                 .take_while(char::is_ascii_digit)
@@ -224,11 +228,155 @@ fn label_set(labels: &Value, prefix: &str) -> Result<BTreeSet<(String, String)>>
         .collect()
 }
 
+#[derive(Clone, Debug)]
+pub struct Options {
+    pub state: String,
+    pub since: Option<String>,
+    pub exclude: BTreeSet<u64>,
+    pub dry: bool,
+    pub close_github: bool,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            state: "open".into(),
+            since: None,
+            exclude: BTreeSet::new(),
+            dry: false,
+            close_github: false,
+        }
+    }
+}
+fn selected(issue: &Value, options: &Options) -> bool {
+    issue.get("pull_request").is_none()
+        && issue["number"]
+            .as_u64()
+            .is_some_and(|n| !options.exclude.contains(&n))
+        && (options.state == "all" || issue["state"] == options.state)
+        && (issue["state"] != "closed"
+            || options.since.as_deref().is_none_or(|since| {
+                issue["closed_at"]
+                    .as_str()
+                    .is_some_and(|date| date >= since)
+            }))
+}
+/// Rewrite local shorthand only; leave URLs, Markdown destinations and code alone.
+fn rewrite_refs(body: &str, repo: &str, keys: &BTreeMap<u64, String>) -> String {
+    let mut result = String::new();
+    let chars: Vec<char> = body.chars().collect();
+    let mut i = 0;
+    let mut code_ticks = 0;
+    while i < chars.len() {
+        if chars[i] == '`' {
+            let start = i;
+            while i < chars.len() && chars[i] == '`' {
+                i += 1;
+            }
+            let count = i - start;
+            if code_ticks == 0 {
+                code_ticks = count;
+            } else if code_ticks == count {
+                code_ticks = 0;
+            }
+            result.extend(chars[start..i].iter());
+            continue;
+        }
+        if code_ticks == 0
+            && chars[i] == '#'
+            && (i == 0 || chars[i - 1].is_whitespace() || "([,:".contains(chars[i - 1]))
+            && !(i >= 2 && chars[i - 1] == '(' && chars[i - 2] == ']')
+        {
+            let start = i + 1;
+            let mut end = start;
+            while end < chars.len() && chars[end].is_ascii_digit() {
+                end += 1;
+            }
+            if end < chars.len() && (chars[end].is_alphabetic() || chars[end] == '_') {
+                result.push(chars[i]);
+                i += 1;
+                continue;
+            }
+            if let Ok(n) = chars[start..end].iter().collect::<String>().parse::<u64>() {
+                result.push_str(
+                    &keys
+                        .get(&n)
+                        .cloned()
+                        .unwrap_or_else(|| format!("https://github.com/{repo}/issues/{n}")),
+                );
+                i = end;
+                continue;
+            }
+        }
+        result.push(chars[i]);
+        i += 1;
+    }
+    result
+}
+fn same_repo(issue: &Value, repo: &str) -> bool {
+    issue["html_url"]
+        .as_str()
+        .is_some_and(|url| url.starts_with(&format!("https://github.com/{repo}/issues/")))
+}
+fn close_message(base: &str, ticket: &Value) -> Result<String> {
+    Ok(format!(
+        "Moved to Tickets: {base}/ticket?id={} ({}). Tickets is now the system of record; this issue is closed.",
+        id(ticket)?,
+        text(ticket, "key")?
+    ))
+}
+fn already_moved(comments: &[Value], message: &str) -> bool {
+    let Some((destination, _)) = message.split_once(" (") else {
+        return false;
+    };
+    comments.iter().any(|comment| {
+        comment["body"].as_str().is_some_and(|body| {
+            body.strip_prefix(destination).is_some_and(|rest| {
+                rest.starts_with(" (")
+                    && rest
+                        .ends_with("). Tickets is now the system of record; this issue is closed.")
+            })
+        })
+    })
+}
+
+fn valid_date(date: &str) -> bool {
+    if date.len() != 10
+        || !date.bytes().enumerate().all(|(i, b)| {
+            if i == 4 || i == 7 {
+                b == b'-'
+            } else {
+                b.is_ascii_digit()
+            }
+        })
+    {
+        return false;
+    }
+    let year: u32 = date[..4].parse().unwrap();
+    let month: usize = date[5..7].parse().unwrap();
+    let day: u32 = date[8..].parse().unwrap();
+    let leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
+    let days = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    year > 0 && (1..=12).contains(&month) && day > 0 && day <= days[month - 1]
+}
+
 pub fn cli(args: &[String]) -> Result<()> {
     let mut repo = None;
     let mut project = None;
     let mut url = "http://127.0.0.1:8787".to_owned();
-    let mut dry = false;
+    let mut options = Options::default();
     let mut allow_remote = false;
     let mut args = args.iter();
     while let Some(arg) = args.next() {
@@ -236,9 +384,30 @@ pub fn cli(args: &[String]) -> Result<()> {
             "--repo" => repo = Some(args.next().ok_or("missing repo")?.clone()),
             "--project" => project = Some(args.next().ok_or("missing project")?.clone()),
             "--url" => url = args.next().ok_or("missing URL")?.clone(),
-            "--dry-run" => dry = true,
+            "--dry-run" => options.dry = true,
+            "--close-github" => options.close_github = true,
+            "--state" => options.state = args.next().ok_or("missing state")?.clone(),
+            "--since" => options.since = Some(args.next().ok_or("missing date")?.clone()),
+            "--exclude" => {
+                options.exclude = args
+                    .next()
+                    .ok_or("missing exclusions")?
+                    .split(',')
+                    .map(str::parse)
+                    .collect::<std::result::Result<_, _>>()?;
+            }
             "--allow-remote" => allow_remote = true,
             _ => return Err(format!("unknown import argument: {arg}").into()),
+        }
+    }
+    if !["all", "open", "closed"].contains(&options.state.as_str()) {
+        return Err("--state must be all, open or closed".into());
+    }
+    if let Some(date) = &options.since {
+        // Accept a calendar date; compare against GitHub's UTC closed_at timestamp.
+        let valid = valid_date(date);
+        if !valid {
+            return Err("--since must be YYYY-MM-DD".into());
         }
     }
     let repo = repo.ok_or("--repo required")?.to_ascii_lowercase();
@@ -276,32 +445,84 @@ pub fn cli(args: &[String]) -> Result<()> {
         }
     };
     let github = Api::new("https://api.github.com", token, true)?;
-    import(&github, &tickets, &repo, &project, dry)
+    import(&github, &tickets, &repo, &project, &options)
 }
 
-pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<()> {
+pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, options: &Options) -> Result<()> {
+    let dry = options.dry;
     let metadata = gh.call(Method::GET, &format!("/repos/{repo}"), Value::Null)?;
     let canonical = text(&metadata, "full_name")?.to_ascii_lowercase();
     if identity_repo(&canonical) != identity_repo(repo) {
         return Err("repository renamed: refusing a new external-ID namespace; keep the original --repo and add an explicit identity alias before importing".into());
     }
+    let source_repo = canonical.as_str();
     let repo = identity_repo(repo);
-    let issues: Vec<_> = gh
-        .list(&format!(
-            "/repos/{repo}/issues?state=all&sort=created&direction=asc"
-        ))?
-        .into_iter()
-        .filter(|i| i.get("pull_request").is_none())
+    let source = gh.list(&format!(
+        "/repos/{source_repo}/issues?state={}&sort=created&direction=asc",
+        options.state
+    ))?;
+    let issues: Vec<_> = source
+        .iter()
+        .filter(|i| selected(i, options))
+        .cloned()
         .collect();
+    let skipped = source.len() - issues.len();
     let mut comments = BTreeMap::new();
+    let mut receipts = BTreeMap::new();
     for issue in &issues {
         let n = number(issue)?;
-        comments.insert(n, gh.list(&format!("/repos/{repo}/issues/{n}/comments"))?);
+        let discussion = gh.list(&format!("/repos/{source_repo}/issues/{n}/comments"))?;
+        receipts.insert(n, discussion.clone());
+        comments.insert(
+            n,
+            discussion
+                .into_iter()
+                .filter(|comment| {
+                    !comment["body"].as_str().is_some_and(|body| {
+                        body.starts_with("Moved to Tickets: ")
+                            && body.ends_with(
+                                "Tickets is now the system of record; this issue is closed.",
+                            )
+                    })
+                })
+                .collect::<Vec<_>>(),
+        );
     }
     let open = issues.iter().filter(|i| i["state"] == "open").count();
     let closed = issues.len() - open;
     let projects = api.list("/api/v1/projects")?;
-    let project = projects.iter().find(|p| p["key_prefix"] == key);
+    let project = projects
+        .iter()
+        .find(|p| p["key_prefix"] == key)
+        .ok_or("--project must name an existing project")?;
+    let project_id = id(project)?;
+    let prior = api.list("/api/v1/tickets")?;
+    let updated = issues
+        .iter()
+        .filter(|issue| {
+            prior
+                .iter()
+                .any(|ticket| ticket["external_id"] == format!("github:{repo}:{}", issue["number"]))
+        })
+        .count();
+    let mut statuses = BTreeMap::new();
+    for issue in &issues {
+        let n = number(issue)?;
+        let mut status = serde_json::from_value::<Issue>(issue.clone())?
+            .status()
+            .to_owned();
+        if issue["state"] == "closed"
+            && let Some(ticket) = prior
+                .iter()
+                .find(|t| t["external_id"] == format!("github:{repo}:{n}"))
+            && already_moved(&receipts[&n], &close_message(&api.base, ticket)?)
+        {
+            // Our archival close is not completion of the native task. A rerun
+            // after --close-github must retain its authoritative Tickets status.
+            status = text(ticket, "status")?.to_owned();
+        }
+        statuses.insert(n, status);
+    }
     let existing_labels = api.list("/api/v1/labels")?;
     let mut labels: BTreeMap<String, Value> = existing_labels
         .into_iter()
@@ -331,15 +552,44 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
         }
         for blocker in blockers(issue["body"].as_str().unwrap_or("")) {
             if !numbers.contains(&blocker) {
-                return Err(
-                    format!("unresolved dependency #{blocker} -> #{}", number(issue)?).into(),
-                );
+                continue;
             }
             edges.insert((blocker, number(issue)?));
         }
+        let n = number(issue)?;
+        for blocker in gh.list(&format!(
+            "/repos/{source_repo}/issues/{n}/dependencies/blocked_by"
+        ))? {
+            if same_repo(&blocker, source_repo)
+                && let Ok(b) = number(&blocker)
+                && numbers.contains(&b)
+            {
+                edges.insert((b, n));
+            }
+        }
+        // A GitHub sub-issue is a blocker of its parent.
+        for child in gh.list(&format!("/repos/{source_repo}/issues/{n}/sub_issues"))? {
+            if same_repo(&child, source_repo)
+                && let Ok(b) = number(&child)
+                && numbers.contains(&b)
+            {
+                edges.insert((b, n));
+            }
+        }
         println!(
             "{} issue #{}: {} labels, {} comments, {}",
-            if dry { "PLAN" } else { "Import" },
+            if dry {
+                if prior
+                    .iter()
+                    .any(|t| t["external_id"] == format!("github:{repo}:{}", issue["number"]))
+                {
+                    "UPDATE"
+                } else {
+                    "CREATE"
+                }
+            } else {
+                "Import"
+            },
             number(issue)?,
             issue["labels"].as_array().unwrap().len(),
             comments[&number(issue)?].len(),
@@ -359,34 +609,26 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
         .map_err(|e| format!("invalid source dependency graph: {e:?}"))?;
     if dry {
         println!(
-            "DRY RUN: project {key} ({}), {open} open, {closed} closed, {} labels, {} dependencies; no writes",
-            if project.is_some() {
-                "existing"
-            } else {
-                "create"
-            },
+            "DRY RUN: project {key} (existing), {open} open, {closed} closed, {} labels, {} dependencies; no writes",
             wanted_labels.len(),
             edges.len()
         );
+        println!(
+            "Summary {source_repo}: imported={} updated={updated} skipped={skipped} closed=0 (planned)",
+            issues.len() - updated
+        );
+        println!("issue\tkey");
+        for issue in &issues {
+            let n = number(issue)?;
+            let key = prior
+                .iter()
+                .find(|t| t["external_id"] == format!("github:{repo}:{n}"))
+                .and_then(|t| t["key"].as_str())
+                .unwrap_or("(allocated on import)");
+            println!("{source_repo}#{n}\t{key}");
+        }
         return Ok(());
     }
-    let project_id = match project {
-        Some(p) => id(p)?,
-        None => {
-            let name = if repo == "0x63616c/voxelite" {
-                "Quantum"
-            } else {
-                repo.split('/').next_back().unwrap()
-            };
-            id(&api.call(
-                Method::POST,
-                "/api/v1/projects",
-                json!({
-                    "name": name, "key_prefix": key, "color": "#789abc"
-                }),
-            )?)?
-        }
-    };
     for (name, color) in &wanted_labels {
         let label = if let Some(old) = labels.get(name) {
             if old["color"] == *color {
@@ -414,11 +656,9 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
         url.query_pairs_mut()
             .append_pair("id", &format!("github:{repo}:{n}"));
         let path = format!("{}?{}", url.path(), url.query().unwrap());
-        let ticket = api.call(
-            Method::PUT,
-            &path,
-            serde_json::from_value::<Issue>(issue.clone())?.upsert(project_id),
-        )?;
+        let mut payload = serde_json::from_value::<Issue>(issue.clone())?.upsert(project_id);
+        payload["status"] = json!(statuses[&n]);
+        let ticket = api.call(Method::PUT, &path, payload)?;
         let tid = id(&ticket)?;
         let desired: BTreeSet<_> = issue["labels"]
             .as_array()
@@ -475,6 +715,21 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
         }
         tickets.insert(n, ticket);
     }
+    let keys = tickets
+        .iter()
+        .map(|(n, t)| Ok((*n, text(t, "key")?.to_owned())))
+        .collect::<Result<BTreeMap<_, _>>>()?;
+    for issue in &issues {
+        let n = number(issue)?;
+        let body = rewrite_refs(issue["body"].as_str().unwrap_or(""), source_repo, &keys);
+        if tickets[&n]["body"] != body {
+            api.call(
+                Method::PATCH,
+                &format!("/api/v1/tickets/{}", id(&tickets[&n])?),
+                json!({"body":body}),
+            )?;
+        }
+    }
     let imported_ids: BTreeSet<_> = tickets.values().map(id).collect::<Result<_>>()?;
     // Remove all obsolete edges before adding any, allowing a source edge reversal.
     let mut additions = Vec::new();
@@ -523,7 +778,7 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
                 .is_some_and(|s| s.starts_with(&prefix))
         })
         .collect();
-    let mut gaps = imported.len().abs_diff(issues.len());
+    let mut gaps = 0;
     let mut actual_edges = 0;
     let mut actual_comments = 0;
     let mut actual_labels = BTreeSet::new();
@@ -537,18 +792,20 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
             continue;
         };
         for field in ["title", "body"] {
-            let expected = issue[field].as_str().unwrap_or("");
+            let expected = if field == "body" {
+                rewrite_refs(issue[field].as_str().unwrap_or(""), source_repo, &keys)
+            } else {
+                issue[field].as_str().unwrap_or("").to_owned()
+            };
             if ticket[field] != expected {
                 gaps += 1;
             }
         }
-        if ticket["external_url"] != issue["html_url"]
-            || ticket["status"]
-                != if issue["state"] == "closed" {
-                    "done"
-                } else {
-                    "todo"
-                }
+        if ticket["assignee"]
+            != serde_json::from_value::<Issue>(issue.clone())?.upsert(project_id)["assignee"]
+            || ticket["external_url"] != issue["html_url"]
+            || ticket["status"] != statuses[&n]
+            || ticket["priority"] != serde_json::from_value::<Issue>(issue.clone())?.priority()
         {
             gaps += 1;
         }
@@ -599,10 +856,13 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
             }
         }
     }
-    let actual_closed = imported.iter().filter(|t| t["status"] == "done").count();
+    let actual_closed = tickets
+        .values()
+        .filter(|t| t["status"] == "done" || t["status"] == "canceled")
+        .count();
     println!(
         "Reconciliation: GitHub open/closed {open}/{closed}; Tickets {}/{}; labels {}/{}; dependencies {actual_edges}/{}; comments {actual_comments}/{}; gaps {gaps}",
-        imported.len() - actual_closed,
+        issues.len() - actual_closed,
         actual_closed,
         actual_labels.len(),
         wanted_labels.len(),
@@ -612,15 +872,84 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, dry: bool) -> Result<(
     if gaps != 0 {
         return Err("import reconciliation has gaps".into());
     }
+    let mut closed_count = 0;
+    if options.close_github {
+        // No GitHub writes until every field, comment and edge has passed read-back verification.
+        for issue in &issues {
+            let n = number(issue)?;
+            let ticket = &tickets[&n];
+            let message = close_message(&api.base, ticket)?;
+            let current = gh.list(&format!("/repos/{source_repo}/issues/{n}/comments"))?;
+            if !already_moved(&current, &message) {
+                gh.call(
+                    Method::POST,
+                    &format!("/repos/{source_repo}/issues/{n}/comments"),
+                    json!({"body":message}),
+                )?;
+            }
+            gh.call(Method::PATCH, &format!("/repos/{source_repo}/issues/{n}"), json!({"state":"closed","state_reason":if ticket["status"]=="canceled" {"not_planned"} else {"completed"}}))?;
+            closed_count += usize::from(issue["state"] != "closed");
+        }
+    }
     println!(
-        "GitHub Projects columns deferred: token project scope unavailable; blocked state is derived from dependency completion."
+        "Summary {source_repo}: imported={} updated={updated} skipped={} closed={closed_count}",
+        issues.len() - updated,
+        skipped
     );
+    println!("issue\tkey");
+    for (n, ticket) in &tickets {
+        println!("{source_repo}#{n}\t{}", text(ticket, "key")?);
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn references_selection_and_close_idempotency() {
+        assert!(valid_date("2024-02-29"));
+        assert!(!valid_date("2026-02-29"));
+        assert!(!valid_date("2026-99-99"));
+        let keys = BTreeMap::from([(1, "WWW-7".into()), (2, "WWW-8".into())]);
+        assert_eq!(
+            rewrite_refs(
+                "Blocked by #1\nDepends on #2; #99. `#1` https://github.com/a/b/issues/1#2",
+                "a/b",
+                &keys
+            ),
+            "Blocked by WWW-7\nDepends on WWW-8; https://github.com/a/b/issues/99. `#1` https://github.com/a/b/issues/1#2"
+        );
+        let mut issue = json!({"number":1,"state":"open"});
+        assert!(selected(&issue, &Options::default()));
+        issue["state"] = json!("closed");
+        issue["closed_at"] = json!("2026-01-02T00:00:00Z");
+        assert!(!selected(&issue, &Options::default()));
+        let mut options = Options {
+            state: "all".into(),
+            since: Some("2026-01-01".into()),
+            ..Options::default()
+        };
+        assert!(selected(&issue, &options));
+        options.since = Some("2026-01-03".into());
+        assert!(!selected(&issue, &options));
+        issue["state"] = json!("open");
+        assert!(selected(&issue, &options));
+        options.exclude.insert(1);
+        assert!(!selected(&issue, &options));
+        let message =
+            close_message("https://tickets.example", &json!({"id":42,"key":"WWW-7"})).unwrap();
+        assert_eq!(
+            message,
+            "Moved to Tickets: https://tickets.example/ticket?id=42 (WWW-7). Tickets is now the system of record; this issue is closed."
+        );
+        assert!(!already_moved(&[], &message));
+        assert!(already_moved(&[json!({"body":message})], &message));
+        assert!(already_moved(
+            &[json!({"body":message.replace("WWW-7", "OLD-3")})],
+            &message
+        ));
+    }
     #[test]
     fn remote_urls_and_identity() {
         for url in ["http://localhost", "http://127.0.0.1:8790", "http://[::1]"] {

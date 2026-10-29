@@ -34,13 +34,6 @@ pub(crate) struct BoardTicket {
     #[serde(default)]
     pub external_id: Option<String>,
 }
-impl BoardTicket {
-    pub(crate) fn mirrored(&self) -> bool {
-        self.external_id
-            .as_deref()
-            .is_some_and(|s| s.starts_with("github:"))
-    }
-}
 fn id(t: &BoardTicket) -> i64 {
     t.id
 }
@@ -216,14 +209,6 @@ impl BoardState {
         ts
     }
     fn pickup(self, ticket: i64) {
-        if self
-            .tickets
-            .get_untracked()
-            .iter()
-            .any(|t| t.id == ticket && t.mirrored())
-        {
-            return;
-        }
         if self.busy.get_untracked() || self.loading.get_untracked() {
             return;
         }
@@ -275,7 +260,7 @@ impl BoardState {
             let mut saved = vec![];
             for t in &after {
                 if let Some(old) = before.iter().find(|o| id(o) == id(t))
-                    && (!t.mirrored() && (old.status != t.status || old.sort_order != t.sort_order))
+                    && (old.status != t.status || old.sort_order != t.sort_order)
                 {
                     match api(
                         "PATCH",
@@ -318,14 +303,6 @@ impl BoardState {
         });
     }
     fn move_to(self, ticket: i64, s: Status, before: Option<i64>) {
-        if self
-            .tickets
-            .get_untracked()
-            .iter()
-            .any(|t| t.id == ticket && t.mirrored())
-        {
-            return;
-        }
         if self.dragged.get_untracked().is_none() {
             self.pickup(ticket);
         }
@@ -531,7 +508,6 @@ pub fn ApiBoard() -> impl IntoView {
 #[component]
 fn ApiCard(ticket: BoardTicket) -> impl IntoView {
     let state = expect_context::<BoardState>();
-    let mirrored = ticket.mirrored();
     let ticket_id = id(&ticket);
     let s = status(&ticket);
     let key = ticket.key.clone();
@@ -549,13 +525,13 @@ fn ApiCard(ticket: BoardTicket) -> impl IntoView {
                 .map(|t| t.key)
                 .collect::<Vec<_>>()
         };
-    view! {<article id=format!("ticket-{ticket_id}") class="ticket-card api-ticket" tabindex="0" aria-label=format!("{key}: {}",ticket.title.clone()) aria-describedby="board-keys" class:drag-over=move||state.dragged.get()==Some(ticket_id) draggable=move||(!mirrored && !state.busy.get()).to_string()
-        on:keydown=move|e|state.keyboard(ticket_id,e) on:dragstart=move|e|{if mirrored {e.prevent_default();return;}state.pickup(ticket_id);if let Some(data)=e.data_transfer(){let _=data.set_data("text/plain",&ticket_id.to_string());}} on:dragend=move|_|state.cancel()
+    view! {<article id=format!("ticket-{ticket_id}") class="ticket-card api-ticket" tabindex="0" aria-label=format!("{key}: {}",ticket.title.clone()) aria-describedby="board-keys" class:drag-over=move||state.dragged.get()==Some(ticket_id) draggable=move||(!state.busy.get()).to_string()
+        on:keydown=move|e|state.keyboard(ticket_id,e) on:dragstart=move|e|{state.pickup(ticket_id);if let Some(data)=e.data_transfer(){let _=data.set_data("text/plain",&ticket_id.to_string());}} on:dragend=move|_|state.cancel()
         on:dragover=move|e|{e.prevent_default();e.stop_propagation();} on:drop=move|e|{e.prevent_default();e.stop_propagation();if let Some(moving)=state.dragged.get_untracked() && moving!=ticket_id{state.move_to(moving,s,Some(ticket_id));}}>
         <div class="card-top"><span class="mono ticket-id">{key.clone()}</span><span title=priority.name()><PriorityIcon priority/></span></div><a class="card-title" href=format!("/ticket?id={ticket_id}")>{ticket.title.clone()}</a>
         {move||{let keys=blocked(); (!keys.is_empty()).then(||view!{<span class="blocked-note"><Icon name="blocked"/>{format!("Blocked by {}",keys.join(", "))}</span>})}}
         <div class="card-labels">{ticket.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</div>
-        <div class="card-bottom"><div class="card-status"><StatusIcon status=s/><select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=format!("Move {key} to status") disabled=move||mirrored || state.busy.get() || state.dragged.get().is_some() prop:value=s.name() on:change=move|e|state.move_to(ticket_id,Status::from_name(&event_target_value(&e)),None)>{Status::ALL.into_iter().map(|v|view!{<option value=v.name() selected=v==s>{v.name()}</option>}).collect_view()}</select></div><span class="card-meta">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<span class="comment-count"><Icon name="comment"/>{n}</span>})}{ticket.assignee.map(|name|{let initials=name.split_whitespace().take(2).filter_map(|s|s.chars().next()).collect::<String>().to_uppercase();view!{<Avatar label=name initials/>}})}</span></div>
+        <div class="card-bottom"><div class="card-status"><StatusIcon status=s/><select autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=format!("Move {key} to status") disabled=move||state.busy.get() || state.dragged.get().is_some() prop:value=s.name() on:change=move|e|state.move_to(ticket_id,Status::from_name(&event_target_value(&e)),None)>{Status::ALL.into_iter().map(|v|view!{<option value=v.name() selected=v==s>{v.name()}</option>}).collect_view()}</select></div><span class="card-meta">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<span class="comment-count"><Icon name="comment"/>{n}</span>})}{ticket.assignee.map(|name|{let initials=name.split_whitespace().take(2).filter_map(|s|s.chars().next()).collect::<String>().to_uppercase();view!{<Avatar label=name initials/>}})}</span></div>
     </article>}
 }
 #[component]
