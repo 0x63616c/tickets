@@ -104,29 +104,31 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     }
     a.screenshot(&output.join("demo-01-window-a.png"))?;
     b.screenshot(&output.join("demo-01-window-b.png"))?;
-    a.eval("var s=document.querySelector('.ticket-card select');s.value='In progress';s.dispatchEvent(new Event('change',{bubbles:true}));true")?;
+    a.choose(".ticket-card [role=combobox]", "In progress")?;
     for browser in [&mut a, &mut b] {
-        browser.wait("document.querySelector('.ticket-card select')?.value==='In progress'")?;
+        browser.wait(
+            "document.querySelector('.ticket-card [role=combobox]')?.value==='In progress'",
+        )?;
     }
     a.screenshot(&output.join("demo-02-window-a.png"))?;
     b.screenshot(&output.join("demo-02-window-b.png"))?;
     b.eval("window.__reads=0;const nativeFetch=window.fetch;window.fetch=(...args)=>{window.__reads++;return nativeFetch(...args)};window.__dropLive=true;true")?;
     let hidden_tab = b.call("Target.createTarget", json!({"url":"about:blank"}))?;
     b.wait("document.hidden")?;
-    a.eval("var s=document.querySelector('.ticket-card select');s.value='Done';s.dispatchEvent(new Event('change',{bubbles:true}));true")?;
-    a.wait("document.querySelector('.ticket-card select')?.value==='Done'")?;
+    a.choose(".ticket-card [role=combobox]", "Done")?;
+    a.wait("document.querySelector('.ticket-card [role=combobox]')?.value==='Done'")?;
     println!("live-check: checking a full hidden interval makes zero REST reads");
     let hidden_deadline = std::time::Instant::now() + Duration::from_secs(61);
     while std::time::Instant::now() < hidden_deadline {
         b.eval("if(window.__reads!==0)throw Error('hidden tab fetched: '+window.__reads);true")?;
         std::thread::sleep(Duration::from_millis(200));
     }
-    b.eval("if(document.querySelector('.ticket-card select')?.value==='Done')throw Error('hidden client unexpectedly reconciled');window.__socketCount=window.__liveSockets.length;true")?;
+    b.eval("if(document.querySelector('.ticket-card [role=combobox]')?.value==='Done')throw Error('hidden client unexpectedly reconciled');window.__socketCount=window.__liveSockets.length;true")?;
     b.call("Page.bringToFront", json!({}))?;
     b.eval(
         "window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('online'));true",
     )?;
-    b.wait("document.querySelector('.ticket-card select')?.value==='Done'")?;
+    b.wait("document.querySelector('.ticket-card [role=combobox]')?.value==='Done'")?;
     b.eval("if(window.__liveSockets.length!==window.__socketCount)throw Error('catch-up reconnected');true")?;
     b.eval("new Promise(resolve=>setTimeout(resolve,800))")?;
     b.eval(

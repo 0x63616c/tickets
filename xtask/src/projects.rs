@@ -32,8 +32,8 @@ pub fn check(root: &Path, password: &str) -> super::Result {
             return true;
         })()"#)?;
         b.go("http://127.0.0.1:8795/ticket?id=2")?;
-        b.wait("!!document.querySelector('.label-menu summary')")?;
-        b.click(".label-menu summary")?;
+        b.wait("!!document.querySelector('.label-menu .menu-trigger')")?;
+        b.click(".label-menu .menu-trigger")?;
         for (size, width, height) in [("desktop", 1440, 900), ("mobile", 390, 844)] {
             b.viewport(width, height)?;
             b.eval("document.querySelector('.label-menu').scrollIntoView({block:'center'});true")?;
@@ -65,16 +65,17 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("!document.querySelector('dialog')")?;
     b.click(".sidebar a[href='/projects?new=true']")?;
     b.wait("document.activeElement.id==='project-title'")?;
-    b.wait("!document.querySelector('#project-kind') && !document.querySelector('#project-number') && !document.querySelector('input[type=color]') && !document.querySelector('dialog').textContent.includes('Changing the prefix')")?;
+    b.wait("!document.querySelector('[aria-label=\"Owner type\"]') && !document.querySelector('#project-number') && !document.querySelector('input[type=color]') && !document.querySelector('dialog').textContent.includes('Changing the prefix')")?;
     b.click("[aria-label='Infrastructure color']")?;
     b.wait("document.querySelector('[aria-label=\"Infrastructure color\"]').getAttribute('aria-pressed')==='true'")?;
     b.text("#project-title", "Engine")?;
     b.text("#project-prefix", "ENG")?;
+    b.choose("[aria-label='Project icon']", "box")?;
     b.text(
         "#project-owner",
         "https://github.com/users/example/projects/9",
     )?;
-    b.wait("!document.querySelector('#project-kind')")?;
+    b.wait("!document.querySelector('[aria-label=\"Owner type\"]')")?;
     b.text("#project-repo", "engine")?;
     b.screenshot(&output.join("create-after-desktop.png"))?;
     b.viewport(390, 900)?;
@@ -83,12 +84,13 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.viewport(1440, 900)?;
     b.click("dialog button[type=submit]")?;
     b.wait("!document.querySelector('dialog') && document.querySelectorAll('.api-project-row').length===3")?;
+    b.wait("document.querySelector('[aria-label=\"Edit project Engine\"]').closest('.project-row').querySelector('.project-mark svg')!==null")?;
     b.click("[aria-label='Edit project Engine']")?;
     b.wait("document.querySelector('dialog').textContent.includes('Changing the prefix') && document.querySelector('[aria-label=\"Infrastructure color\"]').getAttribute('aria-pressed')==='true'")?;
     b.screenshot(&output.join("edit-after-desktop.png"))?;
     b.text("#project-owner", "example/4")?;
-    b.wait("!!document.querySelector('#project-kind')")?;
-    b.eval("var s=document.querySelector('#project-kind');s.value='users';s.dispatchEvent(new Event('change',{bubbles:true}));true")?;
+    b.wait("!!document.querySelector('[aria-label=\"Owner type\"]')")?;
+    b.choose("[aria-label='Owner type']", "users")?;
     b.text("#project-title", "Engine renamed")?;
     b.text("#project-prefix", "REN")?;
     b.text(
@@ -101,12 +103,12 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         "#project-owner",
         "https://github.com/orgs/example/projects/4",
     )?;
-    b.wait("!document.querySelector('#project-kind')")?;
+    b.wait("!document.querySelector('[aria-label=\"Owner type\"]')")?;
     b.click("dialog button[type=submit]")?;
     b.wait("!document.querySelector('dialog') && !!document.querySelector('.api-project-row a[href=\"https://github.com/orgs/example/projects/4\"]')")?;
     b.click("[aria-label='Edit project Engine renamed']")?;
     b.text("#project-owner", "example/4")?;
-    b.wait("document.querySelector('#project-kind')?.value==='orgs'")?;
+    b.wait("document.querySelector('[aria-label=\"Owner type\"]')?.value==='orgs'")?;
     b.screenshot(&output.join("edit-short-after-desktop.png"))?;
     b.click("dialog button[type=submit]")?;
     b.wait("!document.querySelector('dialog') && !!document.querySelector('[aria-label=\"Edit project Engine renamed\"]')")?;
@@ -135,19 +137,19 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.viewport(1440, 900)?;
     b.click(".topbar .button-primary")?;
     b.text("#board-title", "Project workflow ticket")?;
-    b.eval("var s=document.querySelector('[aria-label=\"New ticket project\"]');s.value='3';s.dispatchEvent(new Event('change',{bubbles:true}));true")?;
+    b.choose("[aria-label=\"New ticket project\"]", "3")?;
     b.click("dialog button[type=submit]")?;
     b.wait("!document.querySelector('dialog')")?;
     b.eval("[...document.querySelectorAll('.sidebar .project-nav')].find(e=>e.textContent.includes('Engine')).click();true")?;
     b.wait("document.querySelector('#ticket-2')?.textContent.includes('Project workflow ticket')")?;
-    b.eval("var s=document.querySelector('#ticket-2 select');s.value='In progress';s.dispatchEvent(new Event('change',{bubbles:true}));true")?;
-    b.wait("document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress' && !document.querySelector('#ticket-2 select').disabled")?;
+    b.choose("#ticket-2 [role=combobox]", "In progress")?;
+    b.wait("document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress' && !document.querySelector('#ticket-2 [role=combobox]').disabled")?;
     b.go("http://127.0.0.1:8795/ticket?id=2")?;
     b.wait("document.querySelector('[aria-label=Project]')?.value==='3'")?;
     b.eval("(async()=>{const r=await fetch('/api/v1/labels');const body=await r.json();if(body.data.length!==0)throw Error('expected no labels');return true})()")?;
-    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-trigger")?;
     b.wait("document.activeElement.id==='label-filter'")?;
-    b.eval("(()=>{const i=document.querySelector('#label-filter');if(i.getAttribute('aria-label')!=='Filter or create label'||i.placeholder!=='Filter or create label…'||i.closest('label').querySelector('span'))throw Error('label filter accessibility');const r=i.getBoundingClientRect(),m=i.closest('.menu').getBoundingClientRect();if(r.left-5<m.left||r.right+5>m.right)throw Error('label filter focus overflow');return true})()")?;
+    b.eval("(()=>{const i=document.querySelector('#label-filter');if(i.getAttribute('aria-label')!=='Filter or create label'||i.placeholder!=='Filter labels…')throw Error('label filter accessibility');const r=i.getBoundingClientRect(),m=i.closest('.popup').getBoundingClientRect();if(r.left-5<m.left||r.right+5>m.right)throw Error('label filter focus overflow');return true})()")?;
     b.text("#label-filter", "Feature")?;
     b.wait("document.querySelector('.label-menu .menu-item')?.textContent.includes('Create label Feature')")?;
     for (size, width, height) in [("desktop", 1440, 900), ("mobile", 390, 844)] {
@@ -162,48 +164,48 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.key("ArrowUp", 38, 0)?;
     b.wait("document.activeElement.id==='label-filter'")?;
     b.key("Enter", 13, 0)?;
-    b.wait("!!document.querySelector('.property-labels .label-chip') && document.activeElement.matches('.label-menu summary')")?;
-    b.click(".label-menu summary")?;
+    b.wait("!!document.querySelector('.property-labels .label-chip') && document.activeElement.matches('.label-menu .menu-trigger')")?;
+    b.click(".label-menu .menu-trigger")?;
     b.wait("document.querySelector('#label-filter').value===''")?;
     b.text("#label-filter", "FEATURE")?;
     b.wait("document.querySelectorAll('.label-menu .menu-item').length===1 && !document.querySelector('.label-menu').textContent.includes('Create label')")?;
     b.key("Escape", 27, 0)?;
-    b.wait("!document.querySelector('.label-menu').open && document.activeElement.matches('.label-menu summary')")?;
+    b.wait("document.querySelector('.menu-trigger').getAttribute('aria-expanded')==='false' && document.activeElement.matches('.label-menu .menu-trigger')")?;
     // Remove, then attach the case-insensitive match with Enter; no second label.
-    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-trigger")?;
     b.click(".label-menu .menu-item")?;
     b.wait("!document.querySelector('.property-labels .label-chip')")?;
-    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-trigger")?;
     b.wait("document.querySelector('#label-filter').value===''")?;
     b.text("#label-filter", "feature")?;
     b.key("Enter", 13, 0)?;
     b.wait("!!document.querySelector('.property-labels .label-chip')")?;
     b.eval("(async()=>{const r=await fetch('/api/v1/labels');const body=await r.json();if(body.data.length!==1 || body.data[0].name!=='Feature')throw Error('duplicate label');return true})()")?;
-    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-trigger")?;
     b.wait("document.querySelector('#label-filter').value===''")?;
     b.text("#label-filter", "Bug")?;
     b.click(".label-menu [data-create]")?;
-    b.wait("document.querySelectorAll('.property-labels .label-chip').length===2 && document.activeElement.matches('.label-menu summary')")?;
+    b.wait("document.querySelectorAll('.property-labels .label-chip').length===2 && document.activeElement.matches('.label-menu .menu-trigger')")?;
     for (size, width, height) in [("desktop", 1440, 900), ("mobile", 390, 844)] {
         b.viewport(width, height)?;
         b.eval("document.querySelector('.label-menu').scrollIntoView({block:'center'});true")?;
         b.screenshot(&labels_output.join(format!("attached-{size}.png")))?;
     }
     b.viewport(1440, 900)?;
-    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-trigger")?;
     b.wait("document.querySelector('#label-filter').value==='' && document.querySelectorAll('.label-menu .menu-item').length===2")?;
     b.text("#label-filter", "feat")?;
-    b.wait("document.querySelectorAll('.label-menu .menu-item').length===2 && !document.querySelector('.label-menu .menu').textContent.includes('Bug')")?;
+    b.wait("document.querySelectorAll('.label-menu .menu-item').length===2 && !document.querySelector('.label-menu .popup').textContent.includes('Bug')")?;
     b.text("#label-filter", "   ")?;
     b.wait("document.querySelectorAll('.label-menu .menu-item').length===2 && !document.querySelector('.label-menu [data-create]')")?;
     b.text("#label-filter", "FEATURE")?;
     b.key("Enter", 13, 0)?;
-    b.wait("document.querySelectorAll('.property-labels .label-chip').length===2 && document.activeElement.matches('.label-menu summary')")?;
+    b.wait("document.querySelectorAll('.property-labels .label-chip').length===2 && document.activeElement.matches('.label-menu .menu-trigger')")?;
     b.eval("[...document.querySelectorAll('button')].find(e=>e.textContent.includes('Add dependency')).click();true")?;
     b.wait("!!document.querySelector('#dependency-search')")?;
     b.click(".dependency-options button")?;
     b.wait("!document.querySelector('dialog') && !!document.querySelector('.dependency-row')")?;
-    b.eval("var s=document.querySelector('[aria-label=Project]');s.value='2';s.dispatchEvent(new Event('change',{bubbles:true}));true")?;
+    b.choose("[aria-label=Project]", "2")?;
     b.wait("document.querySelector('[aria-label=Project]')?.value==='2' && document.querySelector('.breadcrumbs')?.textContent.includes('QUA-1')")?;
     b.go("http://127.0.0.1:8795/ticket?id=2")?;
     b.wait("document.querySelector('[aria-label=Project]')?.value==='2' && !!document.querySelector('.property-labels .label-chip') && !!document.querySelector('.dependency-row')")?;

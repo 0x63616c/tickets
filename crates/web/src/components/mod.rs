@@ -1,3 +1,9 @@
+mod feedback;
+mod motion;
+mod popup;
+pub use feedback::*;
+pub use motion::*;
+pub use popup::*;
 mod controls;
 mod icons;
 mod overlays;
@@ -51,7 +57,7 @@ impl DesignState {
     }
     pub fn move_ticket(self, id: u32, status: Status) {
         use web_sys::wasm_bindgen::JsCast;
-        let selector = format!("select[aria-label='Move TKT-{id} to status']");
+        let selector = format!("button[role=combobox][aria-label='Move TKT-{id} to status']");
         let restore_focus = document()
             .active_element()
             .is_some_and(|element| element.matches(&selector).unwrap_or(false));

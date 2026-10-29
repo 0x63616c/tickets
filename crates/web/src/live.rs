@@ -198,7 +198,9 @@ pub(crate) fn LiveIndicator() -> impl IntoView {
 // Preserve native inputs, Markdown drafts and modal editors during reconciliation.
 pub(crate) fn editing() -> bool {
     document()
-        .query_selector("dialog[open], .comment-form.has-draft")
+        .query_selector(
+            "dialog[open], .comment-form.has-draft, .popup[data-state=open]:not(.tooltip)",
+        )
         .ok()
         .flatten()
         .is_some()

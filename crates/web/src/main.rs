@@ -26,6 +26,14 @@ use leptos_router::{
 fn App() -> impl IntoView {
     provide_context(components::DesignState::new());
     provide_context(pages::board::BoardState::new());
+    if window()
+        .location()
+        .pathname()
+        .unwrap_or_default()
+        .starts_with("/design/c/")
+    {
+        return view!{<Router><Routes fallback=||"Unknown component"><Route path=path!("/design/c/:name") view=pages::gallery::ComponentPreview/></Routes></Router>}.into_any();
+    }
     view! {
         <Router><Show when=|| window().location().pathname().unwrap_or_default() == "/login" fallback=|| view! { <components::AppShell>
             <Routes fallback=|| view! { <components::TopBar/><div class="empty-state"><h1>"Page not found"</h1><a class="button button-secondary" href="/">"Back to tickets"</a></div> }>
@@ -43,7 +51,7 @@ fn App() -> impl IntoView {
                 <Route path=path!("/settings/tokens") view=|| view! { <div class="auth-page"><ui::Tokens/></div> }/>
             </Routes>
         </components::AppShell> }><ui::Login/></Show></Router>
-    }
+    }.into_any()
 }
 
 fn main() {

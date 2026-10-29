@@ -1,6 +1,6 @@
 pub(crate) mod board;
 mod detail;
-mod gallery;
+pub mod gallery;
 mod tickets;
 pub use board::ApiBoard;
 pub use detail::*;

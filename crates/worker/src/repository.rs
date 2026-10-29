@@ -64,13 +64,16 @@ impl<S: Store> Repository<S> {
         .await
     }
     pub async fn save_project(&self, p: &Project) -> Result<Project> {
+        if let Some(icon) = &p.icon {
+            validate_project_icon(icon).map_err(Error::Validation)?;
+        }
         validate_name(&p.name)
             .and_then(|()| validate_prefix(&p.key_prefix))
             .and_then(|()| validate_color(&p.color))
             .map_err(Error::Validation)?;
         self.one(
             "UPDATE projects SET name=?,key_prefix=?,color=?,archived=?,github_owner=?,
-             github_project_number=?,github_repo=?,github_project_kind=? WHERE id=? RETURNING *",
+             github_project_number=?,github_repo=?,github_project_kind=?,icon=? WHERE id=? RETURNING *",
             vec![
                 p.name.clone().into(),
                 p.key_prefix.clone().into(),
@@ -80,6 +83,7 @@ impl<S: Store> Repository<S> {
                 p.github_project_number.into(),
                 p.github_repo.clone().into(),
                 p.github_project_kind.clone().into(),
+                p.icon.clone().into(),
                 p.id.into(),
             ],
         )

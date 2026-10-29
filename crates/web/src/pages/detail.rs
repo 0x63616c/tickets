@@ -47,15 +47,9 @@ fn TicketContent(ticket: Ticket) -> impl IntoView {
                     <div class="property-section">
                         <h2>"Labels"</h2>
                         <div class="property-labels"><LabelChip name=ticket.label/>{move || current.get().extra_labels.into_iter().map(|name| view! { <LabelChip name/> }).collect_view()}</div>
-                        <Menu label="Add label"><span class="menu-heading">"Labels"</span>
-                            {["Feature", "Bug", "Infrastructure", "Design"].into_iter().filter(|label| *label != ticket.label).map(move |label| view! {
-                                <button class="menu-item" aria-pressed=move || current.get().extra_labels.iter().any(|l| l == label) on:click=move |_| {
-                                    state.tickets.update(|tickets| { if let Some(t) = tickets.iter_mut().find(|t| t.id == id) { if t.extra_labels.iter().any(|l| l == label) { t.extra_labels.retain(|l| l != label); } else { t.extra_labels.push(label.into()); } } });
-                                }><LabelChip name=label/>{move || current.get().extra_labels.iter().any(|l| l == label).then(|| view! { <Icon name="check"/> })}</button>
-                            }).collect_view()}
-                        </Menu>
+                        <Combobox label="Add label" options=Signal::derive(move||["Feature","Bug","Infrastructure","Design"].into_iter().filter(|label|*label!=ticket.label).map(|l|SelectOption::new(l,l)).collect()) selected=Signal::derive(move||current.get().extra_labels) on_toggle=Callback::new(move|label:String|state.tickets.update(|tickets|{if let Some(t)=tickets.iter_mut().find(|t|t.id==id){if t.extra_labels.contains(&label){t.extra_labels.retain(|l|l!=&label);}else{t.extra_labels.push(label);}}}))/>
                     </div>
-                    <div class="property-section"><h2>"Project"</h2><A href="/design/board" attr:class="property-project"><span class="project-dot" style="--dot:var(--accent)"/><span>{ticket.project}</span><Icon name="chevron"/></A></div>
+                    <div class="property-section"><h2>"Project"</h2><A href="/design/board" attr:class="property-project"><ProjectIcon name=ticket.project.clone()/><span>{ticket.project}</span><Icon name="chevron"/></A></div>
                     <div class="property-section"><h2>"Links"</h2><a class="subtle-link" href=format!("https://github.com/0x63616c/tickets/issues/{id}") target="_blank" rel="noreferrer"><Icon name="link"/>"GitHub issue"<Icon name="external"/></a></div>
                     <div class="property-section property-dates"><span>"Created Oct 24"</span><span>"Updated today"</span></div>
                 </aside>

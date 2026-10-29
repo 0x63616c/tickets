@@ -44,7 +44,7 @@ as a statement about the GitHub issues' actual progress.
 | Module | Components and responsibility |
 | --- | --- |
 | `components/shell.rs` | AppShell, TopBar, ProjectHeader; sidebar, breadcrumbs, visible Board/List tabs |
-| `components/controls.rs` | Button, IconButton, TextInput, Select, Menu, LabelChip, Avatar, Shortcut, EmptyState, Markdown, ConnectionIndicator |
+| `components/controls.rs` | Button, IconButton, TextInput, LabelChip, Avatar, Shortcut, EmptyState, Markdown, ConnectionIndicator |
 | `components/icons.rs` | One 16px/1.5px-stroke SVG family; status shapes and priority bars |
 | `components/overlays.rs` | Native Modal, command palette, creation/dependency dialogs, toast |
 | `style/tokens.css` | Color/type/spacing/radius/shadow/motion roles; self-hosted Inter Variable and Geist Mono |
@@ -54,7 +54,7 @@ Use the existing role tokens; do not introduce a new palette per page. Use
 `--text-secondary` for body content and `--text-muted` for secondary metadata.
 `--text-faint` is reserved for nonessential section cues and separators. Do not
 use color as the only status signal. Board cards and list rows share the same
-status names and icons. No animated page entrance; hover uses short color changes.
+status names and icons. Route snapshots crossfade briefly; hover uses short color changes. See the TIK-38 interaction contract below.
 
 A sidebar item is 28px high, a top/view bar 44px, a list/group row 36px. Body UI
 is 13px Inter at 510 for rows; detail titles are 20px/590. Controls use 6px radii,
@@ -67,7 +67,7 @@ All spacing sits on a 4px grid: buttons and fields are 32px high with 12px
 horizontal padding, keyboard hints 20px, label chips 24px, swatches 32px.
 
 The #15 audit uses the same rules on real API routes. Board columns retain a
-240px minimum; In review appears when populated. Native status selects offer all
+240px minimum; In review appears when populated. Shared status selects offer all
 six statuses without shifting columns on pickup. Extra columns scroll without
 shrinking the 240px sidebar. List keys
 occupy a fixed 56px slot at both viewport sizes; titles truncate and expose their
@@ -85,18 +85,18 @@ restores the opener, and shortcuts never stack another dialog over a composer.
 The mobile sidebar has an expanded state, outside dismissal, Tab containment,
 and Escape focus restoration. These changes use only existing tokens.
 
-**Selects** keep the native element for keyboard, touch and assistive technology,
-with `appearance: none` and the `--chevron-down` token: a 14px chevron in
-`#8a8f98`, 12px from the right edge to match the 12px left padding, and 36px of
-right padding so text never runs under it. Inline selects (board cards, detail
-properties) use the same chevron with a transparent fill and a hover tint; card
-selects size to their content so the chevron sits beside the value.
+**Selects** use the shared `SelectField` controlled listbox (or the small static
+`Select` adapter). The trigger is 32px with a 14px chevron, 12px horizontal
+padding, a visible focus ring, and ellipsis for long values. The popup enters
+from its trigger, flips above it when necessary and scrolls within the viewport.
+Arrow keys, Home/End, typeahead, Enter/Space, Escape and Tab work in all instances.
+Selection returns focus to the trigger. Failed writes keep the saved value.
 
 **Sidebar** is `#030303` against the pure `#000000` canvas with a 1px `#141416`
 divider. A workspace switcher (20px mark, name, chevron, avatar) sits on top.
 Items are `#d0d6e0` with 16px icons; hover is a faint tint; the active item is a
 `#0a0a0b` pill with white text and an accent icon. Section headers are 11px
-uppercase `#797d86`. Projects show an 8px colored dot.
+uppercase `#797d86`. Projects use the shared 20px ProjectIcon tile.
 
 **Palette** is near-pure black (#32): canvas `#000000`, sidebar and properties
 `#030303`, surfaces `#070708` (cards, inputs) and `#0a0a0b` (raised, active),
@@ -143,12 +143,11 @@ when populated; all six statuses are available in the status select and gallery.
 ## Handoff boundaries
 
 Replace `DesignState` with API-backed resources. Keep the visual structure and
-native semantics; do not copy the fixtures as persistence/domain code. Add actual
+semantic controls; do not copy the fixtures as persistence/domain code. Add actual
 loading/error/retry states at the resource boundary, optimistic rollback for
 moves, server validation, session-aware ticket access, GitHub project linking, and live transport
 in their implementation issues. The source URL shown on the project is a repository
-reference, not an implemented GitHub Projects integration. The native select is a
-conscious accessibility baseline, not a promise of identical browser popover chrome.
+reference, not an implemented GitHub Projects integration. Select behavior is provided by the shared controlled listbox, not browser menu chrome.
 
 ## Reproduce and review
 
@@ -218,7 +217,80 @@ to unoptimized debug builds.
 
 The API-backed Projects view is `/projects`; `/design/projects` remains the
 fixture. It reuses the fixture table, shared project icon, Modal and TextInput.
-New project and Edit save name, key prefix, icon color and optional GitHub link.
+New project and Edit save name, key prefix, glyph or emoji, icon color and optional GitHub link.
 Show archived reveals projects for restoration; archiving preserves tickets.
 GitHub Project and repository links appear in the selected project header.
 Run `cargo xtask projects-check` for the isolated local UI lifecycle check.
+
+## TIK-38 interaction foundations
+
+These components are the extension points for TIK-39/40/42/44/45. Keep page layout
+work in those tickets; reuse these APIs rather than copying popup or timer logic.
+All are exported from `crate::components`.
+
+| API | Contract |
+| --- | --- |
+| `SelectField { label, options: Signal<Vec<SelectOption>>, value: Signal<String>, on_change: Callback<String>, disabled }` | Controlled single selection. `SelectOption::new(value, label)`; `SelectOption::project(project)` includes its icon. Callers own async saving and rollback. |
+| `Select { label, options: Vec<&str>, value: RwSignal<String>, on_change? }` | Small adapter for static choices and fixture/local state. |
+| `DropdownMenu { label, children }` | Roving focus, typeahead, Escape/Tab/outside dismissal and origin-aware positioning. Compose `MenuItem { on_select, checked?: Signal<bool>, shortcut? }` and `MenuSeparator`. Optional submenus are not implemented. |
+| `Combobox { label, input_id?, options, selected: Signal<Vec<String>>, on_toggle, on_create?, busy }` | Searchable multi-select. Search stays editable; arrows enter options. Enter toggles an exact match in selection-only mode. With `on_create`, Enter submits the trimmed name to the caller’s create-or-attach flow (an already attached label stays attached); option selection always toggles. Opening focuses search; Arrow Up from the first option returns there. Selection is authoritative and async errors remain on the owning page. |
+| `Tooltip { text, children }` | 500ms initial pointer delay, immediate keyboard display, 700ms skip-delay window after a tooltip. Escape/blur/leave dismiss. Never use as the only accessible label. |
+| `SegmentedControl { label, options, value: RwSignal<String> }` | Equal-width mutually exclusive buttons with `aria-pressed`, roving tabindex, Left/Right/Home/End and a transform-only sliding indicator. Keyboard changes skip motion. Markdown Write/Preview uses it. |
+| `AsciiSpinner { label, style, delay }` | Default Dots (80ms), Line (130ms), Pulse/dots11 (100ms), delay 150ms. One visually hidden polite status label; animated glyphs are hidden from AT. Reduced motion uses the first glyph; hidden documents stop cycling. Exact MIT cli-spinners frames and notice in THIRD_PARTY.md. |
+| `BusyButton { busy, disabled, variant, kind, class?, aria_label?, status_label?, on_click?, children }` | Async submit default; disables repeat input and sets aria-busy. The original content keeps its grid footprint; the spinner overlays it. Keep children constant while busy. |
+| `Skeleton { shape }`, `LoadingSkeleton { layout }` | Static line/short/meta/heading/square shapes and board/list/detail/projects layouts. Only use on first load; reconciliation keeps saved content visible. |
+| `ProjectIcon { name, icon, color, size }` | Decorative SVG/emoji or initial fallback next to the project name. `size="large"` is 32px; default 20px. Never display unvalidated markup. |
+| `ProjectIconPicker { value, color, name }` | Shared glyph selector, live tile preview and optional emoji input for the existing editor. |
+
+### Presence and movement
+
+`Presence { show: Signal<bool>, children }` keeps a child owner mounted during
+its exit and provides the open state to Modal. Use it instead of an immediate
+`Show` around a boolean-driven overlay. For optional payloads, use
+`present_value(source: Signal<Option<T>>)` to retain the last payload, and pass
+the original source's open state to `Modal { open }`. `use_presence(open, ms)`
+is the low-level helper for anchored surfaces. All pending timeouts are canceled
+on cleanup and rapid reopen. The 140ms retention includes the 120ms exit and a
+frame margin. Native dialog continues to contain focus and keep the background
+inert throughout exit; cleanup restores the connected opener.
+
+`dom.js` is a small platform bridge, not a parallel state system. Popover API
+puts anchored surfaces in the top layer; fixed positioning is the fallback.
+Resize and nested scroll reposition from the trigger. No positioning library
+is bundled. Motion snapshots keyed by `data-motion-key` provide transform-only
+FLIP for card/row reorders and short insertion/removal fades. Removal snapshots
+are inert, aria-hidden, stripped of IDs, noninteractive and removed after 120ms.
+Keyboard moves bypass animation. Route clicks progressively use native View
+Transitions to crossfade old/new snapshots; unsupported browsers navigate at once.
+The update callback yields a task, never an animation frame: the [View Transitions
+spec](https://www.w3.org/TR/css-view-transitions-1/#setup-view-transition) suppresses
+rendering during that callback. Snapshot overlays do not intercept input; skipped
+snapshots do not reject the navigation. Isolated preview links use a document
+navigation so they mount without the application shell.
+
+Timing and reduced-motion behavior live in tokens.css and foundation.css. No GSAP,
+React, Radix runtime, endless skeleton pulse, decode effect or animation dependency
+is added. CSS transitions make the segmented indicator interruptible.
+
+### Component review and PNGs
+
+`/design/c/<name>?variant=...` is isolated from auth and API transport, with sample
+data only. `/design` links every specimen. Names: `select`, `menu`, `combobox`,
+`modal`, `loader`, `skeletons`, `icons`, `busy-button`, `tabs`, `tooltip`.
+Skeleton variants: `board` (default), `list`, `detail`, `projects`.
+
+```sh
+cargo xtask build
+CHROME_BIN=/usr/bin/google-chrome cargo xtask component-shot all
+CHROME_BIN=/usr/bin/google-chrome cargo xtask component-shot skeletons --variant detail
+```
+
+The xtask serves built assets on an OS-assigned loopback port, opens menu/select
+states, waits for fonts, then captures tight bounds at 2× DPR on the dark canvas.
+It includes keyboard selection/typeahead/focus/collision checks. `--output <dir>`
+changes the destination (default `target/component-shots`).
+`--before-assets <absolute-dist-path>` captures the real previous UI using the
+same browser and crop mechanism; held local requests reveal actual loading and
+submitting states. Native OS select menus are not part of Chrome page screenshots;
+the baseline shows the focused native trigger, while the after image includes the
+new rendered listbox. Add full-page captures when a page's layout changes.

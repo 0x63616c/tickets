@@ -10,7 +10,8 @@ const MEASURE: &str = r#"(()=>{
  const over=(f,b)=>f.slice(0,3).map((v,i)=>v*(f[3]??1)+b[i]*(1-(f[3]??1)));
  const bg=e=>e?over(rgba(getComputedStyle(e).backgroundColor),bg(e.parentElement)):[0,0,0];
  const lum=c=>c.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
- return [...document.querySelectorAll('.button-primary,kbd,.label-chip span,.agent-badge,.avatar,.project-mark,.comment-count,.resolved')].filter(e=>e.getClientRects().length).map(e=>{
+ // Project initials have their own foreground; the parent tint colors decorative SVGs.
+ return [...document.querySelectorAll('.button-primary,kbd,.label-chip span,.agent-badge,.avatar,.project-mark > span,.comment-count,.resolved')].filter(e=>e.getClientRects().length).map(e=>{
  for(let p=e;p;p=p.parentElement)if(Number(getComputedStyle(p).opacity)!==1)throw Error('Unexpected opacity in contrast measurement');
  const c=getComputedStyle(e),background=bg(e),foreground=over(rgba(c.color),background),a=lum(foreground),b=lum(background);
  return {selector:e.className||e.tagName,text:e.textContent.trim(),foreground,background,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05),size:c.fontSize,opacity:c.opacity};

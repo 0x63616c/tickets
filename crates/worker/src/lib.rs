@@ -95,7 +95,12 @@ pub mod auth_queries;
 // Only build-produced assets are public; unknown paths (even with dots) are gated.
 #[cfg(any(target_arch = "wasm32", test))]
 fn is_public_asset(path: &str) -> bool {
-    path.starts_with("/fonts/")
+    // wasm-bindgen emits the local DOM bridge under a content-addressed snippet.
+    // Match the one build-owned module, not arbitrary nested JavaScript paths.
+    path.strip_prefix("/snippets/tickets-web-")
+        .and_then(|rest| rest.strip_suffix("/src/components/dom.js"))
+        .is_some_and(|hash| hash.len() == 16 && hash.bytes().all(|b| b.is_ascii_hexdigit()))
+        || path.starts_with("/fonts/")
         || matches!(
             path,
             "/favicon.ico" | "/favicon.svg" | "/favicon-32.png" | "/apple-touch-icon.png"
@@ -117,6 +122,21 @@ fn is_public_asset(path: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::is_public_asset;
+
+    #[test]
+    fn only_the_hashed_dom_bridge_is_public() {
+        assert!(is_public_asset(
+            "/snippets/tickets-web-8e589db3b4472a38/src/components/dom.js"
+        ));
+        for path in [
+            "/snippets/private.js",
+            "/snippets/tickets-web-notahash/src/components/dom.js",
+            "/snippets/tickets-web-8e589db3b4472a38/src/components/secret.js",
+            "/snippets/tickets-web-8e589db3b4472a38/src/components/dom.js.bak",
+        ] {
+            assert!(!is_public_asset(path), "{path} must stay gated");
+        }
+    }
 
     #[test]
     fn icon_paths_are_public_exactly() {

@@ -45,6 +45,7 @@ impl Browser {
             .into();
         browser.call("Page.enable", json!({}))?;
         browser.call("Runtime.enable", json!({}))?;
+        browser.call("Network.enable", json!({}))?;
         browser.viewport(1440, 900)?;
         browser.call(
             "Emulation.setEmulatedMedia",
@@ -75,6 +76,15 @@ impl Browser {
                 {
                     eprintln!("Browser console error: {}", response["params"]["args"]);
                 }
+                if response["method"] == "Network.loadingFailed"
+                    && response["params"]["canceled"] != true
+                {
+                    // Transport diagnostics only: never log URLs, bodies or headers.
+                    eprintln!(
+                        "Browser network failure: {} ({})",
+                        response["params"]["errorText"], response["params"]["blockedReason"]
+                    );
+                }
                 if response["id"] == self.id {
                     if !response["error"].is_null() {
                         return Err(format!("{method}: {}", response["error"]).into());
@@ -99,15 +109,24 @@ impl Browser {
         while self.eval(expression)? != true {
             if start.elapsed() > Duration::from_secs(15) {
                 let _ = self.screenshot(Path::new("target/browser-failure.png"));
-                return Err(format!("Timed out: {expression}").into());
+                let context=self.eval("({url:location.href,title:document.title,body:document.body.innerText.slice(0,1200)})").unwrap_or_default();
+                return Err(format!("Timed out: {expression}; {context}").into());
             }
             thread::sleep(Duration::from_millis(100));
         }
         Ok(())
     }
     pub(crate) fn go(&mut self, url: &str) -> Result<()> {
-        self.call("Page.navigate", json!({"url":url}))?;
-        self.wait("!!document.querySelector('.topbar, .auth-page, .login-page')")?;
+        // Page.navigate can return before the new document replaces the old one.
+        // Never satisfy readiness from the previous route's shell or fixtures.
+        self.eval("window.__ticketsHarnessNavigation = true")?;
+        let navigation = self.call("Page.navigate", json!({"url":url}))?;
+        if navigation["loaderId"].is_string() {
+            self.wait("!window.__ticketsHarnessNavigation")?;
+        }
+        self.wait(
+            "!!document.querySelector('.topbar, .auth-page, .login-page, .component-stage')",
+        )?;
         self.eval("document.fonts.ready.then(() => true)")?;
         Ok(())
     }
@@ -121,6 +140,8 @@ impl Browser {
     pub(crate) fn screenshot(&mut self, path: &Path) -> Result<()> {
         // Let layout and font metrics settle before capturing the viewport.
         self.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))")?;
+        // Capture finished UI, including the shared enter/exit transitions.
+        self.eval("Promise.race([Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))),new Promise(r=>setTimeout(r,400))]).then(()=>true)")?;
         // CDP clip coordinates are relative to the page, including scroll.
         let viewport =
             self.eval("({x:scrollX,y:scrollY,width:innerWidth,height:innerHeight,scale:1})")?;
@@ -144,6 +165,9 @@ impl Browser {
     }
     pub(crate) fn click(&mut self, selector: &str) -> Result<()> {
         let selector = serde_json::to_string(selector)?;
+        // An outgoing native dialog intentionally keeps the page inert through exit.
+        // Wait for an actual pointer target rather than clicking through that interval.
+        self.wait(&format!("(()=>{{const e=document.querySelector({selector}),d=document.querySelector('dialog[open]');if(!e || !e.getClientRects().length || e.closest('[hidden],[inert],[data-state=closed]') || (d && !d.contains(e)))return false;e.scrollIntoView({{block:'nearest'}});const r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return hit===e || e.contains(hit)}})()"))?;
         let point = self.eval(&format!("(() => {{ const e=document.querySelector({selector}); if(!e) throw Error('Missing control'); e.scrollIntoView({{block:'nearest'}}); const r=e.getBoundingClientRect(); return {{x:r.x+r.width/2,y:r.y+r.height/2}}; }})()"))?;
         for kind in ["mousePressed", "mouseReleased"] {
             self.call(
@@ -151,6 +175,28 @@ impl Browser {
                 json!({"type":kind,"x":point["x"],"y":point["y"],"button":"left","clickCount":1}),
             )?;
         }
+        Ok(())
+    }
+    pub(crate) fn choose(&mut self, selector: &str, value: &str) -> Result<()> {
+        self.click(selector)?;
+        let id = self.eval(&format!(
+            "document.querySelector({}).getAttribute('aria-controls')",
+            serde_json::to_string(selector)?
+        ))?;
+        let panel = id.as_str().ok_or("select has no listbox")?;
+        let option = format!(
+            "#{panel} [role=option][data-value={}]",
+            serde_json::to_string(value)?
+        );
+        self.wait(&format!(
+            "!!document.querySelector({})",
+            serde_json::to_string(&option)?
+        ))?;
+        self.click(&option)?;
+        self.wait(&format!(
+            "document.querySelector({})?.getAttribute('aria-expanded')==='false'",
+            serde_json::to_string(selector)?
+        ))?;
         Ok(())
     }
     pub(crate) fn text(&mut self, selector: &str, text: &str) -> Result<()> {
@@ -199,7 +245,7 @@ impl Browser {
         for kind in ["keyDown", "keyUp"] {
             self.call(
                 "Input.dispatchKeyEvent",
-                json!({"type":kind,"key":key,"windowsVirtualKeyCode":code,"modifiers":modifiers}),
+                json!({"type":kind,"key":key,"windowsVirtualKeyCode":code,"modifiers":modifiers,"text":if kind=="keyDown" && key=="Enter" {"\r"}else{""}}),
             )?;
         }
         self.eval("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))")?;
@@ -232,17 +278,21 @@ pub fn check(root: &Path) -> super::Result {
     }
     browser.go(&format!("{base}/design/board"))?;
     browser
-        .eval("document.querySelector('select[aria-label=\"Move TKT-7 to status\"]').focus()")?;
+        .eval("document.querySelector('button[role=combobox][aria-label=\"Move TKT-7 to status\"]').focus()")?;
     browser.key("ArrowDown", 40, 0)?;
-    browser.wait("document.querySelector('.board-column[aria-label=\"In review\"] select[aria-label=\"Move TKT-7 to status\"]')?.value === 'In review'")?;
+    browser.key("ArrowDown", 40, 0)?;
+    browser.key("Enter", 13, 0)?;
+    browser.wait("document.querySelector('.board-column[aria-label=\"In review\"] button[role=combobox][aria-label=\"Move TKT-7 to status\"]')?.value === 'In review'")?;
     browser
         .wait("document.activeElement?.getAttribute('aria-label') === 'Move TKT-7 to status'")?;
     browser.key("ArrowDown", 40, 0)?;
-    browser.wait("document.querySelector('.board-column[aria-label=\"Done\"] select[aria-label=\"Move TKT-7 to status\"]')?.value === 'Done'")?;
+    browser.key("ArrowDown", 40, 0)?;
+    browser.key("Enter", 13, 0)?;
+    browser.wait("document.querySelector('.board-column[aria-label=\"Done\"] button[role=combobox][aria-label=\"Move TKT-7 to status\"]')?.value === 'Done'")?;
     browser
         .wait("document.activeElement?.getAttribute('aria-label') === 'Move TKT-7 to status'")?;
-    browser.eval("(() => { const card=document.querySelector('.ticket-card:has(select[aria-label=\"Move TKT-8 to status\"])'); const target=document.querySelector('.board-column[aria-label=\"In progress\"]'); const dataTransfer=new DataTransfer(); card.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer})); target.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer})); target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer})); return true; })()")?;
-    browser.wait("!!document.querySelector('.board-column[aria-label=\"In progress\"] select[aria-label=\"Move TKT-8 to status\"]')")?;
+    browser.eval("(() => { const card=document.querySelector('.ticket-card:has(button[role=combobox][aria-label=\"Move TKT-8 to status\"])'); const target=document.querySelector('.board-column[aria-label=\"In progress\"]'); const dataTransfer=new DataTransfer(); card.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer})); target.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer})); target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer})); return true; })()")?;
+    browser.wait("!!document.querySelector('.board-column[aria-label=\"In progress\"] button[role=combobox][aria-label=\"Move TKT-8 to status\"]')")?;
     browser.screenshot(&output.join("11-move-feedback.png"))?;
     browser.go(&format!("{base}/design/board"))?;
     browser.text("input[aria-label='Filter tickets']", "keyboard")?;
@@ -265,7 +315,7 @@ pub fn check(root: &Path) -> super::Result {
     browser.click("dialog button[type='submit']")?;
     browser
         .wait("document.querySelector('h1')?.textContent === 'Restore saved filters on reload'")?;
-    browser.click(".label-menu summary")?;
+    browser.click(".label-menu .menu-trigger")?;
     browser.click(".label-menu .menu-item:last-child")?;
     browser.wait("document.querySelector('.property-labels').textContent.includes('Design')")?;
     browser.text(
@@ -312,6 +362,11 @@ pub fn check(root: &Path) -> super::Result {
         println!("PASS: the local Worker requires authentication for API tokens.");
     }
     browser.screenshot(&output.join("13-token-access.png"))?;
+    browser.go(&format!("{base}/design"))?;
+    browser.click("a[href='/design/c/select']")?;
+    browser.wait(
+        "!!document.querySelector('.component-stage') && !document.querySelector('.sidebar')",
+    )?;
     println!(
         "PASS: routes, fonts, overflow at 1440/390px, keyboard status move with focus retained, drag/drop events, filtering, Cmd+K with search focus, arrow navigation, Escape, C, creation, labels, sanitized comments, dependencies, project creation and project selection, existing login and token screens."
     );
@@ -406,11 +461,11 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
     // Native status select supplies the touch / keyboard alternative.
-    b.eval(r#"(()=>{const s=document.querySelector('#ticket-7 select');s.value='Todo';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.choose("#ticket-7 [role=combobox]", "Todo")?;
     b.wait("document.querySelector('#ticket-7')?.closest('section').getAttribute('aria-label')==='Todo' && document.body.innerText.includes('Order saved')")?;
-    b.eval(r#"(()=>{const s=document.querySelector('[aria-label="Filter by label"]');s.value='1';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.choose(r#"[aria-label="Filter by label"]"#, "1")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
-    b.eval(r#"(()=>{const s=document.querySelector('[aria-label="Filter by assignee"]');s.value='agent';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.choose(r#"[aria-label="Filter by assignee"]"#, "agent")?;
     b.wait("document.querySelectorAll('.ticket-card').length===3")?;
     b.text("input[aria-label='Filter tickets']", "Review imported")?;
     b.wait("document.querySelectorAll('.ticket-card').length===1 && !!document.querySelector('#ticket-4')")?;
@@ -503,15 +558,15 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("location.pathname==='/t/TKT-1' && document.querySelector('.ticket-detail h1')?.textContent.includes('Remember filters')")?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
     b.wait("!!document.querySelector('#list-ticket-1')")?;
-    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="Status for TKT-1"]');s.value='Todo';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.choose(r#"[aria-label="Status for TKT-1"]"#, "Todo")?;
     b.wait("document.querySelector('#list-ticket-1')?.closest('section').getAttribute('aria-label')==='Todo' && document.querySelector('.ticket-list').getAttribute('aria-busy')==='false'")?;
-    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="Priority for TKT-1"]');s.value='Urgent';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.choose(r#"[aria-label="Priority for TKT-1"]"#, "Urgent")?;
     b.wait("document.querySelector('[aria-label=\"Priority for TKT-1\"]').value==='Urgent' && document.querySelector('.ticket-list').getAttribute('aria-busy')==='false'")?;
     b.go("http://127.0.0.1:8795/list?project=1&status=Todo&sort=priority")?;
     b.wait("document.querySelectorAll('.api-list-row').length===3 && document.querySelector('.api-list-row').id==='list-ticket-1'")?;
-    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="All labels"]');s.value='1';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.choose(r#"[aria-label="All labels"]"#, "1")?;
     b.wait("location.search.includes('label=1') && document.querySelectorAll('.api-list-row').length===2")?;
-    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="All assignees"]');s.value='agent';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.choose(r#"[aria-label="All assignees"]"#, "agent")?;
     b.wait("location.search.includes('assignee=agent') && document.querySelectorAll('.api-list-row').length===1")?;
     b.go("http://127.0.0.1:8795/list?project=1&status=Todo&sort=priority&label=1&assignee=agent")?;
     b.wait("document.querySelectorAll('.api-list-row').length===1 && !!document.querySelector('#list-ticket-2')")?;
@@ -522,7 +577,7 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
         b.wait(&format!("document.querySelector('[aria-label=Todo] .api-list-row').id==='list-ticket-{expected}'"))?;
     }
     b.eval("window.savedFetch=window.fetch;window.fetch=(i,o)=>((i instanceof Request?i.method:o?.method)==='PATCH'?Promise.resolve(new Response(JSON.stringify({error:{message:'Verification rejection'}}),{status:409,headers:{'Content-Type':'application/json'}})):window.savedFetch(i,o));true")?;
-    b.eval(r#"(()=>{let s=document.querySelector('[aria-label="Status for TKT-2"]');s.value='Done';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
+    b.choose(r#"[aria-label="Status for TKT-2"]"#, "Done")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Verification rejection') && document.querySelector('[aria-label=\"Status for TKT-2\"]').value==='Todo'")?;
     b.eval("window.fetch=window.savedFetch;true")?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
@@ -578,7 +633,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
         b.screenshot(&output.join("target-desktop.png"))?;
         return Ok(());
     }
-    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Group the ticket list by status' && !!document.querySelector('[aria-label=Project] option')")?;
+    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Group the ticket list by status' && !!document.querySelector('[role=listbox][aria-label=Project] [role=option]')")?;
     click_text(b, "button", "Edit ticket")?;
     b.wait("!!document.querySelector('#detail-title')")?;
     b.text("#detail-title", "Make every status change accessible")?;
@@ -595,10 +650,10 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.text("input[aria-label=Assignee]", "agent")?;
     b.eval("document.querySelector('.assignee-editor').requestSubmit()")?;
     b.wait("document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
-    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-trigger")?;
     b.click(".label-menu .menu-item")?;
     b.wait("!document.querySelector('.property-labels .label-chip') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
-    b.click(".label-menu summary")?;
+    b.click(".label-menu .menu-trigger")?;
     b.click(".label-menu .menu-item")?;
     b.wait("!!document.querySelector('.property-labels .label-chip') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     // Existing 1 -> 2; 2 -> 1 must report the real API's cycle rejection inline.
@@ -706,7 +761,12 @@ fn click_text(b: &mut Browser, selector: &str, text: &str) -> Result<()> {
     b.eval(&format!("(()=>{{const e=[...document.querySelectorAll({})].find(e=>e.textContent.trim()==={});if(!e)throw Error('Missing button');e.click();return true;}})()",serde_json::to_string(selector)?,serde_json::to_string(text)?))?;
     Ok(())
 }
-fn select_value(b: &mut Browser, label: &str, value: &str) -> Result<()> {
-    b.eval(&format!("(()=>{{const e=document.querySelector({});e.value={};e.dispatchEvent(new Event('change',{{bubbles:true}}));return true;}})()",serde_json::to_string(&format!("select[aria-label='{label}']"))?,serde_json::to_string(value)?))?;
-    Ok(())
+pub(crate) fn select_value(b: &mut Browser, label: &str, value: &str) -> Result<()> {
+    b.choose(
+        &format!(
+            "button[role=combobox][aria-label={}]",
+            serde_json::to_string(label)?
+        ),
+        value,
+    )
 }
