@@ -1,6 +1,8 @@
 #[cfg(target_arch = "wasm32")]
 mod github_mirror;
 #[cfg(target_arch = "wasm32")]
+mod github_prs;
+#[cfg(target_arch = "wasm32")]
 mod live;
 #[cfg(target_arch = "wasm32")]
 pub use live::BoardRoom;

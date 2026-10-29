@@ -15,6 +15,7 @@ use web_sys::wasm_bindgen::JsCast;
 struct CommentRecord {
     id: i64,
     body: String,
+    author: String,
     created_at: String,
 }
 #[derive(Clone, Copy)]
@@ -194,6 +195,12 @@ fn DetailPage(id: i64) -> impl IntoView {
             {move||state.ticket.get().map(|t|{let empty=t.blocks.is_empty() && t.blocked_by.is_empty();view!{ {empty.then(||view!{<p class="muted dependency-empty">"No dependencies"</p>})}
                 {t.blocked_by.into_iter().map(|related|view!{<DependencyRow related incoming=true/>}).collect_view()}{t.blocks.into_iter().map(|related|view!{<DependencyRow related incoming=false/>}).collect_view()}
             }})}</section>
+            {move||state.ticket.get().filter(|t|!t.pull_requests.is_empty()).map(|t|view!{
+                <section class="dependencies" aria-label="Pull requests"><div class="section-heading"><h2>"Pull requests"</h2></div>
+                {t.pull_requests.into_iter().map(|pr|view!{
+                    <div class="pr-link-row"><a class="subtle-link" href=pr.url target="_blank" rel="noopener noreferrer"><Icon name="link"/><span>{format!("{}#{} · {}",pr.repo,pr.number,pr.title)}</span><Icon name="external"/></a><span class="muted">{format!("{} · {}",match pr.state.as_str(){"open"=>"Open","draft"=>"Draft","merged"=>"Merged","closed"=>"Closed",state=>state},if pr.closes{"Closes ticket"}else{"Reference"})}</span></div>
+                }).collect_view()}</section>
+            })}
             <section class="activity" aria-label="Comments and activity"><div class="section-heading"><h2>"Activity"</h2></div><For each=move||state.comments.get() key=|c|(c.id,c.body.clone()) children=|comment|view!{<ApiComment comment/>}/><Show when=move||!state.mirrored()><CommentEditor/></Show></section>
             </article></div></Show>
         {move||edit.get().then(||view!{<EditTicket close=Callback::new(move|_|edit.set(false))/>})}
@@ -346,6 +353,7 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     let state = expect_context::<DetailState>();
     let editing = RwSignal::new(false);
     let id = comment.id;
+    let editable = comment.author == "owner";
     let author = if comment.body.starts_with("<!-- tickets-import:github:") {
         comment
             .body
@@ -354,6 +362,8 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
             .and_then(|s| s.split_once("** on GitHub"))
             .map(|(login, _)| format!("@{login}"))
             .unwrap_or_else(|| "GitHub".into())
+    } else if comment.author != "owner" {
+        comment.author.clone()
     } else {
         "You".into()
     };
@@ -366,7 +376,7 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     } else {
         comment.body.clone()
     };
-    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||!state.mirrored()><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{})>"Delete"</button></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone()/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
+    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||editable && !state.mirrored()><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><button class="button button-ghost comment-action" disabled=move||state.mirrored() || state.busy.get() on:click=move|_|state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{})>"Delete"</button></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone()/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
 }
 #[component]
 fn CommentEditor(

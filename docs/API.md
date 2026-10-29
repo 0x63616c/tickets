@@ -136,8 +136,8 @@ curl -sS -X DELETE "$TICKETS_URL/api/v1/tickets/EX-1/dependencies/2" -H "Authori
 | PATCH | `/comments/{id}` | Update `body` |
 | DELETE | `/comments/{id}` | Delete comment |
 
-Responses contain raw `body` and sanitized `body_html`. Single-user author is
-`owner`; callers cannot spoof authors through request fields.
+Responses contain raw `body` and sanitized `body_html`. User-created comments use author
+`owner`; PR activity uses `GitHub` or `system`. Callers cannot spoof authors through request fields.
 
 ```sh
 curl -sS "$TICKETS_URL/api/v1/tickets/EX-1/comments" -H "Authorization: Bearer $TICKETS_TOKEN" \
@@ -200,7 +200,7 @@ signatures return 401; an unset/empty secret returns 503. The body limit is 1 Mi
 (413). Malformed JSON returns 400, non-POST requests 405. Do not send API tokens.
 
 Configured repository IDs are accepted independently of repository names/renames.
-Unknown repository IDs and pull requests return 202 ignored. Signed `ping` returns
+Unknown issue-mirror repository IDs return 202 ignored. Signed `ping` returns
 200. Issues are upserted from their full payload; deleted/transferred issues delete
 the mirrored ticket. Issue comments are created/edited/deleted by the import marker.
 Label edits update name/color; label deletions remove the global label and links.
@@ -213,3 +213,37 @@ available for import/reconciliation. The mirror owns title, body, state, assigne
 URL, labels and imported comments, overwriting local changes on its next update.
 GitHub comment authors appear in the marker-backed Markdown body; the API `author`
 field retains `owner`. Render only sanitized `body_html`; markers are invisible.
+
+
+## GitHub pull requests
+
+The same signed webhook handles `pull_request` independently of `GITHUB_MIRROR`.
+`GITHUB_PR_OWNERS` is a comma-separated, case-insensitive repository-owner allowlist
+(local and production vars); unknown owners return 202. A signed ping needs no
+repository and returns 200. PR actions opened, reopened, ready_for_review,
+converted_to_draft, edited, synchronize and closed are supported.
+
+Title brackets `[TIK-32]` create closing links by default. Body `Closes`, `Fixes`
+or `Resolves` (case insensitive, optional colon) create closing links; `Refs TIK-32`
+creates a reference link and overrides a title bracket. Multiple keys are supported;
+only existing project/ticket keys resolve. Unknown keys return 202 when none resolve.
+Edits replace the PR's complete key set, removing missing links.
+
+Ticket responses (including `GET /api/v1/tickets/{key}` for the box job CLI) contain
+`status` and an ordered `pull_requests` array, empty when unlinked. Each PR has
+`repo`, `number`, `url`, `title`, `state` (`open`, `draft`, `merged`, `closed`),
+`closes` (boolean), `head_sha` and `updated_at`. Order is repository then number.
+
+Open PRs move backlog/todo/in_progress tickets to in_review; drafts move
+backlog/todo to in_progress. Neither moves in_review backwards or changes done
+or canceled. A merged closing link marks done unless canceled. An unmerged close
+returns in_review/in_progress to todo only when no other open/draft PR remains.
+Reference merges leave status unchanged. GitHub/system comments record link and
+status changes. No requests are made back to GitHub.
+
+A persisted per-PR snapshot prevents stale events from restoring removed links.
+Newer GitHub timestamps win; equal timestamps prefer merged, closed, open, draft
+in that order. Equal-time conflicting edits of the same state retain the first
+snapshot. Exact redeliveries produce no writes/activity. Stale/replayed snapshots return 202. Ingestion uses one atomic
+D1 statement with eight parameters, plus one project lookup for live invalidation;
+it does not query per key. Signed malformed PR payloads return 400.

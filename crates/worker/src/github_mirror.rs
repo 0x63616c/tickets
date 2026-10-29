@@ -222,6 +222,9 @@ pub async fn webhook(mut req: Request, env: &Env) -> Result<Response> {
         return Response::error("Invalid signature", 401);
     }
     let event = req.headers().get("X-GitHub-Event")?.unwrap_or_default();
+    if event == "pull_request" || event == "ping" {
+        return crate::github_prs::handle(env, &event, &bytes).await;
+    }
     let payload: Payload = match serde_json::from_slice(&bytes) {
         Ok(p) => p,
         Err(_) => return Response::error("Malformed payload", 400),

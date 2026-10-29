@@ -211,7 +211,7 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     fs::OpenOptions::new().append(true).open(&config)?.write_all(b"\n[[durable_objects.bindings]]\nname='BOARD_ROOMS'\nclass_name='BoardRoom'\n[[migrations]]\ntag='v1-board-room'\nnew_sqlite_classes=['BoardRoom']\n")?;
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(fixture) = &mirror_fixture {
-        fs::OpenOptions::new().append(true).open(&config)?.write_all(format!("\n[vars]\nGITHUB_MIRROR='1436584641=0x63616c/tickets:TIK'\nGITHUB_API_BASE_URL='{}'\n",fixture.base).as_bytes())?;
+        fs::OpenOptions::new().append(true).open(&config)?.write_all(format!("\n[vars]\nGITHUB_PR_OWNERS='0x63616c'\nGITHUB_MIRROR='1436584641=0x63616c/tickets:TIK'\nGITHUB_API_BASE_URL='{}'\n",fixture.base).as_bytes())?;
         fs::OpenOptions::new()
             .append(true)
             .open(dir.join(".dev.vars"))?

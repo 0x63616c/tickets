@@ -15,7 +15,10 @@ const TICKET_SELECT: &str = "tickets.*,
  (SELECT json_group_array(blocked_id) FROM
    (SELECT blocked_id FROM ticket_dependencies WHERE blocker_id=tickets.id ORDER BY blocked_id)) AS blocks,
  (SELECT json_group_array(blocker_id) FROM
-   (SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=tickets.id ORDER BY blocker_id)) AS blocked_by";
+   (SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=tickets.id ORDER BY blocker_id)) AS blocked_by,
+ (SELECT json_group_array(json(pr)) FROM
+   (SELECT json_object('repo',repo,'number',number,'url',url,'title',title,'state',state,'closes',json(CASE closes WHEN 1 THEN 'true' ELSE 'false' END),'head_sha',head_sha,'updated_at',updated_at) AS pr
+    FROM ticket_pull_requests WHERE ticket_id=tickets.id ORDER BY repo,number)) AS pull_requests";
 
 fn selection(entity: &str) -> &str {
     if entity == "tickets" {
@@ -73,7 +76,7 @@ impl<S: Store> ApiRepository<'_, S> {
                     .ok_or_else(|| Error::Storage("Invalid ticket ID".into()))?;
                 v = self.get("tickets", id).await?;
             }
-            for field in ["labels", "blocks", "blocked_by"] {
+            for field in ["labels", "blocks", "blocked_by", "pull_requests"] {
                 let text = v[field]
                     .as_str()
                     .ok_or_else(|| Error::Storage(format!("Invalid ticket {field}")))?;

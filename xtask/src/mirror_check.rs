@@ -171,7 +171,7 @@ fn signature(body: &[u8]) -> String {
     hash.update(digest);
     format!("sha256={}", tickets_core::auth::hex(&hash.finalize()))
 }
-fn send(event: &str, payload: Value, valid: bool, expected: u16) -> Result<()> {
+pub(crate) fn send(event: &str, payload: Value, valid: bool, expected: u16) -> Result<()> {
     let body = payload.to_string();
     let response = Client::new()
         .post("http://127.0.0.1:8795/api/v1/github/webhook")
@@ -328,6 +328,7 @@ pub fn check(root: &Path, password: &str, token: &str, fixture: &Fixture) -> Res
     screenshots(root, password)?;
     send("issues", payload("deleted"), true, 204)?;
     assert!(api.list("/api/v1/tickets")?.is_empty());
+    super::github_pr_check::check(root, password, &api)?;
     println!("Mirror check passed: signed webhooks, cron, importer identities and read-only UI");
     Ok(())
 }

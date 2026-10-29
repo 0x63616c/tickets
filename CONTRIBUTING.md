@@ -1,20 +1,17 @@
 # Contributing
 
-## Issues are the source of truth
-- Every piece of work has a GitHub issue with a **Done when** checklist.
-- Every open issue carries exactly one model label:
-  - `model:astra` – design work only (design system, visual design/mockups, UI ADRs).
-    Run: `codex exec -m gpt-6-astra -c model_reasoning_effort=xhigh`.
-  - `model:sol` – all implementation work. Run: `codex exec -m gpt-6.1-sol`.
-- Dependencies are written as `Blocked by #N` in the issue body; the issue carries
-  `status:blocked` until every blocker is closed.
-- Type labels: `type:feat`, `type:fix`, `type:chore`.
+## Tickets are the source of truth
+- Tickets (tickets.worldwidewebb.co) is the sole system of record as of 2026-10-29.
+- Work uses existing per-project keys: QUA, TIK, APP, WWW and BOX.
+- Implementation uses `model:sol` (gpt-6.1-sol); design uses `model:astra`
+  (gpt-6-astra with xhigh reasoning).
+- Record dependencies through Tickets dependency links.
 
 ## Pull requests
-- One focused PR per issue. Branch name: `<type>/<issue#>-<slug>`.
+- One focused PR per ticket. Branch name: `<type>/<key>-<slug>`.
 - PR title in Conventional Commits form (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`,
   `test:`, `ci:`, `perf:`).
-- PR body contains `Closes #N`, a summary, and test evidence.
+- PR titles end with `[KEY-N]`; bodies contain `Closes KEY-N`, a summary, and test evidence.
 - **UI PRs must include before and after screenshots** (dark mode).
 - CI must be green: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
   `cargo test`.
@@ -394,3 +391,16 @@ Windows line endings; apply repository formatting checks to our own files.
   successful launches. Startup errors include the final 30 log lines. CI uploads
   `target/*chromium*.log` when the check job fails; use these logs to distinguish
   profile/process failures from slow startup before changing launch policy.
+
+
+## Pull request ingestion conventions
+
+- PR ingestion is independent of the issue mirror: owner allowlist in
+  `GITHUB_PR_OWNERS`, shared signed webhook, new PR modules and migration triggers.
+- Latest per-PR snapshots persist even with no links, preventing stale restoration.
+  GitHub timestamp ties prefer terminal states; same-state ties retain first delivery.
+- Atomic snapshot writes resolve all keys with JSON joins; ticket read aggregates
+  include ordered PR metadata without extra D1 calls. No GitHub network writes.
+- `cargo xtask mirror-check` also runs signed PR acceptance and captures before/after
+  dark desktop/mobile evidence under `docs/screenshots/32`. Set
+  `TICKETS_BEFORE_ASSETS` to base-commit assets for before captures.
