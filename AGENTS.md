@@ -1,7 +1,9 @@
 # Agent guide
 
 Tickets is the sole system of record (2026-10-29); GitHub Issues is retired.
-Use native project keys (QUA, TIK, APP, WWW, BOX), including `Closes TIK-N` in PRs.
+Use native project keys (QUA, TIK, APP, WWW, BOX), and PR bodies must contain
+`Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` (or
+`Refs [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` for reference-only links).
 Imported tickets are editable; preserve GitHub provenance and comment markers.
 One-shot migration: `cargo xtask import-github --repo owner/repo --project PREFIX
 --dry-run`; see CONTRIBUTING.md. Never run production imports without explicit OK.

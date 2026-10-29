@@ -14,7 +14,9 @@
 - One focused PR per ticket. Branch name: `<key-lowercase>-<slug>`.
 - PR title in Conventional Commits form (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`,
   `test:`, `ci:`, `perf:`).
-- PR titles end with `[KEY-N]`; bodies contain `Closes KEY-N`, a summary, and test evidence.
+- PR titles end with `[KEY-N]`; bodies contain `Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)`
+  (or `Refs [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` for references),
+  a summary, and test evidence.
 - **UI PRs must include before and after screenshots** (dark mode).
 - CI must be green: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
   `cargo test`.
@@ -173,8 +175,9 @@
 
 ## Ticket detail conventions
 
-- `/ticket?id=<numeric ID>` is the API-backed detail route. Board titles and list
-  titles/Enter open it; `/design/ticket` remains the fixture. Numeric links survive
+- `/t/KEY-N` is the case-insensitive API-backed detail route;
+  `/ticket?id=<numeric ID>` remains supported. Board titles and list
+  titles/Enter open the key route; `/design/ticket` remains the fixture. Numeric links survive
   project moves, which change the displayed key. Detail inherits its ticket's project
   for creation; the shared composer permits selecting any project and defaults to Todo.
 - Scope detail async tasks to the keyed ticket page and cancel them on cleanup.

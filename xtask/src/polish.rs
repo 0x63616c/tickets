@@ -153,7 +153,7 @@ fn interactions(b: &mut Browser) -> Result {
     b.key("ArrowDown", 40, 0)?;
     b.wait("document.activeElement.matches('.command-results .menu-item') && getComputedStyle(document.activeElement).outlineWidth==='2px'")?;
     b.key("Enter", 13, 0)?;
-    b.wait("location.pathname==='/ticket' && location.search==='?id=9' && !!document.querySelector('.comment')")?;
+    b.wait("location.pathname==='/t/TKT-9' && !!document.querySelector('.comment')")?;
     b.wait("document.querySelector('.comment-form button[type=submit]').getBoundingClientRect().bottom<=900 && getComputedStyle(document.querySelector('.property select')).backgroundImage!=='none'")?;
     b.viewport(390, 900)?;
     b.wait("document.documentElement.scrollWidth<=innerWidth")?;

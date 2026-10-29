@@ -30,7 +30,34 @@ pub fn links(title: &str, body: &str) -> Vec<Link> {
         }
     }
     let mut intent = None;
-    for word in body.split(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_')) {
+    // Markdown destinations are metadata, not prose: retain the label and
+    // exclude the entire balanced destination, including keys and keywords.
+    let mut prose = String::with_capacity(body.len());
+    let mut chars = body.chars().peekable();
+    while let Some(c) = chars.next() {
+        prose.push(c);
+        if c == ']' && chars.peek() == Some(&'(') {
+            chars.next();
+            let mut depth = 1;
+            while let Some(c) = chars.next() {
+                match c {
+                    '\\' => {
+                        chars.next();
+                    }
+                    '(' => depth += 1,
+                    ')' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            prose.push(' ');
+        }
+    }
+    for word in prose.split(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_')) {
         if word.is_empty() {
             continue;
         }
@@ -64,6 +91,40 @@ pub const UPSERT: &str = "INSERT INTO github_pull_request_events(repo,number,url
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn markdown_links_preserve_intent_and_ignore_destinations() {
+        let parsed = links(
+            "",
+            "Closes [QUA-87](https://tickets.worldwidewebb.co/t/QUA-87)",
+        );
+        assert_eq!(
+            parsed,
+            vec![Link {
+                prefix: "QUA".into(),
+                number: 87,
+                closes: true
+            }]
+        );
+        let parsed = links(
+            "",
+            "Closes [A-1](https://example/Refs/NO-9), [B-2](url(with-parens)) and [C-3](url)",
+        );
+        assert_eq!(
+            parsed
+                .iter()
+                .map(|l| (l.prefix.as_str(), l.number, l.closes))
+                .collect::<Vec<_>>(),
+            vec![("A", 1, true), ("B", 2, true), ("C", 3, true)]
+        );
+        assert_eq!(
+            links("[X-1]", "Refs [X-1](https://example/Closes/Y-2)"),
+            vec![Link {
+                prefix: "X".into(),
+                number: 1,
+                closes: false
+            }]
+        );
+    }
     #[test]
     fn keywords_colons_and_invalid_keys() {
         for word in ["Closes", "fixes", "RESOLVES"] {

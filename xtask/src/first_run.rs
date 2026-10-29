@@ -4,6 +4,10 @@ use std::{fs, path::Path};
 
 pub fn check(root: &Path, password: &str) -> super::Result {
     let output = root.join("docs/screenshots/1");
+    let links_output = root.join("docs/screenshots/147");
+    fs::create_dir_all(&links_output)?;
+    let before = std::env::var_os("TICKETS_BEFORE_ASSETS").is_some();
+    let capture = if before { "before" } else { "after" };
     fs::create_dir_all(&output)?;
     // Keep cookies, cached assets and browser-version state out of later runs.
     let profile = format!("first-run-browser-{}", std::process::id());
@@ -57,6 +61,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.click(".dependency-options button")?;
     b.wait("!document.querySelector('dialog') && document.querySelector('.dependency-row')?.textContent.includes('Blocked by') && document.querySelector('.dependency-title')?.textContent==='Prepare release'")?;
     b.screenshot(&output.join("first-run-dependency.png"))?;
+    b.screenshot(&links_output.join(format!("{capture}-desktop.png")))?;
     b.click(".dependency-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Prepare release' && document.querySelector('[aria-label=Status]')?.value==='In progress' && document.querySelector('.dependency-row')?.textContent.includes('Blocks') && document.querySelector('.dependency-title')?.textContent==='Publish release'")?;
     b.click(".dependency-title")?;
@@ -65,6 +70,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.viewport(390, 844)?;
     b.wait("(()=>{const p=document.querySelector('.properties'),d=document.querySelector('.detail-description'),a=document.querySelector('.activity');return p.getBoundingClientRect().bottom<=d.getBoundingClientRect().top && p.getBoundingClientRect().top<a.getBoundingClientRect().top && !!(p.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING)})()")?;
     b.wait("(()=>{const r=document.querySelector('.dependency-kind').getBoundingClientRect();return r.width>0 && r.height>0})()")?;
+    b.screenshot(&links_output.join(format!("{capture}-mobile.png")))?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
     b.wait("(()=>{const row=document.querySelector('#list-ticket-2'),e=row?.querySelector('.row-blocked');if(!e)return false;const r=e.getBoundingClientRect(),p=row.getBoundingClientRect();return r.width>0 && r.height>0 && r.left>=p.left && r.right<=p.right && r.top>=p.top && r.bottom<=p.bottom && getComputedStyle(e).visibility==='visible' && document.documentElement.scrollWidth<=innerWidth})()")?;
     b.click("#list-ticket-2 .row-title")?;
@@ -88,6 +94,21 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.eval("window.fetch=window.detailFetch;window.releaseSave();true")?;
     b.click(".dependency-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release' && document.querySelector('[aria-label=Priority]')?.value==='High'")?;
+    if !before {
+        b.go("http://127.0.0.1:8795/t/first-2")?;
+        b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
+        b.go("http://127.0.0.1:8795/t/FIRST-999999")?;
+        b.wait(
+        "document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found')",
+    )?;
+        b.call("Network.clearBrowserCookies", serde_json::json!({}))?;
+        b.go("http://127.0.0.1:8795/t/FIRST-2")?;
+        b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/t/FIRST-2'")?;
+        b.text("#username", "fixture")?;
+        b.text("#password", password)?;
+        b.click("button[type=submit]")?;
+        b.wait("location.pathname==='/t/FIRST-2' && document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
+    }
     println!(
         "PASS first-run: empty install, UI login, project, two tickets, Kanban move, new label and dependency verified on both tickets; six dark 1440×900 screenshots"
     );

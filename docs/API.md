@@ -222,8 +222,13 @@ The same signed webhook handles `pull_request` using its owner allowlist.
 repository and returns 200. PR actions opened, reopened, ready_for_review,
 converted_to_draft, edited, synchronize and closed are supported.
 
+PR bodies must contain `Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)`
+(or `Refs [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` for reference-only links).
+The web route `/t/KEY-N` resolves keys case-insensitively; legacy `/ticket?id=N`
+links remain supported. Markdown link destinations do not contribute keys or intent.
+
 Title brackets `[TIK-32]` create closing links by default. Body `Closes`, `Fixes`
-or `Resolves` (case insensitive, optional colon) create closing links; `Refs TIK-32`
+or `Resolves` (case insensitive, optional colon) create closing links; `Refs [TIK-32](https://tickets.worldwidewebb.co/t/TIK-32)`
 creates a reference link and overrides a title bracket. Multiple keys are supported;
 only existing project/ticket keys resolve. Unknown keys return 202 when none resolve.
 Edits replace the PR's complete key set, removing missing links.

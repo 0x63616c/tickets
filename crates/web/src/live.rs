@@ -57,7 +57,8 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
     });
     let scheduled = RwSignal::new(false);
     Effect::new(move |_| {
-        let active = ["/", "/list", "/ticket", "/projects"].contains(&path.get().as_str());
+        let active = ["/", "/list", "/ticket", "/projects"].contains(&path.get().as_str())
+            || path.get().starts_with("/t/");
         if dirty.get()
             && active
             && online.get()
@@ -73,8 +74,9 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
             spawn_local(async move {
                 TimeoutFuture::new(350).await;
                 if online.get_untracked()
-                    && ["/", "/list", "/ticket", "/projects"]
+                    && (["/", "/list", "/ticket", "/projects"]
                         .contains(&path.get_untracked().as_str())
+                        || path.get_untracked().starts_with("/t/"))
                     && !document().hidden()
                     && !editing()
                     && !board.busy.get_untracked()
@@ -101,7 +103,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
         let project = board.project.get();
         let active = online.get()
             && board.signed_in.get()
-            && ["/", "/list", "/ticket"].contains(&path.as_str());
+            && (["/", "/list", "/ticket"].contains(&path.as_str()) || path.starts_with("/t/"));
         if !active {
             vec![]
         } else if path == "/list" {
