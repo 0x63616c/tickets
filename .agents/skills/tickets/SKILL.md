@@ -61,7 +61,7 @@ curl -sS "$TICKETS_URL/api/v1/tickets" -H "Authorization: Bearer $TICKETS_TOKEN"
 # expect {"status":201,"body":{"id":2,"key":"EX-2"}}
 curl -sS "$TICKETS_URL/api/v1/tickets" -H "Authorization: Bearer $TICKETS_TOKEN" \
   -H 'Content-Type: application/json' -d '{"project_id":1,"title":"Follow-up","status":"todo"}'
-# expect {"status":200,"body":{"id":1,"title":"Render bug"}}
+# expect {"status":200,"body":{"id":1,"title":"Render bug","status":"backlog","pull_requests":[]}}
 curl -sS "$TICKETS_URL/api/v1/tickets/EX-1" -H "Authorization: Bearer $TICKETS_TOKEN"
 # expect {"status":200,"body":{"status":"in_progress","assignee":"agent"}}
 curl -sS -X PATCH "$TICKETS_URL/api/v1/tickets/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
@@ -131,7 +131,8 @@ curl -sS -X PATCH "$TICKETS_URL/api/v1/tickets/1" -H "Authorization: Bearer $TIC
 ## Comments
 
 Bodies are CommonMark + GFM Markdown. Responses include raw `body` and sanitized
-`body_html`; render only the latter as HTML. Comments use author `owner`;
+`body_html`; render only the latter as HTML. User comments use author `owner`;
+PR activity uses `GitHub` or `system`;
 callers cannot choose an author. Use returned comment IDs for edits/deletion.
 
 ```sh
@@ -208,3 +209,20 @@ without duplicate movement comments. Production imports require explicit owner
 authorization and `--allow-remote` with HTTPS; never infer authorization from
 these examples. The signed webhook stays alive for PR integration; issue events
 are ignored and there is no issue-mirror cron. See docs/DEVELOPMENT.md.
+
+## Pull request links and job status
+
+Read `GET /api/v1/tickets/{key}` to obtain `status` and `pull_requests` for job
+tracking. PR records include `repo`, `number`, `url`, `title`, `state`
+(open/draft/merged/closed), `closes`, `head_sha`, and `updated_at`. Do not infer
+completion from a reference PR: only merged closing links mark a ticket done.
+
+End PR titles with `[KEY-N]` and include `Closes KEY-N` (or Fixes/Resolves) in
+the body. Use `Refs KEY-N` for reference-only links; it overrides a title bracket.
+Multiple existing ticket keys can be linked. Signed GitHub events from configured
+`GITHUB_PR_OWNERS` update links and statuses; retired issue events remain ignored.
+Drafts start work, open PRs request review, closing merges finish work, and an
+unmerged close returns active tickets to todo only when no open/draft PR remains.
+Done/canceled tickets are protected from open/draft events; canceled never completes.
+Edits remove links for removed keys. Read back after webhook delivery; older events
+and redeliveries are ignored. The webhook is not an agent write endpoint.

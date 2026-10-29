@@ -44,6 +44,12 @@ new_sqlite_classes = ["BoardRoom"]
 name = "BOARD_ROOMS"
 class_name = "BoardRoom"
 
+[vars]
+GITHUB_PR_OWNERS = "0x63616c"
+
+[env.production.vars]
+GITHUB_PR_OWNERS = "0x63616c"
+
 # No scheduled issue reconciliation: Tickets is the system of record.
 [triggers]
 crons = []

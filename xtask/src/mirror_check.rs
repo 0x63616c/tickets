@@ -20,7 +20,7 @@ fn signature(body: &[u8]) -> String {
     hash.update(digest);
     format!("sha256={}", tickets_core::auth::hex(&hash.finalize()))
 }
-fn send(event: &str, payload: Value, valid: bool, expected: u16) -> Result<()> {
+pub(crate) fn send(event: &str, payload: Value, valid: bool, expected: u16) -> Result<()> {
     let body = payload.to_string();
     let response = Client::new()
         .post("http://127.0.0.1:8795/api/v1/github/webhook")
@@ -43,7 +43,7 @@ fn send(event: &str, payload: Value, valid: bool, expected: u16) -> Result<()> {
         )
         .into());
     }
-    if expected == 202 {
+    if expected == 202 && matches!(event, "issues" | "issue_comment" | "label") {
         assert_eq!(
             response.json::<Value>()?,
             json!({"ignored":true,"reason":"issue mirror retired"})
@@ -87,6 +87,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> Result<()> {
     println!(
         "PASS: signed issue events ignored, imported tickets editable, GitHub attribution preserved"
     );
+    super::github_pr_check::check(root, password, &api)?;
     Ok(())
 }
 fn screenshots(root: &Path, password: &str) -> Result<()> {

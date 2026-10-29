@@ -30,9 +30,20 @@ pub(crate) struct BoardTicket {
     pub body: String,
     pub blocks: Vec<i64>,
     #[serde(default)]
+    pub pull_requests: Vec<PullRequest>,
+    #[serde(default)]
     pub external_url: Option<String>,
     #[serde(default)]
     pub external_id: Option<String>,
+}
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub(crate) struct PullRequest {
+    pub repo: String,
+    pub number: u64,
+    pub url: String,
+    pub title: String,
+    pub state: String,
+    pub closes: bool,
 }
 fn id(t: &BoardTicket) -> i64 {
     t.id

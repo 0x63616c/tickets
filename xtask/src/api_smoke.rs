@@ -207,6 +207,10 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     if _view == "mirror" {
         fs::OpenOptions::new()
             .append(true)
+            .open(&config)?
+            .write_all(b"\n[vars]\nGITHUB_PR_OWNERS='0x63616c'\n")?;
+        fs::OpenOptions::new()
+            .append(true)
             .open(dir.join(".dev.vars"))?
             .write_all(b"GITHUB_WEBHOOK_SECRET=mirror-fixture\n")?;
     }

@@ -61,13 +61,13 @@ pub async fn webhook(mut req: Request, env: &Env) -> Result<Response> {
         return Response::error("Invalid signature", 401);
     }
     let event = req.headers().get("X-GitHub-Event")?.unwrap_or_default();
+    if event == "pull_request" || event == "ping" {
+        return crate::github_prs::handle(env, &event, &bytes).await;
+    }
     let _: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(payload) => payload,
         Err(_) => return Response::error("Malformed payload", 400),
     };
-    if event == "ping" {
-        return Response::empty();
-    }
     let reason = if matches!(event.as_str(), "issues" | "issue_comment" | "label") {
         "issue mirror retired"
     } else {

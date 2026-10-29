@@ -14,7 +14,7 @@
 - One focused PR per ticket. Branch name: `<key-lowercase>-<slug>`.
 - PR title in Conventional Commits form (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`,
   `test:`, `ci:`, `perf:`).
-- PR body contains `Closes PREFIX-N`, a summary, and test evidence.
+- PR titles end with `[KEY-N]`; bodies contain `Closes KEY-N`, a summary, and test evidence.
 - **UI PRs must include before and after screenshots** (dark mode).
 - CI must be green: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
   `cargo test`.
@@ -401,3 +401,16 @@ Windows line endings; apply repository formatting checks to our own files.
   successful launches. Startup errors include the final 30 log lines. CI uploads
   `target/*chromium*.log` when the check job fails; use these logs to distinguish
   profile/process failures from slow startup before changing launch policy.
+
+
+## Pull request ingestion conventions
+
+- PR ingestion uses an owner allowlist in
+  `GITHUB_PR_OWNERS`, shared signed webhook, new PR modules and migration triggers.
+- Latest per-PR snapshots persist even with no links, preventing stale restoration.
+  GitHub timestamp ties prefer terminal states; same-state ties retain first delivery.
+- Atomic snapshot writes resolve all keys with JSON joins; ticket read aggregates
+  include ordered PR metadata without extra D1 calls. No GitHub network writes.
+- `cargo xtask mirror-check` also runs signed PR acceptance and captures before/after
+  dark desktop/mobile evidence under `docs/screenshots/32`. Set
+  `TICKETS_BEFORE_ASSETS` to base-commit assets for before captures.

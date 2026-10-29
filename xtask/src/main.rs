@@ -3,6 +3,8 @@ mod auth;
 mod auth_verify;
 mod autofill;
 #[cfg(not(target_arch = "wasm32"))]
+mod github_pr_check;
+#[cfg(not(target_arch = "wasm32"))]
 mod import_check;
 #[cfg(not(target_arch = "wasm32"))]
 mod import_github;
