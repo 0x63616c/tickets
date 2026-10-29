@@ -232,12 +232,12 @@ All are exported from `crate::components`.
 
 | API | Contract |
 | --- | --- |
-| `SelectField { label, options: Signal<Vec<SelectOption>>, value: Signal<String>, on_change: Callback<String>, disabled }` | Controlled single selection. `SelectOption::new(value, label)`; `SelectOption::project(project)` includes its icon. Callers own async saving and rollback. |
+| `SelectField { label, options: Signal<Vec<SelectOption>>, value: Signal<String>, on_change: Callback<String>, disabled }` | Controlled single selection. `SelectOption::new(value, label)`; `SelectOption::project(project)` includes its icon; `::status(status)` and `::priority(priority)` include their semantic icons. Callers own async saving and rollback. |
 | `Select { label, options: Vec<&str>, value: RwSignal<String>, on_change? }` | Small adapter for static choices and fixture/local state. |
 | `DropdownMenu { label, children }` | Roving focus, typeahead, Escape/Tab/outside dismissal and origin-aware positioning. Compose `MenuItem { on_select, checked?: Signal<bool>, shortcut? }` and `MenuSeparator`. Optional submenus are not implemented. |
 | `Combobox { label, input_id?, options, selected: Signal<Vec<String>>, on_toggle, on_create?, busy }` | Searchable multi-select. Search stays editable; arrows enter options. Enter toggles an exact match in selection-only mode. With `on_create`, Enter submits the trimmed name to the caller’s create-or-attach flow (an already attached label stays attached); option selection always toggles. Opening focuses search; Arrow Up from the first option returns there. Selection is authoritative and async errors remain on the owning page. |
 | `Tooltip { text, children }` | 500ms initial pointer delay, immediate keyboard display, 700ms skip-delay window after a tooltip. Escape/blur/leave dismiss. Never use as the only accessible label. |
-| `SegmentedControl { label, options, value: RwSignal<String> }` | Equal-width mutually exclusive buttons with `aria-pressed`, roving tabindex, Left/Right/Home/End and a transform-only sliding indicator. Keyboard changes skip motion. Markdown Write/Preview uses it. |
+| `SegmentedControl { label, options, value: RwSignal<String>, instant?: Signal<bool> }` | Equal-width mutually exclusive buttons with `aria-pressed`, roving tabindex, Left/Right/Home/End and a transform-only sliding indicator. Keyboard changes skip motion; `instant` also suppresses movement for external shortcuts. Markdown Write/Preview uses it. |
 | `AsciiSpinner { label, style, delay }` | Default Dots (80ms), Line (130ms), Pulse/dots11 (100ms), delay 150ms. One visually hidden polite status label; animated glyphs are hidden from AT. Reduced motion uses the first glyph; hidden documents stop cycling. Exact MIT cli-spinners frames and notice in THIRD_PARTY.md. |
 | `BusyButton { busy, disabled, variant, kind, class?, aria_label?, status_label?, on_click?, children }` | Async submit default; disables repeat input and sets aria-busy. The original content keeps its grid footprint; the spinner overlays it. Keep children constant while busy. |
 | `Skeleton { shape }`, `LoadingSkeleton { layout }` | Static line/short/meta/heading/square shapes and board/list/detail/projects layouts. Only use on first load; reconciliation keeps saved content visible. |
@@ -303,3 +303,30 @@ TIK-40 adds `/design/settings/{account,api-tokens,projects,appearance}` and isol
 example repository metadata. Settings uses a compact sub-navigation with the
 Design system link in its footer. Theme and reduced motion overrides persist
 per browser; dark remains the default. Density remains the pinned compact scale.
+
+### Ticket composer (TIK-39)
+
+`TicketComposer` is the shared creation surface on the board, list and detail.
+Board column actions inherit that status; general actions start at Todo. Project
+selection inherits the current view. Project, all six statuses and priority use
+`SelectField` (with ProjectIcon, StatusIcon or PriorityIcon); existing labels use
+multi-select `Combobox`. The isolated modal specimen uses the same component.
+
+Tab follows title, Write/Preview, description, project, status, priority, labels,
+then footer actions. Cmd/Ctrl+Enter submits; Cmd/Ctrl+Shift+P toggles preview.
+The segmented indicator moves with a 180ms strong ease-out transition; keyboard
+changes are immediate. Both editor modes share a fixed, scrollable container;
+empty preview has explicit muted copy. Escape, Cancel and close protect a typed
+title/body with Keep editing / Discard draft. Escape from a popup closes only the
+popup; Escape from discard confirmation returns to the draft.
+
+Creation locks fields and shows the shared BusyButton. Labels attach after the
+POST succeeds. If an attachment fails, the saved ticket stays on the board and
+Retry labels retries only missing links; it never repeats the create POST.
+The shared keyed card/list motion handles successful insertion. Keyboard actions
+and reduced-motion preferences retain the foundation's quieter behavior.
+
+`component-shot modal` captures the closed-menu composition, both segmented
+states, preview, the complete open status menu, desktop page and mobile view.
+`--before-assets <dist>` uses the same real composer route and fixture HTTP data;
+the old locked status is captured as `before-status-static.png`.

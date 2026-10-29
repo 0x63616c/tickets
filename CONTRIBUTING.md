@@ -457,3 +457,14 @@ project icon schema changes additive and validate values in core.
   pages in `docs/screenshots/TIK-40`; `TICKETS_BEFORE_ASSETS` selects the actual
   prior settings route. `component-shot sidebar` and `component-shot user-menu`
   provide 2× crops. Never capture a live account or revealed API secret.
+
+## New-ticket composer verification
+
+- The shared TicketComposer owns draft controls and keyboard behavior; BoardComposer
+  owns API persistence. Keep fixture component previews on that same surface.
+- Label attachment happens after creation. Retain the saved ticket on partial
+  failure and retry only missing label links, never the successful create POST.
+- `component-shot modal` checks preview geometry, empty state, six status icons,
+  keyboard selection/preview, discard protection, reduced motion and mobile fit.
+  `board-check` verifies all six starting statuses against local D1, context defaults,
+  Tab/submit shortcuts, busy locking and partial label failure without duplicates.

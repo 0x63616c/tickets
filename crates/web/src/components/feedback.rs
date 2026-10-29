@@ -212,11 +212,12 @@ pub fn SegmentedControl(
     label: &'static str,
     options: Vec<&'static str>,
     value: RwSignal<String>,
+    #[prop(default=Signal::derive(||false))] instant: Signal<bool>,
 ) -> impl IntoView {
     let choices = StoredValue::new(options.clone());
     let count = options.len();
     let keyboard = RwSignal::new(false);
-    view! {<div class="segmented-control" role="group" aria-label=label style=format!("--segments:{count}") data-keyboard=move||keyboard.get().to_string()>
+    view! {<div class="segmented-control" role="group" aria-label=label style=format!("--segments:{count}") data-keyboard=move||(keyboard.get() || instant.get()).to_string()>
     <span class="segment-indicator" aria-hidden="true" style=move||format!("transform:translateX({}%)",choices.with_value(|opts|opts.iter().position(|o|*o==value.get()).unwrap_or(0))*100)/>
     {options.into_iter().map(|option|view!{<button type="button" aria-pressed=move||(value.get()==option).to_string() tabindex=move||if value.get()==option{0}else{-1} on:click=move|_|{keyboard.set(false);value.set(option.into());} on:keydown=move|e:web_sys::KeyboardEvent|{
         let key=e.key();if !["ArrowLeft","ArrowRight","Home","End"].contains(&key.as_str()){return;}e.prevent_default();keyboard.set(true);let opts=choices.get_value();let i=opts.iter().position(|o|*o==value.get_untracked()).unwrap_or(0);let next=match key.as_str(){"Home"=>0,"End"=>count-1,"ArrowLeft"=>(i+count-1)%count,_=>(i+1)%count};value.set(opts[next].into());

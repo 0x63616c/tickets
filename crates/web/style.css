@@ -521,3 +521,30 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .pr-link-row .subtle-link { min-width: 0; overflow-wrap: anywhere; }
 .pr-link-row .subtle-link span { min-width: 0; }
 @media (max-width: 760px) { .pr-link-row .subtle-link { min-height: 44px; } }
+
+/* Ticket composer: fixed editor geometry and compact, shared property controls. */
+.ticket-composer { --composer-boundary: color-mix(in srgb, var(--text-muted) 65%, var(--surface)); }
+.composer-fields .field input, .composer-properties .select-trigger, .composer-editor-content, .composer-editor-heading .segmented-control { border-color: var(--composer-boundary); }
+.composer-fields { margin: 0; border: 0; min-width: 0; }
+.composer-editor { min-width: 0; }
+.composer-editor-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); color: var(--text-secondary); }
+.composer-editor-heading .segmented-control { margin: 0; background: var(--bg); border: 1px solid var(--composer-boundary); }
+.composer-editor-content { height: 160px; border: 1px solid var(--composer-boundary); border-radius: var(--radius-md); background: var(--surface); }
+.composer-editor-content textarea, .composer-editor-content .markdown-preview { width: 100%; height: 100%; min-height: 0; margin: 0; padding: var(--space-3); overflow: auto; }
+.composer-editor-content textarea { border: 0; background: transparent; resize: none; border-radius: inherit; }
+.preview-placeholder, .composer-hint { color: var(--text-muted); }
+.composer-hint { display: block; margin-top: var(--space-2); font-size: var(--text-xs); }
+.composer-properties { display: grid; grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.composer-properties .field, .composer-properties .select-root { min-width: 0; width: 100%; }
+.composer-labels { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.composer-labels .menu-trigger { padding-left: 0; }
+.composer-error { margin: 0; padding: 0 var(--space-5) var(--space-4); color: var(--danger); }
+.ticket-composer .button-danger { color: var(--danger); }
+.discard-prompt { margin-right: auto; color: var(--text-secondary); font-size: var(--text-sm); }
+@media (max-width: 560px) {
+  .composer-properties { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .composer-project { grid-column: 1 / -1; }
+  .composer-editor-content { height: 128px; }
+  .ticket-composer .modal-footer { flex-wrap: wrap; }
+  .discard-prompt { flex-basis: 100%; }
+}

@@ -54,8 +54,14 @@ pub fn Modal(
         on_close.run(());
     });
     view! {
-        <dialog node_ref=dialog class="modal" data-state=move||if entered.get() && presence.map(|p|p.open.get()).unwrap_or_else(||open.get()){"open"}else{"closed"} aria-label=title on:cancel=move |ev: web_sys::Event| { ev.prevent_default(); close.run(()); }>
-            <div class="modal-header"><h2>{title}</h2><IconButton label="Close dialog" icon="close" on_click=close/></div>
+        <dialog node_ref=dialog class="modal" data-state=move||if entered.get() && presence.map(|p|p.open.get()).unwrap_or_else(||open.get()){"open"}else{"closed"} aria-label=title on:keydown=move |ev: web_sys::KeyboardEvent| {
+            // Handle Escape before the browser's close watcher. Repeated native
+            // cancel requests can become non-cancelable without fresh activation.
+            if ev.key() == "Escape" && !ev.default_prevented() {
+                ev.prevent_default(); ev.stop_propagation(); close.run(());
+            }
+        } on:cancel=move |ev: web_sys::Event| { ev.prevent_default(); close.run(()); }>
+            <div class="modal-header"><h2>{title}</h2><IconButton label="Close dialog" icon="close" on_click=close disabled=locked/></div>
             {children()}
         </dialog>
     }

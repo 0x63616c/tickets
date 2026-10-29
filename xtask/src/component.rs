@@ -141,6 +141,10 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
     } else {
         vec![name]
     } {
+        if name == "modal" {
+            capture_composer(&mut b, &server.url, &output, before.is_some())?;
+            continue;
+        }
         if before.is_some() {
             capture_before(&mut b, &server.url, name, &output)?;
             continue;
@@ -214,7 +218,8 @@ pub(crate) fn crop(b: &mut Browser, selector: &str, path: &Path) -> super::Resul
         "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))",
     )?;
     let selector = serde_json::to_string(selector)?;
-    let clip=b.eval(&format!("(()=>{{const e=document.querySelector({selector}),r=e.getBoundingClientRect();if(e.classList.contains('component-stage')){{e.querySelectorAll('.popup:not([hidden])').forEach(p=>{{const q=p.getBoundingClientRect();r.width=Math.max(r.right,q.right)-r.left;r.height=Math.max(r.bottom,q.bottom)-r.top;}});}}return {{x:Math.max(0,Math.floor(r.x)-8),y:Math.max(0,Math.floor(r.y)-8),width:Math.ceil(r.width)+16,height:Math.ceil(r.height)+16,scale:1}}}})()"))?;
+    b.eval("Promise.race([Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))),new Promise(r=>setTimeout(r,300))]).then(()=>true)")?;
+    let clip=b.eval(&format!("(()=>{{const e=document.querySelector({selector}),r=e.getBoundingClientRect();let left=r.left,top=r.top,right=r.right,bottom=r.bottom;e.querySelectorAll('.popup:not([hidden])').forEach(p=>{{const q=p.getBoundingClientRect();left=Math.min(left,q.left);top=Math.min(top,q.top);right=Math.max(right,q.right);bottom=Math.max(bottom,q.bottom);}});return {{x:Math.max(0,Math.floor(left)-8),y:Math.max(0,Math.floor(top)-8),width:Math.ceil(right-left)+16,height:Math.ceil(bottom-top)+16,scale:1}}}})()"))?;
     let result = b.call(
         "Page.captureScreenshot",
         json!({"format":"png","captureBeyondViewport":false,"clip":clip}),
@@ -370,5 +375,96 @@ fn check_combobox(b: &mut Browser) -> super::Result {
     b.wait("document.querySelector('[role=option]').getAttribute('aria-selected')==='true'")?;
     b.key("Escape", 27, 0)?;
     b.wait("document.activeElement.classList.contains('menu-trigger')")?;
+    Ok(())
+}
+
+/// Same real composer route, fixture-only HTTP responses, and viewport for each baseline.
+fn capture_composer(b: &mut Browser, base: &str, output: &Path, before: bool) -> super::Result {
+    let phase = if before { "before" } else { "after" };
+    b.go(&format!("{base}/"))?;
+    b.wait("!!document.querySelector('.topbar .button-primary') && !document.querySelector('.topbar .button-primary').disabled")?;
+    b.click(".topbar .button-primary")?;
+    b.wait("document.querySelector('dialog')?.dataset.state==='open'")?;
+    b.eval("document.fonts.ready.then(()=>new Promise(r=>setTimeout(()=>r(true),300)))")?;
+    crop(b, "dialog", &output.join(format!("{phase}-modal.png")))?;
+    crop(
+        b,
+        ".segmented-control",
+        &output.join(format!("{phase}-segmented-write.png")),
+    )?;
+    let height = b.eval("document.querySelector('dialog').getBoundingClientRect().height")?;
+    b.click(".segmented-control button:last-child")?;
+    crop(
+        b,
+        ".segmented-control",
+        &output.join(format!("{phase}-segmented-preview.png")),
+    )?;
+    if !before {
+        if b.eval("document.querySelector('dialog').getBoundingClientRect().height")? != height {
+            return Err("composer preview changed modal height".into());
+        }
+        b.wait("document.querySelector('.preview-placeholder')?.textContent==='Nothing to preview yet.'")?;
+    }
+    crop(b, "dialog", &output.join(format!("{phase}-preview.png")))?;
+    b.click(".segmented-control button:first-of-type")?;
+    if !before {
+        b.click("[aria-label='New ticket status']")?;
+        b.wait("document.querySelector('[aria-label=\"New ticket status\"]').getAttribute('aria-expanded')==='true' && document.activeElement.getAttribute('role')==='option'")?;
+        b.wait("document.querySelectorAll('[role=listbox][aria-label=\"New ticket status\"] svg[class*=status-]').length===6")?;
+        crop(b, "dialog", &output.join("after-status-open.png"))?;
+        b.key("End", 35, 0)?;
+        b.wait("document.activeElement.textContent.trim()==='Canceled'")?;
+        b.key("Enter", 13, 0)?;
+        b.wait("document.activeElement.getAttribute('aria-label')==='New ticket status' && document.activeElement.textContent.trim()==='Canceled'")?;
+        crate::design::select_value(b, "New ticket status", "Todo")?;
+        // A keyboard toggle preserves the draft and the editor's geometry.
+        b.text("#composer-body", "**Ready** for review.")?;
+        b.key("P", 80, 12)?;
+        b.wait("!document.querySelector('.markdown-preview').hidden && document.querySelector('.markdown-preview strong')?.textContent==='Ready'")?;
+        b.key("P", 80, 12)?;
+        b.wait("!document.querySelector('#composer-body').hidden && document.querySelector('#composer-body').value==='**Ready** for review.'")?;
+        b.key("Escape", 27, 0)?;
+        b.wait("document.activeElement.textContent==='Keep editing'")?;
+        b.key("Enter", 13, 0)?;
+        b.wait("document.activeElement.id==='composer-body' && document.activeElement.value==='**Ready** for review.'")?;
+        b.key("Escape", 27, 0)?;
+        b.wait("document.activeElement.textContent==='Keep editing'")?;
+        b.key("Escape", 27, 0)?;
+        b.wait("document.activeElement.id==='composer-body' && document.activeElement.value==='**Ready** for review.'")?;
+        b.text("#composer-body", "")?;
+        b.wait("(()=>{const e=document.querySelector('.composer-editor-content'),s=getComputedStyle(e),c=document.createElement('canvas').getContext('2d');const lum=color=>{c.fillStyle=color;c.fillRect(0,0,1,1);const v=[...c.getImageData(0,0,1,1).data].slice(0,3).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return v[0]*.2126+v[1]*.7152+v[2]*.0722};return (lum(s.borderTopColor)+.05)/(lum(s.backgroundColor)+.05)>=3})()")?;
+        b.call(
+            "Emulation.setEmulatedMedia",
+            json!({"features":[{"name":"prefers-reduced-motion","value":"reduce"}]}),
+        )?;
+        b.wait("getComputedStyle(document.querySelector('.segment-indicator')).transitionDuration==='0s'")?;
+        b.call(
+            "Emulation.setEmulatedMedia",
+            json!({"features":[{"name":"prefers-reduced-motion","value":"no-preference"}]}),
+        )?;
+    } else {
+        // Baseline status is static; capture its actual composition honestly.
+        crop(b, "dialog", &output.join("before-status-static.png"))?;
+    }
+    b.eval("document.querySelector('#board-title').focus();true")?;
+    b.viewport(1440, 900)?;
+    b.screenshot(&output.join(format!("{phase}-full-page.png")))?;
+    b.viewport(390, 844)?;
+    b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+    b.screenshot(&output.join(format!("{phase}-mobile.png")))?;
+    b.viewport(1200, 900)?;
+    b.key("Escape", 27, 0)?;
+    b.wait("!document.querySelector('dialog')")?;
+    if !before {
+        b.go(&format!("{base}/design/c/modal"))?;
+        b.wait("!!document.querySelector('.component-stage > button')")?;
+        b.click(".component-stage > button")?;
+        b.wait("document.querySelector('dialog')?.dataset.state==='open'")?;
+        check_modal(b)?;
+    }
+    b.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width":1200,"height":900,"deviceScaleFactor":2,"mobile":false}),
+    )?;
     Ok(())
 }
