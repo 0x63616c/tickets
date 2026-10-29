@@ -437,3 +437,14 @@ screenshots remain required when changing a page layout.
 See docs/design-system.md for shared component signatures, controlled async values,
 presence ownership, motion/reduced-motion tokens and fixture variants. Keep all
 project icon schema changes additive and validate values in core.
+
+## New-ticket composer verification
+
+- The shared TicketComposer owns draft controls and keyboard behavior; BoardComposer
+  owns API persistence. Keep fixture component previews on that same surface.
+- Label attachment happens after creation. Retain the saved ticket on partial
+  failure and retry only missing label links, never the successful create POST.
+- `component-shot modal` checks preview geometry, empty state, six status icons,
+  keyboard selection/preview, discard protection, reduced motion and mobile fit.
+  `board-check` verifies all six starting statuses against local D1, context defaults,
+  Tab/submit shortcuts, busy locking and partial label failure without duplicates.

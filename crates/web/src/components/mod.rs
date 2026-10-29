@@ -1,3 +1,5 @@
+mod composer;
+pub use composer::*;
 mod feedback;
 mod motion;
 mod popup;

@@ -551,11 +551,66 @@ fn ApiCard(ticket: BoardTicket) -> impl IntoView {
 #[component]
 pub(crate) fn BoardComposer(status: Status) -> impl IntoView {
     let state = expect_context::<BoardState>();
-    let title = RwSignal::new(String::new());
-    let body = RwSignal::new(String::new());
-    let project = RwSignal::new(state.project.get_untracked());
     let error = RwSignal::new(String::new());
     let busy = RwSignal::new(false);
-    view! {<Modal open=Signal::derive(move||state.composer.get().is_some()) title="New ticket" locked=Signal::derive(move||busy.get()) on_close=Callback::new(move|_|state.composer.set(None))><form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move|e|{e.prevent_default();if busy.get_untracked() || title.get_untracked().trim().is_empty(){return;}busy.set(true);spawn_local(async move{match api("POST","/api/v1/tickets",json!({"project_id":project.get_untracked(),"title":title.get_untracked(),"body":body.get_untracked(),"status":status,"sort_order":state.tickets.get_untracked().iter().filter(|t|t.project_id==project.get_untracked() && t.status==status).map(|t|t.sort_order).fold(0.0,f64::max)+1024.})).await {Ok(value)=>{match serde_json::from_value::<BoardTicket>(value){Ok(ticket)=>{state.apply_change_event(ticket,false);state.composer.set(None);state.notice.set("Ticket created.".into());},Err(e)=>{let message=format!("Invalid created ticket response: {e}. Reload the board.");state.error.set(message.clone());error.set(message);}}},Err(e)=>{state.error.set(e.clone());error.set(e)}}busy.set(false);});}>
-    <div class="modal-body"><TextInput id="board-title" label="Title" placeholder="What needs to be done?" value=title/><super::api_detail::MarkdownEditor body label="Description"/><label class="field"><span>"Project"</span><SelectField label="New ticket project" value=Signal::derive(move||project.get().to_string()) options=Signal::derive(move||state.projects.get().into_iter().map(SelectOption::project).collect()) on_change=Callback::new(move|next:String|{if let Ok(id)=next.parse::<i64>(){project.set(id);}})/></label><div class="form-project"><span>"Status"</span><StatusIcon status/>{status.name()}</div><p role="alert">{move||error.get()}</p></div><div class="modal-footer"><button class="button button-ghost" type="button" disabled=move||busy.get() on:click=move|_|state.composer.set(None)>"Cancel"</button><BusyButton busy disabled=Signal::derive(move||title.get().trim().is_empty())>"Create ticket"</BusyButton></div></form></Modal>}
+    // Remember a successful create so retrying a label failure cannot duplicate it.
+    let created = RwSignal::new(None::<BoardTicket>);
+    let submit = Callback::new(move |draft: TicketDraft| {
+        if busy.get_untracked() {
+            return;
+        }
+        busy.set(true);
+        error.set(String::new());
+        spawn_local(async move {
+            let result = async {
+                let mut ticket = match created.get_untracked() {
+                    Some(ticket) => ticket,
+                    None => {
+                        let rank = state.tickets.get_untracked().iter()
+                            .filter(|t|t.project_id == draft.project_id && t.status == draft.status)
+                            .map(|t|t.sort_order).fold(0.0, f64::max) + 1024.;
+                        let value = api("POST", "/api/v1/tickets", json!({
+                            "project_id":draft.project_id, "title":draft.title, "body":draft.body,
+                            "status":draft.status, "priority":draft.priority, "sort_order":rank
+                        })).await?;
+                        let ticket = serde_json::from_value::<BoardTicket>(value)
+                            .map_err(|e|format!("Invalid created ticket response: {e}. Reload the board."))?;
+                        created.set(Some(ticket.clone()));
+                        state.apply_change_event(ticket.clone(), false);
+                        ticket
+                    }
+                };
+                let has_labels = !draft.labels.is_empty();
+                for label in draft.labels {
+                    if ticket.labels.iter().any(|l|l.id.to_string() == label) { continue; }
+                    api("POST", &format!("/api/v1/tickets/{}/labels/{label}",ticket.id), Value::Null).await
+                        .map_err(|e|format!("{} was created, but a label could not be added. Retry labels or close and edit the ticket. {e}",ticket.key))?;
+                    if let Some(label) = state.labels.get_untracked().into_iter().find(|l|l.id.to_string()==label) {
+                        ticket.labels.push(label);
+                    }
+                    created.set(Some(ticket.clone()));
+                    state.apply_change_event(ticket.clone(), false);
+                }
+                if has_labels {
+                    ticket = serde_json::from_value(api("GET", &format!("/api/v1/tickets/{}",ticket.id), Value::Null).await?)
+                        .map_err(|e|format!("Could not refresh saved ticket: {e}"))?;
+                }
+                Ok::<_, String>(ticket)
+            }.await;
+            match result {
+                Ok(ticket) => {
+                    state.apply_change_event(ticket, false);
+                    state.composer.set(None);
+                    state.notice.set("Ticket created.".into());
+                }
+                Err(e) => error.set(e),
+            }
+            busy.set(false);
+        });
+    });
+    view! {<TicketComposer project_id=state.project.get_untracked() status
+    projects=state.projects.into() labels=state.labels.into()
+    open=Signal::derive(move||state.composer.get().is_some()) busy=busy.into() error=error.into()
+    created=Signal::derive(move||created.get().is_some()) on_submit=submit
+    on_close=Callback::new(move|_|state.composer.set(None))/>}
 }

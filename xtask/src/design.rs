@@ -525,6 +525,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.wait("document.querySelectorAll('.ticket-card').length===95 && !document.body.innerText.includes('Created from the board')")?;
     b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===4 && !document.querySelector('.add-card').disabled && document.body.innerText.includes('No tickets yet')")?;
+    check_composer(&mut b)?;
     b.eval("[...document.querySelectorAll('.sidebar-bottom button')].find(b=>b.textContent.includes('Sign out')).click();true")?;
     b.wait("location.pathname==='/login'")?;
     b.go("http://127.0.0.1:8795/?canceled=true")?;
@@ -769,4 +770,71 @@ pub(crate) fn select_value(b: &mut Browser, label: &str, value: &str) -> Result<
         ),
         value,
     )
+}
+
+/// Creation exercises the real POST contract, context defaults and retryable label writes.
+fn check_composer(b: &mut Browser) -> Result<()> {
+    b.eval("fetch('/api/v1/labels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Review',color:'#c6a1b9'})}).then(r=>{if(!r.ok)throw Error('Could not seed composer label');return true})")?;
+    b.viewport(1440, 900)?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("!!document.querySelector('[aria-label=\"Add ticket to Backlog\"]') && !document.querySelector('[aria-label=\"Add ticket to Backlog\"]').disabled")?;
+    b.click("[aria-label='Add ticket to Backlog']")?;
+    b.wait("document.querySelector('[aria-label=\"New ticket status\"]')?.value==='Backlog'")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("!document.querySelector('dialog')")?;
+    for (label, value) in [
+        ("Backlog", "backlog"),
+        ("Todo", "todo"),
+        ("In progress", "in_progress"),
+        ("In review", "in_review"),
+        ("Done", "done"),
+        ("Canceled", "canceled"),
+    ] {
+        b.click(".topbar .button-primary")?;
+        b.wait("document.activeElement.id==='board-title' && document.querySelector('[aria-label=\"New ticket status\"]').value==='Todo'")?;
+        b.text("#board-title", &format!("Composer {value}"))?;
+        if value == "backlog" {
+            b.key("Tab", 9, 0)?;
+            b.wait("document.activeElement.textContent==='Write'")?;
+            b.key("Tab", 9, 0)?;
+            b.wait("document.activeElement.id==='composer-body'")?;
+            b.key("Tab", 9, 0)?;
+            b.wait("document.activeElement.getAttribute('aria-label')==='New ticket project'")?;
+        }
+        select_value(b, "New ticket status", label)?;
+        select_value(b, "New ticket priority", "High")?;
+        b.text("#composer-body", "Ready for **review**.")?;
+        if value == "backlog" {
+            b.click(".composer-labels .menu-trigger")?;
+            b.wait("document.querySelector('.composer-labels .menu-trigger').getAttribute('aria-expanded')==='true' && document.activeElement.id==='composer-label-filter'")?;
+            b.key("ArrowDown", 40, 0)?;
+            b.wait("document.activeElement.getAttribute('role')==='option'")?;
+            b.key("Enter", 13, 0)?;
+            b.key("ArrowDown", 40, 0)?;
+            b.key("Enter", 13, 0)?;
+            b.wait("document.querySelectorAll('.composer-labels > .label-chip').length===2")?;
+            b.key("Escape", 27, 0)?;
+            // Hold creation to verify busy/locking, then fail one label attachment.
+            b.eval("window.composerFetch=window.fetch;window.fetch=async(input,init)=>{const url=input instanceof Request?input.url:String(input);const method=input instanceof Request?input.method:init?.method;if(method==='POST' && url.endsWith('/api/v1/tickets') && !window.composerHeld){window.composerHeld=true;await new Promise(r=>window.releaseComposer=r);}if(method==='POST' && /tickets\\/[^/]+\\/labels\\//.test(url) && !window.labelRejected){window.labelRejected=true;return new Response(JSON.stringify({error:{code:'unavailable',message:'Label save interrupted'}}),{status:503});}return window.composerFetch(input,init);};true")?;
+        }
+        b.key("Enter", 13, 4)?;
+        if value == "backlog" {
+            b.wait("window.composerHeld && document.querySelector('dialog .busy-button').disabled && document.querySelector('dialog .busy-button').getAttribute('aria-busy')==='true'")?;
+            b.key("Escape", 27, 0)?;
+            b.wait("!!document.querySelector('dialog')")?;
+            b.eval("window.releaseComposer();true")?;
+            b.wait("document.querySelector('.composer-error')?.textContent.includes('was created') && !document.querySelector('dialog .busy-button').disabled")?;
+            b.click("dialog button[type=submit]")?;
+        }
+        b.wait("!document.querySelector('dialog')")?;
+        b.wait(&format!("[...document.querySelectorAll('.api-ticket')].some(e=>e.querySelector('.card-title')?.textContent==='Composer {value}' && e.closest('section').getAttribute('aria-label')==='{label}')"))?;
+    }
+    b.eval("window.fetch=window.composerFetch;true")?;
+    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.wait("[...document.querySelectorAll('.card-title')].filter(e=>e.textContent.startsWith('Composer ')).length===6")?;
+    b.wait("fetch('/api/v1/tickets?project=1&limit=100').then(r=>r.json()).then(r=>{const ts=r.data.filter(t=>t.title.startsWith('Composer '));return ts.length===6 && ts.every(t=>t.title==='Composer '+t.status && t.priority===2 && t.body==='Ready for **review**.') && ts.find(t=>t.status==='backlog').labels.length===2})")?;
+    println!(
+        "PASS composer: all six API statuses persisted; column/Todo defaults; keyboard flow and submit; busy lock; label retry without duplicate creation"
+    );
+    Ok(())
 }

@@ -48,7 +48,7 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .segmented-control { display: inline-flex; width: max-content; position: relative; isolation: isolate; padding: 2px; border-radius: var(--radius-md); background: var(--surface); margin-bottom: var(--space-2); }
 .segmented-control button { width: 76px; min-height: 28px; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); color: var(--text-muted); z-index: 1; }
 .segmented-control [aria-pressed="true"] { color: var(--text); }
-.segment-indicator { position: absolute; inset: 2px auto 2px 2px; width: 76px; background: var(--surface-active); border-radius: var(--radius-sm); transition: transform var(--duration-move) var(--ease-move); }
+.segment-indicator { position: absolute; inset: 2px auto 2px 2px; width: 76px; background: var(--surface-active); border-radius: var(--radius-sm); transition: transform var(--duration-popover) var(--ease-out); }
 .segmented-control[data-keyboard="true"] .segment-indicator { transition: none; }
 .ascii-spinner { display: inline-grid; place-items: center; font-family: var(--font-mono); font-size: var(--text-lg); line-height: 1; width: 1em; height: 1em; flex: 0 0 1em; opacity: 0; }
 .ascii-spinner.spinner-visible { opacity: 1; }

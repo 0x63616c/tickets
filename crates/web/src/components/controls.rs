@@ -16,8 +16,9 @@ pub fn IconButton(
     label: &'static str,
     icon: &'static str,
     on_click: Callback<()>,
+    #[prop(default=Signal::derive(||false))] disabled: Signal<bool>,
 ) -> impl IntoView {
-    view! { <super::Tooltip text=label><button type="button" class="icon-button" aria-label=label on:click=move |_| on_click.run(())><Icon name=icon/></button></super::Tooltip> }
+    view! { <super::Tooltip text=label><button type="button" class="icon-button" aria-label=label disabled=disabled on:click=move |_| on_click.run(())><Icon name=icon/></button></super::Tooltip> }
 }
 
 #[component]
