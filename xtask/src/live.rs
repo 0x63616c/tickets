@@ -189,7 +189,15 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
         json!({"title":"Live list reconciliation verified"}),
     )?;
     b.wait("document.body.innerText.includes('Live list reconciliation verified')")?;
-    b.go(&format!("http://127.0.0.1:8795/ticket?id={ticket}"))?;
+    let key = api(
+        reqwest::Method::GET,
+        &format!("tickets/{ticket}"),
+        Value::Null,
+    )?["key"]
+        .as_str()
+        .ok_or("missing ticket key")?
+        .to_owned();
+    b.go(&format!("http://127.0.0.1:8795/t/{key}"))?;
     b.wait("document.querySelector('.connection.connected')!==null && document.body.innerText.includes('Live list reconciliation verified')")?;
     api(
         reqwest::Method::PATCH,

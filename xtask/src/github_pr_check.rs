@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use std::path::Path;
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn payload(key: &str) -> Value {
-    json!({"action":"opened","repository":{"id":999,"full_name":"0x63616c/Any-Repository","owner":{"login":"0X63616C"}},"pull_request":{"number":32,"html_url":"https://github.com/0x63616c/Any-Repository/pull/32","title":format!("Link pull requests [{key}]"),"body":format!("Closes {key}"),"state":"open","draft":false,"merged":false,"head":{"sha":"abc123"},"updated_at":"2026-10-29T10:00:00Z"}})
+    json!({"action":"opened","repository":{"id":999,"full_name":"0x63616c/Any-Repository","owner":{"login":"0X63616C"}},"pull_request":{"number":32,"html_url":"https://github.com/0x63616c/Any-Repository/pull/32","title":format!("Link pull requests [{key}]"),"body":format!("Closes [{key}](https://tickets.worldwidewebb.co/t/{key})"),"state":"open","draft":false,"merged":false,"head":{"sha":"abc123"},"updated_at":"2026-10-29T10:00:00Z"}})
 }
 pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     send("ping", json!({}), true, 200)?;

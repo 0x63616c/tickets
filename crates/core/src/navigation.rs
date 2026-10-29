@@ -77,6 +77,8 @@ mod tests {
         for value in [
             "/",
             "/ticket?id=1",
+            "/t/QUA-87",
+            "/t/qua-87",
             "/list?q=hello%20world",
             "/list?q=a%2Fb",
             "/list?q=100%25",

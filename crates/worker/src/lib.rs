@@ -127,7 +127,13 @@ mod tests {
                 assert!(!is_public_asset(&nearby), "{nearby} must stay gated");
             }
         }
-        for path in ["/secret.png", "/icons/favicon.svg", "/login", "/"] {
+        for path in [
+            "/secret.png",
+            "/icons/favicon.svg",
+            "/login",
+            "/",
+            "/t/QUA-87",
+        ] {
             assert!(!is_public_asset(path), "{path} must stay gated");
         }
     }

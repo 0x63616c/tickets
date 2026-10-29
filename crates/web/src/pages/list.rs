@@ -160,7 +160,9 @@ pub fn ApiList() -> impl IntoView {
         }
     });
     let selected = Callback::new(move |id: i64| {
-        let _ = window().location().set_href(&format!("/ticket?id={id}"));
+        if let Some(ticket) = state.tickets.get_untracked().iter().find(|t| t.id == id) {
+            let _ = window().location().set_href(&format!("/t/{}", ticket.key));
+        }
     });
     state.refresh();
     let handle = window_event_listener(ev::keydown, move |e| {

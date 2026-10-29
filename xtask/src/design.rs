@@ -500,7 +500,7 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.key("k", 75, 0)?;
     b.wait("document.activeElement.id==='list-ticket-1'")?;
     b.key("Enter", 13, 0)?;
-    b.wait("location.pathname==='/ticket' && document.querySelector('.ticket-detail h1')?.textContent.includes('Remember filters')")?;
+    b.wait("location.pathname==='/t/TKT-1' && document.querySelector('.ticket-detail h1')?.textContent.includes('Remember filters')")?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
     b.wait("!!document.querySelector('#list-ticket-1')")?;
     b.eval(r#"(()=>{let s=document.querySelector('[aria-label="Status for TKT-1"]');s.value='Todo';s.dispatchEvent(new Event('change',{bubbles:true}));return true})()"#)?;
@@ -541,7 +541,7 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     )?;
     b.wait("document.querySelectorAll('.command-results .menu-item').length===1")?;
     b.click(".command-results .menu-item")?;
-    b.wait("location.pathname==='/ticket' && location.search==='?id=4' && document.querySelector('.ticket-detail h1')?.textContent==='Review imported labels'")?;
+    b.wait("location.pathname==='/t/TKT-4' && document.querySelector('.ticket-detail h1')?.textContent==='Review imported labels'")?;
     b.go("http://127.0.0.1:8795/list?project=3")?;
     b.wait("document.body.innerText.includes('No tickets match') && document.querySelectorAll('.api-list-row').length===0")?;
     b.key("c", 67, 0)?;
@@ -660,7 +660,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("!!document.querySelector('#list-ticket-2')")?;
     b.eval("document.querySelector('#list-ticket-2').focus();true")?;
     b.key("Enter", 13, 0)?;
-    b.wait("location.pathname==='/ticket' && !!document.querySelector('.ticket-detail h1')")?;
+    b.wait("location.pathname==='/t/TKT-8' && !!document.querySelector('.ticket-detail h1')")?;
     b.key("c", 67, 0)?;
     b.wait("!!document.querySelector('#board-title')")?;
     b.text("#board-title", "Created from detail")?;
@@ -692,11 +692,11 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     click_text(b, ".comment-form button", "Comment")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Comment verification rejection') && document.querySelector('textarea[aria-label=\"Write a comment\"]').value==='Keep this draft after failure'")?;
     b.eval("window.fetch=window.savedFetch;true")?;
-    b.go("http://127.0.0.1:8795/ticket?id=999999")?;
+    b.go("http://127.0.0.1:8795/t/UNKNOWN-999999")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found') && [...document.querySelectorAll('button')].some(b=>b.textContent==='Edit ticket' && b.disabled)")?;
     b.call("Network.clearBrowserCookies", json!({}))?;
-    b.go("http://127.0.0.1:8795/ticket?id=2")?;
-    b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/ticket?id=2'")?;
+    b.go("http://127.0.0.1:8795/t/qua-87")?;
+    b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/t/qua-87'")?;
     println!(
         "PASS detail: fields, project move/reload, labels attach/detach, both dependency directions and inline 409, dependency removal, CommonMark/GFM, preview and persisted component XSS (script/onerror/javascript/raw HTML), comment CRUD, create shortcut/project selection, failed-save restoration and draft retention, list Enter, desktop/mobile screenshots"
     );

@@ -217,8 +217,8 @@ tracking. PR records include `repo`, `number`, `url`, `title`, `state`
 (open/draft/merged/closed), `closes`, `head_sha`, and `updated_at`. Do not infer
 completion from a reference PR: only merged closing links mark a ticket done.
 
-End PR titles with `[KEY-N]` and include `Closes KEY-N` (or Fixes/Resolves) in
-the body. Use `Refs KEY-N` for reference-only links; it overrides a title bracket.
+End PR titles with `[KEY-N]` and include `Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` (or Fixes/Resolves) in
+the body. Use `Refs [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` for reference-only links; it overrides a title bracket.
 Multiple existing ticket keys can be linked. Signed GitHub events from configured
 `GITHUB_PR_OWNERS` update links and statuses; retired issue events remain ignored.
 Drafts start work, open PRs request review, closing merges finish work, and an
