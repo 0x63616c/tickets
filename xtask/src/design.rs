@@ -5,7 +5,6 @@ use std::{
     env, fs,
     net::TcpStream,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
     thread,
     time::{Duration, Instant},
 };
@@ -13,17 +12,11 @@ use tungstenite::{Message, WebSocket, stream::MaybeTlsStream};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) struct Browser {
-    process: Child,
+    _process: crate::chromium::Process,
     socket: WebSocket<MaybeTlsStream<TcpStream>>,
     id: u64,
     session: String,
     drag: Option<Value>,
-}
-impl Drop for Browser {
-    fn drop(&mut self) {
-        let _ = self.process.kill();
-        let _ = self.process.wait();
-    }
 }
 impl Browser {
     pub(crate) fn start(root: &Path) -> Result<Self> {
@@ -33,50 +26,9 @@ impl Browser {
         let chrome = env::var_os("CHROME_BIN")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/usr/bin/google-chrome"));
-        let profile = root.join("target").join(name);
-        fs::create_dir_all(&profile)?;
-        let port_file = profile.join("DevToolsActivePort");
-        if port_file.exists() {
-            fs::remove_file(&port_file)?;
-        }
-        let mut process = Command::new(chrome)
-            .args([
-                "--headless=new",
-                "--no-sandbox",
-                "--no-proxy-server",
-                "--disable-gpu",
-                "--hide-scrollbars",
-                "--remote-debugging-port=0",
-                "--remote-allow-origins=*",
-                "--no-first-run",
-            ])
-            .arg(format!("--user-data-dir={}", profile.display()))
-            .arg("about:blank")
-            .stdout(Stdio::null())
-            .stderr(fs::File::create(root.join("target/design-chromium.log"))?)
-            .spawn()?;
-        let start = Instant::now();
-        while !port_file.exists() {
-            if start.elapsed() > Duration::from_secs(15) || process.try_wait()?.is_some() {
-                let _ = process.kill();
-                let _ = process.wait();
-                return Err("Chromium did not start; see target/design-chromium.log".into());
-            }
-            thread::sleep(Duration::from_millis(100));
-        }
-        let port = fs::read_to_string(&port_file)?;
-        let mut lines = port.lines();
-        let url = format!(
-            "ws://127.0.0.1:{}{}",
-            lines.next().ok_or("missing port")?,
-            lines.next().ok_or("missing socket")?
-        );
-        let (socket, _) = tungstenite::connect(url)?;
-        if let MaybeTlsStream::Plain(stream) = socket.get_ref() {
-            stream.set_read_timeout(Some(Duration::from_secs(20)))?;
-        }
+        let (process, socket) = crate::chromium::launch(root, name, &chrome)?;
         let mut browser = Self {
-            process,
+            _process: process,
             socket,
             id: 0,
             session: String::new(),
