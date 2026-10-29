@@ -27,7 +27,7 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     assert_eq!(linked["status"], "in_review");
     assert_eq!(linked["pull_requests"].as_array().unwrap().len(), 1);
     assert_eq!(linked["pull_requests"][0]["head_sha"], "abc123");
-    // A repository absent from GITHUB_MIRROR is accepted by its owner alone.
+    // Repositories are accepted by their configured owner alone.
     let output = root.join("docs/screenshots/32");
     std::fs::create_dir_all(&output)?;
     let before = std::env::var_os("TICKETS_BEFORE_ASSETS").is_some();

@@ -24,7 +24,7 @@ reconciliation report and exits non-zero on any gap.
 
 ## Keeping it current
 
-GitHub issues remain where work is filed and closed for now; Tickets mirrors them.
+Tickets is the sole system of record as of 2026-10-29; GitHub Issues is retired.
 Re-run the import command after issues change: reruns update existing tickets and
 never duplicate them. Test changes to the importer locally first with
 `cargo xtask import-check`. Never run two imports at the same time.

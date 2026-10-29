@@ -139,167 +139,59 @@ port 8795 and generated `target/api-smoke-*` state, and stops the Worker on exit
 Use it whenever the skill or API changes; CI also runs it. It supplies generated
 fixture credentials, never credentials from your environment.
 
-## GitHub issue import
+## GitHub import
 
-With a local `wrangler dev` and local D1, create a local personal token through
-Settings → API tokens and set `TICKETS_TOKEN` in your secure environment.
-GitHub authentication uses `GITHUB_TOKEN`, falling back to `gh auth token`.
-Neither credential is printed. The User-Agent is `tickets-import`.
-
-```sh
-cargo xtask import-github --repo 0x63616c/quantum --project QUA --dry-run
-cargo xtask import-github --repo 0x63616c/quantum --project QUA
-# A second local instance can use --url http://127.0.0.1:8790
-cargo xtask import-check
-```
-
-The default Tickets URL is `http://127.0.0.1:8787`; without `--allow-remote`
-only HTTP loopback URLs are accepted. With the flag, HTTPS base URLs are also
-accepted. Nonlocal plain HTTP, URL credentials, paths, queries and fragments are
-rejected. Tickets redirects remain disabled; GitHub follows up to five redirects
-for renamed repositories.
-
-Calum has approved the production import. The coordinator runs these commands
-**after merge**, with `TICKETS_TOKEN` already set in the secure environment (never
-pass it as an argument or print it). This PR does not perform the import:
+Tickets is the sole system of record as of 2026-10-29. Run the importer once per
+repository into a chosen existing project, then disable GitHub Issues after
+reviewing the migration. It never creates projects. Keys remain QUA/TIK/APP/WWW/BOX.
 
 ```sh
-cargo xtask import-github --repo 0x63616c/quantum --project QUA --url https://tickets.worldwidewebb.co --allow-remote --dry-run
-cargo xtask import-github --repo 0x63616c/quantum --project QUA --url https://tickets.worldwidewebb.co --allow-remote
+cargo xtask import-github --repo 0x63616c/world-wide-webb --project WWW --dry-run
+cargo xtask import-github --repo 0x63616c/world-wide-webb --project WWW --state all --since 2026-01-01 --exclude 7,12
 ```
 
-Both `--repo 0x63616c/voxelite` and `--repo 0x63616c/quantum` use the original
-`github:0x63616c/voxelite:N` external IDs and comment markers. This explicit alias
-keeps reruns stable before, during and after the rename. Repository metadata is
-checked before destination writes; other renames fail loudly and require an
-explicit identity alias before importing. Keep the original namespace; do not
-start a new namespace under a renamed repository. Do not deploy or migrate remote
-D1 as part of the import.
+Set TICKETS_TOKEN and GITHUB_TOKEN securely (GitHub defaults to `gh auth token`).
+Tickets URL defaults to loopback; `--url https://... --allow-remote` is reserved
+for an explicitly approved production migration by the coordinator after merge.
+Never deploy or run remote D1 migrations as part of importing.
 
-All issues, open and closed, are read with pagination; PRs are excluded.
-`QUA` creates **Quantum** for `0x63616c/quantum` (formerly `0x63616c/voxelite`); other repositories use their
-repository name. An existing project is selected by key, including archived
-projects. Existing tickets are upserted by `github:<owner>/<repo>:<number>`;
-external URLs link back to GitHub. Closed issues become Done, other issues Todo.
-GitHub Projects columns are deferred until the GitHub token has project scope.
-Tickets has no stored Blocked status: `status:blocked` is retained as a label,
-and `Blocked by #N` creates blocker → blocked edges after all ticket IDs exist.
-The API marks a ticket blocked while an incoming blocker is not Done/Canceled.
-A stale blocked label with only completed blockers therefore does not override
-the API's derived state. Unresolved references fail the import.
+Default `--state open`; `all` and `closed` include closed issues. `--since
+YYYY-MM-DD` filters closed issues by closed_at while retaining all selected open
+issues. PRs and `--exclude N,M` are skipped. Title/body, labels (including model
+labels), assignee, URL, comments with original author/timestamp and hidden marker,
+state and priority are preserved. Open maps to Todo; closed completed to Done;
+closed not_planned to Canceled. priority:p0..p3 maps to urgent..low.
 
-The importer owns imported title, body, state, URL and label memberships. Labels
-are created by name and colors updated to GitHub's colors (labels are global).
-Dependencies between imported tickets are reconciled; unrelated edges survive.
-Comments use a hidden Markdown marker containing the repository and GitHub
-comment ID, so equal bodies remain distinct and edited comments update in place.
-Keep those markers when editing imported comments locally. A standalone importer run retains comments removed from GitHub;
-mirror webhook deletions remove them. The API author field remains the single-user owner; GitHub usernames appear
-in the shared marker-backed comment body.
-Rerun after a partial failure; source updates overwrite local edits to owned
-fields. Do not run two imports concurrently.
+After upserts allocate native keys, local #N body references become imported keys;
+unknown references become full GitHub URLs. Code and existing URLs are retained.
+Blocked-by API data, sub-issues (child blocks parent), `Blocked by #N` and `Depends
+on #N` create edges only within this selected repository import. Invalid dependency
+cycles stop before writes. Unrelated native dependencies are preserved.
 
-Dry run reads source issues/comments and destination projects/labels, prints
-issue numbers, states and planned counts, and makes no writes. The final write
-report compares source open/closed counts with read-back Tickets counts, fields,
-label names/colors, dependency edges and comment bodies; gaps exit nonzero.
-API reads, external-ID PUT upserts and fixed-value PATCH updates retry 429, 5xx
-and transient transport failures up to three times (four attempts total), with
-1/2/4-second exponential backoff. Retry-After seconds and HTTP dates are honored;
-GitHub rate-limit reset headers/403 are also supported. Each wait is bounded to
-five minutes; a longer server delay fails for a later rerun rather than retrying
-early. Response bodies and credentials are never echoed.
+Identity is `github:<lowercase owner>/<lowercase repo>:N`. The explicit quantum
+alias retains `github:0x63616c/voxelite:N`, updating existing QUA tickets. Other
+metadata/name mismatches require an explicit alias. Comments deduplicate by marker,
+never body. Reruns update imported fields; retain markers when editing comments.
+This is a migration tool: rerunning deliberately overwrites native field edits.
 
-Project/label/comment POST creation is not retried: a lost response may follow
-a committed write. Relationship POST/DELETE operations also stop on failure,
-since duplicates/missing links return 409/404. Rerun the importer to reconcile
-these writes through project keys, label names, comment markers and current
-relationships. Never run concurrent imports.
+Dry run prints create/update plans without writes. Actual runs read back fields,
+labels, comments and edges; gaps fail the command. `--close-github` waits for that
+verification, posts `Moved to Tickets: <ticket URL> (KEY-N). Tickets is now the
+system of record; this issue is closed.` once, then closes as completed (or
+not_planned for Canceled). A failed ambiguous comment write stops; rerun reads
+comments before trying again. Movement comments are excluded from imported discussion.
+Reruns recognize matching movement comments and preserve the native Tickets status;
+archiving an open GitHub issue must not complete its migrated task.
+Final output includes per-repo imported/updated/skipped/closed counts and TSV
+issue → key mapping. Do not run concurrent imports; replay-safe GET/PUT/PATCH
+requests retry, creation/link writes stop for reconciliation on rerun.
 
-`import-check` reuses api-smoke's isolated local Worker/D1 lifecycle, generated
-credentials, port 8795 and ignored `target/api-smoke-*` state. A Rust HTTP server
-provides paginated GitHub fixtures and a rate-limit response. It checks dry-run
-absence of writes, PR exclusion, open/closed state, Markdown, label colors,
-dependency direction and three comments (including equal bodies with distinct
-IDs). It imports repeatedly, deliberately introducing drift before a rerun,
-and checks stable ticket/comment identities and no duplicate projects/labels.
-It also reverses a local dependency and adds an incorrect label before the
-rerun, then confirms an unexpected imported ticket makes reconciliation fail.
-Do not run it concurrently with api-smoke, skill-check or browser checks.
+Run `cargo xtask import-check`, `skill-check`, and `mirror-check` sequentially;
+they share isolated local state/port 8795 and never access production.
 
-The check also proxies Tickets locally: it returns 429 once for a read and 503
-once after committed PUT and PATCH writes, checking stable identities after retry.
-It also loses a committed comment-create response, verifies safe recovery on
-rerun, follows GitHub 301/307 redirects, rejects an unrecognized rename, and
-imports under both voxelite/quantum names without duplicate tickets or comments.
+## Retired GitHub issue ingestion
 
-## Continuous GitHub mirror
-
-GitHub remains primary: the Worker only sends GET requests to GitHub. Start with
-`cargo xtask import-github` for **both open and closed** issues, then webhooks keep
-content fresh within seconds and cron repairs missed edits. The coordinator does
-production setup after merge; development and checks use isolated local D1 only.
-
-`GITHUB_MIRROR` is a Worker var in both default and production environments:
-`1436584641=0x63616c/tickets:TIK,1433792506=0x63616c/quantum:QUA`.
-Each entry maps stable repository ID to external-ID identity and project key.
-Projects are ensured by key; QUA is named Quantum, others use the repository name.
-The quantum rename retains the original voxelite identity and comment markers.
-Production deploys pass `GITHUB_WEBHOOK_SECRET` from the GitHub `production`
-environment secret `TICKETS_GITHUB_WEBHOOK_SECRET` (CI `--secrets-file`).
-Set secret `GITHUB_WEBHOOK_SECRET` to the shared webhook signing secret; without
-it the endpoint returns 503, never accepting unsigned requests. Optional secret
-`GITHUB_TOKEN` authenticates reconciliation reads (no token is logged). Local
-secrets belong in ignored `.dev.vars`, never in commits or command arguments.
-
-After merge, the coordinator registers a webhook on each repository with:
-
-- URL `https://tickets.worldwidewebb.co/api/v1/github/webhook`
-- Content type `application/json`, signing secret matching the Worker secret
-- Events **Issues**, **Issue comments**, **Labels**
-
-No reverse sync exists. Deleted/transferred issues delete their ticket and its
-comments/relationships; webhook comment deletions delete the marker-backed comment.
-**Deletions are caught only by webhooks**, because GitHub's incremental lists do
-not contain tombstones. Redeliver missed deletion deliveries through GitHub.
-Labels are global in Tickets, as in the importer; changing a shared name/color
-therefore affects every ticket using that label. A rename into an existing global
-name merges memberships transactionally rather than losing links.
-
-The ten-minute cron alternates configured repositories (each of the two repos is
-reconciled every twenty minutes). It reads issues and repository issue comments
-in ascending update order with `state=all`, cursor, and ETag per repo/stream in
-migration 0007. Each invocation fetches at most one page of two items per stream;
-initial backfill should use the importer. A sweep holds `since` fixed across pages
-and retains the high-water timestamp even when the final page is empty. Cursor
-writes happen only after full page application; a missing ticket stops comment
-progress unless a bounded issue lookup can resolve it; PR comments are skipped. 403/429 stops the invocation
-until the next scheduled run. ETags are retained only for the identical query;
-304 responses require no cursor write. GitHub requests use `tickets-mirror`,
-`application/vnd.github+json`, and API version `2022-11-28`.
-
-Budget: normally two external requests (at most four with missing-issue lookups), one cursor read, one project ensure,
-two issue batches, two comment reads/batches, and two cursor writes (10 D1 calls normally, at most 16 when both comments need issue lookups).
-An unchanged steady-state invocation costs two conditional requests and one D1
-read. A partial unique comment-marker index also prevents concurrent importer/webhook
-duplicates. Four SQL statements per issue run transactionally in a single `batch()`;
-label JSON uses bounded parameters independent of label count. No Markdown is
-rendered during ingestion. This conservatively targets the Free 10 ms CPU budget and
-stays below its 50 external subrequests and 50 D1 queries. CPU is workload-dependent;
-local checks are functional evidence, not a production CPU guarantee.
-[Current D1 limits](https://developers.cloudflare.com/d1/platform/limits/) explicitly
-count a batch as one invocation query; [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
-and [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/)
-are the references. Triggers are inheritable configuration, repeated explicitly
-for production here; vars are non-inheritable and must be repeated.
-
-`cargo xtask mirror-check` builds the app, runs local Wrangler with
-`--test-scheduled`, and calls `/__scheduled` against a Rust fake GitHub server.
-It checks HMAC acceptance/rejection, unknown repositories, PR exclusion,
-close/reopen, comment create/edit/delete, label recoloring/deletion, replay,
-and importer/mirror identity agreement, timestamp-tie pagination, ETag 304s,
-rate-limit stops, PR comment lookups and SQLite marker uniqueness; it captures
-real detail screenshots.
-It shares port 8795 with other local checks: run them sequentially.
-`GITHUB_API_BASE_URL` defaults to `https://api.github.com`; test overrides are
-restricted to HTTP loopback and are never configured in production.
+The signed endpoint remains for PR integration, while issue/comment/label events
+return 202 ignored. There is no GITHUB_MIRROR var or reconciliation cron.
+`cargo xtask mirror-check` verifies this contract against isolated local D1 and
+checks native editing and imported author attribution with dark screenshots.

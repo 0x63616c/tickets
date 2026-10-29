@@ -1,14 +1,17 @@
 # Contributing
 
-## Tickets are the source of truth
-- Tickets (tickets.worldwidewebb.co) is the sole system of record as of 2026-10-29.
-- Work uses existing per-project keys: QUA, TIK, APP, WWW and BOX.
-- Implementation uses `model:sol` (gpt-6.1-sol); design uses `model:astra`
-  (gpt-6-astra with xhigh reasoning).
-- Record dependencies through Tickets dependency links.
+## Tickets is the source of truth
+- Every piece of work has a Tickets ticket with a **Done when** checklist.
+- Every open ticket carries exactly one model label:
+  - `model:astra` – design work only (design system, visual design/mockups, UI ADRs).
+    Run: `codex exec -m gpt-6-astra -c model_reasoning_effort=xhigh`.
+  - `model:sol` – all implementation work. Run: `codex exec -m gpt-6.1-sol`.
+- Dependencies use native blocker → blocked edges; blocked state is derived until
+  every blocker is done or canceled.
+- Type labels: `type:feat`, `type:fix`, `type:chore`.
 
 ## Pull requests
-- One focused PR per ticket. Branch name: `<type>/<key>-<slug>`.
+- One focused PR per ticket. Branch name: `<key-lowercase>-<slug>`.
 - PR title in Conventional Commits form (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`,
   `test:`, `ci:`, `perf:`).
 - PR titles end with `[KEY-N]`; bodies contain `Closes KEY-N`, a summary, and test evidence.
@@ -71,6 +74,9 @@
   PATCH with a project field: 6; dependency creation: 5).
 - Run `cargo xtask api-smoke` for an isolated local Worker/D1 end-to-end check;
   it builds the app and uses port 8795 and generated state under `target/`.
+  Checks using that port must be serialized across worktrees too, or run inside
+  separate local network namespaces. Browser policies must permit loopback access;
+  isolate any test-only policy override to the child process, never shared settings.
 
 ## Authentication conventions
 - All `/api/*` handlers must pass through the Worker auth gate, except health, login, and the independently HMAC-authenticated GitHub webhook. Invalid Authorization headers must not fall back to a cookie.
@@ -244,8 +250,6 @@
   `status:blocked` labels and reconcile blocker → blocked edges after upserts.
 - Run `cargo xtask import-check` for importer changes; it reuses isolated local
   api-smoke state/port 8795 and must run sequentially with other local checks.
-- Importer PRs use `Refs #11` while production import remains pending;
-  do not close the issue or mark the production migration complete prematurely.
 
 ## Live updates conventions
 
@@ -278,17 +282,23 @@
   `captureBeyondViewport`; the headless window can otherwise truncate desktop
   images to 1024×640. Verify the saved PNG dimensions before publishing evidence.
 
-## GitHub mirror conventions
+## Retired GitHub issues
 
-- Shared issue/comment mapping lives in core; importer and Worker use identical
-  external IDs and hidden comment markers. GitHub is authoritative; never write back.
-- Mirror ingestion uses D1 batches with JSON label lists and bounded cron pages.
-  Advance stored cursors only after applied pages. Deletions require webhooks.
-- Mirrored tickets (`external_id` starts `github:`) are read-only in the UI and
-  for agents. Keep API writes available for importer compatibility.
-- Run `cargo xtask mirror-check` for ingestion changes; its local lifecycle shares
-  port 8795 with import/skill checks. Screenshots live under docs/screenshots/39/.
-
+- Since 2026-10-29 Tickets is the sole system of record. GitHub issues are imported,
+  then GitHub Issues is disabled per repository. Imported tickets are fully editable;
+  external IDs/URLs and comment markers retain provenance, never edit restrictions.
+- Keys remain per-project: QUA, TIK, APP (apps), WWW (world-wide-webb), BOX
+  (grok-box-config). Use native keys in PR references and dependency discussions.
+- Keep the HMAC-authenticated webhook endpoint for pull-request events. Issue,
+  issue_comment and label events return 202 ignored without D1 calls; no issue cron
+  or GITHUB_MIRROR configuration remains. Historical cursor tables are unused.
+- `cargo xtask mirror-check` now checks retirement, signatures and native imported
+  ticket editing, with before/after dark screenshots in `docs/screenshots/tik-33/`.
+- One-shot migration: `cargo xtask import-github --repo 0x63616c/world-wide-webb
+  --project WWW --dry-run`. The project must already exist. Default state is open;
+  use `--state all|open|closed`, `--since YYYY-MM-DD` (closed_at cutoff for closed
+  issues only), `--exclude N,M` and optionally `--close-github` after reviewing the
+  dry run. See docs/DEVELOPMENT.md for reconciliation and operational safeguards.
 
 ## Live catch-up conventions
 
@@ -395,7 +405,7 @@ Windows line endings; apply repository formatting checks to our own files.
 
 ## Pull request ingestion conventions
 
-- PR ingestion is independent of the issue mirror: owner allowlist in
+- PR ingestion uses an owner allowlist in
   `GITHUB_PR_OWNERS`, shared signed webhook, new PR modules and migration triggers.
 - Latest per-PR snapshots persist even with no links, preventing stale restoration.
   GitHub timestamp ties prefer terminal states; same-state ties retain first delivery.

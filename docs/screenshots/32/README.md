@@ -2,14 +2,16 @@
 
 `before-desktop.png` / `after-desktop.png` (1440×900) and
 `before-mobile.png` / `after-mobile.png` (390×900) capture the real `/ticket`
-route in dark mode with loaded fonts and the same disposable local D1 seed.
+route in dark mode with loaded fonts and disposable local D1 fixtures.
 The mobile view scrolls to the dependencies/PR/activity content.
 
 The before assets were built from base commit
 `b1bb53d1621989c896418d0ab806a02163a2c365` in a temporary worktree.
-Both captures use identical signed GitHub fixtures with isolated local D1.
-The after capture also includes polished activity status labels. The PR belongs to a repository absent
-from the issue-mirror list. No fixture-only `/design` route substitutes for the
+Both captures use the same signed PR payload shape with isolated local D1.
+The after images were refreshed after merging TIK-33; the retirement check now
+creates an editable imported ticket first, so the PR ticket is TIK-2. The after
+capture also includes polished activity status labels. The PR repository is
+accepted by its configured owner; no issue-mirror list remains. No fixture-only `/design` route substitutes for the
 real PR-link UI. Older `ticket-detail-*` and `kanban-*` images in this directory
 are pre-existing evidence and are not the PR-link before/after captures.
 

@@ -188,12 +188,6 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
             tickets_core::auth::hex(&digest)
         ),
     )?;
-    #[cfg(not(target_arch = "wasm32"))]
-    let mirror_fixture = if _view == "mirror" {
-        Some(super::mirror_check::Fixture::start()?)
-    } else {
-        None
-    };
     let config = dir.join("wrangler.toml");
     fs::write(
         &config,
@@ -210,8 +204,11 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     use std::io::Write;
     fs::OpenOptions::new().append(true).open(&config)?.write_all(b"\n[[durable_objects.bindings]]\nname='BOARD_ROOMS'\nclass_name='BoardRoom'\n[[migrations]]\ntag='v1-board-room'\nnew_sqlite_classes=['BoardRoom']\n")?;
     #[cfg(not(target_arch = "wasm32"))]
-    if let Some(fixture) = &mirror_fixture {
-        fs::OpenOptions::new().append(true).open(&config)?.write_all(format!("\n[vars]\nGITHUB_PR_OWNERS='0x63616c'\nGITHUB_MIRROR='1436584641=0x63616c/tickets:TIK'\nGITHUB_API_BASE_URL='{}'\n",fixture.base).as_bytes())?;
+    if _view == "mirror" {
+        fs::OpenOptions::new()
+            .append(true)
+            .open(&config)?
+            .write_all(b"\n[vars]\nGITHUB_PR_OWNERS='0x63616c'\n")?;
         fs::OpenOptions::new()
             .append(true)
             .open(dir.join(".dev.vars"))?
@@ -240,7 +237,6 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         server_command
             .args([
                 "dev",
-                "--test-scheduled",
                 "--local",
                 "--ip",
                 "127.0.0.1",
@@ -308,12 +304,11 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         return super::import_check::check(token["token"].as_str().ok_or("missing token")?);
     }
     #[cfg(not(target_arch = "wasm32"))]
-    if let Some(fixture) = &mirror_fixture {
+    if _view == "mirror" {
         return super::mirror_check::check(
             root,
             &password,
             token["token"].as_str().ok_or("missing token")?,
-            fixture,
         );
     }
     if board {

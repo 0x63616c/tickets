@@ -132,14 +132,3 @@ mod tests {
         }
     }
 }
-
-#[cfg(target_arch = "wasm32")]
-#[event(scheduled)]
-pub async fn scheduled(event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
-    if github_mirror::reconcile(&env, event.schedule())
-        .await
-        .is_err()
-    {
-        console_error!("GitHub reconciliation failed; retrying next scheduled run");
-    }
-}
