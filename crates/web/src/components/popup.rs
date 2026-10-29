@@ -15,6 +15,8 @@ pub struct SelectOption {
     pub disabled: bool,
     pub icon: Option<String>,
     pub color: String,
+    pub status: Option<Status>,
+    pub priority: Option<crate::fixtures::Priority>,
 }
 impl SelectOption {
     pub fn new(value: impl ToString, label: impl ToString) -> Self {
@@ -24,6 +26,20 @@ impl SelectOption {
             disabled: false,
             icon: None,
             color: String::new(),
+            status: None,
+            priority: None,
+        }
+    }
+    pub fn status(status: Status) -> Self {
+        Self {
+            status: Some(status),
+            ..Self::new(status.name(), status.name())
+        }
+    }
+    pub fn priority(priority: crate::fixtures::Priority) -> Self {
+        Self {
+            priority: Some(priority),
+            ..Self::new(priority.name(), priority.name())
         }
     }
     pub fn project(p: tickets_core::domain::Project) -> Self {
@@ -33,6 +49,8 @@ impl SelectOption {
             disabled: false,
             icon: Some(p.icon.unwrap_or_default()),
             color: p.color,
+            status: None,
+            priority: None,
         }
     }
 }
@@ -270,13 +288,13 @@ pub fn SelectField(
             on:click=move|e|{e.stop_propagation();popup.open.update(|v|*v= !*v);if popup.open.get_untracked(){popup.focus(None);}}
             on:keydown=move|e:web_sys::KeyboardEvent|{if ["Enter"," "].contains(&e.key().as_str()){e.prevent_default();e.stop_propagation();popup.open.update(|v|*v= !*v);if popup.open.get_untracked(){popup.focus(None);}}else if ["ArrowDown","ArrowUp","Home","End"].contains(&e.key().as_str()){e.prevent_default();e.stop_propagation();popup.open.set(true);popup.focus(match e.key().as_str(){"Home"=>Some(false),"End"|"ArrowUp"=>Some(true),_=>None});}else if e.key().chars().count()==1 && e.key()!=" " && !e.ctrl_key() && !e.meta_key(){e.prevent_default();e.stop_propagation();popup.open.set(true);let key=e.key().to_lowercase();request_animation_frame(move||{if popup.open.try_get_untracked()!=Some(true){return;}
                 if let Some(panel)=popup.panel.get_untracked() && let Ok(items)=panel.query_selector_all("[role=option]:not(:disabled)"){for i in 0..items.length(){if let Some(node)=items.item(i).and_then(|n|n.dyn_into::<web_sys::HtmlElement>().ok()) && node.text_content().unwrap_or_default().trim().to_lowercase().starts_with(&key){let _=node.focus();break;}}}});}}>
-            <span class="select-value">{move||{let selected=options.get().into_iter().find(|o|o.value==value.get());match selected {Some(o)=>view!{<>{o.icon.map(|icon|view!{<ProjectIcon name=o.label.clone() icon color=o.color/>})}<span>{o.label}</span></>}.into_any(),None=>view!{<span>{fallback.clone()}</span>}.into_any()}}}</span><Icon name="down"/>
+            <span class="select-value">{move||{let selected=options.get().into_iter().find(|o|o.value==value.get());match selected {Some(o)=>view!{<>{o.status.map(|status|view!{<StatusIcon status/>})}{o.priority.map(|priority|view!{<PriorityIcon priority/>})}{o.icon.map(|icon|view!{<ProjectIcon name=o.label.clone() icon color=o.color/>})}<span>{o.label}</span></>}.into_any(),None=>view!{<span>{fallback.clone()}</span>}.into_any()}}}</span><Icon name="down"/>
         </button>
         <div node_ref=popup.panel id=panel_id class="popup select-popup" popover="manual" role="listbox" aria-label=list_label data-state=move||popup.presence.state() hidden=move||!popup.presence.mounted.get() inert=move||!popup.open.get()
             on:keydown=move|e|popup_key(e,popup,search,stamp)>
             {move||options.get().into_iter().map(|option|{let v=option.value.clone();let selected=option.value.clone();view!{
                 <button type="button" class="menu-item select-option" role="option" tabindex="-1" data-value=v.clone() aria-selected=move||(value.get()==selected).to_string() disabled=option.disabled on:click=move|e|{e.stop_propagation();popup.close(true);on_change.run(v.clone());}>
-                {option.icon.map(|icon|view!{<ProjectIcon name=option.label.clone() icon color=option.color/>})}<span>{option.label}</span><span class="option-check" aria-hidden="true"><Icon name="check"/></span></button>
+                {option.status.map(|status|view!{<StatusIcon status/>})}{option.priority.map(|priority|view!{<PriorityIcon priority/>})}{option.icon.map(|icon|view!{<ProjectIcon name=option.label.clone() icon color=option.color/>})}<span>{option.label}</span><span class="option-check" aria-hidden="true"><Icon name="check"/></span></button>
             }}).collect_view()}
         </div>
     </span> }
