@@ -366,3 +366,26 @@ curl -sS "$TICKETS_URL/api/v1/next" -H "Authorization: Bearer $TICKETS_TOKEN"
 curl -sS -X POST "$TICKETS_URL/api/v1/next/claim" -H "Authorization: Bearer $TICKETS_TOKEN" \
   -H 'Content-Type: application/json' -d '{}'
 ```
+
+
+## GitHub App and linked PR checks
+
+`GET /api/v1/github/app` returns `{registered, app_slug, installations}` with each
+installation's `account_login`, `repository_selection`, and ordered `repos` names.
+It requires bearer/session authentication, exposes no secrets, and makes no GitHub
+requests. Register/install through the browser manifest flow in docs/API.md; the
+App replaces per-repository hooks while the legacy webhook remains supported.
+`GITHUB_PR_OWNERS` controls ingestion for both webhook endpoints.
+
+Ticket reads' `pull_requests` include nullable `tickets_check` and `ci_status`
+conclusions for the current PR head SHA. `tickets_check` is success when linked
+tickets exist, neutral for missing/unknown keys. `ci_status` is the latest observed
+completed suite from another app, not an aggregate of providers. Null means no
+report for this head; do not treat it as passed. Use `Closes KEY-N` or `Refs KEY-N`
+and `[KEY-N]` title links as before. Nullable `tickets_check_run_id` and
+`checks_updated_at` provide the current head's stored check metadata.
+
+```sh
+# expect {"status":200,"body":{"registered":false,"app_slug":null,"installations":[]}}
+curl -sS "$TICKETS_URL/api/v1/github/app" -H "Authorization: Bearer $TICKETS_TOKEN"
+```

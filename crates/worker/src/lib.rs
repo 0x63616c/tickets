@@ -1,6 +1,9 @@
 #[cfg(target_arch = "wasm32")]
 pub mod github_app;
+pub mod github_app_events;
 pub mod github_app_registration;
+#[cfg(target_arch = "wasm32")]
+mod github_app_webhook;
 #[cfg(target_arch = "wasm32")]
 mod github_mirror;
 #[cfg(target_arch = "wasm32")]
@@ -20,6 +23,9 @@ use worker::*;
 pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     if req.path() == "/api/v1/github/app/manifest-callback" {
         return github_app::manifest_callback(req, &env).await;
+    }
+    if req.path() == "/api/v1/github/app/webhook" {
+        return github_app_webhook::webhook(req, &env).await;
     }
     if req.path() == "/api/v1/github/webhook" {
         return github_mirror::webhook(req, &env).await;
