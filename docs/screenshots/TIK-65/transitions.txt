@@ -1,0 +1,25 @@
+TIK-65 cold Home load — isolated local Worker/D1, fixture data only.
+1280x800 dark; cache disabled; real live rooms; no fetch delays in recordings.
+Loading = Home skeleton OR page-wide ASCII decode; the small refresh indicator is excluded.
+State timestamps use performance.now(); captureTimesMs are relative to capture start.
+Frame sheets read left to right, then top to bottom. Target interval 50ms; actual throughput varies.
+
+before: 65 frames / 4025ms; median interval 51ms
+  loading/content transitions: 3; loader unmounts: 1
+  143ms boot
+  307ms loader
+  389ms reveal
+  788ms content
+  867ms reveal
+  1375ms content
+
+after: 60 frames / 3999ms; median interval 55ms
+  loading/content transitions: 1; loader unmounts: 1
+  96ms boot
+  375ms loader
+  475ms reveal
+  913ms content
+
+PASS after: one loader unmount/reveal; no replay on focus catch-up, manual refresh or project scope change.
+PASS mobile: 390x844, no horizontal overflow.
+PASS first-run-check: empty D1, UI-only login/project/tickets/board/list/detail/labels/dependencies.

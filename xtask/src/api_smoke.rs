@@ -158,6 +158,10 @@ pub fn settings(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "settings")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn home_loading(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "home-loading")
+}
 pub fn first_run(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "first-run")
 }
@@ -181,7 +185,23 @@ fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
     run_inner_mode(root, skill, board, "board")
 }
 fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<()> {
-    super::build(root)?;
+    if std::env::var_os("TICKETS_SKIP_BUILD").is_some() {
+        // Explicitly reuse assets built before a sequence of browser-only checks.
+        if !root.join("crates/web/dist/index.html").is_file()
+            || !root.join("crates/worker/build/worker/shim.mjs").is_file()
+        {
+            return Err("TICKETS_SKIP_BUILD requires an existing web and Worker build".into());
+        }
+    } else if _view == "home-loading" && std::env::var_os("TICKETS_BEFORE_ASSETS").is_some() {
+        // Baseline web assets are already built; only the local Worker is needed.
+        super::run(
+            &root.join("crates/worker"),
+            "worker-build",
+            &["--release", "--locked"],
+        )?;
+    } else {
+        super::build(root)?;
+    }
     let mut random = [0u8; 24];
     getrandom::getrandom(&mut random).map_err(|_| "randomness unavailable")?;
     let password = tickets_core::auth::hex(&random);
@@ -329,6 +349,31 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         "login",
         200,
     )?;
+    #[cfg(not(target_arch = "wasm32"))]
+    if _view == "home-loading" {
+        for (prefix, name) in [("TKT", "Tickets"), ("QUA", "Quantum"), ("APP", "Apps")] {
+            let project = c.call(
+                "POST",
+                "/api/v1/projects",
+                json!({"name":name,"key_prefix":prefix,"color":"#5e6ad2"}),
+                "cookie",
+                201,
+            )?;
+            for (title, status) in [
+                ("Prepare release", "in_review"),
+                ("Review loading", "in_progress"),
+            ] {
+                c.call(
+                    "POST",
+                    "/api/v1/tickets",
+                    json!({"project_id":project["id"],"title":title,"status":status}),
+                    "cookie",
+                    201,
+                )?;
+            }
+        }
+        return super::home_loading::check(root, &password);
+    }
     let token = c.call(
         "POST",
         "/api/v1/tokens",

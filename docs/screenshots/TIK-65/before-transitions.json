@@ -1,0 +1,139 @@
+{
+  "captureTimesMs": [
+    189,
+    253,
+    365,
+    453,
+    559,
+    662,
+    771,
+    915,
+    972,
+    1040,
+    1114,
+    1206,
+    1284,
+    1365,
+    1426,
+    1486,
+    1555,
+    1620,
+    1678,
+    1727,
+    1774,
+    1826,
+    1878,
+    1924,
+    1976,
+    2029,
+    2080,
+    2143,
+    2192,
+    2242,
+    2293,
+    2341,
+    2390,
+    2444,
+    2494,
+    2541,
+    2592,
+    2641,
+    2690,
+    2739,
+    2790,
+    2841,
+    2890,
+    2941,
+    2992,
+    3042,
+    3092,
+    3140,
+    3191,
+    3243,
+    3292,
+    3346,
+    3411,
+    3458,
+    3511,
+    3562,
+    3619,
+    3678,
+    3727,
+    3776,
+    3827,
+    3876,
+    3929,
+    3976,
+    4025
+  ],
+  "lifecycle": [
+    {
+      "event": "loader-mount",
+      "time": 302
+    },
+    {
+      "event": "loader-unmount",
+      "time": 387.29999999701977
+    }
+  ],
+  "loaderUnmounts": 1,
+  "loadingContentTransitions": 3,
+  "requests": [
+    {
+      "completed": 317.5,
+      "time": 297.70000000298023,
+      "url": "http://127.0.0.1:8795/api/v1/me"
+    },
+    {
+      "completed": 334.5,
+      "time": 305.3999999985099,
+      "url": "http://127.0.0.1:8795/api/v1/analytics/home"
+    },
+    {
+      "completed": 402.20000000298023,
+      "time": 341.70000000298023,
+      "url": "http://127.0.0.1:8795/api/v1/projects?limit=100"
+    },
+    {
+      "completed": 843.3999999985099,
+      "time": 784.7999999970198,
+      "url": "http://127.0.0.1:8795/api/v1/analytics/home"
+    },
+    {
+      "completed": 871.5,
+      "time": 843.8999999985099,
+      "url": "http://127.0.0.1:8795/api/v1/projects?limit=100"
+    }
+  ],
+  "transitions": [
+    {
+      "state": "boot",
+      "time": 143
+    },
+    {
+      "busy": "true",
+      "state": "loader",
+      "time": 307
+    },
+    {
+      "busy": "false",
+      "state": "reveal",
+      "time": 389
+    },
+    {
+      "busy": "true",
+      "state": "content",
+      "time": 788
+    },
+    {
+      "busy": "false",
+      "state": "reveal",
+      "time": 867
+    },
+    {
+      "busy": "false",
+      "state": "content",
+      "time": 1375
+    }
+  ]
+}
