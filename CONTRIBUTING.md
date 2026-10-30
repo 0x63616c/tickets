@@ -569,6 +569,22 @@ project icon schema changes additive and validate values in core.
   are fixture-only. `cargo xtask component-shot reveal` captures the latter.
   `CHROME_BIN=<headless-chromium> cargo xtask loading-check` holds fixture API
   responses on real routes, asserts moving sweeps, decode, cleanup and reduced
-  motion, and captures six small before/after PNGs across both runs. Set
-  `TICKETS_BEFORE_ASSETS=<main-dist>` for the before run. Evidence and reproduction
-  notes live in `docs/screenshots/TIK-47/`.
+  motion. Original evidence and reproduction notes live in
+  `docs/screenshots/TIK-47/`; current cold-load comparisons are described below.
+- Serialize Trunk builds within a worktree and keep source assets stable until
+  they finish; concurrent staging or mid-build CSS edits can mismatch hashed
+  stylesheet URLs and files. Loading checks require every stylesheet to load.
+- Loading/reveal hosts must stay within their container: constrain skeleton glyph
+  hosts and clip the decorative overlay, with overlay positioning shipped in the
+  initial stylesheet. Never suppress scrolling on html, body or the app shell;
+  preserve the board's horizontal scroll and long pages' vertical scroll.
+- `loading-check` also opens fresh Chromium profiles at 1280×800 and 390×844,
+  disables cache, applies 150ms latency / 200KB/s download / 75KB/s upload and
+  4× CPU slowdown, and samples document/main extents every animation frame from
+  navigation through held skeletons, decode and settlement on Board, List,
+  ticket detail, Projects and Home. Loading must never exceed the settled scroll
+  extents (1px rounding allowance). Four paired Home PNGs and JSON geometry
+  diagnostics live in `docs/screenshots/TIK-62/`; red edge markers visualize
+  document overflow when headless Chromium hides native scrollbars. Use
+  `TICKETS_BEFORE_ASSETS=<base-dist>` to record the same baseline without enforcing
+  the regression assertion. Keep fixture/API and real animation boundaries clear.
