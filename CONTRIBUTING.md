@@ -163,7 +163,7 @@ fresh compile if identity fixture assertions detect an old Worker. CI leaves
 this option unset and builds normally.
 
 ## Authentication conventions
-- All `/api/*` handlers must pass through the Worker auth gate, except health, login, and the independently HMAC-authenticated GitHub webhook. Invalid Authorization headers must not fall back to a cookie.
+- All `/api/*` handlers must pass through the Worker auth gate, except health, login, the independently HMAC-authenticated GitHub webhook, and the setup-state-authorized GitHub App manifest callback. Invalid Authorization headers must not fall back to a cookie.
 - Cookie-auth mutations require a matching Origin; bearer-auth mutations do not.
 - Never return credential hashes in JSON or log request bodies/authorization.
 - Auth timestamps follow the domain UTC format. Sessions expire after seven days;
@@ -261,6 +261,16 @@ labelled + button. The C shortcut defaults to Todo. Other views keep their
 New ticket action. `cargo xtask component-shot board-topbar` captures fixture-only
 44px board chrome and full-page desktop/mobile evidence; `--before-assets`
 uses baseline assets. `board-check` verifies all six column creation defaults.
+
+### Sidebar project actions
+
+Project rows reserve their count slot for the shared more-menu trigger on hover,
+keyboard focus, and touch. Keep the trigger beside the navigation link, never
+nested inside it. Reuse `ProjectEditor` for sidebar and Projects page edits;
+GitHub repository URLs work independently of optional GitHub Project metadata.
+`/board?project=<id>` is the shareable project URL. Archiving requires confirmation
+and retains tickets; restore from All projects. `component-shot sidebar` verifies
+fixture menu/edit/Escape behavior; `projects-check` covers persistence and archive.
 
 ## List view conventions
 
@@ -523,6 +533,27 @@ across hard navigations, within the existing timeout. Browser actions and JavaSc
 exceptions must still fail immediately; never replay writes to recover navigation.
 
 ## Pull request ingestion conventions
+
+- Phase 1 GitHub App registration uses the public manifest callback documented in
+  [docs/API.md](docs/API.md#github-app-registration-phase-1). Configure the
+  production environment's `TICKETS_GITHUB_APP_SETUP_STATE` and
+  `TICKETS_GITHUB_APP_STORE_KEY`; CI supplies the corresponding Worker secrets.
+  Keep application credentials encrypted with WebCrypto AES-256-GCM in the
+  singleton `github_app` row. Login/session/API tokens remain hash-only.
+  Never log callback URLs, codes, state, GitHub response bodies or credentials.
+  Do not rotate the store key without re-encrypting the row. Remove the setup
+  state after registration; `load_credentials` does not require it.
+  Installation handling and the webhook switch belong to Phase 2.
+- The callback embeds the existing dark `:root` tokens and `github-app.css` in
+  a hash-authorized style block, without font assets or JavaScript. Keep its
+  fixed error pages and public-metadata renderer separate from secret structs.
+  Core tests cover parsing/escaping/packing; Worker integration tests exercise
+  shared preflight and storage against the full SQLite migration chain.
+  After `cargo xtask build`, run `node --test crates/worker/tests/github_app.mjs`
+  (Node 22.15+): it loads the compiled Worker with a SQLite D1 adapter and mocked
+  GitHub fetch, checking HTTP failures, headers and actual WebCrypto encryption
+  without network access. The small loader substitutes only the Cloudflare
+  entrypoint base class and Wasm module import; it does not replace Worker logic.
 
 - PR ingestion uses an owner allowlist in
   `GITHUB_PR_OWNERS`, shared signed webhook, new PR modules and migration triggers.

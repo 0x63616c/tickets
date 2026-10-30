@@ -325,6 +325,36 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
             return Err("Unset webhook secret must fail closed".into());
         }
     }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Public callback must fail closed before auth or any GitHub exchange.
+        let response = reqwest::blocking::Client::new()
+            .get(format!(
+                "http://127.0.0.1:{port}/api/v1/github/app/manifest-callback"
+            ))
+            .send()?;
+        if response.status().as_u16() != 503
+            || response
+                .headers()
+                .get("Cache-Control")
+                .and_then(|v| v.to_str().ok())
+                != Some("no-store")
+            || response
+                .headers()
+                .get("Referrer-Policy")
+                .and_then(|v| v.to_str().ok())
+                != Some("no-referrer")
+            || !response
+                .headers()
+                .get("Content-Security-Policy")
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|v| {
+                    v.contains("default-src 'none'") && v.contains("style-src 'sha256-")
+                })
+        {
+            return Err("Manifest callback must fail closed with private HTML headers".into());
+        }
+    }
     c.call("GET", "/api/v1/projects", Value::Null, "", 401)?;
     c.call(
         "POST",

@@ -284,6 +284,46 @@ fn sidebar_shots(
         )?;
     }
     visible_crop(b, ".sidebar", &output.join(format!("{prefix}-{name}.png")))?;
+    if name == "sidebar" {
+        let evidence = output;
+        let row = b.eval("(()=>{const r=document.querySelector('.project-nav').getBoundingClientRect();return {x:r.right-12,y:r.top+r.height/2}})()")?;
+        b.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":row["x"],"y":row["y"]}),
+        )?;
+        if before {
+            visible_crop(b, ".sidebar", &evidence.join("before-project-menu.png"))?;
+            b.go(&format!("{base}/projects"))?;
+            b.wait("!!document.querySelector(\"[aria-label='Edit project Tickets']\")")?;
+            b.click("[aria-label='Edit project Tickets']")?;
+            b.wait("document.activeElement.id==='project-title'")?;
+            crop(b, "dialog", &evidence.join("before-project-edit.png"))?;
+            b.key("Escape", 27, 0)?;
+            b.wait("!document.querySelector('dialog')")?;
+        } else {
+            b.eval("document.querySelector('.project-more-trigger').focus();true")?;
+            b.wait(
+                "getComputedStyle(document.querySelector('.project-more-trigger')).opacity==='1'",
+            )?;
+            b.key("Enter", 13, 0)?;
+            b.wait("document.querySelector('.project-more-trigger').getAttribute('aria-expanded')==='true' && document.activeElement.matches('[role=menuitem]')")?;
+            check_menu_spacing(b)?;
+            crop(b, ".sidebar", &evidence.join("after-project-menu.png"))?;
+            b.key("ArrowDown", 40, 0)?;
+            b.wait("document.activeElement.textContent.includes('Copy link')")?;
+            b.key("Escape", 27, 0)?;
+            b.wait("document.activeElement.matches('.project-more-trigger') && document.activeElement.getAttribute('aria-expanded')==='false'")?;
+            b.key(" ", 32, 0)?;
+            b.wait("document.activeElement.textContent.includes('Edit project')")?;
+            b.key("Enter", 13, 0)?;
+            b.wait("document.activeElement.id==='project-title'")?;
+            crop(b, "dialog", &evidence.join("after-project-edit.png"))?;
+            b.key("Escape", 27, 0)?;
+            b.wait("!document.querySelector('dialog') && document.activeElement.matches('.project-more-trigger')")?;
+        }
+        b.go(&format!("{base}/design/c/{name}"))?;
+        b.wait("!!document.querySelector('.sidebar')")?;
+    }
     if !before && name == "user-menu" {
         check_menu_spacing(b)?;
         b.wait("document.querySelector('.account-dropdown .popup').dataset.side==='top' && getComputedStyle(document.querySelector('.account-dropdown .popup')).transformOrigin.startsWith('0px')")?;
@@ -313,6 +353,13 @@ fn sidebar_shots(
         b.wait("!!document.querySelector('.sidebar .account-trigger')")?;
         b.eval("document.fonts.ready.then(()=>true)")?;
         b.screenshot(&output.join(format!("{prefix}-desktop.png")))?;
+        if !before {
+            b.click(".project-more-trigger")?;
+            b.wait("document.querySelector('.project-more-trigger').getAttribute('aria-expanded')==='true'")?;
+            b.screenshot(&output.join("after-project-menu-full.png"))?;
+            b.key("Escape", 27, 0)?;
+            b.wait("document.querySelector('.project-more-trigger').getAttribute('aria-expanded')==='false'")?;
+        }
         b.viewport(390, 844)?;
         b.click("[aria-label='Toggle sidebar']")?;
         b.wait("document.querySelector('[aria-label=\"Toggle sidebar\"]').getAttribute('aria-expanded')==='true'")?;
