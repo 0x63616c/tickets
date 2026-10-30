@@ -76,3 +76,41 @@ foreground/background pairs, including alpha-composited label tints and states;
 a token's presence is not proof of compliance. Preserve semantic controls,
 visible keyboard focus and non-colour status cues. Report any existing contrast
 failure and fix it within the authorized UI scope while preserving this taste.
+
+## Token enforcement
+
+New UI spacing, radius, colour, font size and shadow values must use
+`var(--token)`. Define tokens only in `crates/web/style/tokens.css`; prefer an
+existing semantic role to another literal. This includes logical margin/padding
+and inset properties, gaps, scroll spacing, letter/word spacing, radius longhands,
+colour shorthands (background, border, outline, text decoration), SVG fill/stroke,
+font shorthand and both box/text shadows. Local custom properties cannot hide
+raw lengths or colours. Raw border/outline widths (including 1px borders),
+structural width/height/grid geometry, line height, SVG geometry, animation timing
+and media-query breakpoints are outside this lint's scope; their colours and
+spacing still use tokens.
+
+Allowed values include zero, CSS inheritance/reset keywords, `auto`, `none`,
+`normal`, `currentColor`, `transparent` and relative percentages (including 50%
+round radii). `calc`/`min`/`max`/`clamp` may combine tokens, percentages and
+unitless multipliers, but may not introduce raw lengths. `color-mix` and gradients
+must derive colours from tokens. `var()` fallbacks obey the same rules. Safe-area
+insets may use `env(safe-area-inset-*)`. These are syntax allowances, not a reason
+to replace a semantic role with an unrelated token of the same current value.
+
+Rust literals are scanned inside `view!`, other macros, classes and `format!`,
+including raw strings and formatted pixel units. Static `style=` / `style:`
+values use the CSS policy. Runtime style bindings are explicit reviewed debt;
+put new static styling in CSS classes. Existing API/user colour data, fixture
+examples and measured geometry are retained in the baseline, not rewritten as
+CSS variables in persisted API data. The lint is a source guard, not Rust dataflow
+analysis: review constructed strings, JavaScript DOM geometry and API colour
+boundaries too.
+
+To add a token, choose a semantic name, define its value in `tokens.css`, add any
+needed light-theme override, document the role here or in `docs/design-system.md`,
+and use `var(--name)` at the call site. Run `npm ci --prefix crates/web`, then
+`cargo xtask check design-tokens` (or `npm run lint:css --prefix crates/web` for
+CSS only). Do not use Stylelint disable comments. Fixing existing debt requires
+removing its entry/count from `xtask/lint-allowlist.json`; that file must exactly
+match remaining findings and must never grow. See CONTRIBUTING.md for the ratchet.
