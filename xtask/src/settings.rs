@@ -1,6 +1,6 @@
 //! TIK-40: fixture screenshots and an isolated authenticated settings journey.
 use crate::{
-    component::{FixtureServer, crop},
+    component::{FixtureServer, visible_crop},
     design::Browser,
 };
 use std::{fs, path::Path};
@@ -14,10 +14,10 @@ pub fn shots(root: &Path) -> super::Result {
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| root.join("crates/web/dist"));
     let server = FixtureServer::start(&assets)?;
-    let mut b = Browser::start_named(root, "settings-shots")?;
-    b.viewport(1440, 900)?;
     let prefix = if before.is_some() { "before" } else { "after" };
     for section in ["account", "api-tokens", "projects", "appearance"] {
+        let mut b = Browser::start_named(root, "settings-shots")?;
+        b.viewport(1440, 900)?;
         // These sections did not exist before TIK-40: show the actual prior settings entry point.
         let route = if before.is_some() {
             "/settings/tokens".to_string()
@@ -27,8 +27,11 @@ pub fn shots(root: &Path) -> super::Result {
         b.go(&format!("{}{route}", server.url))?;
         b.wait("!!document.querySelector('.settings-panel, .settings-section')")?;
         b.eval("document.fonts.ready.then(()=>true)")?;
-        b.screenshot(&output.join(format!("{prefix}-settings-{section}.png")))?;
-        crop(
+        visible_page(
+            &mut b,
+            &output.join(format!("{prefix}-settings-{section}.png")),
+        )?;
+        visible_crop(
             &mut b,
             if before.is_some() {
                 ".auth-page"
@@ -38,9 +41,13 @@ pub fn shots(root: &Path) -> super::Result {
             &output.join(format!("{prefix}-section-{section}.png")),
         )?;
     }
+    let mut b = Browser::start_named(root, "settings-shell")?;
+    b.viewport(1440, 900)?;
     b.go(&format!("{}/design/board", server.url))?;
     b.wait("!!document.querySelector('.sidebar')")?;
-    b.screenshot(&output.join(format!("{prefix}-shell.png")))?;
+    visible_page(&mut b, &output.join(format!("{prefix}-shell.png")))?;
+    drop(b);
+    let mut b = Browser::start_named(root, "settings-mobile")?;
     b.viewport(390, 844)?;
     b.go(&format!(
         "{}{}",
@@ -52,7 +59,10 @@ pub fn shots(root: &Path) -> super::Result {
         }
     ))?;
     b.wait("!!document.querySelector('.settings-panel, .settings-section')")?;
-    b.screenshot(&output.join(format!("{prefix}-settings-mobile.png")))?;
+    visible_page(
+        &mut b,
+        &output.join(format!("{prefix}-settings-mobile.png")),
+    )?;
     println!("PASS settings screenshots: fixture-only, dark, desktop and mobile");
     Ok(())
 }
@@ -127,5 +137,19 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     println!(
         "PASS settings: account persistence, menu focus, collapsed sections, token redirect/lifecycle, appearance persistence, Home and G shortcuts, mobile overflow/focus"
     );
+    Ok(())
+}
+
+fn visible_page(b: &mut Browser, path: &Path) -> super::Result {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    b.eval("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))")?;
+    let png = b.call(
+        "Page.captureScreenshot",
+        serde_json::json!({"format":"png","fromSurface":false}),
+    )?;
+    fs::write(
+        path,
+        STANDARD.decode(png["data"].as_str().ok_or("missing PNG")?)?,
+    )?;
     Ok(())
 }

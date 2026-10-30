@@ -168,7 +168,12 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
         } else {
             ".component-stage"
         };
-        crop(
+        let capture = if matches!(name, "sidebar" | "user-menu") {
+            visible_crop
+        } else {
+            crop
+        };
+        capture(
             &mut b,
             selector,
             &output.join(format!(
@@ -222,7 +227,7 @@ pub(crate) fn crop(b: &mut Browser, selector: &str, path: &Path) -> super::Resul
     let clip=b.eval(&format!("(()=>{{const e=document.querySelector({selector}),r=e.getBoundingClientRect();let left=r.left,top=r.top,right=r.right,bottom=r.bottom;e.querySelectorAll('.popup:not([hidden])').forEach(p=>{{const q=p.getBoundingClientRect();left=Math.min(left,q.left);top=Math.min(top,q.top);right=Math.max(right,q.right);bottom=Math.max(bottom,q.bottom);}});return {{x:Math.max(0,Math.floor(left)-8),y:Math.max(0,Math.floor(top)-8),width:Math.ceil(right-left)+16,height:Math.ceil(bottom-top)+16,scale:1}}}})()"))?;
     let result = b.call(
         "Page.captureScreenshot",
-        json!({"format":"png","captureBeyondViewport":false,"clip":clip}),
+        json!({"format":"png","captureBeyondViewport":true,"clip":clip}),
     )?;
     fs::write(
         path,
@@ -231,6 +236,46 @@ pub(crate) fn crop(b: &mut Browser, selector: &str, path: &Path) -> super::Resul
     println!("Screenshot: {}", path.display());
     Ok(())
 }
+/// Capture the visible compositor surface: managed headless Chrome can drop cached
+/// text when rasterizing offscreen clips. Page zoom supplies real 2x pixels; canvas
+/// only crops the captured bitmap, without resampling or changing the UI.
+pub(crate) fn visible_crop(b: &mut Browser, selector: &str, path: &Path) -> super::Result {
+    let scale = b.eval("devicePixelRatio")?.as_f64().unwrap_or(1.);
+    let viewport = b.eval("({width:innerWidth,height:innerHeight})")?;
+    let selector_json = serde_json::to_string(selector)?;
+    let original_style=b.eval(&format!("(()=>{{const e=document.querySelector({selector_json}),s=e.style.cssText,r=e.getBoundingClientRect();e.style.width=r.width+'px';e.style.height=r.height+'px';return s}})()"))?;
+    let w = viewport["width"].as_f64().unwrap();
+    let h = viewport["height"].as_f64().unwrap();
+    b.call("Emulation.setDeviceMetricsOverride",json!({"width":(w*scale) as u32,"height":(h*scale) as u32,"deviceScaleFactor":1,"mobile":false}))?;
+    b.call(
+        "Emulation.setPageScaleFactor",
+        json!({"pageScaleFactor":scale}),
+    )?;
+    b.eval("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))")?;
+    let selector = serde_json::to_string(selector)?;
+    let rect=b.eval(&format!("(()=>{{const r=document.querySelector({selector}).getBoundingClientRect();return {{x:Math.max(0,r.x-8),y:Math.max(0,r.y-8),width:r.width+16,height:r.height+16}}}})()"))?;
+    let png = b.call(
+        "Page.captureScreenshot",
+        json!({"format":"png","fromSurface":false}),
+    )?;
+    let data = png["data"].as_str().ok_or("missing PNG")?;
+    let cropped=b.eval(&format!("new Promise((resolve,reject)=>{{const i=new Image();i.onload=()=>{{const c=document.createElement('canvas'),r={rect},s={scale};c.width=Math.ceil(r.width*s);c.height=Math.ceil(r.height*s);c.getContext('2d').drawImage(i,Math.floor(r.x*s),Math.floor(r.y*s),c.width,c.height,0,0,c.width,c.height);resolve(c.toDataURL('image/png').split(',')[1]);}};i.onerror=reject;i.src='data:image/png;base64,{data}';}})"))?;
+    fs::write(
+        path,
+        STANDARD.decode(cropped.as_str().ok_or("missing crop")?)?,
+    )?;
+    b.call("Emulation.setPageScaleFactor", json!({"pageScaleFactor":1}))?;
+    b.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width":w as u32,"height":h as u32,"deviceScaleFactor":scale,"mobile":false}),
+    )?;
+    b.eval(&format!(
+        "document.querySelector({selector_json}).style.cssText={original_style};true"
+    ))?;
+    println!("Screenshot: {}", path.display());
+    Ok(())
+}
+
 fn capture_before(b: &mut Browser, base: &str, name: &str, output: &Path) -> super::Result {
     let route = match name {
         "sidebar" | "user-menu" => "/design/board",
@@ -294,7 +339,12 @@ fn capture_before(b: &mut Browser, base: &str, name: &str, output: &Path) -> sup
         "tooltip" => ".specimen .icon-button",
         _ => ".specimen-content",
     };
-    crop(b, selector, &output.join(format!("before-{name}.png")))?;
+    let capture = if matches!(name, "sidebar" | "user-menu") {
+        visible_crop
+    } else {
+        crop
+    };
+    capture(b, selector, &output.join(format!("before-{name}.png")))?;
     b.call("Fetch.disable", json!({}))?;
     b.key("Escape", 27, 0)?;
     Ok(())
