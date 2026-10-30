@@ -32,7 +32,9 @@
   <link data-trunk rel="rust" data-wasm-opt="z">
   <link data-trunk rel="copy-dir" href="fonts">
   <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/Geist.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/GeistMono.woff2">
   <link data-trunk rel="css" href="style/tokens.css">
+  <link data-trunk rel="css" href="style/splash.css">
   <link data-trunk rel="css" href="style.css">
   <link data-trunk rel="css" href="style/foundation.css">
   <link data-trunk rel="css" href="style/settings.css">
@@ -40,5 +42,173 @@
   <link data-trunk rel="css" href="style/home.css">
   <link data-trunk rel="css" href="style/palette.css">
 </head>
-<body><noscript>Enable JavaScript to use Tickets.</noscript></body>
+<body>
+  <div id="boot-splash">
+    <pre aria-hidden="true"></pre>
+    <span class="sr-only" role="status">Loading Tickets</span>
+  </div>
+  <script>
+    (() => {
+      const splash = document.getElementById("boot-splash");
+      if (location.pathname.startsWith("/design/c/") ||
+          (navigator.webdriver && !new URLSearchParams(location.search).has("splash"))) {
+        splash.remove();
+        return;
+      }
+      const start = performance.now();
+      const art = splash.querySelector("pre");
+      const media = matchMedia("(prefers-reduced-motion: reduce)");
+      let storedReduce = false;
+      try { storedReduce = localStorage.getItem("tickets.motion") === "reduce"; } catch (_) {}
+      const reduced = () => media.matches || storedReduce ||
+        document.documentElement.dataset.motion === "reduce";
+      let readyAt = null;
+      let frame = 0;
+      let lastFrame = -Infinity;
+      let firstPaint = null;
+      let exiting = false;
+      let exitStart = 0;
+      let removed = false;
+      let cells = [];
+      let columns = 0;
+      let rows = 0;
+      const DISSOLVE_MS = 220;
+      const ramp = ["·", "~", "o", "x", "+", "=", "*", "%", "$", "@"];
+      const ready = () => { readyAt ??= performance.now(); };
+      const remove = () => {
+        if (removed) return;
+        removed = true;
+        cancelAnimationFrame(frame);
+        clearTimeout(safety);
+        clearTimeout(exitTimer);
+        window.removeEventListener("tickets:ready", ready);
+        window.removeEventListener("resize", resize);
+        splash.remove();
+        window.dispatchEvent(new Event("tickets:splash-done"));
+      };
+      // A timer is independent of rAF (which pauses in background tabs).
+      const safety = setTimeout(remove, 8000);
+      let exitTimer;
+      window.addEventListener("tickets:ready", ready);
+      if (window.__ticketsReady) ready();
+
+      function build() {
+        columns = Math.max(36, Math.min(72, Math.round(innerWidth / 20)));
+        rows = Math.round(columns / 3); // 24:16 logo, 0.5 character-cell aspect.
+        const sample = 8;
+        const canvas = document.createElement("canvas");
+        canvas.width = columns * sample;
+        canvas.height = rows * sample;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) throw new Error("Canvas unavailable");
+        ctx.scale(canvas.width / 24, canvas.height / 16);
+        ctx.translate(-4, -8);
+        // crates/web/icons/favicon.svg, including its three evenodd perforations.
+        const stub = new Path2D("M6.5 8H25.5A2.5 2.5 0 0 1 28 10.5V13A3 3 0 0 0 28 19V21.5A2.5 2.5 0 0 1 25.5 24H6.5A2.5 2.5 0 0 1 4 21.5V19A3 3 0 0 0 4 13V10.5A2.5 2.5 0 0 1 6.5 8ZM19 11h2v2h-2ZM19 15h2v2h-2ZM19 19h2v2h-2Z");
+        ctx.fill(stub, "evenodd");
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const coverage = Array.from({ length: rows * columns }, (_, i) => {
+          const x = i % columns, y = Math.floor(i / columns);
+          let alpha = 0;
+          for (let dy = 0; dy < sample; dy++) {
+            for (let dx = 0; dx < sample; dx++) {
+              alpha += pixels[((y * sample + dy) * canvas.width + x * sample + dx) * 4 + 3];
+            }
+          }
+          return alpha / (255 * sample * sample);
+        });
+        cells = coverage.map((value, i) => {
+          const x = i % columns, y = Math.floor(i / columns);
+          const edge = value < 0.98 || [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) =>
+            x + dx < 0 || x + dx >= columns || y + dy < 0 || y + dy >= rows ||
+            coverage[(y + dy) * columns + x + dx] < 0.5);
+          return { value, edge, diagonal: (x / (columns - 1) + y / (rows - 1)) / 2,
+            glyph: edge ? Math.min(3, Math.floor(value * 4)) : 7 + ((x + y * 3) % 2) };
+        });
+        splash.style.setProperty("--boot-columns", columns);
+        splash.style.setProperty("--boot-rows", rows);
+        // Fixed 0.6em cell advance / 1.2em line height prevents font-swap reflow.
+        const fontSize = parseFloat(getComputedStyle(art).fontSize);
+        splash.style.setProperty("--boot-scale",
+          Math.min(innerWidth * 0.44, innerHeight * 0.9) / (columns * fontSize * 0.6));
+      }
+      function render(elapsed, dissolve = 0) {
+        const reduce = reduced();
+        let html = "";
+        const band = ((Math.max(0, elapsed - 600) % 1800) / 1800) * 1.5 - 0.25;
+        cells.forEach((cell, i) => {
+          let glyph = " ";
+          if (cell.value > 0.08) {
+            let index = cell.glyph;
+            if (!reduce && elapsed < 600 * (0.15 + cell.diagonal * 0.85)) {
+              index = Math.floor(Math.random() * ramp.length);
+            } else if (!reduce && elapsed >= 600) {
+              const light = Math.max(0, 1 - Math.abs(cell.diagonal - band) / 0.16);
+              index = Math.min(9, index + Math.round(light * 2));
+            }
+            glyph = ramp[index];
+            // Exit: cells drop out in a scattered, diagonal-weighted order.
+            if (dissolve > 0) {
+              const order = ((i * 2654435761) % 997) / 997 * 0.6 + cell.diagonal * 0.4;
+              if (order < dissolve) glyph = " ";
+              else if (order < dissolve + 0.2) glyph = ramp[Math.max(0, index - 4)];
+            }
+          }
+          html += `<span class="${cell.edge ? "boot-edge" : "boot-body"}">${glyph}</span>`;
+          if ((i + 1) % columns === 0 && i + 1 < cells.length) html += "\n";
+        });
+        art.innerHTML = html; // Only the fixed ramp and generated classes enter HTML.
+      }
+      function resize() {
+        if (exiting) return;
+        try { build(); render(performance.now() - start); } catch (_) { remove(); }
+      }
+      function tick(now) {
+        if (removed) return;
+        if (exiting) {
+          const progress = (now - exitStart) / DISSOLVE_MS;
+          render(now - firstPaint, Math.min(1.2, progress * 1.2));
+          if (progress >= 1) {
+            splash.classList.add("boot-exit");
+            clearTimeout(exitTimer);
+            exitTimer = setTimeout(remove, 280);
+            return;
+          }
+          frame = requestAnimationFrame(tick);
+          return;
+        }
+        firstPaint ??= now;
+        if (now - lastFrame >= 1000 / 30) {
+          lastFrame = now;
+          const elapsed = now - firstPaint;
+          // Reduced motion keeps exactly the same glyphs throughout the hold.
+          if (!reduced() || art.dataset.reduced !== "true") render(elapsed);
+          art.dataset.reduced = String(reduced());
+          const busy = document.querySelector('body > :not(#boot-splash) [aria-busy="true"], body > [aria-busy="true"]');
+          if (readyAt !== null && elapsed >= (reduced() ? 500 : 900) &&
+              (!busy || now - readyAt >= 1500)) {
+            exiting = true;
+            exitStart = now;
+            splash.classList.toggle("boot-reduced", reduced());
+            if (reduced()) {
+              splash.classList.add("boot-exit");
+              exitTimer = setTimeout(remove, 280);
+              return;
+            }
+            // Dissolve the glyphs on black first so the art never overlays the app.
+            exitTimer = setTimeout(remove, DISSOLVE_MS + 600);
+          }
+        }
+        frame = requestAnimationFrame(tick);
+      }
+      try {
+        build();
+        render(0); // Synchronous: the first paint already contains the Stub.
+        window.addEventListener("resize", resize);
+        frame = requestAnimationFrame(tick);
+      } catch (_) { remove(); } // Unsupported canvas must never cover the app.
+    })();
+  </script>
+  <noscript><style>#boot-splash { display: none; }</style>Enable JavaScript to use Tickets.</noscript>
+</body>
 </html>

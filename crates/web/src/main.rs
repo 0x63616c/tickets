@@ -66,5 +66,13 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     console_error_panic_hook::set_once();
     #[cfg(target_arch = "wasm32")]
-    leptos::mount::mount_to_body(App);
+    {
+        leptos::mount::mount_to_body(App);
+        request_animation_frame(|| {
+            let _ = js_sys::Reflect::set(&window(), &"__ticketsReady".into(), &true.into());
+            if let Ok(event) = web_sys::Event::new("tickets:ready") {
+                let _ = window().dispatch_event(&event);
+            }
+        });
+    }
 }

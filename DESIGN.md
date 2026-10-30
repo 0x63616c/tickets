@@ -67,6 +67,15 @@ waiting, then a fast decode reveal (about 300–500ms) as data arrives. Reduced 
 removes both effects: static skeletons and immediate content. Other interactions
 retain their short opacity and color feedback.
 
+The initial full-document startup (TIK-84) uses the real Stub path as a two-tone
+ASCII mark on black: `--stub-ink` (#ededed, matching the favicon) for the body and
+`--text-muted` for the edge. A 600ms diagonal resolve and soft shimmer give way
+to a scattered glyph dissolve, then an opacity/slight-scale fade of the black
+using `--duration-splash-exit` (280ms) after
+content is ready (900ms minimum).
+Reduced motion uses the final static mark, a 500ms minimum and opacity only.
+In-app ascii-reveal starts after the splash is removed; component previews skip it.
+
 Shared Select/DropdownMenu/Combobox replace browser selects. Keep the compact
 32px controls, clear focus rings, named options and saved-state authority. Use
 project glyphs from the shared SVG family or a user-selected emoji; absent icons
