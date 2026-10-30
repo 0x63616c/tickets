@@ -133,6 +133,6 @@ Questions skipped: fixed implementation scope and existing approved design.
 
 Local verification completed: `cargo xtask ci`, CSS lint, `perf-check`, API cache
 smoke, `perf-browser-check`, first-run, Home loading, Board/List loading, the
-48-example skill check, and fixture sidebar capture. Live behavior assertions
+documented-example skill check, and fixture sidebar capture. Live behavior assertions
 cover two windows, no hidden-tab reads, edit/drag deferral and reconnect recovery.
 A verified private xtask copy avoids cross-worktree executable replacement.

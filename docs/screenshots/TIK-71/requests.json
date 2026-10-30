@@ -1,7 +1,7 @@
 {
   "errors": [],
   "reads": [
-    "/tickets-web-edb068d640f4a08c_bg.wasm",
+    "/tickets-web-ffdc9406faabda92_bg.wasm",
     "/api/v1/me",
     "/api/v1/analytics/home",
     "/api/v1/projects",
