@@ -70,6 +70,9 @@ main { min-height: 100dvh; display: flex; flex-direction: column; }
 .breadcrumb-current { color: var(--text); }
 .breadcrumb-slash { color: var(--text-faint); }
 .topbar-actions { gap: 16px; }
+/* Keep every topbar action on the shared compact control grid. */
+.topbar .button { height: var(--space-8); min-height: var(--space-8); padding-inline: var(--space-3); gap: var(--space-2); flex-shrink: 0; }
+.topbar .button kbd { margin: 0; flex-shrink: 0; padding-inline: var(--space-1); }
 .toolbar-divider { display: inline-block; width: 1px; height: 16px; background: var(--border-strong); }
 .button { min-height: 32px; padding: 0 12px; border-radius: var(--radius-md); border: 1px solid var(--border-strong); background: var(--surface); display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; font-size: var(--text-sm); font-weight: 500; }
 @media (hover: hover) and (pointer: fine) {
