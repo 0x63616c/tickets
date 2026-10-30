@@ -19,6 +19,8 @@ Read `CONTRIBUTING.md` first; everything there applies.
 - Run `npm ci --prefix crates/web` before direct web/wasm or Trunk builds.
   `cargo xtask build`, `dev`, and `ci` install the locked dependencies automatically.
   Loading uses published `ascii-reveal` 0.3.0; keep wrappers thin, never vendor or port it.
+- Tickets is dark only. Keep dark tokens and the black Stub; do not add theme
+  settings, OS colour-scheme switching or alternate theme assets.
 - Use design-system tokens for UI spacing, radius, colour, font size and shadow.
   Run `cargo xtask check design-tokens` and `npm run lint:css --prefix crates/web`;
   remove fixed debt from `xtask/lint-allowlist.json`, never grow it. See DESIGN.md.

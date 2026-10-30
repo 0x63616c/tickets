@@ -176,12 +176,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     command(&mut b, "Settings")?;
     b.wait("location.pathname==='/settings/account'")?;
     open(&mut b)?;
-    command(&mut b, "Toggle theme")?;
-    b.wait("document.documentElement.dataset.theme==='light'")?;
-    open(&mut b)?;
-    command(&mut b, "Toggle theme")?;
-    b.wait("document.documentElement.dataset.theme==='dark'")?;
-    open(&mut b)?;
+    b.wait("!document.querySelector('dialog').textContent.includes('Toggle theme') && getComputedStyle(document.documentElement).colorScheme==='dark'")?;
     command(&mut b, "Quantum")?;
     b.wait("location.pathname==='/board' && document.querySelector('.breadcrumb-current')?.textContent.includes('Quantum')")?;
     open(&mut b)?;
@@ -204,7 +199,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.key("Escape", 27, 0)?;
     b.wait("!document.querySelector('dialog')")?;
     println!(
-        "PASS palette API: cross-project exact/fuzzy/body search, filters, recent views, commands, mutations, rollback/retry, GitHub provenance, clipboard, theme, composer handoff, stale requests"
+        "PASS palette API: cross-project exact/fuzzy/body search, filters, recent views, commands, mutations, rollback/retry, GitHub provenance, clipboard, dark-only commands, composer handoff, stale requests"
     );
     Ok(())
 }

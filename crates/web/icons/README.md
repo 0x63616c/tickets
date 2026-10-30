@@ -10,6 +10,6 @@ The Tickets mark is a notched ticket stub with a perforation line (TIK-55).
   listed in `site.webmanifest`.
 - In the app the same hinted 16px glyph is the `BrandMark` component
   (`crates/web/src/components/icons.rs`): a #ededed stub on a black (#000)
-  rounded tile in every theme. Every icon uses a black background, never purple.
+  rounded tile in the dark-only interface. Every icon uses a black background, never purple.
 
 Regenerate everything with `python3 build.py` (needs `cairosvg` and `Pillow`).
