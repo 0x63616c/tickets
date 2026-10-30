@@ -3,22 +3,23 @@ TIK-65 cold Home load — isolated local Worker/D1, fixture data only.
 Loading = Home skeleton OR page-wide ASCII decode; the small refresh indicator is excluded.
 State timestamps use performance.now(); captureTimesMs are relative to capture start.
 Frame sheets read left to right, then top to bottom. Target interval 50ms; actual throughput varies.
+Sheets use only this recording’s frames, composed with Chromium canvas.
 
-before: 65 frames / 4025ms; median interval 51ms
+before: 68 frames / 4005ms; median interval 51ms
   loading/content transitions: 3; loader unmounts: 1
-  143ms boot
-  307ms loader
-  389ms reveal
-  788ms content
-  867ms reveal
-  1375ms content
+  111ms boot
+  263ms loader
+  341ms reveal
+  777ms content
+  801ms reveal
+  1294ms content
 
-after: 60 frames / 3999ms; median interval 55ms
+after: 73 frames / 4006ms; median interval 50ms
   loading/content transitions: 1; loader unmounts: 1
-  96ms boot
-  375ms loader
-  475ms reveal
-  913ms content
+  52ms boot
+  189ms loader
+  260ms reveal
+  659ms content
 
 PASS after: one loader unmount/reveal; no replay on focus catch-up, manual refresh or project scope change.
 PASS mobile: 390x844, no horizontal overflow.

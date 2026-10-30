@@ -9,7 +9,8 @@ Home navigation, captured at a 50ms target interval. Read left to right, then do
 `transitions.txt` summarizes counts, actual cadence and timestamps; JSON files retain
 request completion times and DOM loader mount/unmount events. Page-wide decode is
 counted as loading, since this is what visually obscured the page. The toolbar's
-small refresh indicator is excluded. Frame capture itself can take longer than 50ms.
+small refresh indicator is excluded. Frame capture itself can take longer than 50ms. Contact sheets are composed from
+only the current recording with Chromium canvas, without an external image tool.
 
 The skeleton unmounted once in both builds. Live room opening scheduled catch-up,
 whose busy→ready cycle replayed Home's page-wide ASCII decode. Before has three

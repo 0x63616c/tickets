@@ -5,7 +5,6 @@ use serde_json::json;
 use std::{
     env, fs,
     path::Path,
-    process::Command,
     thread,
     time::{Duration, Instant},
 };
@@ -67,6 +66,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     let start = Instant::now();
     let mut count: usize = 0;
     let mut capture_times = Vec::new();
+    let mut captured_images = Vec::new();
     while start.elapsed() < Duration::from_secs(4) {
         let tick = Instant::now();
         let shot = match b.call(
@@ -84,6 +84,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
             frames.join(format!("{count:03}.png")),
             STANDARD.decode(shot["data"].as_str().ok_or("PNG missing")?)?,
         )?;
+        captured_images.push(shot["data"].as_str().ok_or("PNG missing")?.to_string());
         capture_times.push(start.elapsed().as_millis());
         count += 1;
         thread::sleep(Duration::from_millis(50).saturating_sub(tick.elapsed()));
@@ -114,23 +115,24 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         serde_json::to_vec_pretty(&trace)?,
     )?;
     b.screenshot(&output.join(format!("{phase}-home.png")))?;
-    let status = Command::new("ffmpeg")
-        .args(["-y", "-loglevel", "error", "-i"])
-        .arg(frames.join("%03d.png"))
-        .args([
-            "-vf",
-            &format!(
-                "trim=end_frame={count},scale=256:160,tile=8x{}",
-                count.div_ceil(8)
-            ),
-            "-frames:v",
-            "1",
-        ])
-        .arg(output.join(format!("{phase}-frames.png")))
-        .status()?;
-    if !status.success() {
-        return Err("frame contact sheet failed".into());
-    }
+    // Compose only this recording's frames, using the same browser canvas approach
+    // as component crops. This needs no external image tool on CI.
+    let sheet = b.eval(&format!(r#"(async()=>{{
+        const sources={}, canvas=document.createElement('canvas');
+        canvas.width=2048;canvas.height=Math.ceil(sources.length/8)*160;
+        const ctx=canvas.getContext('2d');ctx.fillStyle='#000';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        await Promise.all(sources.map((data,i)=>new Promise((resolve,reject)=>{{
+            const frame=new Image();
+            frame.onload=()=>{{ctx.drawImage(frame,(i%8)*256,Math.floor(i/8)*160,256,160);resolve();}};
+            frame.onerror=reject;frame.src='data:image/png;base64,'+data;
+        }})));
+        return canvas.toDataURL('image/png').split(',')[1];
+    }})()"#, serde_json::to_string(&captured_images)?))?;
+    fs::write(
+        output.join(format!("{phase}-frames.png")),
+        STANDARD.decode(sheet.as_str().ok_or("contact sheet missing")?)?,
+    )?;
     println!("{phase}: {count} frames; {trace}");
     if phase == "before" {
         return Ok(());
