@@ -340,3 +340,12 @@ credentials using `cargo xtask tokens-shot`. It produces dark desktop/mobile
 viewport captures and cropped 2× states in `docs/screenshots/TIK-41/`. The real
 local lifecycle, including failed create/revoke and clipboard denial, is covered
 by `settings-check`; no real secret is included in its published screenshots.
+
+### Home (TIK-43)
+
+`/` and `/home` use a compact metric strip, status-stacked project counts,
+weekly created/completed bars, and review/blocked queues. `/design/home` is the
+sample-data specimen. Shared controls and static Skeletons reserve loading space;
+refresh retains same-scope data. SVG charts have a labelled data-table disclosure
+with exact cohort links; unavailable weeks remain gaps. Counts use tabular figures
+and status tokens. See [Home metric contract](design/home-analytics.md).

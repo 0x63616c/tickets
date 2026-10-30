@@ -17,11 +17,10 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
-    b.wait("location.pathname==='/' && document.body.innerText.includes('No projects yet')")?;
+    b.wait("location.pathname==='/' && document.body.innerText.includes('Start with a project')")?;
     b.screenshot(&output.join("first-run-empty.png"))?;
-    b.click(".empty-project a")?;
+    b.click(".home-empty a")?;
     b.wait("!!document.querySelector('.projects-page') && !document.querySelector('.topbar .button-primary').disabled")?;
-    b.click(".topbar .button-primary")?;
     b.wait("!!document.querySelector('#project-title')")?;
     b.text("#project-title", "First project")?;
     b.text("#project-prefix", "FIRST")?;
@@ -29,7 +28,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("!document.querySelector('dialog') && document.querySelectorAll('.api-project-row').length===1 && document.querySelector('.project-title')?.textContent.includes('First project')")?;
     b.screenshot(&output.join("first-run-project.png"))?;
     b.click(".project-title")?;
-    b.wait("location.pathname==='/' && !document.querySelector('.api-ticket') && !document.querySelector('.topbar .button-primary').disabled")?;
+    b.wait("location.pathname==='/board' && !document.querySelector('.api-ticket') && !document.querySelector('.topbar .button-primary').disabled")?;
     for title in ["Prepare release", "Publish release"] {
         b.click(".topbar .button-primary")?;
         b.wait("!!document.querySelector('#board-title')")?;

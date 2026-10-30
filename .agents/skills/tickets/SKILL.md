@@ -253,3 +253,20 @@ unmerged close returns active tickets to todo only when no open/draft PR remains
 Done/canceled tickets are protected from open/draft events; canceled never completes.
 Edits remove links for removed keys. Read back after webhook delivery; older events
 and redeliveries are ignored. The webhook is not an agent write endpoint.
+
+## Home analytics
+
+Read `GET /api/v1/analytics/home` for current in-flight/review/blocked counts and
+8 UTC Monday weeks of native-created/observed-completed flow. Coverage is explicit:
+null counts mean unavailable history. Optional `project` selects an active project;
+`metric=in_flight|review|blocked|inventory|created|completed` returns its exact
+50-row cohort with ascending durable subject-ID `cursor` / `next_cursor`.
+`week=0..7` selects a flow bucket (default 7); `status` narrows inventory only.
+Deleted historical subjects retain counts but have no ticket link. Use the
+[metric contract](../../../docs/design/home-analytics.md); do not infer completion
+from updated_at or treat PR observation versions as merge timestamps.
+
+```sh
+# expect {"status":200,"body":{"cohort":[],"next_cursor":null}}
+curl -sS "$TICKETS_URL/api/v1/analytics/home" -H "Authorization: Bearer $TICKETS_TOKEN"
+```

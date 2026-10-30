@@ -490,3 +490,19 @@ project icon schema changes additive and validate values in core.
   Settings pages and cropped 2× component states at desktop/mobile sizes in
   `docs/screenshots/TIK-41/`. The fixture secret is deliberately invalid. Use
   `settings-check` for the real local token lifecycle and `polish-check` for regression.
+
+## Home analytics conventions
+
+- `/` and `/home` show Home; `/board` is the API Kanban route. Board links,
+  shortcuts and checks must use `/board`. Home only fetches aggregate analytics
+  and project metadata until the user invokes the ticket composer.
+- V1 flow uses eight explicit UTC Monday weeks. Count observed status transitions,
+  never current done + updated_at. Null means unavailable. History must remain
+  additive and atomic with domain writes; subject IDs survive deletion/ID reuse.
+  See docs/design/home-analytics.md for the committed metric/deferred-scope contract.
+- `cargo xtask home-shot` uses immutable fixture HTTP data on an OS-assigned port,
+  checks Home interaction/states and saves docs/screenshots/TIK-43. Use
+  `TICKETS_BEFORE_ASSETS` for the same fixture's previous real landing page.
+  `cargo test -p tickets-worker --test analytics` exercises full-migration history,
+  exact cohorts and one-read query budgets. Keep first-run-check's empty-D1 flow
+  through Home and UI project creation.

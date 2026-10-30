@@ -73,7 +73,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
         browser.text("#password", password)?;
         browser.click("button[type=submit]")?;
         browser.wait("['/settings/tokens','/settings/api-tokens'].includes(location.pathname)")?;
-        browser.go("http://127.0.0.1:8795/")?;
+        browser.go("http://127.0.0.1:8795/board")?;
         browser.wait("document.querySelectorAll('.ticket-card').length===1")?;
         Ok(())
     };
@@ -83,7 +83,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     a.go("http://127.0.0.1:8795/list")?;
     a.wait("document.querySelector('.list-row')!==null || document.querySelector('.view-footer')!==null")?;
     a.screenshot(&output.join(format!("list-{phase}-desktop.png")))?;
-    a.go("http://127.0.0.1:8795/")?;
+    a.go("http://127.0.0.1:8795/board")?;
     a.wait("document.querySelectorAll('.ticket-card').length===1")?;
     a.viewport(390, 900)?;
     a.screenshot(&output.join(format!("board-{phase}-mobile.png")))?;

@@ -12,3 +12,5 @@ pub(crate) mod list;
 pub(crate) mod projects;
 
 pub(crate) mod settings;
+
+pub(crate) mod home;

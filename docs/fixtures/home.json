@@ -1,0 +1,212 @@
+{
+  "as_of": "2026-10-29T18:00:00.000Z",
+  "history_from": "2026-09-21T09:00:00.000Z",
+  "projects": [
+    {
+      "id": 3,
+      "name": "Apps",
+      "color": "#27a644",
+      "icon": "grid",
+      "backlog": 3,
+      "todo": 4,
+      "in_progress": 1,
+      "in_review": 1
+    },
+    {
+      "id": 2,
+      "name": "Quantum",
+      "color": "#4ea7fc",
+      "icon": "box",
+      "backlog": 4,
+      "todo": 5,
+      "in_progress": 3,
+      "in_review": 2
+    },
+    {
+      "id": 1,
+      "name": "Tickets",
+      "color": "#5e6ad2",
+      "icon": "ticket",
+      "backlog": 5,
+      "todo": 8,
+      "in_progress": 4,
+      "in_review": 3
+    },
+    {
+      "id": 5,
+      "name": "Toolbox",
+      "color": "#8b82d9",
+      "icon": "code",
+      "backlog": 1,
+      "todo": 2,
+      "in_progress": 0,
+      "in_review": 0
+    },
+    {
+      "id": 4,
+      "name": "Website",
+      "color": "#c6a1b9",
+      "icon": "globe",
+      "backlog": 2,
+      "todo": 3,
+      "in_progress": 1,
+      "in_review": 0
+    }
+  ],
+  "in_flight": 15,
+  "in_review": 6,
+  "blocked": 3,
+  "weeks": [
+    {
+      "start": "2026-09-07T00:00:00.000Z",
+      "end": "2026-09-14T00:00:00.000Z",
+      "coverage": "none",
+      "created": null,
+      "completed": null,
+      "imported": null
+    },
+    {
+      "start": "2026-09-14T00:00:00.000Z",
+      "end": "2026-09-21T00:00:00.000Z",
+      "coverage": "none",
+      "created": null,
+      "completed": null,
+      "imported": null
+    },
+    {
+      "start": "2026-09-21T00:00:00.000Z",
+      "end": "2026-09-28T00:00:00.000Z",
+      "coverage": "partial",
+      "created": 9,
+      "completed": 4,
+      "imported": 0
+    },
+    {
+      "start": "2026-09-28T00:00:00.000Z",
+      "end": "2026-10-05T00:00:00.000Z",
+      "coverage": "full",
+      "created": 12,
+      "completed": 8,
+      "imported": 0
+    },
+    {
+      "start": "2026-10-05T00:00:00.000Z",
+      "end": "2026-10-12T00:00:00.000Z",
+      "coverage": "full",
+      "created": 7,
+      "completed": 10,
+      "imported": 0
+    },
+    {
+      "start": "2026-10-12T00:00:00.000Z",
+      "end": "2026-10-19T00:00:00.000Z",
+      "coverage": "full",
+      "created": 11,
+      "completed": 9,
+      "imported": 0
+    },
+    {
+      "start": "2026-10-19T00:00:00.000Z",
+      "end": "2026-10-26T00:00:00.000Z",
+      "coverage": "full",
+      "created": 8,
+      "completed": 12,
+      "imported": 0
+    },
+    {
+      "start": "2026-10-26T00:00:00.000Z",
+      "end": "2026-10-29T18:00:00.000Z",
+      "coverage": "full",
+      "created": 6,
+      "completed": 5,
+      "imported": 0
+    }
+  ],
+  "review_queue": [
+    {
+      "subject_id": 18,
+      "ticket_id": 18,
+      "key": "TKT-18",
+      "title": "Improve search results",
+      "status": "in_review",
+      "blocker_id": null,
+      "blocker_count": 0,
+      "blocker_key": null
+    },
+    {
+      "subject_id": 19,
+      "ticket_id": 19,
+      "key": "TKT-19",
+      "title": "Improve keyboard navigation",
+      "status": "in_review",
+      "blocker_id": null,
+      "blocker_count": 0,
+      "blocker_key": null
+    },
+    {
+      "subject_id": 20,
+      "ticket_id": 20,
+      "key": "TKT-20",
+      "title": "Reduce render latency",
+      "status": "in_review",
+      "blocker_id": null,
+      "blocker_count": 0,
+      "blocker_key": null
+    },
+    {
+      "subject_id": 33,
+      "ticket_id": 33,
+      "key": "QUA-13",
+      "title": "Align ticket properties",
+      "status": "in_review",
+      "blocker_id": null,
+      "blocker_count": 0,
+      "blocker_key": null
+    },
+    {
+      "subject_id": 34,
+      "ticket_id": 34,
+      "key": "QUA-14",
+      "title": "Review dependency changes",
+      "status": "in_review",
+      "blocker_id": null,
+      "blocker_count": 0,
+      "blocker_key": null
+    }
+  ],
+  "blocked_queue": [
+    {
+      "subject_id": 14,
+      "ticket_id": 14,
+      "key": "TKT-14",
+      "title": "Align ticket properties",
+      "status": "in_progress",
+      "blocker_id": 1,
+      "blocker_count": 1,
+      "blocker_key": "TKT-1"
+    },
+    {
+      "subject_id": 27,
+      "ticket_id": 27,
+      "key": "QUA-7",
+      "title": "Improve search results",
+      "status": "todo",
+      "blocker_id": 1,
+      "blocker_count": 1,
+      "blocker_key": "TKT-1"
+    },
+    {
+      "subject_id": 36,
+      "ticket_id": 36,
+      "key": "APP-2",
+      "title": "Align ticket properties",
+      "status": "backlog",
+      "blocker_id": 1,
+      "blocker_count": 1,
+      "blocker_key": "TKT-1"
+    }
+  ],
+  "cohort": [],
+  "cohort_total": 0,
+  "next_cursor": null
+}

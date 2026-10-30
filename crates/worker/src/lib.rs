@@ -158,3 +158,5 @@ mod tests {
         }
     }
 }
+
+pub mod analytics;

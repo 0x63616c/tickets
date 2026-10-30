@@ -238,6 +238,21 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         server_command.process_group(0);
     }
     let port = if _view == "login" { 8787 } else { 8795 };
+    let mut port_available = false;
+    for _ in 0..60 {
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            port_available = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    if !port_available {
+        return Err(format!(
+            "Local check port {port} is busy; retry after the other check finishes"
+        )
+        .into());
+    }
+
     let mut server = Server(
         server_command
             .args([

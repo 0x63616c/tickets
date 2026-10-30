@@ -210,12 +210,13 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.eval("document.querySelector('.properties').scrollIntoView();true")?;
     b.screenshot(&output.join(format!("ticket-properties-{phase}-mobile.png")))?;
     b.viewport(1440, 900)?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/board")?;
     b.wait("document.querySelectorAll('.api-ticket').length===4")?;
     capture(&mut b, &output, phase, "board", &mut rows)?;
     if phase == "after" {
         for route in [
             "/",
+            "/board",
             "/projects",
             "/settings/tokens",
             "/design",

@@ -105,8 +105,8 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
     } else {
         "/settings/account"
     };
-    let home = if fixture { "/design/home" } else { "/home" };
-    let board_path = if fixture { "/design/board" } else { "/" };
+    let home = if fixture { "/design/home" } else { "/" };
+    let board_path = if fixture { "/design/board" } else { "/board" };
     let list = if fixture { "/design/list" } else { "/list" };
     let projects = if fixture {
         "/design/projects"
@@ -169,11 +169,11 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
             <MenuItem on_select=Callback::new(move|_|{if fixture || signing_out.get_untracked(){return;}signing_out.set(true);wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}signing_out.set(false);});})><Icon name="arrow"/>{move||if signing_out.get(){"Signing out…"}else{"Sign out"}}</MenuItem>
         </DropdownMenu></div>
         <nav class="sidebar-nav" aria-label="Main navigation" on:click=move|e: web_sys::MouseEvent|{if e.target().and_then(|t|t.dyn_into::<web_sys::Element>().ok()).is_some_and(|t|t.closest("a").ok().flatten().is_some()) && let Some(cb)=on_navigate {cb.run(());}}>
-            <Tooltip text="Home · G then H"><A href=home attr:class="nav-item" exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
+            <Tooltip text="Home · G then H"><A href=home attr:class=move||if location.pathname.get()=="/home"{"nav-item active"}else{"nav-item"} exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
             <button class="nav-item search-trigger" on:click=move|_|{state.dialog.set(DialogKind::Command);if let Some(cb)=on_navigate{cb.run(());}}><Icon name="search"/><span>"Search tickets"</span><Shortcut>"⌘ K"</Shortcut></button>
             <SidebarSection title="Projects" storage="tickets.sidebar.projects" id="sidebar-projects">
                 <A href=projects attr:class="nav-item" on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="project"/><span>"All projects"</span></A>
-                {move||board.projects.get().into_iter().filter(|p|!p.archived).map(|p|{let id=p.id;let name=p.name.clone();let active=Signal::derive(move||if fixture {state.current_project.get()==name && ["/design/board","/design/empty"].contains(&location.pathname.get().as_str())}else{board.project.get()==id && location.pathname.get()=="/"});view!{
+                {move||board.projects.get().into_iter().filter(|p|!p.archived).map(|p|{let id=p.id;let name=p.name.clone();let active=Signal::derive(move||if fixture {state.current_project.get()==name && ["/design/board","/design/empty"].contains(&location.pathname.get().as_str())}else{board.project.get()==id && location.pathname.get()=="/board"});view!{
                     <a href=if fixture && id!=1 {"/design/empty"}else{board_path} class="nav-item project-nav" class:active=move||active.get() aria-current=move||active.get().then_some("page") aria-label=format!("{}, {} open tickets",p.name,p.open_ticket_count)
                         on:click=move|ev|{if fixture{state.current_project.set(p.name.clone());}else if !board.select_project(id){ev.prevent_default();return;}
                         if let Some(cb)=on_navigate{cb.run(());}}>
