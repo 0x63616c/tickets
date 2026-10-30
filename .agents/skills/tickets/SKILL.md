@@ -413,3 +413,25 @@ and `[KEY-N]` title links as before. Nullable `tickets_check_run_id` and
 # expect {"status":200,"body":{"registered":false,"app_slug":null,"installations":[]}}
 curl -sS "$TICKETS_URL/api/v1/github/app" -H "Authorization: Bearer $TICKETS_TOKEN"
 ```
+
+## Mission Control
+
+PUT `/api/v1/mission/reports/{source}` replaces the latest raw JSON snapshot for
+that source (1–40 lowercase ASCII letters/digits/hyphens). Maximum 512 KiB;
+body must be an object; optional `jobs`, `pull_requests`, `merges`, `builds`,
+`blocked`, `needs_calum` must be arrays of objects. Unknown fields are retained.
+200 returns `{source,received_at}`; 413 means oversized and 422 means invalid.
+GET `/api/v1/mission` returns `generated_at`, source `reports` with `received_at`,
+`stale` after ten minutes and parsed `report`, plus cross-project ticket summaries
+in `waiting_on_calum`, `in_review` (linked PRs/current-head CI), `recently_done`
+(last 48 hours, maximum 30). Archived projects are excluded. See
+[the report contract](../../../docs/mission-control.md). Cookie writes need Origin.
+
+```sh
+# expect {"status":200,"body":{"source":"skill-check"}}
+curl -sS -X PUT "$TICKETS_URL/api/v1/mission/reports/skill-check" \
+  -H "Authorization: Bearer $TICKETS_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"jobs":[],"builds":[]}'
+# expect {"status":200,"body":{"reports":[{"source":"skill-check","stale":false,"report":{"jobs":[],"builds":[]}}]}}
+curl -sS "$TICKETS_URL/api/v1/mission" -H "Authorization: Bearer $TICKETS_TOKEN"
+```

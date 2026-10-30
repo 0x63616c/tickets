@@ -16,3 +16,5 @@ pub(crate) mod settings;
 pub(crate) mod home;
 
 pub(crate) mod pickup;
+
+pub(crate) mod mission;

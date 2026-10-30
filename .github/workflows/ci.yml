@@ -51,12 +51,14 @@ jobs:
       - name: Reuse the verified application build for isolated checks
         run: echo 'TICKETS_SKIP_BUILD=1' >> "$GITHUB_ENV"
       - run: CHROME_BIN=google-chrome cargo xtask settings-check
+      - run: cargo xtask api-smoke
       - run: cargo xtask skill-check
       - name: Test GitHub App callback without network
         run: node --test crates/worker/tests/github_app.mjs
       - run: cargo xtask import-check
       - run: CHROME_BIN=google-chrome cargo xtask mirror-check
       - run: CHROME_BIN=google-chrome cargo xtask first-run-check
+      - run: CHROME_BIN=google-chrome cargo xtask mission-check
       - run: CHROME_BIN=google-chrome cargo xtask detail-check
       - run: CHROME_BIN=google-chrome cargo xtask palette-check
       - run: CHROME_BIN=google-chrome cargo xtask project-repos-check

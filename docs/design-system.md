@@ -427,3 +427,11 @@ Workspace inheritance stays visible; projects can save a complete override or us
 workspace rules again. Unsaved edits lock scope until saved/discarded. Errors keep
 inputs intact. `/design/c/pickup-rules` and `/design/settings/pickup-rules` use sample
 data only; `component-shot pickup-rules` captures the rendered editor and pages.
+
+### Mission Control (TIK-77)
+
+The reusable `.page-container` centres content at `--page-max-width` (1240px).
+Mission Control inherits compact rows, text roles, semantic status tokens and
+shared buttons. Rows wrap metadata below titles on mobile. `/design/mission`
+and `/design/c/mission` render fixtures; `component-shot mission` captures both
+page sizes and the 2× isolated page. Stale receipt times use `--warning` plus text.
