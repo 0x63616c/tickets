@@ -847,15 +847,27 @@ It saves dark Settings/Board evidence in `docs/screenshots/TIK-83`; set
 
 `index.html` paints a full-screen ASCII Stub before the app mounts. Its small
 inline canvas sampler uses the favicon's evenodd path, including notches and
-perforations, with fixed monospace cells and grey edge/near-white body tokens.
-A 600ms diagonal resolve leads into a looping shimmer, capped at 30fps. After
-the next-frame `tickets:ready` mount signal, it waits for app `aria-busy` to clear
-(up to 1.5s), holds at least 900ms, dissolves the glyphs on black (220ms), then
-fades the black for 280ms so the art never overlays the app. An independent 8s timer
-removes it even if startup fails. Package-owned content reveals begin after removal.
+perforations, with fixed monospace cells: `--stub-edge` (#a78bfa) for a continuous
+one-cell purple contour (including notches and holes), `--stub-ink` for the body.
+Filled cells have at least 50% coverage; a filled cell with an empty four-neighbour
+is an edge. The sampled grid is rebuilt only on resize, never for motion.
+The mark fades in over 550ms with cubic ease-out while rising 12px into a sine-wave
+float: vertical ±9px / 2.2s, horizontal ±6px / 3.4s, rotation ±1.6° / 3.8s.
+The float and fades are CSS keyframes/transitions on `translate`, `rotate` and
+`opacity` (`.boot-mark` fade/drift, `.boot-sway` sway, `pre` bob and tilt), so they
+run on the compositor and keep moving while the wasm compiles; JS only toggles
+`boot-in`, `boot-leaving`, `boot-exit` and `boot-reduced`. There is no scramble,
+shimmer or glyph dissolve. The black backdrop is present at first paint.
+After the next-frame `tickets:ready` mount signal, it waits for app `aria-busy`
+to clear (up to 1.5s) and holds at least 900ms from first paint. The mark then
+fades out and rises another 16px over 400ms with an ease-in curve (a splash-only
+exception to normal UI exit easing), followed by a 280ms black backdrop fade:
+680ms total. An independent 8s timer removes it even if startup fails.
+Package-owned content reveals begin after removal.
 
-OS reduced motion or `tickets.motion=reduce` shows a static final mark for at
-least 500ms and uses an opacity-only exit. Component previews (`/design/c/*`)
+OS reduced motion or `tickets.motion=reduce` shows the same static outlined mark
+for at least 500ms, with opacity-only entry and exit fades and no translation or
+rotation. Component previews (`/design/c/*`)
 and webdriver sessions skip the splash; add `?splash` to opt automated recordings
 in (component previews always skip). Client-side navigation never recreates it.
 For local fixture viewing, build and serve `crates/web/dist` with SPA fallback,
