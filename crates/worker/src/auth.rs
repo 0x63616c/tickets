@@ -47,13 +47,14 @@ async fn query(db: &D1Database, sql: &str, args: Vec<Value>) -> Result<Vec<Value
         .await
         .map_err(|_| Error::RustError("Authentication storage failed".into()))
 }
-fn reply(value: Value, status: u16) -> Result<Response> {
+pub(crate) fn reply(value: Value, status: u16) -> Result<Response> {
     let value = if status >= 400 && value["error"].is_string() {
         let code = match status {
             400 => "bad_request",
             401 => "unauthorized",
             403 => "forbidden",
             404 => "not_found",
+            405 => "method_not_allowed",
             422 => "validation",
             429 => "rate_limited",
             _ => "internal",
@@ -211,16 +212,51 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
         }
         return crate::live::upgrade(req, &env, &db, project).await;
     }
+    if path == "/api/v1/me/avatar" {
+        if bearer {
+            return reply(json!({"error":"A signed-in session is required"}), 403);
+        }
+        match method {
+            Method::Put | Method::Post => {
+                return crate::avatars::upload(&mut req, &db, user_id).await;
+            }
+            Method::Delete => {
+                let account = crate::avatars::remove(&db, user_id)
+                    .await
+                    .map_err(|e| Error::RustError(e.to_string()))?;
+                return reply(account, 200);
+            }
+            _ => return reply(json!({"error":"Method not allowed"}), 405),
+        }
+    }
+    if method == Method::Get {
+        if path == "/api/v1/users" {
+            return reply(
+                json!({"data":query(&db,"SELECT id,username,display_name,(SELECT '/api/v1/users/'||user_id||'/avatar?v='||version FROM user_avatars WHERE user_id=users.id) avatar_url FROM users ORDER BY id",vec![]).await?}),
+                200,
+            );
+        }
+        if let Some(id) = path
+            .strip_prefix("/api/v1/users/")
+            .and_then(|p| p.strip_suffix("/avatar"))
+        {
+            let Ok(id) = tickets_core::api::positive_id(id) else {
+                return reply(json!({"error":"Invalid user id"}), 400);
+            };
+            return crate::avatars::serve(&req, &db, id).await;
+        }
+    }
     match (method,path.as_str()) {
         (Method::Get,"/api/v1/me")=> {
             let account=query(&db,crate::auth_queries::ACCOUNT,vec![user_id.into()]).await?;
-            reply(json!({"authenticated":true,"username":account[0]["username"],"display_name":account[0]["display_name"]}),200)
+            let mut value=account[0].clone();value["authenticated"]=json!(true);reply(value,200)
         },
         (Method::Patch,"/api/v1/me")=> {
             let input=match req.json::<Value>().await { Ok(v)=>v, Err(_)=>return reply(json!({"error":"Malformed JSON"}),400) };
             let name=match display_name(&input) { Ok(v)=>v, Err(e)=>return reply(json!({"error":e}),422) };
-            let account=query(&db,crate::auth_queries::UPDATE_ACCOUNT,vec![json!(name),user_id.into()]).await?;
-            reply(json!({"authenticated":true,"username":account[0]["username"],"display_name":account[0]["display_name"]}),200)
+            query(&db,crate::auth_queries::UPDATE_ACCOUNT,vec![json!(name),user_id.into()]).await?;
+            let account=query(&db,crate::avatars::ACCOUNT,vec![user_id.into()]).await?;
+            let mut value=account[0].clone();value["authenticated"]=json!(true);reply(value,200)
         },
         (Method::Post,"/api/v1/logout")=> {
             if !bearer { query(&db,"DELETE FROM sessions WHERE token_hash=?",vec![hash.into()]).await?; }

@@ -574,3 +574,30 @@ In Progress tickets and their `claimed_by`/`claim_id` first. External operations
 should be idempotent; inspect existing branches and PRs before creating them.
 
 [Mission Control: report ingest, aggregated read and dashboard](mission-control.md).
+
+### Profile photos
+
+`GET /api/v1/me` and `PATCH /api/v1/me` include nullable `avatar_url`.
+`GET /api/v1/users` returns `{data:[{id,username,display_name,avatar_url}]}` for
+resolving legacy name-based assignees. URLs contain a content version (`?v=…`)
+and change on replacement. Comment responses include nullable `avatar_url` based
+on durable user identity; bot, imported and system authors have no profile photo.
+
+- `PUT` or `POST /api/v1/me/avatar`: signed-in **session only**, matching Origin,
+  raw JPEG/PNG/WebP body with the matching Content-Type. Returns 200 account
+  (`username`, `display_name`, `avatar_url`). Replaces the current photo atomically.
+- `DELETE /api/v1/me/avatar`: same session/Origin requirements; idempotently removes
+  the photo and returns 200 account with `avatar_url:null`.
+- `GET /api/v1/users/{id}/avatar`: authenticated via session or bearer, returns raw
+  bytes with Content-Type, `X-Content-Type-Options: nosniff`, a content ETag and
+  `Cache-Control: private, no-cache`. Supports `If-None-Match` (304); 404 if absent.
+  Authentication runs before conditional responses, including cached versions.
+
+Uploads are bounded to 512 KiB, including streamed bodies without Content-Length
+(413 `payload_too_large`). Magic bytes must match JPEG/PNG/WebP and the declared
+Content-Type (415 `unsupported_media_type`). Missing authentication returns 401;
+bearer writes or missing/mismatched cookie Origin return 403. Errors retain the
+normal `error.code` / `error.message` envelope. Images are BLOBs in D1 migration
+`0019_user_avatars.sql`; no R2 binding is needed. The account UI accepts originals
+up to 5 MB, decodes and center-crops to 256×256 with canvas, then encodes WebP
+(JPEG fallback), targeting less than 100 KiB before upload.

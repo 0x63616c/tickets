@@ -51,6 +51,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
 pub(super) fn fixture_account(account: crate::pages::settings::AccountState) {
     account.account.set(crate::pages::settings::Account {
         username: "sample-user".into(),
+        avatar_url: None,
         display_name: Some("Sample User".into()),
     });
     account.loaded.set(true);
@@ -193,7 +194,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
             </SidebarSection>
         </nav>
         <div class="sidebar-bottom">{fixture.then(||view!{<div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div>})}
-        <div class="user-menu"><DropdownMenu class="account-dropdown" trigger_class="button button-ghost account-trigger" label="Account menu" trigger_content=Box::new(move||view!{<span class="avatar" aria-hidden="true">{move||account.account.get().label().chars().next().unwrap_or('U').to_uppercase().to_string()}</span><span class="account-name">{move||account.account.get().label()}</span>}.into_any())>
+        <div class="user-menu"><DropdownMenu class="account-dropdown" trigger_class="button button-ghost account-trigger" label="Account menu" trigger_content=Box::new(move||view!{{move||view!{<Avatar label=account.account.get().label() initials={account.account.get().label().chars().take(1).collect::<String>().to_uppercase()} url=Signal::derive(move||account.account.get().avatar_url) lookup=false/>}}<span class="account-name">{move||account.account.get().label()}</span>}.into_any())>
             <MenuItem on_select=Callback::new(move|_|go.run(settings.into()))><Icon name="settings"/>"Settings"</MenuItem>
             <MenuItem on_select=Callback::new(move|_|shortcuts.set(true)) shortcut="?"><Icon name="help"/>"Keyboard shortcuts"</MenuItem>
             <MenuItem on_select=Callback::new(move|_|{if fixture || signing_out.get_untracked(){return;}signing_out.set(true);wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}signing_out.set(false);});})><Icon name="arrow"/>{move||if signing_out.get(){"Signing out…"}else{"Sign out"}}</MenuItem>

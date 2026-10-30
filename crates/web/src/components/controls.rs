@@ -63,10 +63,38 @@ pub fn LabelChip(#[prop(into)] name: String, #[prop(optional)] color: String) ->
 
 #[component]
 pub fn Avatar(
+    #[prop(default=Signal::derive(||None))] url: Signal<Option<String>>,
+    #[prop(default = true)] lookup: bool,
     #[prop(default = "Unassigned".into(), into)] label: String,
     #[prop(default = "".into(), into)] initials: String,
 ) -> impl IntoView {
-    view! { <span class="avatar" role="img" aria-label=label.clone() title=label>{initials}</span> }
+    let account = expect_context::<crate::pages::settings::AccountState>();
+    let name = label.clone();
+    let source = Signal::derive(move || {
+        url.get().or_else(|| {
+            if !lookup {
+                return None;
+            }
+            let current = account.account.get();
+            if name == current.username || name == current.label() {
+                return current.avatar_url;
+            }
+            account
+                .users
+                .get()
+                .into_iter()
+                .find(|u| u.username == name || u.label() == name)
+                .and_then(|u| u.avatar_url)
+        })
+    });
+    let failed = RwSignal::new(None::<String>);
+    view! { <span class="avatar" role="img" aria-label=label.clone() title=label>{move||{
+        let src=source.get();
+        match src.filter(|src|failed.get().as_ref()!=Some(src)) {
+            Some(src)=>{let failed_src=src.clone();view!{<img src=src alt="" on:error=move|_|failed.set(Some(failed_src.clone()))/>}.into_any()},
+            None=>initials.clone().into_any(),
+        }
+    }}</span> }
 }
 
 #[derive(Clone, Copy)]

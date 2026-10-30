@@ -331,3 +331,109 @@ fn github_crop(b: &mut Browser, selector: &str, path: &Path) -> super::Result {
     println!("Screenshot: {}", path.display());
     Ok(())
 }
+
+/// Actual browser processing plus authenticated Worker/D1 binary roundtrips.
+pub fn avatar_check(root: &Path, password: &str) -> super::Result {
+    let output = std::env::var_os("TICKETS_AVATAR_SHOTS")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.join("target/avatar-shots"));
+    fs::create_dir_all(&output)?;
+    let mut b = Browser::start_named(root, "avatar-check")?;
+    b.viewport(1440, 900)?;
+    b.go("http://127.0.0.1:8795/login")?;
+    b.text("#username", "fixture")?;
+    b.text("#password", password)?;
+    b.click("button[type=submit]")?;
+    b.wait("location.pathname==='/' && !!document.querySelector('.user-menu')")?;
+    b.go("http://127.0.0.1:8795/settings/account")?;
+    b.wait("!!document.querySelector('#profile-photo-file') && !document.querySelector('#profile-photo-file').disabled")?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    visible_page(&mut b, &output.join("account-initials.png"))?;
+    b.eval(r#"(async()=>{
+      const check=(condition,message)=>{if(!condition)throw Error(message)};
+      for(const [path,method] of [['/api/v1/me/avatar','PUT'],['/api/v1/me/avatar','POST'],['/api/v1/me/avatar','DELETE'],['/api/v1/users/1/avatar','GET']]) {
+        const r=await fetch(path,{method,credentials:'omit',body:method==='PUT'||method==='POST'?'invalid':undefined});
+        check(r.status===401,'authentication required '+method);
+      }
+      const token=await (await fetch('/api/v1/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Avatar test'})})).json();
+      let r=await fetch('/api/v1/me/avatar',{method:'PUT',headers:{Authorization:'Bearer '+token.token,'Content-Type':'image/png'},body:'invalid'});
+      check(r.status===403,'session-only upload');
+      r=await fetch('/api/v1/me/avatar',{method:'PUT',headers:{'Content-Type':'image/svg+xml'},body:'<svg/>'});check(r.status===415,'bad type');
+      r=await fetch('/api/v1/me/avatar',{method:'PUT',headers:{'Content-Type':'image/png'},body:new Uint8Array(524289)});check(r.status===413,'oversize');
+      r=await fetch('/api/v1/me/avatar',{method:'PUT',headers:{'Content-Type':'image/png'},body:new Uint8Array([255,216,255])});check(r.status===415,'magic mismatch');
+      await fetch('/api/v1/tokens/'+token.metadata.id,{method:'DELETE'});
+      const c=document.createElement('canvas');c.width=640;c.height=400;
+      const x=c.getContext('2d');x.fillStyle='#535fc4';x.fillRect(0,0,640,400);
+      x.fillStyle='#f7f8f8';x.font='180px sans-serif';x.textAlign='center';x.fillText('S',320,265);
+      window.avatarOriginal=await new Promise(resolve=>c.toBlob(resolve,'image/png'));
+      window.choosePhoto=(file)=>{const dt=new DataTransfer();dt.items.add(file);const input=document.querySelector('#profile-photo-file');input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));};
+      window.choosePhoto(new File(['bad'],'bad.svg',{type:'image/svg+xml'}));
+      return true;
+    })()"#)?;
+    b.wait("document.querySelector('#photo-error').textContent.includes('JPEG, PNG or WebP')")?;
+    b.eval("window.choosePhoto(new File([new Uint8Array(5242881)],'large.png',{type:'image/png'}));true")?;
+    b.wait("document.querySelector('#photo-error').textContent.includes('5 MB')")?;
+    b.eval("window.choosePhoto(new File([window.avatarOriginal],'sample.png',{type:'image/png'}));true")?;
+    b.wait("document.querySelector('.profile-photo [role=status]').textContent==='Photo saved.' && document.querySelector('.profile-photo img')?.naturalWidth===256 && document.querySelector('.account-trigger img')?.naturalWidth===256")?;
+    visible_page(&mut b, &output.join("account-uploaded.png"))?;
+    visible_crop(&mut b, ".user-menu", &output.join("sidebar-avatar.png"))?;
+    b.eval(r#"(async()=>{
+      const assert=(c,m)=>{if(!c)throw Error(m)};
+      const me=await (await fetch('/api/v1/me')).json();window.firstAvatar=me.avatar_url;
+      let r=await fetch(me.avatar_url);assert(r.ok,'read photo');
+      assert(['image/webp','image/jpeg'].includes(r.headers.get('Content-Type')),'processed type');
+      assert(r.headers.get('Cache-Control')==='private, no-cache','private cache');
+      const etag=r.headers.get('ETag'),blob=await r.blob();assert(blob.size<102400,'small processed image');
+      const bitmap=await createImageBitmap(blob);assert(bitmap.width===256&&bitmap.height===256,'square resized');bitmap.close();
+      r=await fetch(me.avatar_url,{cache:'no-store',headers:{'If-None-Match':etag}});assert(r.status===304,'ETag revalidation');
+      window.encodedPhoto=blob;
+      const project=await (await fetch('/api/v1/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Avatar check',key_prefix:'AV',color:'#535fc4'})})).json();
+      const ticket=await (await fetch('/api/v1/tickets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project_id:project.id,title:'Profile photo across the workspace',assignee:me.username})})).json();
+      await fetch('/api/v1/tickets/'+ticket.id+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:'Profile photo saved and visible on comments.'})});
+      return true;
+    })()"#)?;
+    b.go("http://127.0.0.1:8795/t/AV-1")?;
+    b.wait("document.querySelector('.comment .avatar img')?.naturalWidth===256 && document.querySelector('.assignee-editor .avatar img')?.naturalWidth===256")?;
+    visible_page(&mut b, &output.join("comment-assignee-avatar.png"))?;
+    b.go("http://127.0.0.1:8795/settings/account")?;
+    b.wait("document.querySelector('.profile-photo img')?.naturalWidth===256")?;
+    // Simulate a browser without a WebP encoder and exercise the JPEG fallback.
+    b.eval(r#"(async()=>{
+      const c=document.createElement('canvas');c.width=400;c.height=300;
+      const x=c.getContext('2d');x.fillStyle='#535fc4';x.fillRect(0,0,400,300);
+      const original=await new Promise(resolve=>c.toBlob(resolve,'image/png'));
+      window.nativeToBlob=HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob=function(callback,type,quality){return window.nativeToBlob.call(this,callback,type==='image/webp'?'image/png':type,quality)};
+      const dt=new DataTransfer();dt.items.add(new File([original],'fallback.png',{type:'image/png'}));
+      const input=document.querySelector('#profile-photo-file');input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+      return true;
+    })()"#)?;
+    b.wait("document.querySelector('.profile-photo [role=status]').textContent==='Photo saved.'")?;
+    b.eval(r#"(async()=>{
+      HTMLCanvasElement.prototype.toBlob=window.nativeToBlob;
+      const me=await (await fetch('/api/v1/me')).json();
+      const r=await fetch(me.avatar_url);if(r.headers.get('Content-Type')!=='image/jpeg')throw Error('JPEG encoder fallback');
+      return true;
+    })()"#)?;
+    // Another valid image exercises replacement via the POST alias, then removal.
+    b.eval(r#"(async()=>{
+      const before=await (await fetch('/api/v1/me')).json();
+      const c=document.createElement('canvas');c.width=256;c.height=256;c.getContext('2d').fillRect(0,0,256,256);
+      const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg',.8));
+      const r=await fetch('/api/v1/me/avatar',{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+      const after=await r.json();if(!r.ok||after.avatar_url===before.avatar_url)throw Error('replacement version');
+      const del=await fetch('/api/v1/me/avatar',{method:'DELETE'});if((await del.json()).avatar_url!==null)throw Error('remove');
+      if((await fetch(before.avatar_url)).status!==404)throw Error('removed bytes still served');
+      return true;
+    })()"#)?;
+    b.go("http://127.0.0.1:8795/settings/account")?;
+    b.wait("document.querySelector('.profile-photo-actions button')?.textContent==='Upload photo' && !document.querySelector('.profile-photo img')")?;
+    b.viewport(390, 844)?;
+    b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+    visible_page(&mut b, &output.join("account-mobile.png"))?;
+    println!(
+        "PASS avatars: browser validation/canvas upload, auth, type/size limits, binary/cache roundtrip, replacement, removal, sidebar/comment/assignee; PNGs in {}",
+        output.display()
+    );
+    Ok(())
+}
