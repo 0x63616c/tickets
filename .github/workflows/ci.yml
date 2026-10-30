@@ -15,11 +15,33 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup show
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          # Reuse main's existing check cache across all Cargo consumers. The
+          # action hashes Cargo.lock + rustc/toolchain; target/ keeps host and
+          # wasm32-unknown-unknown artifacts in separate Cargo directories.
+          shared-key: check
+          # Only the full check job writes: a faster host-only job must not
+          # win the immutable-cache race with an incomplete target snapshot.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.job == 'check' }}
+      - name: Check cached wasm build tool versions
+        id: wasm-tools
+        run: |
+          if [[ "$(worker-build --version 2>/dev/null || true)" == '0.8.7' &&
+                "$(trunk --version 2>/dev/null || true)" == 'trunk 0.21.14' ]]; then
+            echo 'cached=true' >> "$GITHUB_OUTPUT"
+          fi
       - name: Install wasm build tools
-        run: cargo install worker-build --version 0.8.7 --locked && cargo install trunk --version 0.21.14 --locked
+        if: steps.wasm-tools.outputs.cached != 'true'
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2
+        with:
+          tool: worker-build@0.8.7,trunk@0.21.14
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+      - name: Reuse unchanged web dependencies within this job
+        run: |
+          echo "TICKETS_REAL_NPM=$(command -v npm)" >> "$GITHUB_ENV"
+          echo "$GITHUB_WORKSPACE/.github/scripts" >> "$GITHUB_PATH"
       - run: npm ci --prefix crates/web
       - run: npm install --global wrangler@4.154.0
       - run: cargo xtask ci
@@ -57,6 +79,14 @@ jobs:
           node-version: '22'
       - run: rustup show
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          # Reuse main's existing check cache across all Cargo consumers. The
+          # action hashes Cargo.lock + rustc/toolchain; target/ keeps host and
+          # wasm32-unknown-unknown artifacts in separate Cargo directories.
+          shared-key: check
+          # Only the full check job writes: a faster host-only job must not
+          # win the immutable-cache race with an incomplete target snapshot.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.job == 'check' }}
       - run: npm install --global wrangler@4.154.0
       # A fresh checkout has no .wrangler state; exercise the entire SQL chain.
       - run: cargo xtask migrate
@@ -89,11 +119,33 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: rustup show
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          # Reuse main's existing check cache across all Cargo consumers. The
+          # action hashes Cargo.lock + rustc/toolchain; target/ keeps host and
+          # wasm32-unknown-unknown artifacts in separate Cargo directories.
+          shared-key: check
+          # Only the full check job writes: a faster host-only job must not
+          # win the immutable-cache race with an incomplete target snapshot.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.job == 'check' }}
+      - name: Check cached wasm build tool versions
+        id: wasm-tools
+        run: |
+          if [[ "$(worker-build --version 2>/dev/null || true)" == '0.8.7' &&
+                "$(trunk --version 2>/dev/null || true)" == 'trunk 0.21.14' ]]; then
+            echo 'cached=true' >> "$GITHUB_OUTPUT"
+          fi
       - name: Install wasm build tools
-        run: cargo install worker-build --version 0.8.7 --locked && cargo install trunk --version 0.21.14 --locked
+        if: steps.wasm-tools.outputs.cached != 'true'
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2
+        with:
+          tool: worker-build@0.8.7,trunk@0.21.14
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+      - name: Reuse unchanged web dependencies within this job
+        run: |
+          echo "TICKETS_REAL_NPM=$(command -v npm)" >> "$GITHUB_ENV"
+          echo "$GITHUB_WORKSPACE/.github/scripts" >> "$GITHUB_PATH"
       - run: npm ci --prefix crates/web
       - run: npm install --global wrangler@4.154.0
       - name: Apply D1 migrations to production

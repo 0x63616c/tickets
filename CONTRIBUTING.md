@@ -771,3 +771,20 @@ project icon schema changes additive and validate values in core.
   `component-shot pickup-rules` captures fixture-only dark desktop/mobile and 2×
   crops; `--before-assets <base-dist>` captures the previous Settings appearance.
   See docs/design/claim-next.md for the lease contract and research.
+
+## CI build caches
+
+- Cargo jobs restore the shared `check` cache (including main's existing cache).
+  `rust-cache` hashes Cargo.lock, manifests, Cargo configuration and the pinned
+  toolchain; Cargo separates host and wasm32 artifacts inside `target/`. Only
+  main's `check` job saves caches, so PR runs cannot fill the quota with branch
+  copies and the faster migrations job cannot win an immutable-cache save race
+  with an incomplete host-only snapshot.
+- Install pinned Rust build tools with `taiki-e/install-action` prebuilt binaries
+  rather than compiling them with `cargo install` on cache misses. Check cached
+  binary versions first, so a warm Cargo bin cache also skips the installer.
+- CI puts `.github/scripts/npm` ahead of npm after recording the real executable.
+  It reuses `npm ci --prefix crates/web` within a job only while both npm manifests
+  match a successful install and node_modules exists. Repeated installs rewrite
+  the JS imported by wasm-bindgen and cause a release Wasm rebuild for every
+  browser check. Other npm commands pass through; local xtask behavior is unchanged.
