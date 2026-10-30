@@ -11,9 +11,10 @@
 .command-help code { color: var(--text-secondary); }
 .command-palette .command-results { flex: 1 1 auto; height: min(440px, calc(100dvh - 200px)); min-height: 240px; max-height: min(440px, calc(100dvh - 200px)); padding: 0 8px 8px; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 .command-palette .menu-heading { padding: 12px 8px 4px; margin: 0; color: var(--text-muted); font-size: var(--text-xs); font-weight: var(--weight-medium); }
+.command-result + .command-result { margin-top: var(--menu-item-gap); }
 .command-result { display: flex; align-items: center; gap: 4px; }
 .command-palette .command-option { flex: 1; min-width: 0; border-radius: var(--radius-sm); }
-.command-option > .menu-item { width: 100%; min-width: 0; height: 36px; display: flex; gap: 8px; align-items: center; padding: 0 8px; border-radius: var(--radius-sm); text-align: left; transition: none; }
+.command-option > .menu-item { width: 100%; min-width: 0; height: 36px; display: flex; gap: 8px; align-items: center; padding: var(--menu-item-padding); border-radius: var(--radius-sm); text-align: left; transition: none; }
 .command-action-cell { flex: 0 0 32px; }
 .command-row-actions { display: grid; place-items: center; width: 32px; height: 36px; color: var(--text-muted); border-radius: var(--radius-sm); }
 .command-option[aria-selected=true] { background: var(--surface-active); color: var(--text); outline: 1px solid var(--focus); outline-offset: -1px; }

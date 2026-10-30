@@ -16,7 +16,7 @@ export function position_popup(trigger, panel) {
   const left = Math.max(edge, Math.min(r.left, innerWidth - p.width - edge));
   panel.style.left = `${left}px`;
   panel.style.top = `${up ? Math.max(edge, r.top - p.height - gap) : r.bottom + gap}px`;
-  panel.style.transformOrigin = `${Math.max(0, Math.min(p.width, r.left + r.width / 2 - left))}px ${up ? 'bottom' : 'top'}`;
+  panel.style.transformOrigin = trigger.classList.contains('account-trigger') ? `left ${up ? 'bottom' : 'top'}` : `${Math.max(0, Math.min(p.width, r.left + r.width / 2 - left))}px ${up ? 'bottom' : 'top'}`;
 }
 export function hide_popup(panel) {
   try { if (panel.matches(':popover-open')) panel.hidePopover(); } catch (_) { /* fallback */ }

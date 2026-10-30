@@ -39,7 +39,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
             <Show when=move||mobile_open.get()><button class="sidebar-dismiss" aria-label="Close sidebar" tabindex="-1" on:click=move|_|close_sidebar.run(())/></Show>
             <Sidebar on_navigate=Callback::new(move |_| mobile_open.set(false))/>
             <div class="app-main">
-                <div class="mobile-bar"><button node_ref=toggle class="icon-button" aria-label="Toggle sidebar" aria-controls="workspace-sidebar" aria-expanded=move||mobile_open.get().to_string() on:click=move|_|{ mobile_open.update(|v| *v = !*v); if mobile_open.get_untracked() { request_animation_frame(move||{if let Ok(Some(first))=document().query_selector(".sidebar button") && let Some(first)=first.dyn_ref::<web_sys::HtmlElement>() {let _=first.focus();}}); } }><Icon name="list"/></button><strong>"Tickets"</strong></div>
+                <div class="mobile-bar"><button node_ref=toggle class="icon-button" aria-label="Toggle sidebar" aria-controls="workspace-sidebar" aria-expanded=move||mobile_open.get().to_string() on:click=move|_|{ mobile_open.update(|v| *v = !*v); if mobile_open.get_untracked() { request_animation_frame(move||{if let Ok(Some(first))=document().query_selector(".sidebar a[href], .sidebar button") && let Some(first)=first.dyn_ref::<web_sys::HtmlElement>() {let _=first.focus();}}); } }><Icon name="list"/></button><strong>"Tickets"</strong></div>
                 <main id="main" tabindex="-1">{children()}</main>
             </div>
         </div>
@@ -162,12 +162,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
     });
     on_cleanup(move || handle.remove());
     view! {<aside class="sidebar" id="workspace-sidebar" aria-label="Workspace">
-        <div class="workspace user-menu"><DropdownMenu class="account-dropdown" trigger_class="button button-ghost account-trigger" label="Tickets" icon="ticket" disclosure=true>
-            <div class="account-menu-heading"><strong>{move||account.account.get().label()}</strong><span>"Tickets account"</span></div><MenuSeparator/>
-            <MenuItem on_select=Callback::new(move|_|go.run(settings.into()))><Icon name="settings"/>"Settings"</MenuItem>
-            <MenuItem on_select=Callback::new(move|_|shortcuts.set(true)) shortcut="?"><Icon name="help"/>"Keyboard shortcuts"</MenuItem><MenuSeparator/>
-            <MenuItem on_select=Callback::new(move|_|{if fixture || signing_out.get_untracked(){return;}signing_out.set(true);wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}signing_out.set(false);});})><Icon name="arrow"/>{move||if signing_out.get(){"Signing out…"}else{"Sign out"}}</MenuItem>
-        </DropdownMenu></div>
+        <div class="workspace workspace-brand"><Icon name="ticket"/><strong>"Tickets"</strong></div>
         <nav class="sidebar-nav" aria-label="Main navigation" on:click=move|e: web_sys::MouseEvent|{if e.target().and_then(|t|t.dyn_into::<web_sys::Element>().ok()).is_some_and(|t|t.closest("a").ok().flatten().is_some()) && let Some(cb)=on_navigate {cb.run(());}}>
             <Tooltip text="Home · G then H"><A href=home attr:class=move||if location.pathname.get()=="/home"{"nav-item active"}else{"nav-item"} exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
             <button class="nav-item search-trigger" on:click=move|_|{state.dialog.set(DialogKind::Command);if let Some(cb)=on_navigate{cb.run(());}}><Icon name="search"/><span>"Search tickets"</span><Shortcut>"⌘ K"</Shortcut></button>
@@ -187,7 +182,13 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
                 <Tooltip text="List · G then L"><A href=list attr:class="nav-item"><Icon name="list"/><span>"List"</span></A></Tooltip>
             </SidebarSection>
         </nav>
-        {fixture.then(||view!{<div class="sidebar-bottom"><div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div></div>})}
+        <div class="sidebar-bottom">{fixture.then(||view!{<div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div>})}
+        <div class="user-menu"><DropdownMenu class="account-dropdown" trigger_class="button button-ghost account-trigger" label="Account menu" trigger_content=Box::new(move||view!{<span class="avatar" aria-hidden="true">{move||account.account.get().label().chars().next().unwrap_or('U').to_uppercase().to_string()}</span><span class="account-name">{move||account.account.get().label()}</span>}.into_any())>
+            <MenuItem on_select=Callback::new(move|_|go.run(settings.into()))><Icon name="settings"/>"Settings"</MenuItem>
+            <MenuItem on_select=Callback::new(move|_|shortcuts.set(true)) shortcut="?"><Icon name="help"/>"Keyboard shortcuts"</MenuItem>
+            <MenuItem on_select=Callback::new(move|_|{if fixture || signing_out.get_untracked(){return;}signing_out.set(true);wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}signing_out.set(false);});})><Icon name="arrow"/>{move||if signing_out.get(){"Signing out…"}else{"Sign out"}}</MenuItem>
+        </DropdownMenu></div>
+        </div>
     </aside>
     <Presence show=shortcuts><Modal title="Keyboard shortcuts" on_close=Callback::new(move|_|shortcuts.set(false))><div class="modal-body shortcut-list">{[("Search tickets","⌘ / Ctrl K"),("New ticket","C"),("Home","G then H"),("Board","G then B"),("List","G then L"),("Next / previous list ticket","J / K"),("Open focused ticket","Enter"),("Close menu or dialog","Esc")].into_iter().map(|(name,key)|view!{<div><span>{name}</span><Shortcut>{key}</Shortcut></div>}).collect_view()}</div></Modal></Presence>}
 }
