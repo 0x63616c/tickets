@@ -3,7 +3,8 @@
 Calum's taste overrides Impeccable defaults. Preserve the existing dense,
 Linear-style dark-only interface. Ignore system colour preferences; there is no
 theme setting. Near-pure-black surfaces are intentional; do not lift them to
-generic charcoal. Inter is approved: do not flag or replace it.
+generic charcoal. Geist is the default; the font picker also offers Geist Mono,
+Inter and System. These choices are intentional.
 Label chips use backgrounds softly tinted in each label's own colour, with a
 related border and lighter text. Preserve the 240px sidebar and shared shell.
 
@@ -39,8 +40,10 @@ own hue, including custom labels; avoid neutral grey chip fills.
 
 ## Typography
 
-Use bundled Inter Variable with system sans fallbacks, and Geist Mono with
-monospace fallbacks. Size tokens xs/sm/base/md/lg/xl/title are
+Use self-hosted Geist by default. Settings → Appearance offers Geist, Geist Mono,
+Inter and System, saved per browser and applied before first paint. `--font-ui`
+drives UI text through the compatibility token `--font-sans`; code and mono
+metadata retain `--font-mono` (Geist Mono). Size tokens xs/sm/base/md/lg/xl/title are
 11/12/13/14/16/20/24px. Medium/semibold/bold weights are 510/590/680; line height
 is 1.5. Preserve compact hierarchy and readable metadata.
 

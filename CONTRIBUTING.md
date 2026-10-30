@@ -812,6 +812,14 @@ requires both builds to exist; rebuild after source changes before using it.
   the JS imported by wasm-bindgen and cause a release Wasm rebuild for every
   browser check. Other npm commands pass through; local xtask behavior is unchanged.
 
+## Font preference verification
+
+After building, `CHROME_BIN=<headless-chromium> cargo xtask font-check` checks all
+four Appearance fonts, reload persistence, HTML boot with app modules blocked,
+invalid-value fallback, code font invariance and mobile fit using fixture routes.
+It saves dark Settings/Board evidence in `docs/screenshots/TIK-83`; set
+`TICKETS_BEFORE_ASSETS` to a main build for baseline captures.
+
 ## Board/List loading exclusivity (TIK-75)
 
 - Board and List use one initial loading boundary for filters, content, empty

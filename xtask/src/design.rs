@@ -331,7 +331,6 @@ pub fn check(root: &Path) -> super::Result {
         ("/design/projects", "06-projects"),
     ] {
         browser.go(&format!("{base}{route}"))?;
-        browser.wait("document.fonts.check('13px \"Inter Variable\"')")?;
         browser.wait("document.documentElement.scrollWidth <= innerWidth")?;
         browser.screenshot(&output.join(format!("{name}.png")))?;
     }
@@ -801,7 +800,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("(async()=>{const t=await fetch('/api/v1/tickets/1').then(r=>r.json());for(const patch of [{priority:1,status:'in_progress'}, {priority:t.priority,status:t.status}]) {const r=await fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});if(!r.ok)throw Error('history fixture failed');}return true})()")?;
     b.go("http://127.0.0.1:8795/ticket?id=1")?;
     b.wait("!!document.querySelector('.activity') && document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
-    b.wait("getComputedStyle(document.querySelector('.sidebar')).width==='240px' && getComputedStyle(document.querySelector('.ticket-detail')).fontFamily.includes('Inter')")?;
+    b.wait("getComputedStyle(document.querySelector('.sidebar')).width==='240px' && getComputedStyle(document.querySelector('.ticket-detail')).fontFamily===getComputedStyle(document.body).fontFamily")?;
     b.eval("document.fonts.ready.then(()=>true)")?;
     let before = env::var_os("TICKETS_BEFORE_ASSETS").is_some();
     let prefix = if before { "before" } else { "after" };
