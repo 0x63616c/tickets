@@ -146,6 +146,7 @@ fn AccountSettings(fixture: bool) -> impl IntoView {
             <Show when=move||!state.loaded.get() && state.error.get().is_empty()><p class="loading-caption" role="status"><LoadingIndicator label="Loading account"/>"Loading account…"</p></Show>
             <Show when=move||!state.error.get().is_empty()><button type="button" class="button button-secondary" on:click=move|_|state.load()>"Retry loading account"</button></Show>
         </form>
+        <GitHubSettings fixture/>
         <div class="settings-group"><h2>"Sign-in"</h2><dl class="settings-details"><div><dt>"Username"</dt><dd>{move||state.account.get().username}</dd></div><div><dt>"Authentication"</dt><dd>"Passphrase"</dd></div><div><dt>"Session duration"</dt><dd>"7 days"</dd></div></dl><p class="field-hint">"Your sign-in credentials are managed by the deployment owner. Contact them to change your username or passphrase."</p></div>
     </section>}
 }
@@ -176,5 +177,87 @@ fn Appearance() -> impl IntoView {
         <div class="preference-row"><div><h2>"Font"</h2><p>"Choose the typeface used across Tickets."</p></div><SelectField label="Font" value=font options=Signal::derive(||vec![SelectOption::new("geist","Geist"),SelectOption::new("geist-mono","Geist Mono"),SelectOption::new("inter","Inter"),SelectOption::new("system","System")]) on_change=Callback::new(move|v:String|{persist("tickets.font",&v);font.set(v.clone());if let Some(root)=document().document_element(){let _=root.set_attribute("data-font",&v);}})/></div>
         <div class="font-preview" aria-label="Font preview"><div class="font-preview-ticket"><span>"TIK-42"</span><strong>"Fix board skeleton overlap"</strong></div><p>"A clear view of your work, down to the details."</p><p class="font-preview-digits">"0123456789"</p></div>
         <div class="preference-row"><div><h2>"Motion"</h2><p>"Reduce movement, keeping subtle fades."</p></div><SelectField label="Motion" value=motion options=Signal::derive(||vec![SelectOption::new("system","Use system setting"),SelectOption::new("reduce","Reduce motion")]) on_change=Callback::new(move|v:String|{persist("tickets.motion",&v);motion.set(v);apply_appearance();})/></div>
+    </section>}
+}
+
+#[derive(Clone, Default, serde::Deserialize)]
+struct GitHubStatus {
+    registered: bool,
+    app_slug: Option<String>,
+    app_name: Option<String>,
+    html_url: Option<String>,
+    installations: Vec<GitHubInstallation>,
+}
+
+#[derive(Clone, serde::Deserialize)]
+struct GitHubInstallation {
+    account_login: String,
+    repository_selection: String,
+}
+
+#[component]
+fn GitHubSettings(fixture: bool) -> impl IntoView {
+    let status = RwSignal::new(None::<GitHubStatus>);
+    let error = RwSignal::new(String::new());
+    let loading = RwSignal::new(true);
+    let load = move || {
+        loading.set(true);
+        error.set(String::new());
+        spawn_local(async move {
+            let result = if fixture {
+                Ok(GitHubStatus::default())
+            } else {
+                api("GET", "/api/v1/github/app", Value::Null)
+                    .await
+                    .and_then(|v| {
+                        serde_json::from_value(v)
+                            .map_err(|_| "Could not read GitHub connection.".into())
+                    })
+            };
+            if status.is_disposed() {
+                return;
+            }
+            match result {
+                Ok(value) => status.set(Some(value)),
+                Err(message) => error.set(message),
+            }
+            loading.set(false);
+        });
+    };
+    load();
+    view! {<section class="settings-group settings-github" aria-labelledby="github-heading">
+        <h2 id="github-heading">"GitHub"</h2>
+        <Show when=move || loading.get()><p class="loading-caption" role="status"><LoadingIndicator label="Loading GitHub connection"/>"Loading GitHub connection…"</p></Show>
+        <Show when=move || !error.get().is_empty()>
+            <p class="settings-error" role="alert">{error}</p>
+            <button type="button" class="button button-secondary" on:click=move |_| load()>"Retry loading GitHub"</button>
+        </Show>
+        {move || status.get().filter(|_| !loading.get() && error.get().is_empty()).map(|app| {
+            if !app.registered {
+                return view! {
+                    <p class="github-description">"Connect the Tickets GitHub App to link PRs, move tickets and post checks."</p>
+                    <div class="github-actions">
+                        <a class="button button-primary" href="/github/app/register" rel="external">"Connect GitHub"</a>
+                        <a class="subtle-link" href="/github/app/register?name=alt" rel="external" title="If GitHub says the app name is taken, try Tickets WWW." aria-label="Use fallback name if the app name is taken">"Use fallback name"</a>
+                    </div>
+                }.into_any();
+            }
+            let label = app.app_name.or(app.app_slug).unwrap_or_else(|| "Tickets GitHub App".into());
+            let url = app.html_url.unwrap_or_default();
+            let install_url = format!("{}/installations/new", url.trim_end_matches('/'));
+            let installed = !app.installations.is_empty();
+            view! {
+                <p class="github-description"><a class="subtle-link" href=url target="_blank" rel="noreferrer">{label}<Icon name="external"/></a></p>
+                <Show when=move || !installed><p class="field-hint">"App registered. Install it to connect your repositories."</p></Show>
+                <Show when=move || installed><p class="github-connected" role="status">"Connected"</p></Show>
+                {app.installations.into_iter().map(|installation| view! {
+                    <dl class="settings-details github-installation">
+                        <div><dt>"Account"</dt><dd>{installation.account_login}</dd></div>
+                        <div><dt>"Repositories"</dt><dd>{if installation.repository_selection == "all" {"All repositories"} else {"Selected repositories"}}</dd></div>
+                    </dl>
+                }).collect_view()}
+                <div class="github-actions"><a class=if installed {"button button-secondary"} else {"button button-primary"} href=install_url target="_blank" rel="noreferrer">{if installed {"Manage on GitHub"} else {"Install on GitHub"}}<Icon name="external"/></a></div>
+            }.into_any()
+        })}
     </section>}
 }

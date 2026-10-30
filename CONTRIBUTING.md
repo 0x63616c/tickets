@@ -611,9 +611,16 @@ project icon schema changes additive and validate values in core.
   Tickets is dark only; ignore OS colour preferences and retire the old
   `tickets.theme` key on startup. Section disclosure and reduced motion use
   browser localStorage; unavailable storage must not block navigation.
-- `cargo xtask settings-check` verifies account persistence, token lifecycle and
-  redirects, shortcuts, preferences and mobile navigation in isolated local D1.
-  It shares port 8795 and must run sequentially with other Worker checks.
+- The Account page includes GitHub App status from `/api/v1/github/app`. Connect
+  GitHub uses a full-page link to the session-gated `/github/app/register`; keep
+  setup state out of the SPA. Installation returns to `/settings`.
+- `cargo xtask settings-check` verifies GitHub registration/installation states,
+  captures TIK-70 fixture screenshots, and verifies account persistence, token
+  lifecycle and redirects, shortcuts, preferences and mobile navigation in
+  isolated local D1.
+  It shares port 8795 and must run sequentially with other Worker checks. Set
+  `TICKETS_GITHUB_BEFORE_ASSETS` to previous built assets to also capture the
+  TIK-70 before images without replacing the current Worker assets.
 - `cargo xtask settings-shot` captures fixture-only Settings sections and full
   pages in `docs/screenshots/TIK-40`; `TICKETS_BEFORE_ASSETS` selects the actual
   prior settings route. `component-shot sidebar` and `component-shot user-menu`
