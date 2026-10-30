@@ -73,6 +73,3 @@
 @media (prefers-reduced-motion: reduce) {
   :root { --duration-move: 0ms; }
 }
-
-/* Optional light appearance; dark remains the default. */
-:root[data-theme=light] { color-scheme: light; --bg:#fff; --sidebar:#fafafa; --surface:#fff; --surface-raised:#f4f4f5; --surface-hover:#00000008; --surface-active:#0000000f; --border:#e4e4e7; --border-subtle:#00000008; --border-strong:#9b9ba5; --text:#17171b; --text-secondary:#30303a; --text-muted:#60606c; --text-faint:#686874; --accent-hover:#4854b8; --status-backlog:#60606c; --status-todo:#60606c; --status-progress:#946500; --status-review:#19742c; --status-canceled:#60606c; --priority-high:#30303a; --priority-medium:#60606c; --priority-low:#60606c; }

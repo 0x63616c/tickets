@@ -587,12 +587,23 @@ fn moves_imports_search_and_cascades() {
     });
 }
 
-/// Counts actual statements, including the same auth queries used by the Worker.
+/// Counts Store round trips (an atomic batch is one), including Worker auth.
 struct CountingStore {
     db: Sqlite,
     queries: std::cell::Cell<usize>,
 }
 impl tickets_worker::repository::Store for CountingStore {
+    async fn batch(
+        &self,
+        statements: Vec<tickets_worker::repository::Statement>,
+    ) -> tickets_worker::repository::Result<Vec<Vec<Value>>> {
+        self.queries.set(self.queries.get() + 1);
+        for statement in &statements {
+            assert!(statement.params.len() <= 100);
+        }
+        self.db.batch(statements).await
+    }
+
     async fn query<T: serde::de::DeserializeOwned>(
         &self,
         sql: &str,
@@ -697,6 +708,17 @@ fn constant_query_budget_with_full_enrichment() {
                     (201, 4),
                 )
                 .await;
+            let history = store
+                .request(
+                    auth,
+                    "GET",
+                    &format!("/api/v1/tickets/{}/history", created["id"]),
+                    &[("limit".into(), "100".into())],
+                    Value::Null,
+                    (200, 3),
+                )
+                .await;
+            assert_eq!(history["data"][0]["field"], "created");
             assert_eq!(created["labels"], json!([]));
             assert_eq!(created["blocks"], json!([]));
             assert_eq!(created["blocked_by"], json!([]));

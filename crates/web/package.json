@@ -3,5 +3,12 @@
   "private": true,
   "dependencies": {
     "ascii-reveal": "0.3.0"
+  },
+  "devDependencies": {
+    "stylelint": "16.26.1"
+  },
+  "scripts": {
+    "lint:css": "cargo xtask check design-tokens --css",
+    "test:lint": "node --test lint/value-policy.test.mjs"
   }
 }

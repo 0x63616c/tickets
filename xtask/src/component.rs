@@ -15,6 +15,8 @@ use std::{
     time::Duration,
 };
 const NAMES: &[&str] = &[
+    "history",
+    "board-topbar",
     "palette",
     "sidebar",
     "user-menu",
@@ -154,6 +156,10 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
     } else {
         vec![name]
     } {
+        if name == "board-topbar" {
+            capture_board_topbar(&mut b, &server.url, &output, before.is_some())?;
+            continue;
+        }
         if name == "palette" {
             super::palette::shots(root, &assets, &output, before.is_some())?;
             continue;
@@ -543,8 +549,16 @@ fn check_combobox(b: &mut Browser) -> super::Result {
 fn capture_composer(b: &mut Browser, base: &str, output: &Path, before: bool) -> super::Result {
     let phase = if before { "before" } else { "after" };
     b.go(&format!("{base}{}", if before { "/" } else { "/board" }))?;
-    b.wait("!!document.querySelector('.topbar .button-primary') && !document.querySelector('.topbar .button-primary').disabled")?;
-    b.click(".topbar .button-primary")?;
+    let trigger = if before {
+        ".topbar .button-primary"
+    } else {
+        "[aria-label='Add ticket to Todo']"
+    };
+    b.wait(&format!(
+        "document.querySelector({})?.disabled===false",
+        serde_json::to_string(trigger)?
+    ))?;
+    b.click(trigger)?;
     b.wait("document.querySelector('dialog')?.dataset.state==='open'")?;
     b.eval("document.fonts.ready.then(()=>new Promise(r=>setTimeout(()=>r(true),300)))")?;
     crop(b, "dialog", &output.join(format!("{phase}-modal.png")))?;
@@ -622,6 +636,41 @@ fn capture_composer(b: &mut Browser, base: &str, output: &Path, before: bool) ->
         b.click(".component-stage > button")?;
         b.wait("document.querySelector('dialog')?.dataset.state==='open'")?;
         check_modal(b)?;
+    }
+    b.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width":1200,"height":900,"deviceScaleFactor":2,"mobile":false}),
+    )?;
+    Ok(())
+}
+
+/// Board chrome evidence uses only the in-memory design fixtures.
+fn capture_board_topbar(b: &mut Browser, base: &str, output: &Path, before: bool) -> super::Result {
+    let phase = if before { "before" } else { "after" };
+    b.go(&format!("{base}/design/board"))?;
+    b.wait("document.querySelectorAll('.board-column').length>=4")?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    b.wait("!document.querySelector('[data-ar-t]')")?;
+    for width in [1440, 390] {
+        b.call(
+            "Emulation.setDeviceMetricsOverride",
+            json!({"width":width,"height":900,"deviceScaleFactor":2,"mobile":false}),
+        )?;
+        b.wait("document.documentElement.scrollWidth<=innerWidth && document.querySelector('.topbar').getBoundingClientRect().height===44")?;
+        b.wait(if before { "!!document.querySelector('.topbar .button-primary')" } else { "!document.querySelector('.topbar button') && !document.querySelector('.topbar .toolbar-divider')" })?;
+        crop(
+            b,
+            ".topbar",
+            &output.join(format!("{phase}-board-topbar-{width}.png")),
+        )?;
+        b.viewport(width, 900)?;
+        b.screenshot(&output.join(format!("{phase}-board-{width}.png")))?;
+    }
+    if !before {
+        for route in ["list", "ticket", "home"] {
+            b.go(&format!("{base}/design/{route}"))?;
+            b.wait("document.querySelector('.topbar .button-primary')?.textContent.includes('New ticket')")?;
+        }
     }
     b.call(
         "Emulation.setDeviceMetricsOverride",

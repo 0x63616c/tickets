@@ -245,22 +245,103 @@ fn ListRow(ticket: BoardTicket, selected: Callback<i64>) -> impl IntoView {
     let status = ticket.ui_status();
     let priority = ticket.priority;
     let blockers = ticket.blocked_by.clone();
-    let label_titles = ticket
-        .labels
-        .iter()
-        .filter(|l| visible_label(&l.name))
-        .map(|l| l.name.clone())
-        .collect::<Vec<_>>()
-        .join(", ");
     view! {<article class="ticket-row api-list-row" data-motion-key=format!("ticket-{id}") id=format!("list-ticket-{id}") tabindex="0" aria-label=format!("{}: {}",ticket.key,ticket.title) on:click=move|e|{if !ticket_interactive_target(e.target()){selected.run(id);}}>
         <span class="inline-property"><PriorityIcon priority/><SelectField label=format!("Priority for {}",ticket.key) value=Signal::derive(move||priority.name().to_string()) options=Signal::derive(move||options(&Priority::ALL.map(Priority::name))) on_change=Callback::new(move|next:String|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==next){edit(state,id,"priority",json!(p));}}) disabled=Signal::derive(move||state.busy.get())/></span>
         <span class="mono ticket-id" title=ticket.key.clone()>{ticket.key.clone()}</span><span class="inline-property"><StatusIcon status/><SelectField label=format!("Status for {}",ticket.key) value=Signal::derive(move||status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|edit(state,id,"status",json!(Status::from_name(&next)))) disabled=Signal::derive(move||state.busy.get())/></span>
         <a class="row-title" href=format!("/t/{}",ticket.key) title=ticket.title.clone()>{ticket.title.clone()}</a>
         <span class="row-blocked-slot">{move||{let blockers=blockers.iter().filter_map(|id|state.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|(t.key,t.title)).collect::<Vec<_>>();(!blockers.is_empty()).then(||view!{<BlockedIndicator blockers/>})}}</span>
-        <span class="row-labels" title=label_titles>{ticket.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</span>
+        <ListLabels labels=ticket.labels/>
         <span class="row-comments">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<Icon name="comment"/>{n}})}</span>
         <span class="row-project">{move||state.projects.get().into_iter().find(|p|p.id==ticket.project_id).map(|p|view!{<span title=p.name.clone()><ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/><span class="row-project-name">{p.name.clone()}</span></span>})}</span><time class="row-date" title=ticket.updated_at.clone() datetime=ticket.updated_at.clone()>{display_date(&ticket.updated_at)}</time>
     </article>}
+}
+
+/// Measure full-size chips independently of the visible subset. Observing both
+/// tracks handles viewport changes and the bundled font finishing its load.
+#[component]
+fn ListLabels(labels: Vec<tickets_core::domain::Label>) -> impl IntoView {
+    use leptos::html;
+    use web_sys::wasm_bindgen::closure::Closure;
+
+    let labels = labels
+        .into_iter()
+        .filter(|label| visible_label(&label.name))
+        .collect::<Vec<_>>();
+    let total = labels.len();
+    let data = StoredValue::new(labels.clone());
+    let visible = RwSignal::new(0usize);
+    let cell = NodeRef::<html::Span>::new();
+    let measure = NodeRef::<html::Span>::new();
+    Effect::new(move |_| {
+        let (Some(cell), Some(measure)) = (cell.get(), measure.get()) else {
+            return;
+        };
+        let observed_cell = cell.clone();
+        let observed_measure = measure.clone();
+        let update = move || {
+            let width = cell.get_bounding_client_rect().width();
+            let chips = measure.query_selector_all(".label-chip").unwrap();
+            let counts = measure.query_selector_all(".row-label-count").unwrap();
+            let widths = (0..chips.length())
+                .map(|i| {
+                    chips
+                        .item(i)
+                        .unwrap()
+                        .unchecked_into::<web_sys::Element>()
+                        .get_bounding_client_rect()
+                        .width()
+                })
+                .collect::<Vec<_>>();
+            // This is the same token-based gap used by the visible track.
+            let gap = window()
+                .get_computed_style(&cell)
+                .ok()
+                .flatten()
+                .and_then(|style| style.get_property_value("column-gap").ok())
+                .and_then(|value| value.trim_end_matches("px").parse::<f64>().ok())
+                .unwrap_or(0.0);
+            let full_width = widths.iter().sum::<f64>() + gap * total.saturating_sub(1) as f64;
+            let mut fit = total;
+            if full_width > width {
+                fit = 0;
+                let mut used = 0.0;
+                for (i, chip_width) in widths.iter().enumerate() {
+                    let overflow_width = counts
+                        .item(i as u32)
+                        .unwrap()
+                        .unchecked_into::<web_sys::Element>()
+                        .get_bounding_client_rect()
+                        .width();
+                    if used + overflow_width <= width {
+                        fit = i;
+                    }
+                    used += chip_width + gap;
+                }
+            }
+            visible.set(fit);
+        };
+        update();
+        let callback = Closure::<dyn FnMut()>::new(update);
+        let observer = web_sys::ResizeObserver::new(callback.as_ref().unchecked_ref()).unwrap();
+        observer.observe(&observed_cell);
+        observer.observe(&observed_measure);
+        let _callback = StoredValue::new_local(callback);
+        on_cleanup(move || observer.disconnect());
+    });
+    view! {<span class="row-labels" node_ref=cell>
+        <span class="row-label-measure" node_ref=measure aria-hidden="true">
+            {labels.into_iter().map(|label|view!{<LabelChip name=label.name color=label.color/>}).collect_view()}
+            {(0..total).map(|i|view!{<span class="row-label-count row-label-overflow">{format!("+{}",total-i)}</span>}).collect_view()}
+        </span>
+        {move||data.with_value(|labels|labels.iter().take(visible.get()).cloned().map(|label|view!{<LabelChip name=label.name color=label.color/>}).collect_view())}
+        {move||{
+            let shown=visible.get();
+            (shown<total).then(||{
+                let text=data.with_value(|labels|labels.iter().skip(shown).map(|label|label.name.as_str()).collect::<Vec<_>>().join(", "));
+                view!{<Tooltip text=text.clone()><button type="button" class="row-label-overflow" aria-label=format!("{} more labels: {text}",total-shown)>{format!("+{}",total-shown)}</button></Tooltip>}
+            })
+        }}
+    </span>}
 }
 
 fn display_date(value: &str) -> String {

@@ -74,7 +74,7 @@ fn TicketContent(ticket: Ticket) -> impl IntoView {
                 </section>
                 <section class="activity" aria-label="Comments and activity">
                     <div class="section-heading"><h2>"Activity"</h2><span class="muted">"Today"</span></div>
-                    <div class="activity-event"><StatusIcon status=ticket.status/><span>"You set the status to "<strong>{ticket.status.name()}</strong></span><time>"10:24"</time></div>
+                    <div class="activity-feed">{history_fixture().into_iter().map(|entry|view!{<HistoryEvent entry/>}).collect_view()}</div>
                     {(id == 7).then(|| view! {
                         <Comment author="Sample User" initials="S" time="10:32" text="The status menu should work everywhere the ticket appears. Dragging can stay a convenience."/>
                         <Comment author="Agent" initials="A" time="10:41" text="Agreed. I’ll preserve **keyboard focus** and announce the new status after a move."/>

@@ -4,7 +4,7 @@ use crate::fixtures::Priority;
 use crate::{
     pages::{
         board::{BoardState, BoardTicket},
-        settings::{apply_appearance, persist, stored},
+        settings::{persist, stored},
     },
     ui::api,
 };
@@ -95,7 +95,6 @@ enum Action {
     Navigate(String),
     Project(Project),
     Create,
-    Theme,
     Mode(Mode),
     Status(Status),
     Priority(Priority),
@@ -413,7 +412,6 @@ pub fn CommandPalette() -> impl IntoView {
                         "",
                         Action::Navigate(format!("{root}/settings/account")),
                     ),
-                    Row::command("Commands", "Toggle theme", "appearance", "", Action::Theme),
                 ]);
                 for p in projects.into_iter().filter(|p| !p.archived) {
                     let mut row = Row::command(
@@ -633,19 +631,6 @@ pub fn CommandPalette() -> impl IntoView {
                         .toast
                         .set("Create a project to add its first ticket.".into());
                 }
-            }
-            Action::Theme => {
-                let light = document()
-                    .document_element()
-                    .and_then(|e| e.get_attribute("data-theme"))
-                    .as_deref()
-                    == Some("light");
-                persist("tickets.theme", if light { "dark" } else { "light" });
-                apply_appearance();
-                close.run(());
-                design
-                    .toast
-                    .set(if light { "Dark theme" } else { "Light theme" }.into());
             }
             Action::GitHub(url) => {
                 let _ = window().open_with_url_and_target_and_features(
@@ -896,7 +881,6 @@ pub fn CommandPalette() -> impl IntoView {
                 Action::Status(_) | Action::Priority(_) | Action::Move(_) => " Set",
                 Action::Copy(_) => " Copy",
                 Action::Create => " Create",
-                Action::Theme => " Toggle",
             })
             .unwrap_or("")
     });

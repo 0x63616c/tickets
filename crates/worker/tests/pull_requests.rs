@@ -13,8 +13,8 @@ async fn event(
     body: &str,
     time: &str,
 ) -> Vec<Value> {
-    db.query(
-        tickets_core::pull_request::UPSERT,
+    tickets_worker::mutation::pull_request(
+        db,
         vec![
             json!("owner/repo"),
             json!(number),
@@ -68,6 +68,24 @@ fn all_status_transitions_and_replays() {
                         _ => initial,
                     };
                     assert_eq!(status(&db), expected, "{initial}/{state}/{closing}");
+                    let rows:Vec<Value>=db.query("SELECT actor_kind,field,old_value,new_value FROM ticket_history ORDER BY id",vec![]).await.unwrap();
+                    if expected != initial {
+                        assert_eq!(rows.len(), 1);
+                        assert_eq!(rows[0]["actor_kind"], "webhook");
+                        assert_eq!(rows[0]["field"], "status");
+                        assert_eq!(
+                            rows[0]["old_value"],
+                            serde_json::to_string(initial).unwrap()
+                        );
+                        assert_eq!(
+                            rows[0]["new_value"],
+                            serde_json::to_string(expected).unwrap()
+                        );
+                    } else {
+                        assert!(rows.is_empty());
+                    }
+                    let history_count = rows.len();
+
                     let comments: i64 =
                         db.0.query_row("SELECT count(*) FROM comments", [], |r| r.get(0))
                             .unwrap();
@@ -75,6 +93,12 @@ fn all_status_transitions_and_replays() {
                         event(&db, 1, state, "", body, "2026-10-29T01:00:00Z")
                             .await
                             .is_empty()
+                    );
+                    assert_eq!(
+                        db.0.query_row("SELECT count(*) FROM ticket_history", [], |r| r
+                            .get::<_, i64>(0))
+                            .unwrap(),
+                        history_count as i64
                     );
                     assert_eq!(
                         db.0.query_row("SELECT count(*) FROM comments", [], |r| r.get::<_, i64>(0))

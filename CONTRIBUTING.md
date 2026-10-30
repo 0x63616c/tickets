@@ -42,6 +42,80 @@
 - For the initial scaffold only, with no pre-existing runnable UI, the before
   screenshot is an explicitly labelled empty dark baseline.
 
+## Design-token lint
+
+Run `npm ci --prefix crates/web`, then:
+
+```sh
+cargo xtask check design-tokens
+npm run lint:css --prefix crates/web
+npm run test:lint --prefix crates/web
+```
+
+The xtask command scans Rust in `crates/web` and runs pinned Stylelint over its
+CSS. The npm CSS command invokes the same xtask/Stylelint pipeline with `--css`;
+there is one policy and one baseline, including for inline Rust declarations.
+`cargo xtask ci` runs both source checks and the policy tests before Rust builds.
+`crates/web/stylelint.config.mjs` and its local rule enforce the contract in
+DESIGN.md. Token definitions are exempt only at `crates/web/style/tokens.css`.
+Stylelint disable comments cannot suppress findings. Keep the Stylelint version
+exact in package.json and commit the generated npm lockfile.
+
+Quantum's `xtask/lint-allowlist.json` pattern applies here: each key is a file,
+rule and exact declaration/literal with an occurrence count. Every count must
+match remaining debt, including decreases; remove stale entries in the same
+change that fixes them. Counts cannot increase or move to a new key. Rust comments
+are ignored; fixture copy containing literal values remains explicitly recorded.
+Dynamic style bindings use property/expression-head counts, so their existing
+API/geometry uses remain reviewable. New static styles belong in CSS.
+
+The first inventory was **399 findings (354 CSS, 45 Rust)**. Four exact-equivalent
+substitutions (skip-link offsets/padding and chart text size) leave **395**
+allowlisted findings (350 CSS, 45 Rust), preserving the then-current UI. TIK-64
+removes light appearance; Tickets now uses only the dark token values.
+Broad cleanup is intentionally deferred while other UI tickets edit these files.
+`cargo xtask check design-tokens --report` prints observed counts for inspection;
+it never rewrites the baseline. Do not copy a larger report into the allowlist.
+
+The no-growth comparison uses `LINT_BASE_REF` (default `HEAD`). CI fetches full
+history and uses the PR base SHA or the previous main SHA, preventing growth
+hidden in an earlier branch commit. An invalid/missing Git revision is an error;
+only an absent baseline file at a valid revision bootstraps the initial rollout.
+For a local branch-wide check, use
+`LINT_BASE_REF=origin/main cargo xtask check design-tokens`. A file rename requires
+retiring its old debt first; budgets are not transferable.
+
+## Git hooks
+
+Fast local hooks live in `.githooks/` (plain POSIX shell, following Quantum).
+Enable them once per clone/worktree:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+- **pre-commit**: token checks when web CSS/Rust, lint configuration or the baseline
+  is staged; `cargo fmt --all --check` when Rust is staged; then
+  `gitleaks git --pre-commit --staged --redact` on the staged diff. Token checks
+  read all relevant **index contents**, including the staged baseline, so partial
+  staging cannot hide a violation behind an unstaged fix. The complete source
+  scan also detects stale entries on deletion. Rustfmt follows Quantum and checks
+  the working tree. Expect a few seconds with a warm xtask build; the first run
+  compiles xtask. Hooks never install dependencies or access the network.
+- **pre-push**: `cargo clippy --all-targets --locked -- -D warnings` on changed
+  Rust crates. Shared Cargo/toolchain configuration changes check the workspace.
+  New branches compare against their merge base with origin/main; deletions and
+  pushes without Rust changes skip clippy. Timing depends on changed crates and
+  cache warmth. Full host/wasm checks and tests remain in CI.
+
+Missing Cargo, Node or Stylelint blocks required checks with an installation
+notice. Install web tools with `npm ci --prefix crates/web`. Missing gitleaks
+skips only secret scanning with a notice (`brew install gitleaks`); CI scans
+history. Job worktrees source their existing `.job.env` before Cargo commands.
+
+Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
+`git config --unset core.hooksPath`. Skipping local hooks does not skip CI.
+
 ## Data model conventions
 - Store timestamps as UTC ISO 8601 text (`YYYY-MM-DDTHH:MM:SS.sssZ`). Repository
   updates set `updated_at`; creation timestamps are immutable. Explicit API project
@@ -170,6 +244,14 @@
   project isolation. Screenshots are written to `docs/screenshots/kanban/` at
   1440×900 and 390×900. `board-before` captures the previous real `/` route on a
   running local Worker at port 8787 before changing frontend assets.
+
+### Board topbar creation
+
+The board topbar shows connection state only; create tickets with a column's
+labelled + button. The C shortcut defaults to Todo. Other views keep their
+New ticket action. `cargo xtask component-shot board-topbar` captures fixture-only
+44px board chrome and full-page desktop/mobile evidence; `--before-assets`
+uses baseline assets. `board-check` verifies all six column creation defaults.
 
 ## List view conventions
 
@@ -427,6 +509,10 @@ Windows line endings; apply repository formatting checks to our own files.
   profile/process failures from slow startup before changing launch policy.
 
 
+Browser readiness predicates may retry CDP document/context replacement errors
+across hard navigations, within the existing timeout. Browser actions and JavaScript
+exceptions must still fail immediately; never replay writes to recover navigation.
+
 ## Pull request ingestion conventions
 
 - PR ingestion uses an owner allowlist in
@@ -469,7 +555,8 @@ project icon schema changes additive and validate values in core.
   `api-tokens`, `projects`, `appearance`. `/settings/tokens` redirects to
   `/settings/api-tokens`. Keep the token lifecycle UI for TIK-41 to redesign.
 - Project counts use `open_ticket_count` from the API (exclude done/canceled).
-  Section disclosure, theme (dark default), and reduced motion preferences use
+  Tickets is dark only; ignore OS colour preferences and retire the old
+  `tickets.theme` key on startup. Section disclosure and reduced motion use
   browser localStorage; unavailable storage must not block navigation.
 - `cargo xtask settings-check` verifies account persistence, token lifecycle and
   redirects, shortcuts, preferences and mobile navigation in isolated local D1.
@@ -579,6 +666,39 @@ project icon schema changes additive and validate values in core.
   are fixture-only. `cargo xtask component-shot reveal` captures the latter.
   `CHROME_BIN=<headless-chromium> cargo xtask loading-check` holds fixture API
   responses on real routes, asserts moving sweeps, decode, cleanup and reduced
-  motion, and captures six small before/after PNGs across both runs. Set
-  `TICKETS_BEFORE_ASSETS=<main-dist>` for the before run. Evidence and reproduction
-  notes live in `docs/screenshots/TIK-47/`.
+  motion. Original evidence and reproduction notes live in
+  `docs/screenshots/TIK-47/`; current cold-load comparisons are described below.
+- Serialize Trunk builds within a worktree and keep source assets stable until
+  they finish; concurrent staging or mid-build CSS edits can mismatch hashed
+  stylesheet URLs and files. Loading checks require every stylesheet to load.
+- Loading/reveal hosts must stay within their container: constrain skeleton glyph
+  hosts and clip the decorative overlay, with overlay positioning shipped in the
+  initial stylesheet. Never suppress scrolling on html, body or the app shell;
+  preserve the board's horizontal scroll and long pages' vertical scroll.
+- `loading-check` also opens fresh Chromium profiles at 1280×800 and 390×844,
+  disables cache, applies 150ms latency / 200KB/s download / 75KB/s upload and
+  4× CPU slowdown, and samples document/main extents every animation frame from
+  navigation through held skeletons, decode and settlement on Board, List,
+  ticket detail, Projects and Home. Loading must never exceed the settled scroll
+  extents (1px rounding allowance). Four paired Home PNGs and JSON geometry
+  diagnostics live in `docs/screenshots/TIK-62/`; red edge markers visualize
+  document overflow when headless Chromium hides native scrollbars. Use
+  `TICKETS_BEFORE_ASSETS=<base-dist>` to record the same baseline without enforcing
+  the regression assertion. Keep fixture/API and real animation boundaries clear.
+
+## Ticket history (TIK-60)
+
+- Route all ticket-affecting SQL through `mutation::execute`, including typed
+  repository writes, relationship/deletion cascades and PR snapshots. The Store
+  `batch` contract is atomic; never emulate it with independent D1 calls.
+- Core owns snapshot field/set diffs. Compare inside the batch, never against an
+  earlier HTTP read. Preserve the analytics triggers and `ticket_events` separately.
+- History actor identity comes from authentication or signed webhook transport;
+  use safe aliases, never account/token names or credential material. Future MCP
+  adapters must pass their authenticated actor to the shared dispatch.
+- History pagination alone descends by ID. Retain durable subject identity after
+  deletion; never resolve old history using only a potentially reused ticket ID.
+- `detail-check` now verifies history fields, pagination, raw-text disclosure and
+  failed-save absence, and captures TIK-60 fixtures. Its before mode uses the same
+  fixture on actual base assets. `component-shot history` captures isolated 2×
+  rows. `import-check` verifies history attribution and replay idempotence.

@@ -55,7 +55,6 @@
 @media (hover:hover) and (pointer:fine) { .nav-section-toggle:hover, .sidebar .search-trigger:hover { color: var(--text); background: var(--surface-hover); } }
 @media (max-width: 1000px) { .settings-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }.settings-nav { display: flex; align-content: start; flex-wrap: wrap; gap: var(--space-1); padding: var(--space-3); border-right: 0; border-bottom: 1px solid var(--border); }.settings-nav .nav-item { width: auto; }.settings-nav-footer { width: 100%; margin: 0; padding: 0; border: 0; }.settings-content { padding: var(--space-6) var(--space-4); } }
 @media (max-width: 480px) { .preference-row { align-items: flex-start; flex-direction: column; }.settings-details > div { grid-template-columns: 120px minmax(0,1fr); }.settings-project { flex-wrap: wrap; padding-block: var(--space-3); }.settings-project > .subtle-link, .settings-project > .muted { width: 100%; margin-left: 32px; } }
-:root[data-theme=light] .nav-item[aria-current=page], :root[data-theme=light] .nav-item.active { color:var(--text); }
 :root[data-motion=reduce] :where(button,a,summary,[role=button]):active { scale:none; }
 :root[data-motion=reduce] .modal { transition-property:opacity; transform:none; }
 :root[data-motion=reduce] .nav-section-toggle .icon, :root[data-motion=reduce] .segment-indicator { transition:none; }
@@ -66,7 +65,6 @@
 .component-stage[data-component=sidebar], .component-stage[data-component=user-menu] { min-width:0; width:288px; }
 .component-stage > .sidebar { width:240px; height:620px; position:relative; }
 
-:root[data-theme=light] .label-chip { color:color-mix(in srgb,var(--c) 70%,black); }
 
 /* API token inventory: metadata stays compact; credential handoff owns the dialog. */
 .settings-tokens.auth-page { padding:0; max-width:720px; }

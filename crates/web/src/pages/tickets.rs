@@ -33,7 +33,7 @@ pub fn Board() -> impl IntoView {
     let state = expect_context::<DesignState>();
     let query = RwSignal::new(String::new());
     view! {
-        <h1 class="sr-only">"Board preview"</h1><TopBar/><ProjectHeader/><ViewToolbar query board=true/>
+        <h1 class="sr-only">"Board preview"</h1><TopBar new_ticket=false/><ProjectHeader/><ViewToolbar query board=true/>
         <div class="board" aria-label="Ticket board">{Status::ALL.into_iter().map(|status| {
             let over = RwSignal::new(false);
             view! {

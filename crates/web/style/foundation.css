@@ -51,7 +51,13 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .segmented-control[data-keyboard="true"] .segment-indicator { transition: none; }
 /* ascii-reveal owns glyph generation, sweep and decode; these are palette/geometry only. */
 :root { --ascii-font: var(--font-mono); --ascii-skeleton: var(--text-muted); --ascii-glyph: var(--text-muted); --ascii-accent: var(--text-secondary); --ascii-surface: var(--surface); }
-.ascii-skeleton { display: block; min-width: 0; width: 100%; }
+/* Bound decoration, not page scrolling. These rules precede the package's
+   lazy overlay stylesheet and are more specific than its overflow:visible. */
+[data-ascii-root] { min-width: 0; max-width: 100%; }
+[data-ascii-root] > .ar-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; max-width: 100%; max-height: 100%; }
+[data-ascii-root] > .ar-overlay > canvas { position: absolute; pointer-events: none; display: block; }
+.ascii-skeleton { display: block; min-width: 0; width: 100%; max-width: 100%; overflow: clip; }
+.skeleton-column, .skeleton-row { min-width: 0; max-width: 100%; }
 .loading-indicator { display: inline-block; width: 32px; height: 16px; flex: 0 0 32px; overflow: hidden; }
 .loading-indicator .ars { font-size: var(--text-sm); }
 .busy-button { display: inline-grid; position: relative; }
@@ -60,7 +66,7 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .tooltip[data-instant="true"] { animation: none; }
 .busy-button[aria-busy="true"] { opacity: 1; cursor: progress; }
 .loading-caption { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4); }
-.loading-skeleton { padding: var(--space-6); width: 100%; }
+.loading-skeleton { padding: var(--space-6); min-width: 0; width: 100%; max-width: 100%; overflow: clip; }
 .skeleton-heading { width: 40%; margin-bottom: var(--space-4); }
 .skeleton-meta { width: 48px; }
 .skeleton-short { width: 60%; }
@@ -106,3 +112,32 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .comment:focus-within .comment-action, .api-project-row:focus-within .project-row-action { opacity: 1; }
 
 .project-mark > span { color: var(--text-secondary); }
+
+/* TIK-60: dense activity, aligned with comment avatars and the detail measure. */
+.activity-feed { display: flex; flex-direction: column; gap: var(--space-1); }
+.history-event { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-2) 0; font-size: var(--text-sm); color: var(--text-muted); }
+.history-glyph { width: 28px; min-height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.history-content { min-width: 0; flex: 1; }
+.history-line { display: flex; align-items: baseline; gap: var(--space-2); justify-content: space-between; }
+.history-line > span { min-width: 0; overflow-wrap: anywhere; }
+.history-line strong { color: var(--text-secondary); font-weight: var(--weight-medium); }
+.activity-time { flex-shrink: 0; white-space: nowrap; font-size: var(--text-xs); color: var(--text-muted); background: transparent; border: 0; padding: 0; min-height: 24px; cursor: pointer; }
+.activity-time:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: var(--radius-sm); }
+.history-diff { margin-top: var(--space-1); }
+.history-diff summary { cursor: pointer; width: fit-content; color: var(--text-secondary); }
+.history-diff summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: var(--radius-sm); }
+.history-diff > div { margin-top: var(--space-2); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.history-diff pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; color: var(--text-secondary); max-height: 240px; overflow: auto; margin: var(--space-1) 0 var(--space-3); }
+.history-diff pre:last-child { margin-bottom: 0; }
+.history-more { margin: var(--space-2) 0; }
+.history-error { color: var(--danger); font-size: var(--text-sm); }
+@media (max-width: 600px) {
+ .history-line { flex-wrap: wrap; gap: 0 var(--space-2); }
+ .history-glyph { width: 20px; }
+}
+.history-preview { width: min(640px, calc(100vw - 64px)); }
+.history-preview h2 { font-size: var(--text-base); margin: 0 0 var(--space-3); }
+@media (pointer: coarse) {
+ .history-diff summary { min-height: 32px; padding: var(--space-2) 0; }
+ .activity-time { min-height: 32px; }
+}

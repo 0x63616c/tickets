@@ -1,0 +1,39 @@
+#!/bin/sh
+# Tickets fast checks (TIK-63). Enable: git config core.hooksPath .githooks
+set -eu
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+# Job worktrees share the configured Cargo cache. Ordinary clones have no file.
+if [ -f .job.env ]; then . ./.job.env; fi
+
+changed=$(git diff --cached --name-only --diff-filter=ACMRD)
+if printf '%s\n' "$changed" | grep -Eq '^(crates/web/.*\.(rs|css)$|crates/web/(lint/|stylelint\.config|package)|xtask/(lint-allowlist\.json|src/design_tokens\.rs))'; then
+  if ! command -v cargo >/dev/null 2>&1 || ! command -v node >/dev/null 2>&1; then
+    echo 'pre-commit: token checks require Cargo and Node; install the pinned toolchain and Node 22.' >&2
+    exit 1
+  fi
+  if [ ! -d crates/web/node_modules/stylelint ]; then
+    echo 'pre-commit: Stylelint is missing. Run npm ci --prefix crates/web, then retry.' >&2
+    exit 1
+  fi
+  if ! cargo xtask check design-tokens --staged; then
+    echo 'pre-commit: staged design-token checks failed. Use tokens, remove stale allowlist entries, and re-stage. The allowlist must never grow.' >&2
+    exit 1
+  fi
+fi
+
+if printf '%s\n' "$changed" | grep -q '\.rs$'; then
+  if ! cargo fmt --all --check; then
+    echo 'pre-commit: rustfmt failed. Run cargo fmt --all, re-stage, and retry.' >&2
+    exit 1
+  fi
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks git --pre-commit --staged --redact -v --no-banner --log-level warn .; then
+    echo 'pre-commit: gitleaks flagged a possible secret in staged changes (output redacted). Remove it before committing.' >&2
+    exit 1
+  fi
+else
+  echo 'pre-commit: gitleaks not installed; skipping secret scan (brew install gitleaks). CI scans history.' >&2
+fi

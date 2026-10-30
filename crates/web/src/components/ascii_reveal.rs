@@ -113,6 +113,12 @@ where
         let pending = pending.get();
         let reduced = reduced.get();
         let root = root.get();
+        // Mark every host before the package can append its overlay. Geometry
+        // ships in foundation.css, independently of the package's lazy styles.
+        if let Some(root) = &root {
+            let element: &web_sys::HtmlElement = root.as_ref();
+            let _ = element.set_attribute("data-ascii-root", "");
+        }
         if pending {
             was_pending = true;
             return;

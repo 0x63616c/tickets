@@ -1,0 +1,1421 @@
+[
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 985,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 985,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1112,
+        "decode": 5,
+        "skeleton": 135
+      },
+      "samples": 1252,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 985,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 985,
+          "clientWidth": 1040,
+          "height": 985,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 24304.89999999851
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/board",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 2216,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 2216,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1098,
+        "decode": 10,
+        "skeleton": 150
+      },
+      "samples": 1258,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 2216,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 2216,
+          "clientWidth": 1040,
+          "height": 2216,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 23762.79999999702
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/list",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 800,
+        "width": 1333
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 1093
+      },
+      "phases": {
+        "content": 1106,
+        "decode": 23,
+        "skeleton": 140
+      },
+      "samples": 1269,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 800,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 1040,
+          "height": 800,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 23150.39999999851
+      },
+      "violationCount": 4,
+      "violations": [
+        {
+          "document": {
+            "clientHeight": 800,
+            "clientWidth": 1280,
+            "height": 800,
+            "width": 1333
+          },
+          "main": {
+            "clientHeight": 800,
+            "clientWidth": 1040,
+            "height": 800,
+            "width": 1093
+          },
+          "offenders": [
+            {
+              "bottom": 264,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1333,
+              "width": 300,
+              "x": 1033,
+              "y": 114
+            }
+          ],
+          "phase": "skeleton",
+          "time": 19521.29999999702
+        }
+      ]
+    },
+    "route": "/t/TKT-1",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 800,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1105,
+        "decode": 26,
+        "skeleton": 157
+      },
+      "samples": 1288,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 800,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 1040,
+          "height": 800,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 23323.5
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/projects",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 974,
+        "width": 1324
+      },
+      "peakMain": {
+        "height": 974,
+        "width": 1084
+      },
+      "phases": {
+        "content": 1107,
+        "decode": 25,
+        "skeleton": 135
+      },
+      "samples": 1267,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 870,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 870,
+          "clientWidth": 1040,
+          "height": 870,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 23336.70000000298
+      },
+      "violationCount": 135,
+      "violations": [
+        {
+          "document": {
+            "clientHeight": 800,
+            "clientWidth": 1280,
+            "height": 974,
+            "width": 1324
+          },
+          "main": {
+            "clientHeight": 876,
+            "clientWidth": 1040,
+            "height": 974,
+            "width": 1084
+          },
+          "offenders": [
+            {
+              "bottom": 875.5625,
+              "class": null,
+              "element": "main",
+              "height": 875.5625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1280,
+              "width": 1040,
+              "x": 240,
+              "y": 0
+            },
+            {
+              "bottom": 875.5625,
+              "class": "home-page",
+              "element": "div",
+              "height": 831.5625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1280,
+              "width": 1040,
+              "x": 240,
+              "y": 44
+            },
+            {
+              "bottom": 214,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1480,
+              "width": 300,
+              "x": 1180,
+              "y": 64
+            },
+            {
+              "bottom": 851.5625,
+              "class": "home-loading",
+              "element": "div",
+              "height": 751.5625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1256,
+              "width": 992,
+              "x": 264,
+              "y": 100
+            },
+            {
+              "bottom": 267,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1324,
+              "width": 300,
+              "x": 1024,
+              "y": 117
+            },
+            {
+              "bottom": 291.890625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1324,
+              "width": 300,
+              "x": 1024,
+              "y": 141.890625
+            },
+            {
+              "bottom": 332.78125,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1324,
+              "width": 300,
+              "x": 1024,
+              "y": 182.78125
+            },
+            {
+              "bottom": 851.5625,
+              "class": "home-queues",
+              "element": "div",
+              "height": 212.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1256,
+              "width": 992,
+              "x": 264,
+              "y": 638.671875
+            },
+            {
+              "bottom": 851.5625,
+              "class": null,
+              "element": "div",
+              "height": 212.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 638.671875
+            },
+            {
+              "bottom": 829.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 564,
+              "width": 300,
+              "x": 264,
+              "y": 679.5625
+            },
+            {
+              "bottom": 865.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 564,
+              "width": 300,
+              "x": 264,
+              "y": 715.5625
+            },
+            {
+              "bottom": 901.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 564,
+              "width": 300,
+              "x": 264,
+              "y": 751.5625
+            },
+            {
+              "bottom": 815.5625,
+              "class": "home-ticket-row",
+              "element": "div",
+              "height": 36,
+              "overflow": "visible",
+              "position": "static",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 779.5625
+            },
+            {
+              "bottom": 804.453125,
+              "class": "ascii-skeleton ",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 787.5625
+            },
+            {
+              "bottom": 804.453125,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 787.5625
+            },
+            {
+              "bottom": 804.453125,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 787.5625
+            },
+            {
+              "bottom": 804.453125,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 787.5625
+            },
+            {
+              "bottom": 937.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 564,
+              "width": 300,
+              "x": 264,
+              "y": 787.5625
+            },
+            {
+              "bottom": 851.5625,
+              "class": "home-ticket-row",
+              "element": "div",
+              "height": 36,
+              "overflow": "visible",
+              "position": "static",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 815.5625
+            },
+            {
+              "bottom": 840.453125,
+              "class": "ascii-skeleton ",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 823.5625
+            },
+            {
+              "bottom": 840.453125,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 823.5625
+            },
+            {
+              "bottom": 840.453125,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 823.5625
+            },
+            {
+              "bottom": 840.453125,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 748,
+              "width": 484,
+              "x": 264,
+              "y": 823.5625
+            },
+            {
+              "bottom": 973.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 564,
+              "width": 300,
+              "x": 264,
+              "y": 823.5625
+            },
+            {
+              "bottom": 851.5625,
+              "class": null,
+              "element": "div",
+              "height": 212.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 638.671875
+            },
+            {
+              "bottom": 829.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1072,
+              "width": 300,
+              "x": 772,
+              "y": 679.5625
+            },
+            {
+              "bottom": 865.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1072,
+              "width": 300,
+              "x": 772,
+              "y": 715.5625
+            },
+            {
+              "bottom": 901.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1072,
+              "width": 300,
+              "x": 772,
+              "y": 751.5625
+            },
+            {
+              "bottom": 815.5625,
+              "class": "home-ticket-row",
+              "element": "div",
+              "height": 36,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 779.5625
+            },
+            {
+              "bottom": 804.453125,
+              "class": "ascii-skeleton ",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 787.5625
+            },
+            {
+              "bottom": 804.453125,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 787.5625
+            },
+            {
+              "bottom": 804.453125,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 787.5625
+            },
+            {
+              "bottom": 804.453125,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 787.5625
+            },
+            {
+              "bottom": 937.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1072,
+              "width": 300,
+              "x": 772,
+              "y": 787.5625
+            },
+            {
+              "bottom": 851.5625,
+              "class": "home-ticket-row",
+              "element": "div",
+              "height": 36,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 815.5625
+            },
+            {
+              "bottom": 840.453125,
+              "class": "ascii-skeleton ",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 823.5625
+            },
+            {
+              "bottom": 840.453125,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 823.5625
+            },
+            {
+              "bottom": 840.453125,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 823.5625
+            },
+            {
+              "bottom": 840.453125,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 1256,
+              "width": 484,
+              "x": 772,
+              "y": 823.5625
+            },
+            {
+              "bottom": 973.5625,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 1072,
+              "width": 300,
+              "x": 772,
+              "y": 823.5625
+            }
+          ],
+          "phase": "skeleton",
+          "time": 19606
+        }
+      ]
+    },
+    "route": "/",
+    "width": 1280
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 1098,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 1054,
+        "width": 390
+      },
+      "phases": {
+        "content": 1099,
+        "decode": 20,
+        "skeleton": 156
+      },
+      "samples": 1275,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 1098,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 1054,
+          "clientWidth": 390,
+          "height": 1054,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 23956.40000000596
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/board",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 2425,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 2381,
+        "width": 390
+      },
+      "phases": {
+        "content": 1085,
+        "decode": 15,
+        "skeleton": 160
+      },
+      "samples": 1260,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 2425,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 2381,
+          "clientWidth": 390,
+          "height": 2381,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 23838.10000000149
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/list",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 844,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 390
+      },
+      "phases": {
+        "content": 1106,
+        "decode": 25,
+        "skeleton": 147
+      },
+      "samples": 1278,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 844,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 390,
+          "height": 800,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 23074.10000000149
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/t/TKT-1",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 844,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 390
+      },
+      "phases": {
+        "content": 1109,
+        "decode": 25,
+        "skeleton": 117
+      },
+      "samples": 1251,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 844,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 390,
+          "height": 800,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 26212.70000000298
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/projects",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 1752,
+        "width": 511
+      },
+      "peakMain": {
+        "height": 1708,
+        "width": 511
+      },
+      "phases": {
+        "content": 1102,
+        "decode": 27,
+        "skeleton": 13
+      },
+      "samples": 1142,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 1672,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 1628,
+          "clientWidth": 390,
+          "height": 1628,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 38179.19999999553
+      },
+      "violationCount": 13,
+      "violations": [
+        {
+          "document": {
+            "clientHeight": 844,
+            "clientWidth": 390,
+            "height": 1752,
+            "width": 511
+          },
+          "main": {
+            "clientHeight": 1610,
+            "clientWidth": 390,
+            "height": 1708,
+            "width": 511
+          },
+          "offenders": [
+            {
+              "bottom": 1390.125,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1373.234375
+            },
+            {
+              "bottom": 1390.125,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1373.234375
+            },
+            {
+              "bottom": 1390.125,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1373.234375
+            },
+            {
+              "bottom": 1523.234375,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 316,
+              "width": 300,
+              "x": 16,
+              "y": 1373.234375
+            },
+            {
+              "bottom": 1630.125,
+              "class": null,
+              "element": "div",
+              "height": 212.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1417.234375
+            },
+            {
+              "bottom": 1434.125,
+              "class": "ascii-skeleton skeleton-heading",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 159.1875,
+              "width": 143.1875,
+              "x": 16,
+              "y": 1417.234375
+            },
+            {
+              "bottom": 1434.125,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 159.1875,
+              "width": 143.1875,
+              "x": 16,
+              "y": 1417.234375
+            },
+            {
+              "bottom": 1434.125,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 159.1875,
+              "width": 143.1875,
+              "x": 16,
+              "y": 1417.234375
+            },
+            {
+              "bottom": 1434.125,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 159.1875,
+              "width": 143.1875,
+              "x": 16,
+              "y": 1417.234375
+            },
+            {
+              "bottom": 1567.234375,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 316,
+              "width": 300,
+              "x": 16,
+              "y": 1417.234375
+            },
+            {
+              "bottom": 1486.125,
+              "class": "home-ticket-row",
+              "element": "div",
+              "height": 36,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1450.125
+            },
+            {
+              "bottom": 1475.015625,
+              "class": "ascii-skeleton ",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1458.125
+            },
+            {
+              "bottom": 1475.015625,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1458.125
+            },
+            {
+              "bottom": 1475.015625,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1458.125
+            },
+            {
+              "bottom": 1475.015625,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1458.125
+            },
+            {
+              "bottom": 1608.125,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 316,
+              "width": 300,
+              "x": 16,
+              "y": 1458.125
+            },
+            {
+              "bottom": 1522.125,
+              "class": "home-ticket-row",
+              "element": "div",
+              "height": 36,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1486.125
+            },
+            {
+              "bottom": 1511.015625,
+              "class": "ascii-skeleton ",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1494.125
+            },
+            {
+              "bottom": 1511.015625,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1494.125
+            },
+            {
+              "bottom": 1511.015625,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1494.125
+            },
+            {
+              "bottom": 1511.015625,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1494.125
+            },
+            {
+              "bottom": 1644.125,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 316,
+              "width": 300,
+              "x": 16,
+              "y": 1494.125
+            },
+            {
+              "bottom": 1558.125,
+              "class": "home-ticket-row",
+              "element": "div",
+              "height": 36,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1522.125
+            },
+            {
+              "bottom": 1547.015625,
+              "class": "ascii-skeleton ",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1530.125
+            },
+            {
+              "bottom": 1547.015625,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1530.125
+            },
+            {
+              "bottom": 1547.015625,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1530.125
+            },
+            {
+              "bottom": 1547.015625,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1530.125
+            },
+            {
+              "bottom": 1680.125,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 316,
+              "width": 300,
+              "x": 16,
+              "y": 1530.125
+            },
+            {
+              "bottom": 1594.125,
+              "class": "home-ticket-row",
+              "element": "div",
+              "height": 36,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1558.125
+            },
+            {
+              "bottom": 1583.015625,
+              "class": "ascii-skeleton ",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1566.125
+            },
+            {
+              "bottom": 1583.015625,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1566.125
+            },
+            {
+              "bottom": 1583.015625,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1566.125
+            },
+            {
+              "bottom": 1583.015625,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1566.125
+            },
+            {
+              "bottom": 1716.125,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 316,
+              "width": 300,
+              "x": 16,
+              "y": 1566.125
+            },
+            {
+              "bottom": 1630.125,
+              "class": "home-ticket-row",
+              "element": "div",
+              "height": 36,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1594.125
+            },
+            {
+              "bottom": 1619.015625,
+              "class": "ascii-skeleton ",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1602.125
+            },
+            {
+              "bottom": 1619.015625,
+              "class": "ars ars-scan",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1602.125
+            },
+            {
+              "bottom": 1619.015625,
+              "class": "ars-line",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "hidden",
+              "position": "relative",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1602.125
+            },
+            {
+              "bottom": 1619.015625,
+              "class": "ars-base",
+              "element": "span",
+              "height": 16.890625,
+              "overflow": "visible",
+              "position": "static",
+              "right": 374,
+              "width": 358,
+              "x": 16,
+              "y": 1602.125
+            },
+            {
+              "bottom": 1752.125,
+              "class": null,
+              "element": "canvas",
+              "height": 150,
+              "overflow": "clip",
+              "position": "absolute",
+              "right": 316,
+              "width": 300,
+              "x": 16,
+              "y": 1602.125
+            }
+          ],
+          "phase": "skeleton",
+          "time": 19792.29999999702
+        }
+      ]
+    },
+    "route": "/",
+    "width": 390
+  }
+]

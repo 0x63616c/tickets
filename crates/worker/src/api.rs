@@ -80,7 +80,25 @@ pub async fn handle<S: Store>(
     query: &[(String, String)],
     body: Value,
 ) -> Reply {
-    match dispatch(&ApiRepository(store), method, path, query, body).await {
+    handle_as(
+        store,
+        &tickets_core::history::Actor::system(),
+        method,
+        path,
+        query,
+        body,
+    )
+    .await
+}
+pub async fn handle_as<S: Store>(
+    store: &S,
+    actor: &tickets_core::history::Actor,
+    method: &str,
+    path: &str,
+    query: &[(String, String)],
+    body: Value,
+) -> Reply {
+    match dispatch(&ApiRepository(store, actor), method, path, query, body).await {
         Ok(r) => r,
         Err(Failure(status, code, message)) => Reply {
             status,
@@ -226,6 +244,17 @@ async fn dispatch<S: Store>(
             let projects = r.external_projects(ext).await?;
             let v = r.create("tickets", &body, true).await?;
             changed(r, "tickets", row_id(&v)?, "upsert", v, 200, projects).await
+        }
+        ("GET", [_, _, "tickets", key, "history"]) => {
+            let options = list_options("history", q).map_err(bad)?;
+            let ticket = resource(r, "tickets", key).await?;
+            Ok(Reply {
+                status: 200,
+                change: None,
+                body: r
+                    .history(row_id(&ticket)?, options.limit, options.cursor)
+                    .await?,
+            })
         }
         ("GET" | "POST", [_, _, "tickets", key, "comments"]) => {
             let ticket = resource(r, "tickets", key).await?;

@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
       - name: Install pinned Rust toolchain
         run: rustup show
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
@@ -21,10 +23,13 @@ jobs:
       - run: npm ci --prefix crates/web
       - run: npm install --global wrangler@4.154.0
       - run: cargo xtask ci
+        env:
+          LINT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
       - run: cargo xtask skill-check
       - run: cargo xtask import-check
       - run: CHROME_BIN=google-chrome cargo xtask mirror-check
       - run: CHROME_BIN=google-chrome cargo xtask first-run-check
+      - run: CHROME_BIN=google-chrome cargo xtask detail-check
       - run: CHROME_BIN=google-chrome cargo xtask palette-check
       - run: CHROME_BIN=google-chrome cargo xtask project-repos-check
       - run: CHROME_BIN=google-chrome cargo xtask loading-check

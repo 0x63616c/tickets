@@ -67,16 +67,7 @@ pub fn persist(key: &str, value: &str) {
     }
 }
 pub fn apply_appearance() {
-    let theme = stored("tickets.theme", "dark");
-    let light = theme == "light"
-        || (theme == "system"
-            && window()
-                .match_media("(prefers-color-scheme: light)")
-                .ok()
-                .flatten()
-                .is_some_and(|m| m.matches()));
     if let Some(root) = document().document_element() {
-        let _ = root.set_attribute("data-theme", if light { "light" } else { "dark" });
         let _ = root.set_attribute("data-motion", &stored("tickets.motion", "system"));
     }
 }
@@ -170,10 +161,8 @@ fn ProjectSettings(fixture: bool) -> impl IntoView {
 }
 #[component]
 fn Appearance() -> impl IntoView {
-    let theme = RwSignal::new(stored("tickets.theme", "dark"));
     let motion = RwSignal::new(stored("tickets.motion", "system"));
     view! {<section class="settings-section"><h1>"Appearance"</h1><p class="settings-description">"Make Tickets comfortable to use. Preferences stay in this browser."</p>
-        <div class="preference-row"><div><h2>"Theme"</h2><p>"Dark by default."</p></div><SelectField label="Theme" value=theme options=Signal::derive(||vec![SelectOption::new("dark","Dark"),SelectOption::new("light","Light"),SelectOption::new("system","System")]) on_change=Callback::new(move|v:String|{persist("tickets.theme",&v);theme.set(v);apply_appearance();})/></div>
         <div class="preference-row"><div><h2>"Motion"</h2><p>"Reduce movement, keeping subtle fades."</p></div><SelectField label="Motion" value=motion options=Signal::derive(||vec![SelectOption::new("system","Use system setting"),SelectOption::new("reduce","Reduce motion")]) on_change=Callback::new(move|v:String|{persist("tickets.motion",&v);motion.set(v);apply_appearance();})/></div>
     </section>}
 }

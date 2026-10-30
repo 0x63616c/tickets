@@ -28,13 +28,13 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("!document.querySelector('dialog') && document.querySelectorAll('.api-project-row').length===1 && document.querySelector('.project-title')?.textContent.includes('First project')")?;
     b.screenshot(&output.join("first-run-project.png"))?;
     b.click(".project-title")?;
-    b.wait("location.pathname==='/board' && !document.querySelector('.api-ticket') && !document.querySelector('.topbar .button-primary').disabled")?;
+    b.wait("location.pathname==='/board' && !document.querySelector('.api-ticket') && document.querySelector('[aria-label=\"Add ticket to Todo\"]')?.disabled===false")?;
     for title in ["Prepare release", "Publish release"] {
-        b.click(".topbar .button-primary")?;
+        b.click("[aria-label='Add ticket to Todo']")?;
         b.wait("!!document.querySelector('#board-title')")?;
         b.text("#board-title", title)?;
         b.click("dialog button[type=submit]")?;
-        b.wait("!document.querySelector('dialog') && !document.querySelector('.topbar .button-primary').disabled")?;
+        b.wait("!document.querySelector('dialog') && document.querySelector('[aria-label=\"Add ticket to Todo\"]')?.disabled===false")?;
     }
     b.wait("document.querySelectorAll('.api-ticket').length===2 && document.querySelector('#ticket-1 .card-title')?.textContent==='Prepare release' && document.querySelector('#ticket-2 .card-title')?.textContent==='Publish release'")?;
     b.screenshot(&output.join("first-run-tickets.png"))?;

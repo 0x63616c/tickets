@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>Tickets</title>
+  <script>
+    // Retire the old preference before the app starts; unavailable storage is harmless.
+    try { localStorage.removeItem("tickets.theme"); } catch (_) {}
+  </script>
   <link data-trunk rel="copy-file" href="icons/favicon.svg">
   <link data-trunk rel="copy-file" href="icons/favicon-32.png">
   <link data-trunk rel="copy-file" href="icons/apple-touch-icon.png">
