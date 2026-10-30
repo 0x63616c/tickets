@@ -106,7 +106,23 @@ impl Browser {
     }
     pub(crate) fn wait(&mut self, expression: &str) -> Result<()> {
         let start = Instant::now();
-        while self.eval(expression)? != true {
+        loop {
+            match self.eval(expression) {
+                Ok(value) if value == true => return Ok(()),
+                Ok(_) => {}
+                // A hard navigation can replace the document between readiness polls.
+                // Retry predicates only; actions and JavaScript exceptions still fail.
+                Err(error)
+                    if error.to_string().starts_with("Runtime.evaluate:")
+                        && [
+                            "Inspected target navigated or closed",
+                            "Execution context was destroyed",
+                            "Cannot find context with specified id",
+                        ]
+                        .iter()
+                        .any(|message| error.to_string().contains(message)) => {}
+                Err(error) => return Err(error),
+            }
             if start.elapsed() > Duration::from_secs(15) {
                 let _ = self.screenshot(Path::new("target/browser-failure.png"));
                 let context=self.eval("({url:location.href,title:document.title,body:document.body.innerText.slice(0,1200)})").unwrap_or_default();
@@ -114,7 +130,6 @@ impl Browser {
             }
             thread::sleep(Duration::from_millis(100));
         }
-        Ok(())
     }
     pub(crate) fn go(&mut self, url: &str) -> Result<()> {
         // Page.navigate can return before the new document replaces the old one.

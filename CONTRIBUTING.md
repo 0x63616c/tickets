@@ -580,3 +580,7 @@ labelled + button. The C shortcut defaults to Todo. Other views keep their
 New ticket action. `cargo xtask component-shot board-topbar` captures fixture-only
 44px board chrome and full-page desktop/mobile evidence; `--before-assets`
 uses baseline assets. `board-check` verifies all six column creation defaults.
+
+Browser readiness predicates may retry CDP document/context replacement errors
+across hard navigations, within the existing timeout. Browser actions and JavaScript
+exceptions must still fail immediately; never replay writes to recover navigation.
