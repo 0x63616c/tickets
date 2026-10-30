@@ -74,8 +74,11 @@ occupy a fixed 56px slot at both viewport sizes; titles truncate and expose thei
 full text on hover. Mobile filters wrap into two readable columns.
 
 Authentication uses the shared `.field` and `.button` rules. Token settings use
-one bordered form with a footer action and compact metadata rows; full timestamps
-remain in `time` attributes/tooltips. Blank assignees use an empty Avatar instead
+an inventory with active/revoked filtering, compact metadata rows, and the shared
+Modal for creation and named revocation. The one-time secret is a readonly
+selectable field with Copy, an explicit saved acknowledgement, and deliberate
+discard confirmation. Full timestamps remain in `time` attributes and accessible
+labels/tooltips; visible dates use UTC calendar days. Blank assignees use an empty Avatar instead
 of placeholder property text. Comment editors keep their accessible label and
 Write/Preview controls while fitting the desktop article's compact rhythm.
 
@@ -330,3 +333,10 @@ and reduced-motion preferences retain the foundation's quieter behavior.
 states, preview, the complete open status menu, desktop page and mobile view.
 `--before-assets <dist>` uses the same real composer route and fixture HTTP data;
 the old locked status is captured as `before-status-static.png`.
+
+
+TIK-41 captures `/design/settings/api-tokens` with deliberately invalid fixture
+credentials using `cargo xtask tokens-shot`. It produces dark desktop/mobile
+viewport captures and cropped 2× states in `docs/screenshots/TIK-41/`. The real
+local lifecycle, including failed create/revoke and clipboard denial, is covered
+by `settings-check`; no real secret is included in its published screenshots.
