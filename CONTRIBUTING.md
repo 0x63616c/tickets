@@ -468,3 +468,21 @@ project icon schema changes additive and validate values in core.
   keyboard selection/preview, discard protection, reduced motion and mobile fit.
   `board-check` verifies all six starting statuses against local D1, context defaults,
   Tab/submit shortcuts, busy locking and partial label failure without duplicates.
+
+## Post-import UI presentation
+
+- Hide `priority:*`, `status:blocked`, and `later` label chips and picker options;
+  retain labels and ticket relationships in storage. Priority comes from the field,
+  Blocked from unresolved dependencies. Todo tickets tagged `later` appear in Backlog;
+  explicit active/resolved statuses take precedence. Lists hide Canceled by default,
+  with `canceled=true` or the explicit Canceled status filter showing them.
+- Bare `#N` in ticket descriptions/comments links within the current project through
+  the sanitized Markdown renderer. Code and existing links retain their content.
+- Mobile ticket properties start collapsed; desktop properties remain visible.
+  Created/Updated include UTC time. GitHub provenance appears in Activity without
+  inventing an import timestamp; repeated leading model metadata is presentation only.
+- `polish-check` also verifies TIK-45 fixture cases and writes matching before/after
+  list/detail captures to `docs/screenshots/TIK-45/`.
+- Shared Cargo artifacts can retain another worktree's compiled-in directory.
+  Resolve xtask's workspace from its runtime working directory and inherit the
+  caller's `CARGO_TARGET_DIR` (source `.job.env`); do not override it in subprocesses.

@@ -548,3 +548,36 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
   .ticket-composer .modal-footer { flex-wrap: wrap; }
   .discard-prompt { flex-basis: 100%; }
 }
+
+/* Fixed list tracks keep metadata aligned regardless of labels or blockers. */
+.api-list-row { display: grid; grid-template-columns: 16px 88px 16px minmax(100px, 1fr) 68px 150px 28px 100px 44px; gap: 12px; }
+.api-list-row > * { min-width: 0; }
+.api-list-row .ticket-id { width: auto; }
+.api-list-row .row-labels { max-width: none; }
+.api-list-row .row-project > span { display: flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.api-list-row .row-title { margin-right: 0; }
+.live-indicator { display: inline-flex; min-width: 112px; justify-content: flex-end; }
+.properties-toggle { display: none; }
+.import-activity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); padding-block: var(--space-3); }
+@media (max-width: 1200px) {
+  .api-list-row { grid-template-columns: 16px 88px 16px minmax(100px, 1fr) 68px 120px 28px; gap: 8px; }
+  .api-list-row .row-project, .api-list-row .row-date { display: none; }
+}
+@media (max-width: 760px) {
+  .api-list-row { grid-template-columns: 16px 76px 16px minmax(0, 1fr) 16px; height: 36px; padding-block: 0; }
+  .api-list-row .row-title { min-width: 0; }
+  .api-list-row .row-labels, .api-list-row .row-comments { display: none; }
+  .api-list-row .row-blocked { width: 16px; overflow: hidden; white-space: nowrap; }
+  .api-list-row .row-blocked .icon { flex-shrink: 0; }
+  .properties > .properties-heading { display: none; }
+  .properties-toggle { display: flex; justify-content: space-between; width: 100%; padding: 0; }
+  .properties:not([data-expanded="true"]) > :not(.properties-toggle) { display: none; }
+  .properties[data-expanded="true"] .properties-toggle { margin-bottom: var(--space-3); }
+  .live-indicator { display: none; }
+}
+@media (min-width: 761px) and (max-width: 1000px) {
+  .api-list-row { grid-template-columns: 16px 88px 16px minmax(0, 1fr) 68px 28px; }
+  .api-list-row .row-labels { display: none; }
+}
+.api-list-row .row-project-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.properties-toggle[aria-expanded="true"] .icon { transform: rotate(90deg); }

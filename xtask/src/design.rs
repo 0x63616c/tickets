@@ -565,9 +565,13 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
         b.screenshot(&output.join("before-mobile.png"))?;
         return Ok(());
     }
-    b.wait("document.querySelectorAll('.api-list-row').length===102")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===101")?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===6 && document.querySelectorAll('.list-group').length===5")?;
+    b.click(".canceled-toggle input")?;
     b.wait("document.querySelectorAll('.api-list-row').length===7 && document.querySelectorAll('.list-group').length===6")?;
+    b.click(".canceled-toggle input")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===6 && !document.querySelector('[aria-label=Canceled]')")?;
     b.eval("document.querySelector('#list-ticket-1').focus();true")?;
     b.key("j", 74, 0)?;
     b.wait("document.activeElement.id==='list-ticket-2'")?;
@@ -591,7 +595,7 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("document.querySelectorAll('.api-list-row').length===1 && !!document.querySelector('#list-ticket-2')")?;
     for sort in ["updated", "created"] {
         b.go(&format!("http://127.0.0.1:8795/list?project=1&sort={sort}"))?;
-        b.wait("document.querySelectorAll('.api-list-row').length===7")?;
+        b.wait("document.querySelectorAll('.api-list-row').length===6")?;
         let expected = if sort == "updated" { 1 } else { 7 };
         b.wait(&format!("document.querySelector('[aria-label=Todo] .api-list-row').id==='list-ticket-{expected}'"))?;
     }
@@ -600,7 +604,7 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Verification rejection') && document.querySelector('[aria-label=\"Status for TKT-2\"]').value==='Todo'")?;
     b.eval("window.fetch=window.savedFetch;true")?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
-    b.wait("document.querySelectorAll('.api-list-row').length===7")?;
+    b.wait("document.querySelectorAll('.api-list-row').length===6")?;
     b.wait("document.querySelector('[aria-label=\"All projects\"]').value==='1'")?;
     b.screenshot(&output.join("after-desktop.png"))?;
     b.viewport(390, 900)?;
@@ -728,6 +732,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("document.documentElement.scrollWidth<=innerWidth")?;
     b.screenshot(&output.join("after-mobile.png"))?;
     b.eval("document.querySelector('.properties').scrollIntoView();true")?;
+    b.click(".properties-toggle")?;
     b.screenshot(&output.join("after-mobile-properties.png"))?;
     b.viewport(1440, 900)?;
     b.go("http://127.0.0.1:8795/list?project=1")?;

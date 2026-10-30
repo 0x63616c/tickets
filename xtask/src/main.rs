@@ -3,6 +3,8 @@ mod auth;
 mod auth_verify;
 mod autofill;
 #[cfg(not(target_arch = "wasm32"))]
+mod cleanup;
+#[cfg(not(target_arch = "wasm32"))]
 mod component;
 #[cfg(not(target_arch = "wasm32"))]
 mod github_pr_check;
@@ -46,13 +48,6 @@ fn run(directory: &Path, program: &str, args: &[&str]) -> Result {
         .current_dir(directory)
         // Trunk expects a boolean; some CI/agent environments set NO_COLOR=1.
         .env("NO_COLOR", "true")
-        .env(
-            "CARGO_TARGET_DIR",
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .unwrap()
-                .join("target"),
-        )
         .status()?;
     if !status.success() {
         return Err(format!("{program} exited with {status}").into());
@@ -74,7 +69,13 @@ fn build(root: &Path) -> Result {
 }
 
 fn main() -> Result {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    // Cargo shares executable artifacts across issue worktrees; resolve the
+    // invoking workspace at runtime rather than retaining a compiled-in path.
+    let directory = env::current_dir()?;
+    let root = directory
+        .ancestors()
+        .find(|path| path.join("wrangler.toml").is_file() && path.join("crates/web").is_dir())
+        .ok_or("run cargo xtask inside the Tickets workspace")?;
     let args: Vec<String> = env::args().skip(1).collect();
     let task = args.first().cloned();
     let max_args = if task.as_deref() == Some("migrate") {
