@@ -4,6 +4,9 @@ use leptos::prelude::*;
 /// One 16px, 1.5px-stroke icon family. Icons inherit their surrounding text color.
 #[component]
 pub fn Icon(#[prop(default = "plus")] name: &'static str) -> impl IntoView {
+    if name == "logo" {
+        return view! { <BrandMark/> }.into_any();
+    }
     let path = match name {
         "home" => "m2 7 6-5 6 5v7H9v-4H7v4H2Z",
         "user" => "M11 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM2 14v-1a6 6 0 0 1 12 0v1",
@@ -44,7 +47,14 @@ pub fn Icon(#[prop(default = "plus")] name: &'static str) -> impl IntoView {
         "offline" => "m2 2 12 12M6 4a9 9 0 0 1 8 2M2 6l1-1M4.5 9a5 5 0 0 1 4-1M7.5 12h1",
         _ => "M8 3v10M3 8h10",
     };
-    view! { <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=path/></svg> }
+    view! { <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=path/></svg> }.into_any()
+}
+
+/// The Tickets mark: a notched ticket stub with a perforation line, hinted to the
+/// 16px pixel grid (see crates/web/icons/README.md). Fills with the text color.
+#[component]
+pub fn BrandMark() -> impl IntoView {
+    view! { <svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M3 4h10a1 1 0 0 1 1 1v2a1.5 1.5 0 0 0 0 3v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2a1.5 1.5 0 0 0 0-3V5a1 1 0 0 1 1-1Zm7 1h1v1h-1Zm0 2h1v1h-1Zm0 2h1v1h-1Zm0 2h1v1h-1Z"/></svg> }
 }
 
 #[component]
