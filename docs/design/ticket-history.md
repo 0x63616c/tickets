@@ -10,7 +10,9 @@
 - `repository::Repository` exposes an older typed write surface used by tests.
   It must use the same executor, not remain an unlogged alternate path.
 - `xtask/import_github.rs` uses external-ID PUT, fixed-value PATCH, label and
-  dependency REST routes. It does not access D1. Reruns must emit only real diffs.
+  dependency REST routes. It does not access D1. Existing-ticket upserts omit the body until native
+  references resolve, then write the canonical body once; unchanged reruns emit
+  no transient raw-reference/rewrite description edits.
 - No MCP server or MCP mutation implementation exists in this repository (searched
   the entire tracked source). Agents currently use the Tickets REST skill. A future
   MCP adapter must call authenticated dispatch, carrying the token actor.

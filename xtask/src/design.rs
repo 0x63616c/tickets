@@ -175,19 +175,18 @@ impl Browser {
             fs::copy(path.with_file_name(name.replace("-full.png", ".png")), path)?;
             return Ok(());
         }
-        self.eval("window.scrollTo(0,0);new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))")?;
-        let clip = self.eval(
-            "({x:0,y:0,width:innerWidth,height:document.documentElement.scrollHeight,scale:1})",
+        let size = self.eval(
+            "({width:innerWidth,height:innerHeight,full:document.documentElement.scrollHeight})",
         )?;
-        let result = self.call(
-            "Page.captureScreenshot",
-            json!({"format":"png","captureBeyondViewport":true,"clip":clip}),
+        let width = size["width"].as_u64().ok_or("missing width")? as u32;
+        let height = size["height"].as_u64().ok_or("missing height")? as u32;
+        self.viewport(
+            width,
+            size["full"].as_u64().ok_or("missing full height")? as u32,
         )?;
-        fs::write(
-            path,
-            STANDARD.decode(result["data"].as_str().ok_or("missing PNG")?)?,
-        )?;
-        println!("Screenshot: {}", path.display());
+        self.eval("window.scrollTo(0,0);true")?;
+        self.screenshot(path)?;
+        self.viewport(width, height)?;
         Ok(())
     }
     pub(crate) fn click(&mut self, selector: &str) -> Result<()> {
@@ -435,6 +434,14 @@ pub fn board_before(root: &Path) -> super::Result {
 /// Real API, real Worker, real keyboard events; isolated D1 lifecycle is owned by api_smoke.
 pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     let mut b = Browser::start(root)?;
+    if mode == "detail"
+        && (env::var_os("TICKETS_BEFORE_ASSETS").is_some()
+            || env::var_os("TICKETS_DETAIL_CAPTURE_ONLY").is_some())
+    {
+        // Capture settled text in the supported reduced-motion mode. Functional
+        // detail checks keep normal motion and verify comment reveal behavior.
+        b.call("Emulation.setEmulatedMedia", json!({"features":[{"name":"prefers-color-scheme","value":"dark"},{"name":"prefers-reduced-motion","value":"reduce"}]}))?;
+    }
     b.go("http://127.0.0.1:8795/login?next=%2Fsettings%2Ftokens")?;
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
