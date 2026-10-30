@@ -64,7 +64,15 @@ must be included in post-deployment observation.
    recovery and reconnect still reconcile authoritatively. `live::subscribe`
    previously invoked the loader every visible 60 seconds, on focus/visibility,
    every first room open, reconnect, and each event; route-dependent subscriptions
-   reopened rooms during navigation. Timer polling and healthy focus reloads are
+   reopened rooms during navigation. GitHub PR snapshots and completed App CI
+   suites also broadcast ticket ID 0 globally; even unlinked/stale-head suites
+   could trigger collection loads. Completed CI now notifies only linked current-
+   head ticket IDs and does not advance the cache version for unlinked/stale
+   checks. PR membership snapshots retain bulk recovery to cover removed links;
+   cron claim expiry also emits a bulk invalidation when rows change. Home keeps
+   all bulk recovery aggregate-only and invalidates unused ticket state for later
+   navigation. Board/List still recover a full cached snapshot when a bulk event
+   cannot identify affected records. Timer polling and healthy focus reloads are
    gone. Rooms stay subscribed across routes; a version check closes the initial
    snapshot gap. Events patch one ticket, dependency peers, or metadata.
 Mission Control, merged while this work was running, also requests projects
@@ -128,7 +136,7 @@ Two independent assessments reviewed the data/loading changes against DESIGN.md
 and the existing desktop/mobile Home PNGs. Mechanical detector: exit 0, `[]`.
 The polish pass fixed hidden-tab queue flushing, failed-cache eviction, explicit
 Reload/Retry behavior, visible reconciliation errors, and reconnect invalidation
-of an unused ticket collection. The performance change preserves layout, tokens and visual hierarchy. The merged upstream TIK-83 changes the default font. The browser transport bypasses disk caching while retaining app/edge caches; a two-window test covers hard navigation. Detail captures its initial live revision to avoid a redundant mount-time reload.
+of an unused ticket collection. Regression coverage includes an initial write between ticket and metadata reads; the version handshake retains the oldest observed version so later metadata cannot mask that write. The performance change preserves layout, tokens and visual hierarchy. The merged upstream TIK-83 changes the default font. The browser transport bypasses disk caching while retaining app/edge caches; a two-window test covers hard navigation. Detail captures its initial live revision to avoid a redundant mount-time reload.
 Questions skipped: fixed implementation scope and existing approved design.
 
 Local verification completed: `cargo xtask ci`, CSS lint, `perf-check`, API cache

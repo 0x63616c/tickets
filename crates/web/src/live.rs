@@ -116,7 +116,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                     let pending = events.get_untracked().into_values().collect::<Vec<_>>();
                     events.update(|e| e.clear());
                     crate::ui::invalidate_reads();
-                    if recover.get_untracked() {
+                    if recover.get_untracked() || pending.iter().any(|event| event.id == 0) {
                         recover.set(false);
                         if ["/", "/home"].contains(&path.get_untracked().as_str()) {
                             // Home does not need tickets, but a future Board/List must

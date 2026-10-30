@@ -91,12 +91,42 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     b.eval("document.fonts.ready.then(()=>true)")?;
     b.wait("!document.querySelector('[data-ar-t], .ar-overlay canvas')")?;
     b.screenshot(&output.join("after-home-mobile.png"))?;
+    // A cron/bulk invalidation has no record IDs. Home must keep aggregate-only
+    // reads and mark an already-loaded collection stale for the next Board visit.
+    b.eval("window.bulkHomeReads=perfReads.filter(p=>p==='/api/v1/analytics/home').length;for(const socket of perfSockets.filter(s=>s.readyState===1))socket.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({project_id:1,entity:'tickets',id:0,action:'update'})}));true")?;
+    b.wait("perfReads.filter(p=>p==='/api/v1/analytics/home').length>bulkHomeReads && !document.querySelector('.home-page[aria-busy=true]')")?;
+    b.eval("if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('bulk Home event downloaded collection');true")?;
+    b.viewport(1280, 800)?;
+    b.click(".sidebar a[href='/board']")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===1 && perfReads.filter(p=>p==='/api/v1/tickets').length===collectionReads+1")?;
+    let session = b.eval("({reads:perfReads,errors:perfErrors})")?;
+    // Race a write between the first ticket page and the later labels response,
+    // before this new document opens any live socket. The initial version check
+    // must recover it even though metadata has already seen the newer version.
+    b.call("Page.addScriptToEvaluateOnNewDocument",json!({"source":r#"
+        const raceNativeFetch=window.fetch;
+        window.fetch=async(...args)=>{
+            const response=await raceNativeFetch(...args);
+            const url=new URL(args[0] instanceof Request?args[0].url:String(args[0]),location.href);
+            if(url.pathname==='/api/v1/tickets' && !window.snapshotRaceInjected){
+                window.snapshotRaceInjected=true;
+                const write=await raceNativeFetch(new Request('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Initial snapshot race recovered'})}));
+                if(!write.ok)throw Error('snapshot fixture write failed');
+            }
+            return response;
+        };
+    "#}))?;
+    b.go("http://127.0.0.1:8795/board")?;
+    b.wait(
+        "document.querySelector('.card-title')?.textContent==='Initial snapshot race recovered'",
+    )?;
+    let race = b.eval("({reads:perfReads,errors:perfErrors})")?;
     fs::write(
         output.join("requests.json"),
-        serde_json::to_string_pretty(&b.eval("({reads:perfReads,errors:perfErrors})")?)?,
+        serde_json::to_string_pretty(&json!({"session":session,"initial_snapshot_race":race}))?,
     )?;
     println!(
-        "PASS shared stores: Home projects once, Board/List/detail navigation one collection, targeted live patch, foreground catch-up, no browser errors"
+        "PASS shared stores: Home projects once, Board/List/detail navigation one collection, targeted live patch, foreground catch-up, aggregate-only bulk Home recovery, initial snapshot race recovery, no browser errors"
     );
     Ok(())
 }

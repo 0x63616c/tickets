@@ -298,7 +298,31 @@ pub async fn webhook(mut req: Request, env: &Env) -> Result<Response> {
                     storage::save_ci(&db, &repo, check)
                         .await
                         .map_err(|_| unavailable())?;
-                    notify(env, &db).await;
+                    // CI completion used to broadcast a global ticket id=0,
+                    // including suites with no Tickets links. Send point invalidations.
+                    if let Ok(tickets) = storage::ci_tickets(
+                        &db,
+                        &repo,
+                        check["head_sha"].as_str().unwrap_or_default(),
+                    )
+                    .await
+                    {
+                        for ticket in tickets {
+                            let _ = crate::live::notify(
+                                env,
+                                &db,
+                                crate::api::CommittedChange {
+                                    entity: "tickets".into(),
+                                    id: ticket["id"].as_i64().unwrap(),
+                                    action: "update".into(),
+                                    projects: vec![ticket["project_id"].as_i64().unwrap()],
+                                },
+                            )
+                            .await;
+                        }
+                    } else {
+                        console_error!("CI notification lookup failed");
+                    }
                 }
             } else if (event == "check_suite" && ["requested", "rerequested"].contains(&action))
                 || (event == "check_run"

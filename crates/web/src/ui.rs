@@ -84,7 +84,18 @@ async fn api_typed(method: &str, path: &str, body: Value) -> Result<Value, crate
     let response = request.send().await.map_err(|_| ApiError::Network)?;
     let status = response.status();
     if let Some(version) = response.headers().get("X-Workspace-Version") {
-        VERSION.with(|v| *v.borrow_mut() = version);
+        // Keep a lower bound for the initial multi-request snapshot. A later
+        // metadata response must not hide a write that raced the ticket page.
+        VERSION.with(|v| {
+            let mut oldest = v.borrow_mut();
+            if oldest
+                .parse::<i64>()
+                .ok()
+                .is_none_or(|old| version.parse::<i64>().is_ok_and(|new| new < old))
+            {
+                *oldest = version;
+            }
+        });
     }
     if status == 401 {
         let message = if path == "/api/v1/login" {

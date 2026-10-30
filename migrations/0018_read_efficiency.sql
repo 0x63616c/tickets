@@ -2,6 +2,7 @@
 CREATE INDEX tickets_project_status_activity ON tickets(project_id,status,updated_at);
 CREATE INDEX comments_visible_ticket ON comments(ticket_id) WHERE deleted_at IS NULL;
 CREATE INDEX ticket_labels_label_ticket ON ticket_labels(label_id,ticket_id);
+CREATE INDEX ticket_pull_requests_head ON ticket_pull_requests(repo,head_sha,ticket_id);
 
 -- Invalidation covers all data embedded in lists/analytics, including relationship
 -- changes that do not touch tickets.updated_at. Triggers also cover old Workers.
@@ -70,13 +71,16 @@ END;
 CREATE TRIGGER read_version_ticket_pull_requests_delete AFTER DELETE ON ticket_pull_requests BEGIN
  UPDATE workspace_version SET version=version+1 WHERE id=1;
 END;
-CREATE TRIGGER read_version_github_pull_request_checks_insert AFTER INSERT ON github_pull_request_checks BEGIN
+CREATE TRIGGER read_version_github_pull_request_checks_insert AFTER INSERT ON github_pull_request_checks
+WHEN EXISTS(SELECT 1 FROM ticket_pull_requests WHERE repo=NEW.repo AND number=NEW.number AND head_sha=NEW.head_sha) BEGIN
  UPDATE workspace_version SET version=version+1 WHERE id=1;
 END;
-CREATE TRIGGER read_version_github_pull_request_checks_update AFTER UPDATE ON github_pull_request_checks BEGIN
+CREATE TRIGGER read_version_github_pull_request_checks_update AFTER UPDATE ON github_pull_request_checks
+WHEN EXISTS(SELECT 1 FROM ticket_pull_requests WHERE repo=NEW.repo AND number=NEW.number AND head_sha=NEW.head_sha) OR EXISTS(SELECT 1 FROM ticket_pull_requests WHERE repo=OLD.repo AND number=OLD.number AND head_sha=OLD.head_sha) BEGIN
  UPDATE workspace_version SET version=version+1 WHERE id=1;
 END;
-CREATE TRIGGER read_version_github_pull_request_checks_delete AFTER DELETE ON github_pull_request_checks BEGIN
+CREATE TRIGGER read_version_github_pull_request_checks_delete AFTER DELETE ON github_pull_request_checks
+WHEN EXISTS(SELECT 1 FROM ticket_pull_requests WHERE repo=OLD.repo AND number=OLD.number AND head_sha=OLD.head_sha) BEGIN
  UPDATE workspace_version SET version=version+1 WHERE id=1;
 END;
 CREATE TRIGGER read_version_ticket_events_insert AFTER INSERT ON ticket_events BEGIN

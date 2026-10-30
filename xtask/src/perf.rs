@@ -282,7 +282,8 @@ pub fn check(root: &Path) -> super::Result {
     let report = json!({"fixture_tickets":240,"before":summarize(&before_result),"after":summarize(&after_result),"note":"Deterministic request-schedule replay; not browser elapsed time or Worker CPU. Three live updates; five idle minute ticks elided after. Includes cold analytics after each update.","plans":plans});
     let before_rows = report["before"]["rows_read"].as_f64().unwrap();
     let after_rows = report["after"]["rows_read"].as_f64().unwrap();
-    if after_rows / before_rows * 2_670_730. >= 1_000_000. {
+    // Hold every query family outside the baseline top three fixed.
+    if 256_552. + 2_414_178. * after_rows / before_rows >= 1_000_000. {
         return Err("session replay exceeds projected 1M rows/day budget".into());
     }
     fs::write(

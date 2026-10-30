@@ -105,3 +105,57 @@ fn old_writer_relationship_and_history_changes_advance_version() {
     assert_eq!(response.status, 200);
     assert_eq!(response.body["data"][0]["open_ticket_count"], 1);
 }
+
+#[test]
+fn ci_invalidations_are_limited_to_linked_current_heads() {
+    block_on(async {
+        let db = Sqlite::new();
+        let version = || {
+            db.0.query_row(
+                "SELECT version FROM workspace_version WHERE id=1",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+        };
+        db.0.execute_batch("INSERT INTO projects(name,key_prefix,color) VALUES('Fixture','FIX','#5e6ad2'); INSERT INTO tickets(project_id,number,title) VALUES(1,1,'One');").unwrap();
+        let before = version();
+        db.0.execute_batch("INSERT INTO github_pull_request_checks(repo,number,head_sha,ci_status) VALUES('example/repo',1,'old','success');").unwrap();
+        assert_eq!(version(), before, "unlinked CI must not invalidate lists");
+        assert!(
+            tickets_worker::github_app_events::ci_tickets(&db, "example/repo", "old")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        db.0.execute_batch("INSERT INTO ticket_pull_requests(ticket_id,repo,number,url,title,state,closes,head_sha,updated_at) VALUES(1,'example/repo',1,'https://example.test/pr/1','Example','open',1,'current','2026-10-30T00:00:00.000Z');").unwrap();
+        let linked = version();
+        db.0.execute_batch(
+            "UPDATE github_pull_request_checks SET ci_status='failure' WHERE head_sha='old';",
+        )
+        .unwrap();
+        assert_eq!(
+            version(),
+            linked,
+            "stale-head CI must not invalidate current lists"
+        );
+        db.0.execute_batch("INSERT INTO github_pull_request_checks(repo,number,head_sha,ci_status) VALUES('example/repo',1,'current','success');").unwrap();
+        assert!(version() > linked);
+        let tickets = tickets_worker::github_app_events::ci_tickets(&db, "example/repo", "current")
+            .await
+            .unwrap();
+        assert_eq!(
+            tickets,
+            json!([{"id":1,"project_id":1}])
+                .as_array()
+                .unwrap()
+                .to_vec()
+        );
+        assert!(
+            tickets_worker::github_app_events::ci_tickets(&db, "other/repo", "current")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    });
+}

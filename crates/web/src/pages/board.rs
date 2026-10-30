@@ -299,7 +299,7 @@ impl BoardState {
         }
         let snapshot = self.tickets.get_untracked();
         self.refreshing.set(true);
-        if !background && !self.loaded.get_untracked() {
+        if !self.loaded.get_untracked() {
             self.loading.set(true);
         }
         self.error.set(String::new());
