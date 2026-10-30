@@ -5,10 +5,12 @@ main { max-width: 640px; margin: var(--space-16) auto; padding: var(--space-6); 
 h1 { margin: 0 0 var(--space-4); font-size: var(--text-title); font-weight: var(--weight-semibold); }
 p { margin: 0 0 var(--space-6); color: var(--text-secondary); }
 a { color: var(--text); text-underline-offset: var(--space-1); }
-a:focus-visible { outline: 2px solid var(--focus); outline-offset: var(--space-1); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--focus); outline-offset: var(--space-1); }
 .install { display: inline-block; max-width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--action-fill); color: var(--action-text); font-weight: var(--weight-medium); text-decoration: none; }
 .install:active { background: var(--action-active); }
 ::selection { background: var(--accent); color: var(--text); }
 @media (hover: hover) and (pointer: fine) {
   .install:hover { background: var(--action-hover); }
 }
+
+button.install { border: 0; font: inherit; font-weight: var(--weight-medium); cursor: pointer; }

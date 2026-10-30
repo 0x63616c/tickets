@@ -20,6 +20,10 @@ the operations needed for the requested task. The walkthrough assumes an empty
 instance (projects 1/2, tickets 1/2, label 2/comment 1; label 1 is the seeded
 waiting-on-calum label). HTTP expectations and JSON subsets in comments are checked by `cargo xtask skill-check` against local D1.
 
+For GitHub App setup, the owner visits `/github/app/register` in a signed-in
+browser (`?name=alt` uses the fallback app name); the Worker supplies the manifest
+and setup state. See the API reference’s GitHub App registration section.
+
 ## Access and project selection
 
 `GET /api/v1/me` also returns `username` and nullable `display_name`.

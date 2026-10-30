@@ -7,7 +7,8 @@ environment. Cookie mutations also require an `Origin` matching the request URL.
 Invalid bearer credentials never fall back to cookies. Health at `/api/health`
 and login at `POST /api/v1/login` are public; see `docs/adr/0003-auth.md` for authentication.
 
-Domain responses contain JSON. The GitHub App manifest callback below returns HTML.
+Domain responses contain JSON. The GitHub App registration page and manifest callback
+below return HTML.
 Creation returns 201; reads, patches, deletes and external
 upserts return 200. Deletes return `{"ok":true}`. Errors have the form
 `{"error":{"code":"validation","message":"..."}}`:
@@ -240,12 +241,21 @@ setup state; it is not a general agent API endpoint.
    value) and `GITHUB_APP_STORE_KEY` (standard base64 of 32 random bytes).
    CI deploys them from production environment secrets
    `TICKETS_GITHUB_APP_SETUP_STATE` and `TICKETS_GITHUB_APP_STORE_KEY`.
-2. In the owner's browser, POST the `manifest` form field containing the GitHub
-   App manifest JSON to `https://github.com/settings/apps/new?state=<STATE>`.
-   Set the manifest's `redirect_url` to
-   `https://tickets.worldwidewebb.co/api/v1/github/app/manifest-callback`.
-   Use the configured state and keep the manifest's permissions/events scoped to
-   the intended app. See [GitHub's manifest flow](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest).
+2. In the owner's signed-in browser, visit `GET /github/app/register`. This
+   Worker-rendered page automatically POSTs the manifest and configured setup
+   state to `https://github.com/settings/apps/new`; a **Create GitHub App** button
+   also works without JavaScript. The manifest uses the request's HTTP(S) origin
+   for its URLs (including local development). `?name=alt` selects **Tickets WWW**
+   instead of **Tickets by World Wide Webb**; other names are ignored.
+   Signed-out visitors redirect to `/login?next=%2Fgithub%2Fapp%2Fregister`.
+   Missing/empty configuration or an invalid store key returns a 503
+   **Registration unavailable** page. An existing registration returns 200 with
+   its GitHub app link and no form; non-GET requests return 405 with `Allow: GET`
+   after the session check. Responses use `Cache-Control: no-store`,
+   `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`,
+   `X-Frame-Options: DENY`, and a CSP authorizing only the hashed inline style
+   and auto-submit script, with `form-action https://github.com` and
+   `frame-ancestors 'none'`. See [GitHub's manifest flow](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest).
 3. GitHub redirects with a one-use code, valid for one hour. The Worker checks
    configuration, compares state in constant time, validates the code, and checks
    for an existing registration before making an unauthenticated

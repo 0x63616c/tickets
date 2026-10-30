@@ -73,6 +73,9 @@ pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             return Ok(response);
         }
     }
+    if path == "/github/app/register" {
+        return github_app::register_page(req, &env).await;
+    }
     let asset_request = if public {
         req
     } else {
@@ -185,6 +188,7 @@ mod tests {
             "/login",
             "/",
             "/t/QUA-87",
+            "/github/app/register",
         ] {
             assert!(!is_public_asset(path), "{path} must stay gated");
         }

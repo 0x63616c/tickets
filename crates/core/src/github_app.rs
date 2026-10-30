@@ -235,6 +235,78 @@ pub fn registration_html(app: &AppMetadata) -> String {
     )
 }
 
+// Keep script bytes fixed so the CSP can authorize exactly this script by hash.
+const AUTO_SUBMIT: &str =
+    "window.addEventListener('load',()=>document.getElementById('f').requestSubmit());";
+
+pub fn register_content_security_policy() -> String {
+    let style_hash = STANDARD.encode(Sha256::digest(page_style().as_bytes()));
+    let script_hash = STANDARD.encode(Sha256::digest(AUTO_SUBMIT.as_bytes()));
+    format!(
+        "default-src 'none'; style-src 'sha256-{style_hash}'; script-src 'sha256-{script_hash}'; base-uri 'none'; form-action https://github.com; frame-ancestors 'none'"
+    )
+}
+
+pub fn registration_unavailable_html() -> String {
+    page(
+        "Registration unavailable",
+        "<p>Check the app setup configuration before registering.</p>",
+    )
+}
+
+/// The caller supplies an HTTP(S) request origin and the server-side setup state.
+/// Query input only selects a fixed alternate name; it is never reflected.
+pub fn register_html(
+    origin: &str,
+    setup_state: &str,
+    name: Option<&str>,
+    registered: Option<&AppMetadata>,
+) -> String {
+    if let Some(app) = registered {
+        let link = if valid_app_url(app) {
+            format!(
+                "<p><a href=\"{}\" rel=\"noreferrer\">View app on GitHub</a></p>",
+                escape_html(&app.html_url),
+            )
+        } else {
+            String::new()
+        };
+        return page(
+            "GitHub App already registered",
+            &format!("<p>This workspace already has a registered GitHub App.</p>{link}"),
+        );
+    }
+    let manifest = serde_json::json!({
+        "name": if name == Some("alt") { "Tickets WWW" } else { "Tickets by World Wide Webb" },
+        "url": origin,
+        "description": "Links pull requests to Tickets, moves tickets by PR status and posts a Tickets check on every PR.",
+        "hook_attributes": {"url": format!("{origin}/api/v1/github/app/webhook"), "active": true},
+        "redirect_url": format!("{origin}/api/v1/github/app/manifest-callback"),
+        "setup_url": format!("{origin}/settings"),
+        "setup_on_update": false,
+        "public": false,
+        "default_permissions": {"pull_requests": "read", "issues": "read", "checks": "write", "statuses": "write", "metadata": "read", "contents": "read"},
+        "default_events": ["pull_request", "check_suite", "check_run", "push"]
+    });
+    let state: String = setup_state
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
+                (b as char).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect();
+    page(
+        "Create GitHub App",
+        &format!(
+            "<p>Continue on GitHub to create the app. If you are not redirected, use the button below.</p><form id=\"f\" method=\"post\" action=\"https://github.com/settings/apps/new?state={state}\"><input type=\"hidden\" name=\"manifest\" value=\"{}\"><button class=\"install\" type=\"submit\">Create GitHub App</button></form><script>{AUTO_SUBMIT}</script>",
+            escape_html(&manifest.to_string()),
+        ),
+    )
+}
+
 pub fn error_html(error: &CallbackError) -> String {
     let (title, message) = match error {
         CallbackError::Unavailable => (
@@ -461,6 +533,98 @@ mod tests {
         assert!(csp.contains("frame-ancestors 'none'"));
         assert!(!csp.contains("unsafe-inline"));
         assert!(style.contains("--bg: #000000"));
+    }
+
+    fn manifest_from_html(html: &str) -> serde_json::Value {
+        let escaped = html
+            .split_once("name=\"manifest\" value=\"")
+            .unwrap()
+            .1
+            .split_once('"')
+            .unwrap()
+            .0;
+        assert!(!escaped.contains(['<', '>', '\'']));
+        assert!(escaped.contains("&quot;"));
+        let decoded = escaped
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&amp;", "&");
+        serde_json::from_str(&decoded).unwrap()
+    }
+
+    #[test]
+    fn register_form_encodes_state_and_round_trips_exact_manifest() {
+        let origin = "https://tickets.worldwidewebb.co";
+        let html = register_html(origin, "a&b=+ /?\"'é", None, None);
+        assert!(html.contains("id=\"f\" method=\"post\" action=\"https://github.com/settings/apps/new?state=a%26b%3D%2B%20%2F%3F%22%27%C3%A9\""));
+        assert!(html.contains(">Create GitHub App</button>"));
+        assert_eq!(
+            manifest_from_html(&html),
+            json!({
+                "name": "Tickets by World Wide Webb",
+                "url": origin,
+                "description": "Links pull requests to Tickets, moves tickets by PR status and posts a Tickets check on every PR.",
+                "hook_attributes": {"url": format!("{origin}/api/v1/github/app/webhook"), "active": true},
+                "redirect_url": format!("{origin}/api/v1/github/app/manifest-callback"),
+                "setup_url": format!("{origin}/settings"),
+                "setup_on_update": false, "public": false,
+                "default_permissions": {"pull_requests": "read", "issues": "read", "checks": "write", "statuses": "write", "metadata": "read", "contents": "read"},
+                "default_events": ["pull_request", "check_suite", "check_run", "push"]
+            })
+        );
+        let script = html
+            .split_once("<script>")
+            .unwrap()
+            .1
+            .split_once("</script>")
+            .unwrap()
+            .0;
+        assert!(script.contains("requestSubmit()"));
+        let hash = STANDARD.encode(Sha256::digest(script.as_bytes()));
+        let csp = register_content_security_policy();
+        assert!(csp.contains(&format!("script-src 'sha256-{hash}'")));
+        assert!(csp.contains("form-action https://github.com;"));
+        assert!(csp.contains("default-src 'none'"));
+        assert!(csp.contains("frame-ancestors 'none'"));
+        assert!(!csp.contains("unsafe-inline"));
+    }
+
+    #[test]
+    fn register_name_is_allowlisted_and_manifest_is_attribute_escaped() {
+        for (name, expected) in [
+            (Some("alt"), "Tickets WWW"),
+            (Some("<script>evil</script>"), "Tickets by World Wide Webb"),
+            (None, "Tickets by World Wide Webb"),
+        ] {
+            let html = register_html("http://localhost:8787", "fixture-state", name, None);
+            let manifest = manifest_from_html(&html);
+            assert_eq!(manifest["name"], expected);
+            assert_eq!(manifest["url"], "http://localhost:8787");
+            assert_eq!(manifest["setup_url"], "http://localhost:8787/settings");
+            assert!(!html.contains("evil"));
+        }
+        // Exercise every attribute escape even though real request origins are normalized.
+        let origin = "https://fixture.invalid/<>&\"'";
+        let html = register_html(origin, "s", None, None);
+        assert_eq!(manifest_from_html(&html)["url"], origin);
+    }
+
+    #[test]
+    fn existing_registration_has_app_link_without_form_script_or_state() {
+        let credentials = parse_conversion(&serde_json::to_vec(&conversion()).unwrap()).unwrap();
+        let html = register_html(
+            "https://fixture.invalid",
+            "fixture-state",
+            None,
+            Some(&credentials.app),
+        );
+        assert!(html.contains("already registered"));
+        assert!(html.contains("href=\"https://github.com/apps/fixture-app\""));
+        for forbidden in ["<form", "<script", "fixture-state", "name=\"manifest\""] {
+            assert!(!html.contains(forbidden));
+        }
     }
 
     #[test]

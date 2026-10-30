@@ -169,3 +169,97 @@ test('compiled manifest callback validates, exchanges and encrypts without netwo
     db.db.close();
   }
 });
+
+test('signed-in registration page supplies manifest and fails closed without assets or network', async () => {
+  const db = new D1Database();
+  const token = 'ab'.repeat(32);
+  db.db.prepare("INSERT INTO users(id,username) VALUES(1,'fixture-owner')").run();
+  db.db.prepare("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,1,'2999-01-01T00:00:00.000Z')")
+    .run(createHash('sha256').update(token).digest('hex'));
+  const env = { DB: db };
+  const worker = new Worker({}, env);
+  const route = '/github/app/register';
+  const request = (suffix = '', method = 'GET', signedIn = true, origin = 'https://fixture.invalid') =>
+    worker.fetch(new Request(`${origin}${route}${suffix}`, {
+      method, headers: signedIn ? { Cookie: `tickets_session=${token}` } : {},
+    }));
+  try {
+    const anonymous = await request('', 'GET', false);
+    assert.equal(anonymous.status, 302);
+    assert.equal(anonymous.headers.get('Location'), '/login?next=%2Fgithub%2Fapp%2Fregister');
+    const bearer = await worker.fetch(new Request(`https://fixture.invalid${route}`, {
+      headers: { Authorization: `Bearer tk_${token}` },
+    }));
+    assert.equal(bearer.status, 302);
+    for (const method of ['POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS']) {
+      const result = await request('', method);
+      assert.equal(result.status, 405);
+      assert.equal(result.headers.get('Allow'), 'GET');
+    }
+    for (const config of [
+      {}, { GITHUB_APP_SETUP_STATE: 'fixture-state' },
+      { GITHUB_APP_STORE_KEY: Buffer.alloc(32, 7).toString('base64') },
+      { GITHUB_APP_SETUP_STATE: '', GITHUB_APP_STORE_KEY: '' },
+      { GITHUB_APP_SETUP_STATE: 'fixture-state', GITHUB_APP_STORE_KEY: 'invalid' },
+    ]) {
+      delete env.GITHUB_APP_SETUP_STATE;
+      delete env.GITHUB_APP_STORE_KEY;
+      Object.assign(env, config);
+      const result = await request();
+      assert.equal(result.status, 503);
+      const html = await result.text();
+      assert.ok(html.includes('Registration unavailable'));
+      assert.ok(!html.includes('<form'));
+    }
+    env.GITHUB_APP_SETUP_STATE = 'fixture&state=+ /é';
+    env.GITHUB_APP_STORE_KEY = Buffer.alloc(32, 7).toString('base64');
+    const unsupportedOrigin = await request('', 'GET', true, 'ftp://fixture.invalid');
+    assert.equal(unsupportedOrigin.status, 503);
+    assert.ok(!(await unsupportedOrigin.text()).includes('<form'));
+    for (const [suffix, name, origin] of [
+      ['', 'Tickets by World Wide Webb', 'https://fixture.invalid'],
+      ['?name=alt', 'Tickets WWW', 'http://localhost:8787'],
+      ['?name=%3Cscript%3Eevil', 'Tickets by World Wide Webb', 'https://fixture.invalid'],
+    ]) {
+      const result = await request(suffix, 'GET', true, origin);
+      assert.equal(result.status, 200);
+      for (const [header, value] of Object.entries({
+        'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY',
+      })) assert.equal(result.headers.get(header), value);
+      const html = await result.text();
+      const csp = result.headers.get('Content-Security-Policy');
+      for (const tag of ['style', 'script']) {
+        const content = html.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))[1];
+        const hash = createHash('sha256').update(content).digest('base64');
+        assert.ok(csp.includes(`${tag}-src 'sha256-${hash}'`));
+      }
+      assert.ok(csp.includes('form-action https://github.com;'));
+      assert.ok(csp.includes("default-src 'none'"));
+      assert.ok(csp.includes("frame-ancestors 'none'"));
+      assert.ok(!csp.includes('unsafe-inline'));
+      const action = html.match(/action="([^"]+)"/)[1];
+      assert.equal(new URL(action).searchParams.get('state'), env.GITHUB_APP_SETUP_STATE);
+      const manifest = JSON.parse(html.match(/name="manifest" value="([^"]+)"/)[1]
+        .replaceAll('&quot;', '"').replaceAll('&#39;', "'")
+        .replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&'));
+      assert.equal(manifest.name, name);
+      assert.equal(manifest.url, origin);
+      assert.equal(manifest.redirect_url, `${origin}/api/v1/github/app/manifest-callback`);
+      assert.ok(!html.includes('evil'));
+      assert.ok(!html.includes(env.GITHUB_APP_STORE_KEY));
+    }
+    db.db.prepare(`INSERT INTO github_app(id,app_id,slug,name,owner_login,client_id,html_url,secrets_ciphertext)
+      VALUES(1,42,'fixture-app','Fixture App','fixture-owner','fixture-id',?,'fixture-ciphertext')`).run(fixture.html_url);
+    const result = await request();
+    assert.equal(result.status, 200);
+    const html = await result.text();
+    assert.ok(html.includes('already registered'));
+    assert.ok(html.includes(`href="${fixture.html_url}"`));
+    for (const forbidden of ['<form', '<script', 'fixture&state', 'fixture-ciphertext']) {
+      assert.ok(!html.includes(forbidden));
+    }
+  } finally {
+    db.db.close();
+  }
+});
