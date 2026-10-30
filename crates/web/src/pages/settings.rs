@@ -66,8 +66,15 @@ pub fn persist(key: &str, value: &str) {
         let _ = storage.set_item(key, value);
     }
 }
+fn preferred_font() -> String {
+    match stored("tickets.font", "geist").as_str() {
+        value @ ("geist" | "geist-mono" | "inter" | "system") => value.into(),
+        _ => "geist".into(),
+    }
+}
 pub fn apply_appearance() {
     if let Some(root) = document().document_element() {
+        let _ = root.set_attribute("data-font", &preferred_font());
         let _ = root.set_attribute("data-motion", &stored("tickets.motion", "system"));
     }
 }
@@ -163,8 +170,11 @@ fn ProjectSettings(fixture: bool) -> impl IntoView {
 }
 #[component]
 fn Appearance() -> impl IntoView {
+    let font = RwSignal::new(preferred_font());
     let motion = RwSignal::new(stored("tickets.motion", "system"));
     view! {<section class="settings-section"><h1>"Appearance"</h1><p class="settings-description">"Make Tickets comfortable to use. Preferences stay in this browser."</p>
+        <div class="preference-row"><div><h2>"Font"</h2><p>"Choose the typeface used across Tickets."</p></div><SelectField label="Font" value=font options=Signal::derive(||vec![SelectOption::new("geist","Geist"),SelectOption::new("geist-mono","Geist Mono"),SelectOption::new("inter","Inter"),SelectOption::new("system","System")]) on_change=Callback::new(move|v:String|{persist("tickets.font",&v);font.set(v.clone());if let Some(root)=document().document_element(){let _=root.set_attribute("data-font",&v);}})/></div>
+        <div class="font-preview" aria-label="Font preview"><div class="font-preview-ticket"><span>"TIK-42"</span><strong>"Fix board skeleton overlap"</strong></div><p>"A clear view of your work, down to the details."</p><p class="font-preview-digits">"0123456789"</p></div>
         <div class="preference-row"><div><h2>"Motion"</h2><p>"Reduce movement, keeping subtle fades."</p></div><SelectField label="Motion" value=motion options=Signal::derive(||vec![SelectOption::new("system","Use system setting"),SelectOption::new("reduce","Reduce motion")]) on_change=Callback::new(move|v:String|{persist("tickets.motion",&v);motion.set(v);apply_appearance();})/></div>
     </section>}
 }

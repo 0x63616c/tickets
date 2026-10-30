@@ -10,6 +10,8 @@ mod cleanup;
 mod component;
 mod design_tokens;
 #[cfg(not(target_arch = "wasm32"))]
+mod fonts;
+#[cfg(not(target_arch = "wasm32"))]
 mod github_pr_check;
 #[cfg(not(target_arch = "wasm32"))]
 mod home;
@@ -121,6 +123,8 @@ fn main() -> Result {
         Some("tokens-shot") => tokens::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-shot") => settings::shots(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("font-check") => fonts::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-check") => api_smoke::settings(root),
         #[cfg(not(target_arch = "wasm32"))]

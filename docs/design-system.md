@@ -49,7 +49,7 @@ as a statement about the GitHub issues' actual progress.
 | `components/controls.rs` | Button, IconButton, TextInput, LabelChip, Avatar, Shortcut, EmptyState, Markdown, ConnectionIndicator |
 | `components/icons.rs` | One 16px/1.5px-stroke SVG family; status shapes and priority bars |
 | `components/overlays.rs` | Native Modal, command palette, creation/dependency dialogs, toast |
-| `style/tokens.css` | Color/type/spacing/radius/shadow/motion roles; self-hosted Inter Variable and Geist Mono |
+| `style/tokens.css` | Color/type/spacing/radius/shadow/motion roles; self-hosted Geist, Inter Variable and Geist Mono |
 | `crates/core/src/markdown.rs` | The shared Markdown-to-HTML boundary; pulldown-cmark then ammonia |
 
 Use the existing role tokens; do not introduce a new palette per page. Use
@@ -59,7 +59,7 @@ use color as the only status signal. Board cards and list rows share the same
 status names and icons. Route snapshots crossfade briefly; hover uses short color changes. See the TIK-38 interaction contract below.
 
 A sidebar item is 28px high, a top/view bar 44px, a list/group row 36px. Body UI
-is 13px Inter at 510 for rows; detail titles are 20px/590. Controls use 6px radii,
+is 13px Geist at 510 for rows; detail titles are 20px/590. Controls use 6px radii,
 cards/menus 8px, dialogs 12px. Desktop sidebar width is 240px. Smaller screens hide
 optional list properties first; boards scroll horizontally inside the content
 area. The sidebar collapses behind a labelled toggle. Detail properties follow
@@ -427,3 +427,18 @@ Workspace inheritance stays visible; projects can save a complete override or us
 workspace rules again. Unsaved edits lock scope until saved/discarded. Errors keep
 inputs intact. `/design/c/pickup-rules` and `/design/settings/pickup-rules` use sample
 data only; `component-shot pickup-rules` captures the rendered editor and pages.
+
+## Font preference (TIK-83)
+
+Settings → Appearance uses the shared SelectField for Geist (default), Geist Mono,
+Inter and System, with an immediate ticket/body/digits preview. The browser-local
+`tickets.font` preference sets `data-font` on the document before app startup.
+Unknown values fall back to Geist. `--font-ui` is the single selected font stack;
+`--font-sans` aliases it for existing UI consumers. `--font-mono` always stays
+Geist Mono for code and mono metadata. All bundled faces are self-hosted variable
+WOFF2 files with notices in `crates/web/fonts/`; the default is preloaded.
+
+Run `CHROME_BIN=<headless-chromium> cargo xtask font-check` after building for
+fixture-only font selection, persistence, pre-mount boot and mobile checks plus
+Settings/Board captures under `docs/screenshots/TIK-83`. Set
+`TICKETS_BEFORE_ASSETS=<main-dist>` to capture the actual main baseline.
