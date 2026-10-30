@@ -42,7 +42,9 @@ pub fn shots(root: &Path, assets: &Path, output: &Path, before: bool) -> super::
         )?;
         if width == 390 {
             b.click("[aria-label='Toggle sidebar']")?;
-            b.eval("document.activeElement?.blur();new Promise(r=>setTimeout(()=>r(true),200))")?;
+            b.wait("!!document.activeElement?.closest('.sidebar')")?;
+            b.click(".sidebar .workspace-brand")?;
+            b.eval("new Promise(r=>setTimeout(()=>r(true),300))")?;
             b.screenshot(&output.join(format!("{prefix}-mission-mobile-sidebar.png")))?;
         }
     }

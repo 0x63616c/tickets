@@ -177,16 +177,6 @@ async fn dispatch<S: Store>(
     if parts.len() < 3 || parts[..2] != ["api", "v1"] {
         return Err(Error::NotFound.into());
     }
-    if method == "GET" && parts == ["api", "v1", "mission"] {
-        return Ok(Reply {
-            status: 200,
-            change: None,
-            body: crate::mission::get(r.0).await?,
-        });
-    }
-    if let ("PUT", ["api", "v1", "mission", "reports", source]) = (method, parts.as_slice()) {
-        return Ok(crate::mission::put(r.0, source, &body.to_string()).await);
-    }
     if method == "GET" && parts == ["api", "v1", "github", "app", "credentials"] {
         // The auth gate derives this actor from a validated bearer token or session.
         if r.1.kind != tickets_core::history::ActorKind::ApiToken {
@@ -223,6 +213,16 @@ async fn dispatch<S: Store>(
             change: None,
             body: crate::analytics::home(r.0, q).await?,
         });
+    }
+    if method == "GET" && parts == ["api", "v1", "mission"] {
+        return Ok(Reply {
+            status: 200,
+            change: None,
+            body: crate::mission::get(r.0).await?,
+        });
+    }
+    if let ("PUT", ["api", "v1", "mission", "reports", source]) = (method, parts.as_slice()) {
+        return Ok(crate::mission::put(r.0, source, &body.to_string()).await);
     }
     if parts.as_slice() == ["api", "v1", "pickup-rules"]
         && ["GET", "PUT", "DELETE"].contains(&method)

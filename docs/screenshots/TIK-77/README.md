@@ -12,6 +12,10 @@ Dark fixture captures, with bundled fonts loaded:
 | after-mission-mobile-sidebar.png | Mission Control selected in mobile sidebar |
 | after-mission-component.png | `/design/c/mission`, tightly cropped, 2× DPR |
 
+After captures inherit the Geist default from the separately merged TIK-83;
+the before captures retain the original Inter baseline. Mission Control uses
+the shared font tokens.
+
 Mission Control did not exist at the base revision; the before captures preserve
 the real Home/sidebar. The after routes render the same Mission page using only
 sample data from `fixtures.rs`. All seven sections are populated, with CI pass,
