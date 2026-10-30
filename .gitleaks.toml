@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Disposable generated RSA conversion/signing fixtures; never registered credentials"
+paths = ['''^crates/core/tests/fixtures/github-app-test-(rsa|pkcs8)\.pem$''']
