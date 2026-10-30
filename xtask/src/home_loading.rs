@@ -119,7 +119,10 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         .arg(frames.join("%03d.png"))
         .args([
             "-vf",
-            &format!("scale=256:160,tile=8x{}", count.div_ceil(8)),
+            &format!(
+                "trim=end_frame={count},scale=256:160,tile=8x{}",
+                count.div_ceil(8)
+            ),
             "-frames:v",
             "1",
         ])
