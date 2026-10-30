@@ -94,12 +94,23 @@ pub fn ApiProjects() -> impl IntoView {
 }
 
 #[component]
-fn ProjectEditor(
+pub(crate) fn ProjectEditor(
     project: Option<Project>,
     open: Signal<bool>,
     on_close: Callback<()>,
+    #[prop(default = true)] archive_control: bool,
+    #[prop(optional)] restore_project: Option<i64>,
 ) -> impl IntoView {
+    on_cleanup(move || {
+        if let Some(id) = restore_project {
+            request_animation_frame(move || crate::components::focus_project_action(id));
+        }
+    });
     let board = expect_context::<BoardState>();
+    let fixture = leptos_router::hooks::use_location()
+        .pathname
+        .get_untracked()
+        .starts_with("/design");
     let id = project.as_ref().map(|p| p.id);
     let name = RwSignal::new(project.as_ref().map(|p| p.name.clone()).unwrap_or_default());
     let prefix = RwSignal::new(
@@ -127,12 +138,7 @@ fn ProjectEditor(
             .map(|p| p.github_project_kind.clone())
             .unwrap_or("users".into()),
     );
-    let repo = RwSignal::new(
-        project
-            .as_ref()
-            .and_then(|p| p.github_repo.clone())
-            .unwrap_or_default(),
-    );
+    let repo = RwSignal::new(project.as_ref().and_then(repository).unwrap_or_default());
     let icon = RwSignal::new(
         project
             .as_ref()
@@ -151,9 +157,22 @@ fn ProjectEditor(
             let link=if owner.get_untracked().trim().is_empty(){Ok(None)}else{ProjectLink::parse(&owner.get_untracked(),"",&kind.get_untracked()).map(Some)};
             let link=match link{Ok(link)=>link,Err(e)=>{error.set(e);return;}};
             let repository=repo.get_untracked().trim().to_string();
-            if !repository.is_empty() && (!tickets_core::github::valid_repo(&repository) || (link.is_none() && saved_owner.is_none())) {error.set("Enter a repository name and link its GitHub Project first.".into());return;}
-            let body=json!({"name":name.get_untracked().trim(),"key_prefix":prefix.get_untracked().trim(),"color":color.get_untracked(),"icon":if icon.get_untracked().is_empty(){None}else{Some(icon.get_untracked())},"archived":archived.get_untracked(),"github_owner":link.as_ref().map(|l|l.owner.clone()).or_else(||if repository.is_empty(){None}else{saved_owner.clone()}),"github_project_number":link.as_ref().map(|l|l.number),"github_project_kind":link.as_ref().map(|l|l.kind.as_str()).unwrap_or(&kind.get_untracked()),"github_repo":if repository.is_empty(){None}else{Some(repository)}});
+            let path=repository.strip_prefix("https://github.com/").or_else(||repository.strip_prefix("github.com/")).unwrap_or(&repository).trim_end_matches('/');
+            let (repo_owner,repo_name)=if path.is_empty(){(None,None)}else if let Some((owner,name))=path.split_once('/'){
+                if !tickets_core::github::valid_owner(owner) || !tickets_core::github::valid_repo(name){error.set("Enter a GitHub repository URL or owner/repository.".into());return;}
+                (Some(owner.to_string()),Some(name.to_string()))
+            }else if tickets_core::github::valid_repo(path){
+                let Some(owner)=link.as_ref().map(|l|l.owner.clone()).or(saved_owner.clone())else{error.set("Enter a GitHub repository URL or owner/repository.".into());return;};
+                (Some(owner),Some(path.to_string()))
+            }else{error.set("Enter a GitHub repository URL or owner/repository.".into());return;};
+            if let (Some(link),Some(owner))=(&link,&repo_owner) && link.owner!=*owner {error.set("The repository and GitHub Project must use the same owner.".into());return;}
+            let body=json!({"name":name.get_untracked().trim(),"key_prefix":prefix.get_untracked().trim(),"color":color.get_untracked(),"icon":if icon.get_untracked().is_empty(){None}else{Some(icon.get_untracked())},"archived":archived.get_untracked(),"github_owner":link.as_ref().map(|l|l.owner.clone()).or(repo_owner),"github_project_number":link.as_ref().map(|l|l.number),"github_project_kind":link.as_ref().map(|l|l.kind.as_str()).unwrap_or(&kind.get_untracked()),"github_repo":repo_name});
             if let Err(e)=tickets_core::api::validate_create("projects",&body){error.set(e);return;}
+            if fixture {
+                let mut saved=project.clone().expect("fixture editing an existing project");
+                saved.name=name.get_untracked().trim().into();saved.key_prefix=prefix.get_untracked().trim().into();saved.color=color.get_untracked();saved.icon=body["icon"].as_str().map(str::to_string);saved.archived=archived.get_untracked();saved.github_owner=body["github_owner"].as_str().map(str::to_string);saved.github_repo=body["github_repo"].as_str().map(str::to_string);
+                board.projects.update(|ps|{if let Some(p)=ps.iter_mut().find(|p|p.id==saved.id){*p=saved;}});on_close.run(());return;
+            }
             busy.set(true);
             spawn_local(async move{
                 let path=id.map(|id|format!("/api/v1/projects/{id}")).unwrap_or("/api/v1/projects".into());
@@ -170,10 +189,11 @@ fn ProjectEditor(
         <TextInput id="project-prefix" label="Key prefix" placeholder="TKT" value=prefix/>
         <Show when=move||id.is_some()><p class="muted">"Changing the prefix updates existing ticket keys."</p></Show>
         <ProjectIconPicker value=icon color name/><fieldset class="project-colors"><legend>"Icon color"</legend><div class="project-swatches">{[("#5e6ad2","Accent","--accent"),("#8b82d9","Feature","--label-feature"),("#eb5757","Bug","--label-bug"),("#4ea7fc","Infrastructure","--label-infra"),("#c6a1b9","Design","--label-design"),("#27a644","Green","--success"),("#f0bf00","Yellow","--warning")].into_iter().map(|(value,label,token)|view!{<button type="button" class="project-swatch" aria-label=format!("{label} color") aria-pressed=move||(color.get()==value).to_string() style=format!("--swatch:var({token})") on:click=move|_|color.set(value.into())/>}).collect_view()}</div></fieldset>
+        <TextInput id="project-color" label="Color" placeholder="#RRGGBB" value=color/>
         <TextInput id="project-owner" label="GitHub Project" placeholder="github.com/orgs/example/projects/1 or example/1" value=owner/>
         <Show when=move||{let value=owner.get(); !value.trim().is_empty() && !value.contains("github.com/") && !value.contains("://")}><label class="field">"Owner type"<SelectField label="Owner type" value=Signal::derive(move||kind.get()) options=Signal::derive(move||vec![SelectOption::new("users","User"),SelectOption::new("orgs","Organization")]) on_change=Callback::new(move|next:String|kind.set(next))/></label></Show>
-        <TextInput id="project-repo" label="Repository name (optional)" placeholder="repo" value=repo/>
-        <Show when=move||id.is_some()><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Archived"</label><p class="muted">"Archived projects leave the sidebar. Tickets are kept and remain editable."</p></Show>
+        <TextInput id="project-repo" label="GitHub repository (optional)" placeholder="https://github.com/owner/repo" value=repo/>
+        <Show when=move||id.is_some() && archive_control><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Archived"</label><p class="muted">"Archived projects leave the sidebar. Tickets are kept and remain editable."</p></Show>
         <Show when=move||!error.get().is_empty()><p role="alert">{error}</p></Show>
         </div><div class="modal-footer"><button class="button button-ghost" type="button" disabled=busy on:click=move|_|on_close.run(())>"Cancel"</button><BusyButton busy>{if id.is_some(){"Save project"}else{"Create project"}}</BusyButton></div>
         </form>

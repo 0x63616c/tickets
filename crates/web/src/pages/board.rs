@@ -477,6 +477,20 @@ pub fn ApiBoard() -> impl IntoView {
     let design = expect_context::<DesignState>();
     state.refresh();
     let query = leptos_router::hooks::use_query_map();
+    Effect::new(move |_| {
+        let requested = query
+            .get()
+            .get("project")
+            .and_then(|id| id.parse::<i64>().ok());
+        let projects = state.projects.get();
+        if !state.loading.get()
+            && let Some(id) = requested
+            && projects.iter().any(|p| p.id == id && !p.archived)
+            && state.project.get_untracked() != id
+        {
+            state.select_project(id);
+        }
+    });
     let navigate = leptos_router::hooks::use_navigate();
     let show_canceled =
         Signal::derive(move || query.get().get("canceled").as_deref() == Some("true"));
