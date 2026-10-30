@@ -1,6 +1,8 @@
 # TIK-46 compact Dots cards
 
-Fixture-only evidence; no production data or tokens. Baseline: 8bc5d99bacba936de87d2531c49993decfc4ec3f.
+Fixture sample data only.
+
+Baseline commit: `8bc5d99bacba936de87d2531c49993decfc4ec3f`.
 
 `cargo xtask card-shots` serves four API-shaped sample tickets through the local
 fixture server. Before uses that base commit's built assets via
