@@ -180,7 +180,7 @@ pub fn check(root: &Path, password: &str, state: &Path) -> Result<()> {
         json!({"type":"keyUp","key":"Enter","windowsVirtualKeyCode":13}),
     )?;
     b.wait("location.pathname === '/list' && !!document.querySelector('.topbar')")?;
-    b.eval("[...document.querySelectorAll('.sidebar-bottom button')].find(b=>b.textContent.includes('Sign out')).click();true")?;
+    b.sign_out()?;
     b.wait("location.pathname === '/login' && !!document.querySelector('.login-page')")?;
     go(
         &mut b,

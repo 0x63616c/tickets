@@ -159,11 +159,11 @@ fn interactions(b: &mut Browser) -> Result {
     b.wait("document.documentElement.scrollWidth<=innerWidth")?;
     b.click("[aria-label='Toggle sidebar']")?;
     b.wait("document.querySelector('[aria-label=\"Toggle sidebar\"]').getAttribute('aria-expanded')==='true' && document.querySelector('.sidebar').getBoundingClientRect().width===240")?;
-    b.wait("document.activeElement.matches('.sidebar .workspace-switcher')")?;
+    b.wait("document.activeElement.matches('.sidebar .account-trigger')")?;
     b.key("Tab", 9, 8)?;
-    b.wait("document.activeElement.matches('.sidebar-bottom a:last-of-type')")?;
+    b.wait("document.activeElement.matches('.sidebar a[href=\"/list\"]')")?;
     b.key("Tab", 9, 0)?;
-    b.wait("document.activeElement.matches('.sidebar .workspace-switcher')")?;
+    b.wait("document.activeElement.matches('.sidebar .account-trigger')")?;
     b.key("Escape", 27, 0)?;
     b.wait("document.activeElement.getAttribute('aria-label')==='Toggle sidebar' && !document.querySelector('.sidebar-dismiss')")?;
     b.go(&format!("{URL}/list?project=1"))?;

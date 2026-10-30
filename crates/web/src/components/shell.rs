@@ -180,7 +180,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
                         <ProjectIcon name=p.name.clone() icon=p.icon.clone().unwrap_or_default() color=p.color.clone()/><span>{p.name.clone()}</span><span class="nav-count" title="Open tickets">{p.open_ticket_count}</span>
                     </a>
                 }}).collect_view()}
-                <a class="nav-item quiet" href=if fixture {"/design/projects"}else{"/projects?new=true"}><Icon name="plus"/><span>"New project"</span></a>
+                <a class="nav-item quiet" href=if fixture {"/design/projects"}else{"/projects?new=true"} on:click=move|e|{if fixture{e.prevent_default();state.dialog.set(DialogKind::Project);}}><Icon name="plus"/><span>"New project"</span></a>
             </SidebarSection>
             <SidebarSection title="Views" storage="tickets.sidebar.views" id="sidebar-views">
                 <Tooltip text="Board · G then B"><A href=board_path exact=true attr:class="nav-item"><Icon name="board"/><span>"Board"</span></A></Tooltip>

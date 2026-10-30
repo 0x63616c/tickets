@@ -74,6 +74,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('#display-name')?.value==='Sample User'")?;
     b.click(".user-menu .account-trigger")?;
     b.wait("document.querySelector('.user-menu .account-trigger').getAttribute('aria-expanded')==='true' && document.querySelector('.account-menu-heading').textContent.includes('Sample User')")?;
+    b.wait("document.activeElement.matches('.user-menu [role=menuitem]')")?;
     b.key("Escape", 27, 0)?;
     b.wait("document.activeElement.matches('.user-menu .account-trigger')")?;
     b.click("[aria-controls=sidebar-projects]")?;
@@ -121,6 +122,8 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('.app-shell').classList.contains('sidebar-open')")?;
     b.key("Escape", 27, 0)?;
     b.wait("document.activeElement.getAttribute('aria-label')==='Toggle sidebar'")?;
+    b.sign_out()?;
+    b.wait("location.pathname==='/login'")?;
     println!(
         "PASS settings: account persistence, menu focus, collapsed sections, token redirect/lifecycle, appearance persistence, Home and G shortcuts, mobile overflow/focus"
     );
