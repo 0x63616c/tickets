@@ -50,6 +50,8 @@ jobs:
       - run: cargo xtask pickup-check
       - name: Reuse the verified application build for isolated checks
         run: echo 'TICKETS_SKIP_BUILD=1' >> "$GITHUB_ENV"
+      - run: cargo xtask api-smoke
+      - run: cargo xtask perf-check
       - run: CHROME_BIN=google-chrome cargo xtask settings-check
       - run: CHROME_BIN=google-chrome cargo xtask font-check
       - run: cargo xtask skill-check
