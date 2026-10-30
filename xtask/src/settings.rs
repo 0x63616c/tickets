@@ -393,7 +393,9 @@ pub fn avatar_check(root: &Path, password: &str) -> super::Result {
       return true;
     })()"#)?;
     b.go("http://127.0.0.1:8795/t/AV-1")?;
-    b.wait("document.querySelector('.comment .avatar img')?.naturalWidth===256 && document.querySelector('.assignee-editor .avatar img')?.naturalWidth===256")?;
+    b.wait("document.body.innerText.includes('Profile photo saved and visible on comments.') && document.querySelector('.comment .avatar img')?.naturalWidth===256 && document.querySelector('.assignee-editor .avatar img')?.naturalWidth===256")?;
+    // Let the ascii-reveal loading animation settle before capturing.
+    b.eval("new Promise(r=>setTimeout(()=>r(true),2500))")?;
     visible_page(&mut b, &output.join("comment-assignee-avatar.png"))?;
     b.go("http://127.0.0.1:8795/settings/account")?;
     b.wait("document.querySelector('.profile-photo img')?.naturalWidth===256")?;
