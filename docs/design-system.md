@@ -9,7 +9,7 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 | Route | Reference |
 | --- | --- |
 | `/design/home` | Current work, eight UTC weeks, review/blocked queues and chart data tables |
-| `/design/board` | Four-column Kanban; status menu and drag alternatives; counts, labels, blockers |
+| `/design/board` | Configurable Kanban columns; status menu and drag alternatives; counts, labels, blockers |
 | `/design/list` | 36px rows grouped by status; aligned ID, label, comment, project, and date fields |
 | `/design/ticket` | TKT-7; sanitized Markdown, task list, comments, properties, both dependency directions |
 | `/design/ticket?id=6` | A specific fixture ticket; all ticket links retain their ID |
@@ -69,7 +69,9 @@ All spacing sits on a 4px grid: buttons and fields are 32px high with 12px
 horizontal padding, keyboard hints 20px, label chips 24px, swatches 32px.
 
 The #15 audit uses the same rules on real API routes. Board columns retain a
-240px minimum; In review appears when populated. Shared status selects offer all
+240px minimum; In review stays visible even when empty. The Columns checkbox menu shows all
+statuses except Canceled by default, keeps one visible, and remembers each project
+in localStorage. Shared status selects offer all
 six statuses without shifting columns on pickup. Extra columns scroll without
 shrinking the 240px sidebar. List keys
 occupy a fixed 56px slot at both viewport sizes; titles truncate and expose their

@@ -1,6 +1,6 @@
 # API-backed Kanban (#7)
 
-The real board is `/board`. Pick a project in the sidebar. Five statuses are visible by default; Show canceled persists `?canceled=true`.
+The real board is `/board`. Pick a project in the sidebar. Five statuses are visible by default, including empty In review; only Canceled is hidden. The Columns checkbox menu remembers visible statuses per project in localStorage (`tickets.board.columns.project.<id>`), with at least one column always visible.
 Columns share space equally with a 240px minimum and 16px gaps. The sidebar
 contracts at 1440px to fit all five; narrower boards scroll horizontally. `/design/board`
 remains the in-memory visual reference.
@@ -35,7 +35,7 @@ builds release assets, starts local `wrangler dev`, applies tracked migrations
 to isolated D1 under `target/`, signs in through the actual UI, and seeds via API.
 It checks:
 
-- Five default columns and the URL-persisted sixth column, real metadata, active blockers, project isolation and empty
+- Five default columns, empty In review, and per-project column choices persisted across reload, real metadata, active blockers, project isolation and empty
   projects, including a dataset crossing the API's 100-ticket page boundary.
 - Native mouse drag between/within columns; keyboard move/reorder, cancellation,
   persisted ordering after reload, and restored focus.

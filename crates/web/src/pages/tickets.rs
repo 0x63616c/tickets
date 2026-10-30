@@ -6,11 +6,16 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 
 #[component]
-fn ViewToolbar(query: RwSignal<String>, #[prop(default = false)] board: bool) -> impl IntoView {
+fn ViewToolbar(
+    query: RwSignal<String>,
+    #[prop(default = false)] board: bool,
+    #[prop(optional)] columns: Option<super::board::ColumnVisibility>,
+) -> impl IntoView {
+    let state = expect_context::<DesignState>();
     view! {
-        <div class="view-toolbar">
+        <div class="view-toolbar" class:board-filters=board>
             <div class="filter-input"><Icon name="filter"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Filter tickets" placeholder="Filter tickets…" prop:value=move || query.get() on:input=move |ev| query.set(event_target_value(&ev))/><Show when=move || !query.get().is_empty()><IconButton label="Clear filter" icon="close" on_click=Callback::new(move |_| query.set(String::new()))/></Show></div>
-            <span class="toolbar-caption">{if board { "Drag tickets to change status" } else { "All tickets" }}</span><span class="toolbar-divider"/><span class="display-label">"Grouped by status"</span>
+            {columns.map(|columns|view!{<super::board::ColumnsMenu columns disabled=Signal::derive(move||state.dragged.get().is_some())/>})}<span class="toolbar-caption">{if board { "Drag tickets to change status" } else { "All tickets" }}</span><Show when=move||!board><span class="toolbar-divider"/><span class="display-label">"Grouped by status"</span></Show>
         </div>
     }
 }
@@ -32,12 +37,18 @@ fn matches(ticket: &Ticket, query: &str, project: &str) -> bool {
 pub fn Board() -> impl IntoView {
     let state = expect_context::<DesignState>();
     let query = RwSignal::new(String::new());
+    let columns = super::board::ColumnVisibility::new(Signal::derive(move || {
+        format!(
+            "tickets.fixture.board.columns.{}",
+            state.current_project.get()
+        )
+    }));
     view! {
-        <h1 class="sr-only">"Board preview"</h1><TopBar new_ticket=false/><ProjectHeader/><ViewToolbar query board=true/>
+        <h1 class="sr-only">"Board preview"</h1><TopBar new_ticket=false/><ProjectHeader/><ViewToolbar query board=true columns/>
         <div class="board" aria-label="Ticket board">{Status::ALL.into_iter().map(|status| {
             let over = RwSignal::new(false);
             view! {
-                <Show when=move || !matches!(status, Status::InReview | Status::Canceled) || state.tickets.get().iter().any(|t| t.status == status)>
+                <Show when=move || columns.visible.get().contains(&status)>
                     <section class="board-column" class:drag-over=move || over.get() aria-label=status.name()
                         on:dragover=move |ev| { ev.prevent_default(); over.set(true); }
                         on:dragleave=move |_| over.set(false)
@@ -49,7 +60,7 @@ pub fn Board() -> impl IntoView {
                 </Show>
             }
         }).collect_view()}</div>
-        <ViewFooter query/>
+        <ViewFooter query columns/>
     }
 }
 
@@ -125,9 +136,12 @@ fn TicketRow(ticket: Ticket) -> impl IntoView {
 }
 
 #[component]
-fn ViewFooter(query: RwSignal<String>) -> impl IntoView {
+fn ViewFooter(
+    query: RwSignal<String>,
+    #[prop(optional)] columns: Option<super::board::ColumnVisibility>,
+) -> impl IntoView {
     let state = expect_context::<DesignState>();
-    view! { <div class="view-footer"><span>{move || crate::count::count_label(state.tickets.get().iter().filter(|t| matches(t, &query.get(), &state.current_project.get())).count(), "ticket")}</span><span>"Create a ticket"<Shortcut>"C"</Shortcut></span></div> }
+    view! { <div class="view-footer"><span>{move || crate::count::count_label(state.tickets.get().iter().filter(|t| matches(t, &query.get(), &state.current_project.get()) && columns.is_none_or(|c|c.visible.get().contains(&t.status))).count(), "ticket")}</span><span>"Create a ticket"<Shortcut>"C"</Shortcut></span></div> }
 }
 
 #[component]
