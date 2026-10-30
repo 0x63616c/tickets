@@ -57,16 +57,40 @@ pub fn Board() -> impl IntoView {
 pub fn TicketCard(ticket: Ticket) -> impl IntoView {
     let state = expect_context::<DesignState>();
     let id = ticket.id;
+    let navigate = leptos_router::hooks::use_navigate();
+    let open =
+        Callback::new(move |_| navigate(&format!("/design/ticket?id={id}"), Default::default()));
+    let was_dragged = RwSignal::new(false);
+    let title_tooltip = ticket.title.clone();
+    let title_label = format!("TKT-{id}: {}", ticket.title);
+    let labels = std::iter::once(ticket.label.to_string())
+        .chain(ticket.extra_labels)
+        .enumerate()
+        .map(|(i, name)| {
+            let color = match name.as_str() {
+                "Feature" => "#8b82d9",
+                "Bug" => "#eb5757",
+                "Infrastructure" => "#4ea7fc",
+                "Design" => "#c6a1b9",
+                _ => "#8a8f98",
+            };
+            tickets_core::domain::Label {
+                id: i as i64,
+                name: name.clone(),
+                color: color.into(),
+            }
+        })
+        .collect();
     view! {
-        <article class="ticket-card" data-motion-key=format!("fixture-{id}") draggable="true" on:dragstart=move |ev| { state.dragged.set(Some(id)); if let Some(data) = ev.data_transfer() { let _ = data.set_data("text/plain", &id.to_string()); } } on:dragend=move |_| state.dragged.set(None)>
-            <div class="card-top"><span class="mono ticket-id">{format!("TKT-{id}")}</span><span title=ticket.priority.name()><PriorityIcon priority=ticket.priority/></span></div>
-            <A href=format!("/design/ticket?id={id}") attr:class="card-title">{ticket.title}</A>
-            {ticket.blocked.then(|| view! { <span class="blocked-note"><Icon name="blocked"/>"Blocked by TKT-5"</span> })}
-            <div class="card-labels"><LabelChip name=ticket.label/>{ticket.extra_labels.into_iter().map(|name| view! { <LabelChip name/> }).collect_view()}</div>
-            <div class="card-bottom">
-                <div class="card-status"><StatusIcon status=ticket.status/><SelectField label=format!("Move TKT-{id} to status") value=Signal::derive(move||ticket.status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|state.move_ticket(id,Status::from_name(&next)))/></div>
-                <div class="card-meta">{(ticket.comments > 0).then(|| view! { <span class="comment-count" aria-label=crate::count::count_label(ticket.comments as usize, "comment")><Icon name="comment"/>{ticket.comments}</span> })}</div>
-            </div>
+        <article class="ticket-card" data-motion-key=format!("fixture-{id}") tabindex="0" aria-label=title_label draggable="true" class:drag-over=move||state.dragged.get()==Some(id)
+            on:pointerdown=move|_|was_dragged.set(false)
+            on:click=move|e|{if !was_dragged.get_untracked() && !ticket_interactive_target(e.target()){open.run(());}}
+            on:keydown=move|e|{if e.key()=="Enter" && !ticket_interactive_target(e.target()) && state.dragged.get_untracked().is_none(){e.prevent_default();open.run(());}}
+            on:dragstart=move |ev| { was_dragged.set(true);state.dragged.set(Some(id)); if let Some(data) = ev.data_transfer() { let _ = data.set_data("text/plain", &id.to_string()); } } on:dragend=move |_| state.dragged.set(None)>
+            <div class="card-top"><span class="mono ticket-id">{format!("TKT-{id}")}</span><span class="card-indicators"><span title=ticket.priority.name()><PriorityIcon priority=ticket.priority/></span><span class="card-status" title=ticket.status.name()><SelectField label=format!("Move TKT-{id} to status") value=Signal::derive(move||ticket.status.name().to_string()) options=Signal::derive(move||Status::ALL.into_iter().map(SelectOption::status).collect()) on_change=Callback::new(move|next:String|state.move_ticket(id,Status::from_name(&next)))/></span></span></div>
+            <A href=format!("/design/ticket?id={id}") attr:class="card-title" attr:title=title_tooltip>{ticket.title.clone()}</A>
+            {ticket.blocked.then(|| view! { <span class="blocked-note" title="Blocked by TKT-5"><Icon name="blocked"/><span>"Blocked by TKT-5"</span></span> })}
+            <div class="card-bottom"><CardLabels labels/><span class="card-meta">{(ticket.comments > 0).then(|| view! { <span class="comment-count" aria-label=crate::count::count_label(ticket.comments as usize, "comment")><Icon name="comment"/>{ticket.comments}</span> })}</span></div>
         </article>
     }
 }

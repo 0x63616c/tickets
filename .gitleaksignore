@@ -1,1 +1,4 @@
 53389f3786d11823625459c5f549f3abf1410443:xtask/src/import_check.rs:generic-api-key:323
+
+# Screenshot baseline Git SHA; historical documentation false positive, not a credential.
+9b32ebcbc9edc8a81078105d2cab910a5e992ce9:docs/screenshots/TIK-46/README.md:generic-api-key:3

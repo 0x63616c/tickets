@@ -377,3 +377,19 @@ status, priority and project choices show the saved value. Escape returns a leve
 then restores opener focus on close. This frequently invoked surface uses an
 opacity-only transition; shared modal containment and reduced-motion preferences
 still apply. `/design/c/palette` is a fixture-only preview of this same component.
+
+### Compact board cards (TIK-46)
+
+Cards use option B (Dots): Geist Mono key left, priority and shared icon-only
+status select right, title clamped at two lines with its full hover title, then
+label colour dots and comma-separated short names (up to three) with ellipsis.
+The label summary hover title retains full visible label names. Priority labels
+stay stored and are hidden on cards. Comment counts sit at the footer right;
+blocked notes occupy one truncated line. The same layout serves fixture and API
+cards. Whole-card and whole-list-row clicks open the ticket while nested
+controls/links retain their own actions. Enter opens the focused surface.
+Card press scales to .97, except during drag or reduced motion.
+
+`cargo xtask card-shots` captures fixture-only 2× cropped long-title, many-label,
+urgent and blocked cards plus desktop/mobile board and list PNGs.
+`TICKETS_BEFORE_ASSETS=/absolute/base/crates/web/dist` captures matching baselines.
