@@ -546,7 +546,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     )?;
     b.wait("document.querySelectorAll('.command-results .menu-item').length===1 && document.querySelector('.command-results').textContent.includes('TKT-4')")?;
     b.key("Escape", 27, 0)?;
-    b.wait("!document.querySelector('dialog') && document.querySelector('.user-menu').textContent.includes('Sign out')")?;
+    b.wait("!document.querySelector('dialog') && !!document.querySelector('.user-menu .account-trigger')")?;
     b.click(".toast button")?;
     let output = root.join("docs/screenshots/kanban");
     fs::create_dir_all(&output)?;

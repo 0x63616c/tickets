@@ -83,7 +83,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.go("http://127.0.0.1:8795/settings/account")?;
     b.wait("document.querySelector('#display-name')?.value==='Sample User'")?;
     b.click(".user-menu .account-trigger")?;
-    b.wait("document.querySelector('.user-menu .account-trigger').getAttribute('aria-expanded')==='true' && document.querySelector('.account-menu-heading').textContent.includes('Sample User')")?;
+    b.wait("document.querySelector('.user-menu .account-trigger').getAttribute('aria-expanded')==='true' && document.querySelector('.account-trigger').textContent.includes('Sample User')")?;
     b.wait("document.activeElement.matches('.user-menu [role=menuitem]')")?;
     b.key("Escape", 27, 0)?;
     b.wait("document.activeElement.matches('.user-menu .account-trigger')")?;

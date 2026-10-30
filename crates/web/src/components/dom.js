@@ -9,14 +9,14 @@ export function position_popup(trigger, panel) {
   panel.style.maxWidth = `${innerWidth - edge * 2}px`;
   panel.style.minWidth = `${Math.min(r.width, innerWidth - edge * 2)}px`;
   const below = innerHeight - r.bottom - gap - edge, above = r.top - gap - edge;
-  const up = below < Math.min(panel.scrollHeight, 280) && above > below;
+  const up = trigger.classList.contains('account-trigger') || (below < Math.min(panel.scrollHeight, 280) && above > below);
   panel.dataset.side = up ? 'top' : 'bottom';
   panel.style.maxHeight = `${Math.max(48, Math.min(320, up ? above : below))}px`;
   const p = panel.getBoundingClientRect();
   const left = Math.max(edge, Math.min(r.left, innerWidth - p.width - edge));
   panel.style.left = `${left}px`;
   panel.style.top = `${up ? Math.max(edge, r.top - p.height - gap) : r.bottom + gap}px`;
-  panel.style.transformOrigin = `${Math.max(0, Math.min(p.width, r.left + r.width / 2 - left))}px ${up ? 'bottom' : 'top'}`;
+  panel.style.transformOrigin = trigger.classList.contains('account-trigger') ? `left ${up ? 'bottom' : 'top'}` : `${Math.max(0, Math.min(p.width, r.left + r.width / 2 - left))}px ${up ? 'bottom' : 'top'}`;
 }
 export function hide_popup(panel) {
   try { if (panel.matches(':popover-open')) panel.hidePopover(); } catch (_) { /* fallback */ }
