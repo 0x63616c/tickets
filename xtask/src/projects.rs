@@ -139,7 +139,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.documentElement.scrollWidth<=innerWidth")?;
     b.screenshot(&output.join("header-after-mobile.png"))?;
     b.viewport(1440, 900)?;
-    b.click(".topbar .button-primary")?;
+    b.click("[aria-label='Add ticket to Todo']")?;
     b.text("#board-title", "Project workflow ticket")?;
     b.choose("[aria-label=\"New ticket project\"]", "3")?;
     b.click("dialog button[type=submit]")?;
