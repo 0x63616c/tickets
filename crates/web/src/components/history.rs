@@ -58,17 +58,29 @@ fn relative_time(iso: &str) -> String {
     }
 }
 #[component]
-pub fn ActivityTime(iso: String) -> impl IntoView {
-    let label = RwSignal::new(relative_time(&iso));
+pub fn ActivityTime(iso: String, #[prop(optional)] edited: bool) -> impl IntoView {
+    let label = RwSignal::new(if edited {
+        "edited".into()
+    } else {
+        relative_time(&iso)
+    });
     let timestamp = iso.clone();
-    let interval =
-        gloo_timers::callback::Interval::new(60_000, move || label.set(relative_time(&timestamp)));
+    let interval = gloo_timers::callback::Interval::new(60_000, move || {
+        if !edited {
+            label.set(relative_time(&timestamp));
+        }
+    });
     let _interval = StoredValue::new_local(interval);
     let exact = iso.get(..19).unwrap_or(&iso).replace('T', " ") + " UTC";
+    let exact = if edited {
+        format!("Edited {exact}")
+    } else {
+        exact
+    };
     let show_exact = RwSignal::new(false);
     let title = exact.clone();
     let accessible = format!("{exact}. Toggle exact time");
-    view! {<button type="button" class="activity-time" title=title aria-label=accessible aria-pressed=move||show_exact.get().to_string() on:click=move|_|show_exact.update(|v| *v = !*v)><time datetime=iso>{move||if show_exact.get(){exact.clone()}else{label.get()}}</time></button>}
+    view! {<button type="button" class="activity-time" class:comment-edited=edited title=title aria-label=accessible aria-pressed=move||show_exact.get().to_string() on:click=move|_|show_exact.update(|v| *v = !*v)><time datetime=iso>{move||if show_exact.get(){exact.clone()}else{label.get()}}</time></button>}
 }
 #[component]
 pub fn HistoryEvent(entry: Entry) -> impl IntoView {
@@ -79,6 +91,9 @@ pub fn HistoryEvent(entry: Entry) -> impl IntoView {
         "created" if entry.actor_id == "migration" => "started tracking this ticket".into(),
         "created" => "created this ticket".into(),
         "deleted" => "deleted this ticket".into(),
+        "comment_created" => "posted a comment".into(),
+        "comment_edited" => "edited a comment".into(),
+        "comment_deleted" => "deleted a comment".into(),
         "description" => "changed the description".into(),
         "label_added" => format!("added label {after}"),
         "label_removed" => format!("removed label {before}"),

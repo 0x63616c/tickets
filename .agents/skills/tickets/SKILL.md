@@ -179,21 +179,49 @@ curl -sS -G "$TICKETS_URL/api/v1/search" -H "Authorization: Bearer $TICKETS_TOKE
 ## Comments
 
 Bodies are CommonMark + GFM Markdown. Responses include raw `body` and sanitized
-`body_html`; render only the latter as HTML. User comments use author `owner`;
-PR activity uses `GitHub` or `system`;
-callers cannot choose an author. Use returned comment IDs for edits/deletion.
+`body_html`; render only the latter as HTML. Session authors use display name
+(username fallback) and `author_kind:"user"`; bearer authors use their token name
+and `author_kind:"bot"`. Imported activity keeps `github`/`system`. Callers cannot
+choose an author. Only the same user/token can PATCH or DELETE (403 otherwise);
+the owner session cannot edit bot comments. Renaming never transfers ownership.
+
+Exact methods/paths (all write requests reject unknown fields):
+- GET `/api/v1/tickets/{id-or-key}/comments`: no body; 200
+  `{"data":[Comment],"next_cursor":null}`; ascending IDs, limit 1–100, default 50.
+- POST `/api/v1/tickets/{id-or-key}/comments`: `{"body":"Ready for **review**."}`;
+  201 Comment.
+- GET `/api/v1/comments/{id}`: no body; 200 Comment.
+- PATCH `/api/v1/comments/{id}`: `{"body":"Reviewed."}`; 200 Comment, edited_at set.
+- DELETE `/api/v1/comments/{id}`: no body; 200 `{"ok":true}`.
+
+Complete Comment example (all three single-comment response methods):
+
+```json
+{"id":1,"ticket_id":1,"author":"Build agent","author_kind":"bot","body":"Reviewed.","body_html":"<p>Reviewed.</p>\n","created_at":"2026-10-30T10:00:00.000Z","updated_at":"2026-10-30T10:01:00.000Z","edited_at":"2026-10-30T10:01:00.000Z","deleted_at":null,"deleted":false,"can_edit":true}
+```
+
+`can_edit` is caller-specific; comment responses omit ownership IDs. DELETE retains an
+empty-body stub in GET/list (`deleted:true`, `deleted_at` set, `can_edit:false`).
+Counts exclude deleted comments. Mutating a deleted own comment returns 404;
+legacy comments without durable identity are read-only. History records
+`comment_created`/`comment_edited`/`comment_deleted`, with comment IDs in event
+values. Use the returned IDs; never infer them from the walkthrough.
 
 ```sh
-# expect {"status":201,"body":{"id":1,"body":"Ready for **review**."}}
+# expect {"status":201,"body":{"id":1,"body":"Ready for **review**.","author_kind":"bot","deleted":false,"edited_at":null,"can_edit":true}}
 curl -sS "$TICKETS_URL/api/v1/tickets/1/comments" -H "Authorization: Bearer $TICKETS_TOKEN" \
   -H 'Content-Type: application/json' -d '{"body":"Ready for **review**."}'
 # expect {"status":200,"body":{"data":[{"id":1}]}}
 curl -sS "$TICKETS_URL/api/v1/tickets/1/comments" -H "Authorization: Bearer $TICKETS_TOKEN"
-# expect {"status":200,"body":{"body":"Reviewed."}}
+# expect {"status":200,"body":{"body":"Reviewed.","author_kind":"bot","deleted":false,"can_edit":true}}
 curl -sS -X PATCH "$TICKETS_URL/api/v1/comments/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
   -H 'Content-Type: application/json' -d '{"body":"Reviewed."}'
+# expect {"status":200,"body":{"body":"Reviewed.","author_kind":"bot","can_edit":true}}
+curl -sS "$TICKETS_URL/api/v1/comments/1" -H "Authorization: Bearer $TICKETS_TOKEN"
 # expect {"status":200,"body":{"ok":true}}
 curl -sS -X DELETE "$TICKETS_URL/api/v1/comments/1" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":200,"body":{"data":[{"id":1,"body":"","body_html":"","deleted":true,"can_edit":false}],"next_cursor":null}}
+curl -sS "$TICKETS_URL/api/v1/tickets/1/comments" -H "Authorization: Bearer $TICKETS_TOKEN"
 ```
 
 ## Importer upsert
@@ -223,7 +251,7 @@ Pass `next_cursor` unchanged with `cursor`; limit is 1–100 (default 50).
 Rows contain `field`, JSON `old_value`/`new_value`, UTC `recorded_at`, durable
 `subject_id`, and server-selected `actor_kind`, `actor_id`, `actor_label`.
 Fields cover creation, status, priority, assignee, labels, title, description,
-blockers, project moves, claims, heartbeats, expiry and release. History is
+blockers, project moves, claims, heartbeats, expiry, release and comment creation/edits/deletion. History is
 read-only; no-ops emit no rows. Successful heartbeats always record renewal.
 Deleted tickets return 404; retained history never leaks through a reused ID.
 Description/title values are raw text, not trusted HTML. Migration `created`
@@ -240,7 +268,7 @@ curl -sS "$TICKETS_URL/api/v1/tickets/3/history?limit=101" -H "Authorization: Be
 
 Inspect HTTP status and `{"error":{"code":"...","message":"..."}}`, not just
 curl's exit code (`-sS` still exits zero for HTTP errors). 400 malformed request,
-401 authentication, 403 cookie Origin failure, 404 missing resource, 409 conflict,
+401 authentication, 403 comment ownership or cookie Origin failure, 404 missing resource, 409 conflict,
 422 invalid fields/references, 500 storage failure. Correct invalid input before
 retrying. Before retrying a write after a transport/server failure, read back its
 state to avoid duplicate creates/comments; use external upsert for imports.

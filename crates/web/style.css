@@ -641,3 +641,24 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .blocked-indicator.row-blocked { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; color: var(--blocked); border-radius: var(--radius-sm); }
 .blocked-indicator .icon { width: 14px; height: 14px; }
 .blocked-indicator:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+
+.comment-bot {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+.comment-edited { color: var(--text-muted); font-size: var(--text-xs); }
+.comment-deleted .avatar { opacity: .6; }
+
+.comment-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); color: var(--text-secondary); }
+
+.comment-heading strong { min-width: 0; overflow-wrap: anywhere; }
+.comment-form > div:last-child { flex-wrap: wrap; gap: var(--space-2); }
+.comment-error { color: var(--danger); font-size: var(--text-sm); margin-block: var(--space-3); }
+@media (pointer: coarse) {
+  .comment-action { min-height: 44px; height: auto; padding-inline: var(--space-2); }
+}

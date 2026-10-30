@@ -185,7 +185,7 @@ fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
     run_inner_mode(root, skill, board, "board")
 }
 fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<()> {
-    if std::env::var_os("TICKETS_SKIP_BUILD").is_some() {
+    if std::env::var("TICKETS_SKIP_BUILD").as_deref() == Ok("1") {
         // Explicitly reuse assets built before a sequence of browser-only checks.
         if !root.join("crates/web/dist/index.html").is_file()
             || !root.join("crates/worker/build/worker/shim.mjs").is_file()

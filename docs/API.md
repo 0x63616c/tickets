@@ -167,24 +167,47 @@ curl -sS -X DELETE "$TICKETS_URL/api/v1/tickets/EX-1/dependencies/2" -H "Authori
 
 ## Comments
 
-| Method | Path | Behavior |
-| --- | --- | --- |
-| GET | `/tickets/{id-or-key}/comments` | Paginated comments |
-| POST | `/tickets/{id-or-key}/comments` | Required nonblank Markdown `body` |
-| GET | `/comments/{id}` | Comment |
-| PATCH | `/comments/{id}` | Update `body` |
-| DELETE | `/comments/{id}` | Delete comment |
+All paths below include `/api/v1`. Callers cannot set authors or timestamps;
+unknown request fields are rejected. `body` must be nonblank CommonMark/GFM.
+Render sanitized `body_html`, never raw `body` as HTML.
 
-Responses contain raw `body` and sanitized `body_html`. User-created comments use author
-`owner`; PR activity uses `GitHub` or `system`. Callers cannot spoof authors through request fields.
+| Method | Path | Request JSON | Status / response |
+| --- | --- | --- | --- |
+| GET | `/api/v1/tickets/{id-or-key}/comments?limit=50&cursor=1` | none | 200 `{ "data": [Comment], "next_cursor": null }` |
+| POST | `/api/v1/tickets/{id-or-key}/comments` | `{"body":"Ready for **review**."}` | 201 Comment |
+| GET | `/api/v1/comments/{id}` | none | 200 Comment |
+| PATCH | `/api/v1/comments/{id}` | `{"body":"Reviewed."}` | 200 Comment, with `edited_at` set |
+| DELETE | `/api/v1/comments/{id}` | none | 200 `{"ok":true}` |
 
-```sh
-curl -sS "$TICKETS_URL/api/v1/tickets/EX-1/comments" -H "Authorization: Bearer $TICKETS_TOKEN" \
-  -H 'Content-Type: application/json' -d '{"body":"Ready for **review**."}'
-curl -sS -X PATCH "$TICKETS_URL/api/v1/comments/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
-  -H 'Content-Type: application/json' -d '{"body":"Reviewed."}'
-curl -sS -X DELETE "$TICKETS_URL/api/v1/comments/1" -H "Authorization: Bearer $TICKETS_TOKEN"
+A complete Comment response (POST example; PATCH/GET use the same shape):
+
+```json
+{"id":1,"ticket_id":1,"author":"Build agent","author_kind":"bot","body":"Ready for **review**.","body_html":"<p>Ready for <strong>review</strong>.</p>\n","created_at":"2026-10-30T10:00:00.000Z","updated_at":"2026-10-30T10:00:00.000Z","edited_at":null,"deleted_at":null,"deleted":false,"can_edit":true}
 ```
+
+Session authors use their display name (username fallback), `author_kind:"user"`;
+bearer authors use the token name, `author_kind:"bot"`. Names are snapshotted at
+creation; renaming never transfers ownership. `github` and `system` remain for
+imported/machine activity. Legacy authors with no durable identity remain read-only.
+`can_edit` is caller-specific and applies to both PATCH and DELETE. Only the same
+user or same token may mutate a comment, otherwise 403 `error.code:"forbidden"`.
+There is no owner override, including for bot comments. Comment responses omit internal ownership IDs.
+
+DELETE soft-deletes and preserves storage/history. GET and lists retain a stub
+with `body:""`, `body_html:""`, `deleted:true`, `deleted_at` set, and
+`can_edit:false`; PATCH/DELETE of your deleted comment return 404. Counts on
+cards/list rows exclude deleted comments. Lists use ascending ID cursors (default
+50, max 100), including stubs. Ticket deletion may still cascade comment storage.
+
+Each successful creation/body change/deletion atomically appends
+`comment_created`, `comment_edited`, or `comment_deleted` to the ticket history
+endpoint. Event values contain `{"id":comment_id}` (creation: new value only;
+edit: both; deletion: old value only). Bodies are omitted to avoid retaining
+removed content in history. History and comments share a durable ordered history
+sequence; use returned cursors unchanged. No-op body updates emit no history event.
+
+See the [agent skill](../.agents/skills/tickets/SKILL.md#comments) for executable,
+`cargo xtask skill-check`-verified curl examples for every method.
 
 ## Verification and change events
 
@@ -331,8 +354,8 @@ exact raw bytes using `GITHUB_WEBHOOK_SECRET`. Missing/invalid signatures return
 Tickets with `github:` external IDs are native editable tickets. Preserve
 `external_id`/`external_url` as provenance; the detail page links to their origin.
 Imported comments keep `<!-- tickets-import:github:... -->` markers and original
-GitHub author/timestamp attribution in sanitized Markdown; API author is `owner`.
-Use normal authenticated mutations for editing imported tickets and comments.
+GitHub author/timestamp attribution in sanitized Markdown. Existing imports are
+read-only comments; normal authenticated mutations can still edit imported tickets.
 
 `cargo xtask import-github --repo owner/repo --project PREFIX --dry-run` migrates
 into an existing project. Open issues are the default; use `--state all|open|closed`,
@@ -426,8 +449,9 @@ unchanged. New writes do not shift older pages; this is not a snapshot.
 Each entry contains `id`, `subject_id` (durable ticket identity), `ticket_id`,
 `actor_kind` (`user`, `api_token`, `webhook`, `system`), `actor_id`, `actor_label`,
 `field`, `old_value`, `new_value`, and `recorded_at` (UTC ISO 8601). Actor labels
-are safe server-generated aliases (`Owner`, `API token #N`, `GitHub`, `System`);
-IDs are stable and no credentials, email addresses or account names are copied.
+snapshot the authenticated display name/username or token name; webhook/system
+actors retain `GitHub`/`System`. Older rows retain their original aliases. IDs
+are stable and no credentials are copied.
 History actor fields cannot be supplied in mutation documents.
 
 Fields: `created`, `deleted`, `status`, `priority`, `assignee`, `title`,
