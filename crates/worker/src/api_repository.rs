@@ -3,11 +3,15 @@
 use crate::mutation::{self, Scope};
 use crate::repository::{Error, Repository, Result, Store};
 use serde_json::{Value, json};
-use tickets_core::{domain::Dependency, history::Actor};
+use tickets_core::{
+    domain::Dependency,
+    history::{Actor, ActorKind},
+};
 
 // Correlated subqueries are part of one D1 request; ordered inner SELECTs keep
 // arrays deterministic without multiplying ticket rows through joins.
 pub(crate) const TICKET_SELECT: &str = "tickets.*,
+ (SELECT count(*) FROM comments WHERE ticket_id=tickets.id AND deleted_at IS NULL) AS comment_count,
  (SELECT key_prefix FROM projects WHERE id=tickets.project_id) || '-' || number AS key,
  (SELECT json_group_array(json(label)) FROM
    (SELECT json_object('id',l.id,'name',l.name,'color',l.color) AS label
@@ -18,8 +22,10 @@ pub(crate) const TICKET_SELECT: &str = "tickets.*,
  (SELECT json_group_array(blocker_id) FROM
    (SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=tickets.id ORDER BY blocker_id)) AS blocked_by,
  (SELECT json_group_array(json(pr)) FROM
-   (SELECT json_object('repo',repo,'number',number,'url',url,'title',title,'state',state,'closes',json(CASE closes WHEN 1 THEN 'true' ELSE 'false' END),'head_sha',head_sha,'updated_at',updated_at) AS pr
-    FROM ticket_pull_requests WHERE ticket_id=tickets.id ORDER BY repo,number)) AS pull_requests";
+   (SELECT json_object('repo',pr.repo,'number',pr.number,'url',pr.url,'title',pr.title,'state',pr.state,'closes',json(CASE pr.closes WHEN 1 THEN 'true' ELSE 'false' END),'head_sha',pr.head_sha,'updated_at',pr.updated_at,'tickets_check',checks.tickets_check,'ci_status',checks.ci_status,'tickets_check_run_id',checks.check_run_id,'checks_updated_at',checks.updated_at) AS pr
+    FROM ticket_pull_requests pr LEFT JOIN github_pull_request_checks checks
+      ON checks.repo=pr.repo AND checks.number=pr.number AND checks.head_sha=pr.head_sha
+    WHERE pr.ticket_id=tickets.id ORDER BY pr.repo,pr.number)) AS pull_requests";
 
 fn selection(entity: &str) -> &str {
     if entity == "tickets" {
@@ -56,7 +62,7 @@ impl<S: Store> ApiRepository<'_, S> {
             .ok_or(Error::NotFound)
     }
     pub async fn history(&self, ticket: i64, limit: i64, cursor: i64) -> Result<Value> {
-        let mut rows: Vec<Value> = self.0.query("SELECT h.* FROM ticket_history h JOIN ticket_subjects s ON s.id=h.subject_id WHERE s.ticket_id=? AND (?=0 OR h.id<?) ORDER BY h.id DESC LIMIT ?",vec![ticket.into(),cursor.into(),cursor.into(),(limit+1).into()]).await?;
+        let mut rows: Vec<Value> = self.0.query("SELECT h.* FROM unified_ticket_history h JOIN ticket_subjects s ON s.id=h.subject_id WHERE s.ticket_id=? AND (?=0 OR h.id<?) ORDER BY h.id DESC LIMIT ?",vec![ticket.into(),cursor.into(),cursor.into(),(limit+1).into()]).await?;
         let more = rows.len() > limit as usize;
         rows.truncate(limit as usize);
         let next = if more {
@@ -120,6 +126,16 @@ impl<S: Store> ApiRepository<'_, S> {
         if entity == "tickets" || entity == "comments" {
             v["body_html"] =
                 tickets_core::markdown::render(v["body"].as_str().unwrap_or("")).into();
+        }
+        if entity == "comments" {
+            v["can_edit"] = json!(self.owns_comment(&v) && v["deleted_at"].is_null());
+            let deleted = !v["deleted_at"].is_null();
+            v["deleted"] = json!(deleted);
+            if deleted {
+                v["body"] = json!("");
+                v["body_html"] = json!("");
+            }
+            v.as_object_mut().unwrap().remove("author_id");
         }
         if entity == "projects" {
             v["archived"] = json!(v["archived"] == 1 || v["archived"] == true);
@@ -192,6 +208,9 @@ impl<S: Store> ApiRepository<'_, S> {
         if entity == "tickets" || entity == "comments" {
             set.push("updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')".into());
         }
+        if entity == "comments" {
+            set.push("edited_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')".into());
+        }
         values.push(existing["id"].clone());
         let sql = format!(
             "UPDATE {entity} SET {} WHERE id=? RETURNING *",
@@ -204,11 +223,27 @@ impl<S: Store> ApiRepository<'_, S> {
                 values,
             )
             .await
+        } else if entity == "comments" {
+            let sql = sql.replace(
+                "WHERE id=?",
+                "WHERE id=? AND deleted_at IS NULL AND author_kind=? AND author_id=?",
+            );
+            values.extend([self.comment_kind().into(), self.1.id.clone().into()]);
+            self.mutate_one(
+                Scope::ticket(existing["ticket_id"].as_i64().unwrap()),
+                &sql,
+                values,
+            )
+            .await
         } else {
             self.one(&sql, values).await
         }
     }
     pub async fn delete(&self, entity: &str, id: i64) -> Result<()> {
+        if entity == "comments" {
+            self.mutate_one(Scope::create(), "UPDATE comments SET deleted_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=? AND deleted_at IS NULL AND author_kind=? AND author_id=? RETURNING id", vec![id.into(), self.comment_kind().into(), self.1.id.clone().into()]).await?;
+            return Ok(());
+        }
         let sql = format!("DELETE FROM {entity} WHERE id=? RETURNING id");
         if entity == "tickets" || entity == "labels" {
             let scope = if entity == "tickets" {
@@ -222,11 +257,23 @@ impl<S: Store> ApiRepository<'_, S> {
         }
         Ok(())
     }
+    fn comment_kind(&self) -> &'static str {
+        match self.1.kind {
+            ActorKind::User => "user",
+            ActorKind::ApiToken => "bot",
+            ActorKind::Webhook => "github",
+            ActorKind::System => "system",
+        }
+    }
+    pub fn owns_comment(&self, comment: &Value) -> bool {
+        comment["author_kind"] == self.comment_kind() && comment["author_id"] == self.1.id
+    }
     pub async fn create_comment(&self, ticket: i64, input: &Value) -> Result<Value> {
         tickets_core::api::validate_create("comments", input).map_err(Error::Validation)?;
-        self.one(
-            "INSERT INTO comments(ticket_id,author,body) VALUES(?,'owner',?) RETURNING *",
-            vec![ticket.into(), input["body"].clone()],
+        self.mutate_one(
+            Scope::ticket(ticket),
+            "INSERT INTO comments(ticket_id,author,body,author_kind,author_id) VALUES(?,?,?,?,?) RETURNING *",
+            vec![ticket.into(), self.1.label.clone().into(), input["body"].clone(), self.comment_kind().into(), self.1.id.clone().into()],
         )
         .await
     }

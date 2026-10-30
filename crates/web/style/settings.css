@@ -117,6 +117,26 @@
  .modal:has(.token-secret,.token-revoke,#token-label) button { min-height:44px; min-width:44px; }
 }
 
+/* Reserve the count's trailing slot; menu controls are siblings of the link. */
+.sidebar-project-row { position: relative; }
+.sidebar-project-row .project-nav { padding-right: var(--space-10); }
+.sidebar-project-row .nav-count { position: absolute; right: var(--space-2); }
+.project-dropdown { position: absolute; right: var(--space-1); top: 0; }
+.project-more-trigger { width: 28px; height: 28px; opacity: 0; }
+.sidebar-project-row:focus-within .project-more-trigger,
+.project-more-trigger[aria-expanded="true"] { opacity: 1; }
+.sidebar-project-row:focus-within .nav-count,
+.sidebar-project-row:has([aria-expanded="true"]) .nav-count { visibility: hidden; }
+@media (hover: hover) and (pointer: fine) {
+    .sidebar-project-row:hover .project-more-trigger { opacity: 1; }
+    .sidebar-project-row:hover .nav-count { visibility: hidden; }
+}
+@media (hover: none) {
+    .project-more-trigger { opacity: 1; width: 44px; height: 44px; }
+    .sidebar-project-row .project-nav { height: 44px; padding-right: var(--space-12); }
+    .sidebar-project-row .nav-count { visibility: hidden; }
+}
+
 /* Pickup policies extend the existing Settings form rhythm. */
 .pickup-settings .settings-description { margin-bottom:var(--space-5); }
 .pickup-scope { max-width:320px; }

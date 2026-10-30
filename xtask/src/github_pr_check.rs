@@ -21,18 +21,29 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     send("pull_request", payload("UNKNOWN-999"), true, 202)?;
     p["pull_request"]["updated_at"] = json!("2026-10-29T11:00:00Z");
     send("pull_request", p.clone(), true, 204)?;
+    let history_path = format!("{path}/history");
+    let linked_history = api.list(&history_path)?;
     send("pull_request", p.clone(), true, 202)?;
+    assert_eq!(
+        api.list(&history_path)?,
+        linked_history,
+        "signed duplicate delivery appended history"
+    );
     let get = || api.call(Method::GET, &path, Value::Null);
     let linked = get()?;
     assert_eq!(linked["status"], "in_review");
     assert_eq!(linked["pull_requests"].as_array().unwrap().len(), 1);
     assert_eq!(linked["pull_requests"][0]["head_sha"], "abc123");
-    let history = api.list(&format!("{path}/history"))?;
+    let history: Vec<_> = linked_history
+        .iter()
+        .filter(|entry| entry["field"] != "comment_created")
+        .collect();
     assert_eq!(
         history.len(),
         2,
-        "signed duplicate delivery appended history"
+        "linking must record creation and the status change"
     );
+    assert_eq!(linked_history.len() - history.len(), 2);
     assert_eq!(history[0]["actor_kind"], "webhook");
     assert_eq!(history[0]["actor_id"], "github");
     assert_eq!(history[0]["old_value"], "todo");
@@ -70,7 +81,9 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     p["pull_request"]["updated_at"] = json!("2026-10-29T12:00:00Z");
     send("pull_request", p.clone(), true, 204)?;
     assert_eq!(get()?["status"], "done");
+    let merged_history = api.list(&history_path)?;
     send("pull_request", payload(key), true, 202)?;
+    assert_eq!(api.list(&history_path)?, merged_history);
     assert_eq!(get()?["status"], "done");
     p["action"] = json!("edited");
     p["pull_request"]["title"] = json!("No ticket");
@@ -78,9 +91,15 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     p["pull_request"]["updated_at"] = json!("2026-10-29T13:00:00Z");
     send("pull_request", p, true, 202)?;
     assert!(get()?["pull_requests"].as_array().unwrap().is_empty());
+    let unlinked_history = api.list(&history_path)?;
     send("pull_request", payload(key), true, 202)?;
     assert!(get()?["pull_requests"].as_array().unwrap().is_empty());
-    let history = api.list(&format!("{path}/history"))?;
+    assert_eq!(api.list(&history_path)?, unlinked_history);
+    let all_history = api.list(&history_path)?;
+    let history: Vec<_> = all_history
+        .iter()
+        .filter(|entry| entry["field"] != "comment_created")
+        .collect();
     assert_eq!(
         history.len(),
         3,
@@ -88,6 +107,10 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     );
     assert_eq!(history[0]["new_value"], "done");
     assert_eq!(history[0]["actor_kind"], "webhook");
+    assert!(
+        all_history.len() > merged_history.len(),
+        "unlink activity must be recorded"
+    );
     println!(
         "PR check passed: HMAC, owner allowlist, unknown keys, linking, API key/head SHA, merge, stale replay, unlink and dark desktop/mobile UI"
     );

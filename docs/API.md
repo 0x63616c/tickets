@@ -167,24 +167,47 @@ curl -sS -X DELETE "$TICKETS_URL/api/v1/tickets/EX-1/dependencies/2" -H "Authori
 
 ## Comments
 
-| Method | Path | Behavior |
-| --- | --- | --- |
-| GET | `/tickets/{id-or-key}/comments` | Paginated comments |
-| POST | `/tickets/{id-or-key}/comments` | Required nonblank Markdown `body` |
-| GET | `/comments/{id}` | Comment |
-| PATCH | `/comments/{id}` | Update `body` |
-| DELETE | `/comments/{id}` | Delete comment |
+All paths below include `/api/v1`. Callers cannot set authors or timestamps;
+unknown request fields are rejected. `body` must be nonblank CommonMark/GFM.
+Render sanitized `body_html`, never raw `body` as HTML.
 
-Responses contain raw `body` and sanitized `body_html`. User-created comments use author
-`owner`; PR activity uses `GitHub` or `system`. Callers cannot spoof authors through request fields.
+| Method | Path | Request JSON | Status / response |
+| --- | --- | --- | --- |
+| GET | `/api/v1/tickets/{id-or-key}/comments?limit=50&cursor=1` | none | 200 `{ "data": [Comment], "next_cursor": null }` |
+| POST | `/api/v1/tickets/{id-or-key}/comments` | `{"body":"Ready for **review**."}` | 201 Comment |
+| GET | `/api/v1/comments/{id}` | none | 200 Comment |
+| PATCH | `/api/v1/comments/{id}` | `{"body":"Reviewed."}` | 200 Comment, with `edited_at` set |
+| DELETE | `/api/v1/comments/{id}` | none | 200 `{"ok":true}` |
 
-```sh
-curl -sS "$TICKETS_URL/api/v1/tickets/EX-1/comments" -H "Authorization: Bearer $TICKETS_TOKEN" \
-  -H 'Content-Type: application/json' -d '{"body":"Ready for **review**."}'
-curl -sS -X PATCH "$TICKETS_URL/api/v1/comments/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
-  -H 'Content-Type: application/json' -d '{"body":"Reviewed."}'
-curl -sS -X DELETE "$TICKETS_URL/api/v1/comments/1" -H "Authorization: Bearer $TICKETS_TOKEN"
+A complete Comment response (POST example; PATCH/GET use the same shape):
+
+```json
+{"id":1,"ticket_id":1,"author":"Build agent","author_kind":"bot","body":"Ready for **review**.","body_html":"<p>Ready for <strong>review</strong>.</p>\n","created_at":"2026-10-30T10:00:00.000Z","updated_at":"2026-10-30T10:00:00.000Z","edited_at":null,"deleted_at":null,"deleted":false,"can_edit":true}
 ```
+
+Session authors use their display name (username fallback), `author_kind:"user"`;
+bearer authors use the token name, `author_kind:"bot"`. Names are snapshotted at
+creation; renaming never transfers ownership. `github` and `system` remain for
+imported/machine activity. Legacy authors with no durable identity remain read-only.
+`can_edit` is caller-specific and applies to both PATCH and DELETE. Only the same
+user or same token may mutate a comment, otherwise 403 `error.code:"forbidden"`.
+There is no owner override, including for bot comments. Comment responses omit internal ownership IDs.
+
+DELETE soft-deletes and preserves storage/history. GET and lists retain a stub
+with `body:""`, `body_html:""`, `deleted:true`, `deleted_at` set, and
+`can_edit:false`; PATCH/DELETE of your deleted comment return 404. Counts on
+cards/list rows exclude deleted comments. Lists use ascending ID cursors (default
+50, max 100), including stubs. Ticket deletion may still cascade comment storage.
+
+Each successful creation/body change/deletion atomically appends
+`comment_created`, `comment_edited`, or `comment_deleted` to the ticket history
+endpoint. Event values contain `{"id":comment_id}` (creation: new value only;
+edit: both; deletion: old value only). Bodies are omitted to avoid retaining
+removed content in history. History and comments share a durable ordered history
+sequence; use returned cursors unchanged. No-op body updates emit no history event.
+
+See the [agent skill](../.agents/skills/tickets/SKILL.md#comments) for executable,
+`cargo xtask skill-check`-verified curl examples for every method.
 
 ## Verification and change events
 
@@ -271,9 +294,51 @@ included in response bodies or application logs.
 Keep the store key available: changing it without re-encrypting the row makes
 the saved credentials unreadable. Remove the setup state after registration to
 disable the callback; credential loading only needs the store key. There is no
-registration overwrite/reset API. Phase 2 will populate installation/repository
-tables and use the saved credentials for webhook verification and tokens.
-The existing `/api/v1/github/webhook` integration is unchanged in Phase 1.
+registration overwrite/reset API.
+
+### GitHub App events and installation status
+
+The App replaces per-repository hooks. Set the manifest `hook_attributes.url` to
+`https://tickets.worldwidewebb.co/api/v1/github/app/webhook`, grant **Checks: write**,
+**Pull requests: read**, and **Metadata: read**, and subscribe to `pull_request`,
+`check_suite`, and `check_run` (installation events are automatic). Install via the
+callback page's link or `https://github.com/apps/<app-slug>/installations/new`.
+Keep `GITHUB_PR_OWNERS` configured as a comma-separated owner allowlist. After
+verifying the App, remove the old per-repository hooks; the legacy
+`/api/v1/github/webhook` and its `GITHUB_WEBHOOK_SECRET` continue to work unchanged
+until then. Duplicate status deliveries are replay-safe.
+
+`POST /api/v1/github/app/webhook` bypasses bearer/session auth and authenticates
+raw bytes with the registered App's webhook secret using constant-time
+HMAC-SHA256 (`X-Hub-Signature-256: sha256=<hex>`). Missing registration or
+unreadable credentials returns 503; invalid signatures 401; bodies over 1 MiB
+413; malformed JSON 400; non-POST 405. `ping` returns 204. Installation lifecycle
+and repository-selection events persist the account and installed repositories.
+Unsupported events (including push) return 202.
+
+PR events share the legacy endpoint's allowlist, link parser, atomic status sync,
+and replay rules. Opened/reopened/synchronize/edited/ready_for_review also post a
+completed **Tickets** check on the PR head: success for existing linked tickets,
+neutral for unknown keys or no key. Output includes ticket links, titles, current
+statuses and Closes/Refs intent. Check-post failures log a fixed non-secret
+message and preserve the successful status-sync response. Check suite requests
+and rerequests recompute checks (fetching PR details as needed); check run
+rerequests are handled only for this App's **Tickets** run. Standalone recompute
+failures return 502 so GitHub can retry. Other apps' completed suites record the
+latest observed CI conclusion for that head (this is not an aggregate across all
+CI providers). Older suite timestamps cannot overwrite newer conclusions.
+
+Worker authentication signs short-lived RS256 App JWTs via WebCrypto, accepting
+PKCS#1 or PKCS#8 PEM, and exchanges them for installation tokens. Tokens/keys
+never appear in logs or responses. `GITHUB_API_BASE_URL` optionally overrides
+`https://api.github.com` for local mock API tests; leave it unset in production.
+Redirects are never followed with credentials.
+
+`GET /api/v1/github/app` requires normal bearer/session authentication and returns
+`{registered, app_slug, installations:[{account_login, repository_selection,
+repos:["owner/repo"]}]}`. `app_slug` is null before registration; repos and
+installations are ordered. This read never decrypts credentials or calls GitHub,
+and exposes no secrets.
 
 ## GitHub webhook and imported tickets
 
@@ -289,8 +354,8 @@ exact raw bytes using `GITHUB_WEBHOOK_SECRET`. Missing/invalid signatures return
 Tickets with `github:` external IDs are native editable tickets. Preserve
 `external_id`/`external_url` as provenance; the detail page links to their origin.
 Imported comments keep `<!-- tickets-import:github:... -->` markers and original
-GitHub author/timestamp attribution in sanitized Markdown; API author is `owner`.
-Use normal authenticated mutations for editing imported tickets and comments.
+GitHub author/timestamp attribution in sanitized Markdown. Existing imports are
+read-only comments; normal authenticated mutations can still edit imported tickets.
 
 `cargo xtask import-github --repo owner/repo --project PREFIX --dry-run` migrates
 into an existing project. Open issues are the default; use `--state all|open|closed`,
@@ -322,12 +387,20 @@ Ticket responses (including `GET /api/v1/tickets/{key}` for the box job CLI) con
 `repo`, `number`, `url`, `title`, `state` (`open`, `draft`, `merged`, `closed`),
 `closes` (boolean), `head_sha` and `updated_at`. Order is repository then number.
 
+Linked ticket `pull_requests` entries include nullable `tickets_check` (the Tickets
+check conclusion) and `ci_status` (latest other-app CI suite conclusion). Both
+are scoped to the current `head_sha`; a new head has null values until reported.
+Historical heads never supply current results. `tickets_check_run_id` and
+`checks_updated_at` are also nullable and scoped to that head. Conclusions include
+`success`, `failure`, `neutral`, `cancelled`, `timed_out`, or `skipped`. Null means unreported.
+
 Open PRs move backlog/todo/in_progress tickets to in_review; drafts move
 backlog/todo to in_progress. Neither moves in_review backwards or changes done
 or canceled. A merged closing link marks done unless canceled. An unmerged close
 returns in_review/in_progress to todo only when no other open/draft PR remains.
 Reference merges leave status unchanged. GitHub/system comments record link and
-status changes. No requests are made back to GitHub.
+status changes. The legacy endpoint makes no requests back to GitHub; the App
+endpoint also posts the Tickets check described above.
 
 A persisted per-PR snapshot prevents stale events from restoring removed links.
 Newer GitHub timestamps win; equal timestamps prefer merged, closed, open, draft
@@ -376,8 +449,9 @@ unchanged. New writes do not shift older pages; this is not a snapshot.
 Each entry contains `id`, `subject_id` (durable ticket identity), `ticket_id`,
 `actor_kind` (`user`, `api_token`, `webhook`, `system`), `actor_id`, `actor_label`,
 `field`, `old_value`, `new_value`, and `recorded_at` (UTC ISO 8601). Actor labels
-are safe server-generated aliases (`Owner`, `API token #N`, `GitHub`, `System`);
-IDs are stable and no credentials, email addresses or account names are copied.
+snapshot the authenticated display name/username or token name; webhook/system
+actors retain `GitHub`/`System`. Older rows retain their original aliases. IDs
+are stable and no credentials are copied.
 History actor fields cannot be supplied in mutation documents.
 
 Fields: `created`, `deleted`, `status`, `priority`, `assignee`, `title`,

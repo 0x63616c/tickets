@@ -177,6 +177,13 @@ async fn dispatch<S: Store>(
     if parts.len() < 3 || parts[..2] != ["api", "v1"] {
         return Err(Error::NotFound.into());
     }
+    if method == "GET" && parts == ["api", "v1", "github", "app"] {
+        return Ok(Reply {
+            status: 200,
+            change: None,
+            body: crate::github_app_events::overview(r.0).await?,
+        });
+    }
     if method == "GET" && parts == ["api", "v1", "analytics", "home"] {
         return Ok(Reply {
             status: 200,
@@ -407,6 +414,16 @@ async fn dispatch<S: Store>(
                 .into_iter()
                 .collect::<Vec<_>>();
             if entity == "comments" && method != "GET" {
+                if !r.owns_comment(&existing) {
+                    return Err(Failure(
+                        403,
+                        "forbidden",
+                        "Only the comment author can edit or delete it".into(),
+                    ));
+                }
+                if !existing["deleted_at"].is_null() {
+                    return Err(Error::NotFound.into());
+                }
                 let ticket = r
                     .get("tickets", existing["ticket_id"].as_i64().unwrap())
                     .await?;

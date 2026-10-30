@@ -58,6 +58,10 @@ pub(crate) struct PullRequest {
     pub title: String,
     pub state: String,
     pub closes: bool,
+    #[serde(default)]
+    pub tickets_check: Option<String>,
+    #[serde(default)]
+    pub ci_status: Option<String>,
 }
 fn id(t: &BoardTicket) -> i64 {
     t.id
@@ -556,6 +560,49 @@ pub fn ApiBoard() -> impl IntoView {
     let state = expect_context::<BoardState>();
     let design = expect_context::<DesignState>();
     state.refresh();
+    let query = leptos_router::hooks::use_query_map();
+    Effect::new(move |_| {
+        let requested = query
+            .get()
+            .get("project")
+            .and_then(|id| id.parse::<i64>().ok());
+        let projects = state.projects.get();
+        if !state.loading.get()
+            && let Some(id) = requested
+            && projects.iter().any(|p| p.id == id && !p.archived)
+            && state.project.get_untracked() != id
+        {
+            state.select_project(id);
+        }
+    });
+    // Preserve explicit canceled-column links while Columns owns saved visibility.
+    Effect::new(move |_| {
+        let params = query.get();
+        let project = state.project.get();
+        let pending_project = params
+            .get("project")
+            .and_then(|id| id.parse::<i64>().ok())
+            .is_some_and(|id| {
+                id != project
+                    && state
+                        .projects
+                        .get_untracked()
+                        .iter()
+                        .any(|p| p.id == id && !p.archived)
+            });
+        if project == 0 || pending_project {
+            return;
+        }
+        if params.get("canceled").as_deref() == Some("true")
+            && !state
+                .columns
+                .visible
+                .get_untracked()
+                .contains(&Status::Canceled)
+        {
+            state.columns.toggle(Status::Canceled);
+        }
+    });
     let handle = window_event_listener(ev::keydown, move |e| {
         let editing = e
             .target()

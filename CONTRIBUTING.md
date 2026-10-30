@@ -135,8 +135,8 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   returned HTML is sanitized, including raw HTML and forced-disabled task checkboxes.
 - Domain lists use ascending ID cursors (`data`, `next_cursor`, default limit 50,
   maximum 100). Full-text search treats q as a literal FTS5 phrase. API mutations
-  reject unknown fields; PATCH null clears nullable fields. Comments use the
-  single-user author `owner`. Errors use `error.code` and `error.message`.
+  reject unknown fields; PATCH null clears nullable fields. Comments snapshot authenticated user/token names; ownership uses durable
+  user/token IDs, never display names. Deleted comments return empty-body stubs. Errors use `error.code` and `error.message`.
 - After successful domain writes return internal change metadata for the Worker
   to notify project rooms; notification failure must never fail the write. Validate
   domain documents in core, keep transport in the authenticated Worker adapter,
@@ -153,6 +153,14 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   Checks using that port must be serialized across worktrees too, or run inside
   separate local network namespaces. Browser policies must permit loopback access;
   isolate any test-only policy override to the child process, never shared settings.
+
+For a browser/runtime-only retry after a successful local build, set
+`TICKETS_SKIP_BUILD=1` on api-smoke/skill-check/browser checks. This still creates
+fresh isolated local D1 state; it only reuses web/Worker outputs. Verify those
+outputs belong to the current worktree (shared Cargo artifacts can be replaced
+by another job); use `RUSTC_WRAPPER=` and touch the Worker crate root to force a
+fresh compile if identity fixture assertions detect an old Worker. CI performs a full build in pickup-check, then reuses that verified build for
+its sequential isolated API/browser checks; each check still creates fresh D1 state.
 
 ## Authentication conventions
 - All `/api/*` handlers must pass through the Worker auth gate, except health, login, the independently HMAC-authenticated GitHub webhook, and the setup-state-authorized GitHub App manifest callback. Invalid Authorization headers must not fall back to a cookie.
@@ -177,7 +185,8 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
 - Keep tool logic in Rust `xtask`. `cargo xtask design-check` checks a local
   running UI through Chromium and captures 1440×900 dark screenshots. See
   `docs/design-system.md` for browser, server, and output overrides.
-- UI screenshots must show actual rendered routes with fonts loaded. Include
+- UI screenshots must show actual rendered routes with fonts loaded. CDP crop
+  coordinates include `window.scrollX/Y`; add those offsets to viewport rectangles. Include
   the previous real UI as the before image; the scaffold exception no longer
   applies. Font OFL notices live alongside the bundled fonts, not as a repo license.
 
@@ -259,6 +268,16 @@ labelled + button. The C shortcut defaults to Todo. Other views keep their
 New ticket action. `cargo xtask component-shot board-topbar` captures fixture-only
 44px board chrome and full-page desktop/mobile evidence; `--before-assets`
 uses baseline assets. `board-check` verifies all six column creation defaults.
+
+### Sidebar project actions
+
+Project rows reserve their count slot for the shared more-menu trigger on hover,
+keyboard focus, and touch. Keep the trigger beside the navigation link, never
+nested inside it. Reuse `ProjectEditor` for sidebar and Projects page edits;
+GitHub repository URLs work independently of optional GitHub Project metadata.
+`/board?project=<id>` is the shareable project URL. Archiving requires confirmation
+and retains tickets; restore from All projects. `component-shot sidebar` verifies
+fixture menu/edit/Escape behavior; `projects-check` covers persistence and archive.
 
 ## List view conventions
 
@@ -531,7 +550,12 @@ exceptions must still fail immediately; never replay writes to recover navigatio
   Never log callback URLs, codes, state, GitHub response bodies or credentials.
   Do not rotate the store key without re-encrypting the row. Remove the setup
   state after registration; `load_credentials` does not require it.
-  Installation handling and the webhook switch belong to Phase 2.
+  Register via the manifest flow, set the App webhook URL to
+  `/api/v1/github/app/webhook`, grant Checks write/Pull requests read/Metadata read,
+  subscribe to PR/check suite/check run events, then follow the installation link
+  and select All repositories. The App replaces per-repo hooks; verify it before
+  removing the old hooks. Both endpoints retain the `GITHUB_PR_OWNERS` allowlist.
+  `GET /api/v1/github/app` exposes registration/installed repositories only.
 - The callback embeds the existing dark `:root` tokens and `github-app.css` in
   a hash-authorized style block, without font assets or JavaScript. Keep its
   fixed error pages and public-metadata renderer separate from secret structs.
@@ -548,7 +572,15 @@ exceptions must still fail immediately; never replay writes to recover navigatio
 - Latest per-PR snapshots persist even with no links, preventing stale restoration.
   GitHub timestamp ties prefer terminal states; same-state ties retain first delivery.
 - Atomic snapshot writes resolve all keys with JSON joins; ticket read aggregates
-  include ordered PR metadata without extra D1 calls. No GitHub network writes.
+  include ordered PR metadata without extra D1 calls. App checks use WebCrypto
+  RS256 JWTs and short-lived installation tokens; never log keys/tokens or upstream
+  errors. Override `GITHUB_API_BASE_URL` only for local test servers. Check posting
+  must not fail a committed PR status sync. Migration 0015 stores check results
+  separately by repo/PR/head SHA, avoiding ticket status triggers on CI writes.
+  Check suite CI status means latest other-app conclusion, not aggregate CI.
+  The fixture-only `/design/c/pr-check-status` previews CI/Tickets indicators.
+  RSA PEMs under `crates/core/tests/fixtures/github-app-test-*` are disposable
+  generated test keys, never application credentials.
 - `cargo xtask mirror-check` also runs signed PR acceptance and captures before/after
   dark desktop/mobile evidence under `docs/screenshots/32`. Set
   `TICKETS_BEFORE_ASSETS` to base-commit assets for before captures.
@@ -746,3 +778,20 @@ project icon schema changes additive and validate values in core.
   `component-shot pickup-rules` captures fixture-only dark desktop/mobile and 2×
   crops; `--before-assets <base-dist>` captures the previous Settings appearance.
   See docs/design/claim-next.md for the lease contract and research.
+
+## CI build caches
+
+- Cargo jobs restore the shared `check` cache (including main's existing cache).
+  `rust-cache` hashes Cargo.lock, manifests, Cargo configuration and the pinned
+  toolchain; Cargo separates host and wasm32 artifacts inside `target/`. Only
+  main's `check` job saves caches, so PR runs cannot fill the quota with branch
+  copies and the faster migrations job cannot win an immutable-cache save race
+  with an incomplete host-only snapshot.
+- Install pinned Rust build tools with `taiki-e/install-action` prebuilt binaries
+  rather than compiling them with `cargo install` on cache misses. Check cached
+  binary versions first, so a warm Cargo bin cache also skips the installer.
+- CI puts `.github/scripts/npm` ahead of npm after recording the real executable.
+  It reuses `npm ci --prefix crates/web` within a job only while both npm manifests
+  match a successful install and node_modules exists. Repeated installs rewrite
+  the JS imported by wasm-bindgen and cause a release Wasm rebuild for every
+  browser check. Other npm commands pass through; local xtask behavior is unchanged.
