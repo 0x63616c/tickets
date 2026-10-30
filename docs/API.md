@@ -115,6 +115,29 @@ curl -sS -X PUT "$TICKETS_URL/api/v1/tickets/by-external?id=github%3Aexample-org
   -d '{"project_id":1,"title":"Imported issue","external_url":"https://github.com/example-org/example/issues/12"}'
 ```
 
+## Ranked palette search
+
+`GET /api/v1/search?q=mesh%20status:todo%20p:QUA&recent=7,3&limit=30`
+uses the usual authentication gate. Unlike the ID-ordered `/tickets` list, it
+returns a bounded ranked `{ "data": [...] }` without a cursor. Default limit 30,
+maximum 50. Each result includes `id`, `project_id`, `key`, `title`, `status`,
+`priority`, `assignee`, `updated_at`, and nullable `external_url`.
+
+`q` is optional (up to 200 characters / 8 words). Case-insensitive `status:` and
+`p:` filters combine with AND; duplicate/invalid filters return 400 with a useful
+message. Status values use the domain names, such as `in_progress`. Matching uses
+literal, ordered-character subsequences in title/body, not FTS syntax. Exact keys
+always rank first; title relevance outweighs body relevance, with smaller boosts
+for open status, update recency and recent viewing. `%`, `_`, and backslash are
+literal characters. Ties use newest update then descending numeric ID.
+
+`recent` is an optional newest-first comma-separated list of up to 20 positive
+numeric ticket IDs, supplied from localStorage by the UI. It never persists server
+history. An empty unfiltered query returns existing recent tickets plus open
+in-progress/assigned tickets. Filter-only queries search all matching tickets.
+Search performs one database statement, two calls including authentication; the
+existing `/tickets?q=...` literal FTS and cursor contract is unchanged.
+
 ## Labels and dependencies
 
 | Method | Path | Behavior |

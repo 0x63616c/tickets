@@ -9,6 +9,8 @@ pub use popup::*;
 mod controls;
 mod icons;
 mod overlays;
+mod palette;
+pub use palette::CommandPalette;
 mod shell;
 pub use crate::fixtures::{PriorityPresentation, StatusPresentation};
 pub use controls::*;

@@ -15,6 +15,7 @@ use std::{
     time::Duration,
 };
 const NAMES: &[&str] = &[
+    "palette",
     "sidebar",
     "user-menu",
     "select",
@@ -149,6 +150,10 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
     } else {
         vec![name]
     } {
+        if name == "palette" {
+            super::palette::shots(root, &assets, &output, before.is_some())?;
+            continue;
+        }
         if name == "modal" {
             capture_composer(&mut b, &server.url, &output, before.is_some())?;
             continue;
