@@ -108,6 +108,23 @@ where
     E::Output: AsRef<web_sys::HtmlElement> + Clone + JsCast,
 {
     let reduced = reduced_motion();
+    // The brand intro owns the first frame. Start the package reveal when it
+    // uncovers the app, preserving the existing pending -> ready boundary.
+    let booting = RwSignal::new(document().get_element_by_id("boot-splash").is_some());
+    if booting.get_untracked() {
+        let done = Closure::<dyn FnMut()>::new(move || booting.set(false));
+        let _ = window()
+            .add_event_listener_with_callback("tickets:splash-done", done.as_ref().unchecked_ref());
+        let done = StoredValue::new_local(done);
+        on_cleanup(move || {
+            done.with_value(|done| {
+                let _ = window().remove_event_listener_with_callback(
+                    "tickets:splash-done",
+                    done.as_ref().unchecked_ref(),
+                );
+            });
+        });
+    }
     let mut was_pending = on_mount;
     Effect::new(move |_| {
         let pending = pending.get();
@@ -121,6 +138,9 @@ where
         }
         if pending {
             was_pending = true;
+            return;
+        }
+        if booting.get() {
             return;
         }
         if let Some(root) = root

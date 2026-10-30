@@ -842,3 +842,21 @@ It saves dark Settings/Board evidence in `docs/screenshots/TIK-83`; set
 - PNG sequences go to ignored `target/TIK-75/`; held/settled PNGs, sample JSON
   and `transitions.txt` go to `docs/screenshots/TIK-75/`. Copy review evidence to
   the ticket's external screenshot directory before opening the PR.
+
+## Startup splash (TIK-84)
+
+`index.html` paints a full-screen ASCII Stub before the app mounts. Its small
+inline canvas sampler uses the favicon's evenodd path, including notches and
+perforations, with fixed monospace cells and grey edge/near-white body tokens.
+A 600ms diagonal resolve leads into a looping shimmer, capped at 30fps. After
+the next-frame `tickets:ready` mount signal, it waits for app `aria-busy` to clear
+(up to 1.5s), holds at least 900ms, dissolves the glyphs on black (220ms), then
+fades the black for 280ms so the art never overlays the app. An independent 8s timer
+removes it even if startup fails. Package-owned content reveals begin after removal.
+
+OS reduced motion or `tickets.motion=reduce` shows a static final mark for at
+least 500ms and uses an opacity-only exit. Component previews (`/design/c/*`)
+and webdriver sessions skip the splash; add `?splash` to opt automated recordings
+in (component previews always skip). Client-side navigation never recreates it.
+For local fixture viewing, build and serve `crates/web/dist` with SPA fallback,
+then open `/design/home?splash`. The splash uses no API or external assets.
