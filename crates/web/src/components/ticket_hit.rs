@@ -5,7 +5,7 @@ use web_sys::wasm_bindgen::JsCast;
 
 pub(crate) fn ticket_interactive_target(target: Option<web_sys::EventTarget>) -> bool {
     target.and_then(|t| t.dyn_into::<web_sys::Element>().ok()).is_some_and(|el| {
-        el.closest("a, button, input, select, textarea, [role=button], [role=combobox], [role=option], [role=menuitem], [contenteditable=true]")
+        el.closest("a, button, input, select, textarea, [role=button], [role=combobox], [role=option], [role=menuitem], [contenteditable=true], .blocked-indicator")
             .ok().flatten().is_some()
     })
 }
@@ -35,4 +35,27 @@ pub fn CardLabels(labels: Vec<Label>) -> impl IntoView {
         <span class="card-label-dots" aria-hidden="true">{labels.into_iter().map(|l|view!{<span class="card-label-dot" style=format!("background:{}",l.color)/>}).collect_view()}</span>
         <span class="card-label-names">{short}</span>
     </span>}
+}
+
+/// Shared board/list marker. The caller supplies only unresolved dependencies.
+#[component]
+pub fn BlockedIndicator(blockers: Vec<(String, String)>) -> impl IntoView {
+    let marker = NodeRef::<leptos::html::Span>::new();
+    let label = format!(
+        "Blocked by {}",
+        blockers
+            .iter()
+            .map(|(key, _)| key.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    let text = format!(
+        "Blocked by {}",
+        blockers
+            .iter()
+            .map(|(key, title)| format!("{key}: {title}"))
+            .collect::<Vec<_>>()
+            .join("; ")
+    );
+    view! {<super::Tooltip text><span class="blocked-indicator row-blocked" role="img" tabindex="0" node_ref=marker aria-label=label on:click=move|e|{e.prevent_default();e.stop_propagation();if let Some(marker)=marker.get(){let _=marker.focus();}}><super::Icon name="blocked"/></span></super::Tooltip>}
 }

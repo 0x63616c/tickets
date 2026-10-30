@@ -87,9 +87,8 @@ pub fn TicketCard(ticket: Ticket) -> impl IntoView {
             on:click=move|e|{if !was_dragged.get_untracked() && !ticket_interactive_target(e.target()){open.run(());}}
             on:keydown=move|e|{if e.key()=="Enter" && !ticket_interactive_target(e.target()) && state.dragged.get_untracked().is_none(){e.prevent_default();open.run(());}}
             on:dragstart=move |ev| { was_dragged.set(true);state.dragged.set(Some(id)); if let Some(data) = ev.data_transfer() { let _ = data.set_data("text/plain", &id.to_string()); } } on:dragend=move |_| state.dragged.set(None)>
-            <div class="card-top"><span class="mono ticket-id">{format!("TKT-{id}")}</span><span class="card-indicators"><span title=ticket.priority.name()><PriorityIcon priority=ticket.priority/></span><span class="card-status" title=ticket.status.name()><SelectField label=format!("Move TKT-{id} to status") value=Signal::derive(move||ticket.status.name().to_string()) options=Signal::derive(move||Status::ALL.into_iter().map(SelectOption::status).collect()) on_change=Callback::new(move|next:String|state.move_ticket(id,Status::from_name(&next)))/></span></span></div>
+            <div class="card-top"><span class="mono ticket-id">{format!("TKT-{id}")}</span><span class="card-indicators"><FixtureBlocked blockers=ticket.blocked_by.clone()/><span title=ticket.priority.name()><PriorityIcon priority=ticket.priority/></span><span class="card-status" title=ticket.status.name()><SelectField label=format!("Move TKT-{id} to status") value=Signal::derive(move||ticket.status.name().to_string()) options=Signal::derive(move||Status::ALL.into_iter().map(SelectOption::status).collect()) on_change=Callback::new(move|next:String|state.move_ticket(id,Status::from_name(&next)))/></span></span></div>
             <A href=format!("/design/ticket?id={id}") attr:class="card-title" attr:title=title_tooltip>{ticket.title.clone()}</A>
-            {ticket.blocked.then(|| view! { <span class="blocked-note" title="Blocked by TKT-5"><Icon name="blocked"/><span>"Blocked by TKT-5"</span></span> })}
             <div class="card-bottom"><CardLabels labels/><span class="card-meta">{(ticket.comments > 0).then(|| view! { <span class="comment-count" aria-label=crate::count::count_label(ticket.comments as usize, "comment")><Icon name="comment"/>{ticket.comments}</span> })}</span></div>
         </article>
     }
@@ -118,7 +117,7 @@ fn TicketRow(ticket: Ticket) -> impl IntoView {
     view! {
         <A href=format!("/design/ticket?id={}", ticket.id) attr:class="ticket-row" attr:data-motion-key=format!("fixture-{}",ticket.id)>
             <span title=ticket.priority.name()><PriorityIcon priority=ticket.priority/></span><span class="mono ticket-id">{format!("TKT-{}", ticket.id)}</span><StatusIcon status=ticket.status/><span class="row-title">{ticket.title}</span>
-            {ticket.blocked.then(|| view! { <span class="row-blocked" title="Blocked by TKT-5"><Icon name="blocked"/>"Blocked"</span> })}
+            <FixtureBlocked blockers=ticket.blocked_by/>
             <LabelChip name=ticket.label/><span class="row-comments">{(ticket.comments > 0).then(|| view! { <Icon name="comment"/>{ticket.comments} })}</span>
             <span class="row-project"><ProjectIcon name=ticket.project.clone()/>{ticket.project}</span><span class="row-date">{match ticket.id % 4 { 0 => "Oct 24", 1 => "Oct 25", 2 => "Oct 26", _ => "Oct 27" }}</span>
         </A>
@@ -161,4 +160,13 @@ pub fn Projects() -> impl IntoView {
             </div>
         </div>
     }
+}
+
+#[component]
+fn FixtureBlocked(blockers: Vec<u32>) -> impl IntoView {
+    let state = expect_context::<DesignState>();
+    view! {{move || {
+        let blockers = blockers.iter().filter_map(|id|state.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|(format!("TKT-{}",t.id),t.title)).collect::<Vec<_>>();
+        (!blockers.is_empty()).then(||view!{<BlockedIndicator blockers/>})
+    }}}
 }
