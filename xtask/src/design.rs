@@ -584,6 +584,7 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("document.querySelectorAll('.api-list-row').length===101")?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
     b.wait("document.querySelectorAll('.api-list-row').length===6 && document.querySelectorAll('.list-group').length===5")?;
+    b.wait("document.querySelectorAll('#list-ticket-1 .row-labels > .label-chip').length===1 && !document.querySelector('#list-ticket-1 button.row-label-overflow')")?;
     b.click(".canceled-toggle input")?;
     b.wait("document.querySelectorAll('.api-list-row').length===7 && document.querySelectorAll('.list-group').length===6")?;
     b.click(".canceled-toggle input")?;
@@ -650,8 +651,40 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("!document.querySelector('dialog') && document.querySelectorAll('.api-list-row').length===1 && document.querySelector('.api-list-row').textContent.includes('EMP-1')")?;
     b.go("http://127.0.0.1:8795/list?project=3")?;
     b.wait("document.querySelectorAll('.api-list-row').length===1 && document.body.innerText.includes('Created from the list')")?;
+    // Regression: real chip widths, overflow names, resize stability and a label
+    // wider than the whole track. This state is isolated local test data.
+    b.eval(r#"(async()=>{
+        await fetch('/api/v1/tickets/2/labels/1',{method:'DELETE'});
+        for(const [name,ticket] of [['area:ui',1],['model:sol',1],['model:astra',1],['A label deliberately longer than the entire labels column',2]]) {
+            const response=await fetch('/api/v1/labels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,color:'#5e6ad2'})});
+            if(!response.ok) throw new Error('Cannot seed list label');
+            const label=await response.json();
+            const attached=await fetch(`/api/v1/tickets/${ticket}/labels/${label.id}`,{method:'POST'});
+            if(!attached.ok) throw new Error('Cannot attach list label');
+        }
+        return true;
+    })()"#)?;
+    b.go("http://127.0.0.1:8795/list?project=1")?;
+    for width in [1280, 1100, 1280] {
+        b.viewport(width, 900)?;
+        b.wait("document.querySelector('#list-ticket-1 .row-label-overflow')!==null && document.querySelector('#list-ticket-2 .row-label-overflow')!==null")?;
+        b.wait(r#"Array.from(document.querySelectorAll('.row-labels')).every(cell=>{
+            const rect=cell.getBoundingClientRect();
+            const chips=Array.from(cell.querySelectorAll(':scope > .label-chip'));
+            const overflow=cell.querySelector(':scope > .tooltip-trigger button');
+            const all=Array.from(cell.querySelectorAll('.row-label-measure .label-chip'));
+            return rect.width>=150 && [...chips,...(overflow?[overflow]:[])].every(chip=>chip.getBoundingClientRect().right<=rect.right+0.5)
+                && chips.length+(overflow?Number(overflow.textContent.slice(1)):0)===all.length;
+        })"#)?;
+        b.eval("document.querySelector('#list-ticket-1 button.row-label-overflow').focus();true")?;
+        b.wait("Array.from(document.querySelectorAll('[role=tooltip]')).some(t=>!t.hidden && t.textContent.includes('model:sol') && t.textContent.includes('model:astra'))")?;
+        b.key("Escape", 27, 0)?;
+        b.eval("document.activeElement.blur();true")?;
+        b.wait("document.querySelector('#list-ticket-1 .row-labels > .label-chip')!==null && document.querySelector('#list-ticket-2 .row-labels > .label-chip')===null")?;
+        b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+    }
     println!(
-        "PASS list: pagination, grouping, combined URL filters/reload, sorting, inline persistence, rejected-save restoration, j/k/Enter detail navigation, desktop/mobile"
+        "PASS list: pagination, grouping, combined URL filters/reload, sorting, inline persistence, rejected-save restoration, j/k/Enter detail navigation, desktop/mobile, whole label chips and keyboard overflow tooltip at 1280/1100px"
     );
     Ok(())
 }
