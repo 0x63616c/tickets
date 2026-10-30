@@ -284,7 +284,8 @@
 
 ## Login navigation conventions
 
-- The Worker runs before assets. Only fonts, favicon, Trunk hashed JS/CSS/Wasm
+- The Worker runs before assets. Only fonts, favicon and app icons (exact paths in
+  `is_public_asset`, incl. `/site.webmanifest`), Trunk hashed JS/CSS/Wasm
   and the exact hashed DOM-bridge/ascii-reveal core snippet paths bypass session lookup; missing public assets return 404. Asset SPA fallback
   stays disabled: the Worker serves `index.html` only after the navigation gate.
   Missing cookies cost zero D1 queries; a well-formed cookie costs one session SELECT.
