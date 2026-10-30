@@ -652,12 +652,18 @@ pub fn import(gh: &Api, api: &Api, repo: &str, key: &str, options: &Options) -> 
     let mut tickets = BTreeMap::new();
     for issue in &issues {
         let n = number(issue)?;
+        let external_id = format!("github:{repo}:{n}");
         let mut url = Url::parse("http://localhost/api/v1/tickets/by-external")?;
-        url.query_pairs_mut()
-            .append_pair("id", &format!("github:{repo}:{n}"));
+        url.query_pairs_mut().append_pair("id", &external_id);
         let path = format!("{}?{}", url.path(), url.query().unwrap());
         let mut payload = serde_json::from_value::<Issue>(issue.clone())?.upsert(project_id);
         payload["status"] = json!(statuses[&n]);
+        if prior.iter().any(|t| t["external_id"] == external_id) {
+            // Keep the saved canonical body until all native keys are known.
+            // Restoring raw GitHub shorthand here and rewriting it below would
+            // manufacture two description edits on an otherwise unchanged replay.
+            payload.as_object_mut().unwrap().remove("body");
+        }
         let ticket = api.call(Method::PUT, &path, payload)?;
         let tid = id(&ticket)?;
         let desired: BTreeSet<_> = issue["labels"]

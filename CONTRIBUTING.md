@@ -680,3 +680,20 @@ project icon schema changes additive and validate values in core.
   document overflow when headless Chromium hides native scrollbars. Use
   `TICKETS_BEFORE_ASSETS=<base-dist>` to record the same baseline without enforcing
   the regression assertion. Keep fixture/API and real animation boundaries clear.
+
+## Ticket history (TIK-60)
+
+- Route all ticket-affecting SQL through `mutation::execute`, including typed
+  repository writes, relationship/deletion cascades and PR snapshots. The Store
+  `batch` contract is atomic; never emulate it with independent D1 calls.
+- Core owns snapshot field/set diffs. Compare inside the batch, never against an
+  earlier HTTP read. Preserve the analytics triggers and `ticket_events` separately.
+- History actor identity comes from authentication or signed webhook transport;
+  use safe aliases, never account/token names or credential material. Future MCP
+  adapters must pass their authenticated actor to the shared dispatch.
+- History pagination alone descends by ID. Retain durable subject identity after
+  deletion; never resolve old history using only a potentially reused ticket ID.
+- `detail-check` now verifies history fields, pagination, raw-text disclosure and
+  failed-save absence, and captures TIK-60 fixtures. Its before mode uses the same
+  fixture on actual base assets. `component-shot history` captures isolated 2×
+  rows. `import-check` verifies history attribution and replay idempotence.

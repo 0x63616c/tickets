@@ -414,6 +414,42 @@ pub fn check(token: &str) -> Result<()> {
             ..Options::default()
         },
     )?;
+    let history = api.list(&format!("/api/v1/tickets/{tid}/history"))?;
+    for field in [
+        "created",
+        "title",
+        "description",
+        "status",
+        "label_added",
+        "label_removed",
+        "blocker_added",
+        "blocker_removed",
+    ] {
+        assert!(
+            history.iter().any(|e| e["field"] == field),
+            "import history missing {field}"
+        );
+    }
+    assert!(history.iter().all(|e| e["actor_kind"] == "api_token"));
+    assert_eq!(
+        history.iter().filter(|e| e["field"] == "created").count(),
+        1
+    );
+    import(
+        &gh,
+        &api,
+        "example/fixture",
+        "FIX",
+        &Options {
+            state: "all".into(),
+            ..Options::default()
+        },
+    )?;
+    assert_eq!(
+        api.list(&format!("/api/v1/tickets/{tid}/history"))?,
+        history,
+        "replayed import appended history"
+    );
     let second = api.list("/api/v1/tickets")?;
     for (a, b) in first.iter().zip(&second) {
         for field in [

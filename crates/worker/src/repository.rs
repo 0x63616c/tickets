@@ -1,7 +1,8 @@
 //! Shared parameterized queries. Only the Store adapter knows about D1.
+use crate::mutation::{self, Scope};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-use tickets_core::{dependency::DependencyGraph, domain::*};
+use tickets_core::{dependency::DependencyGraph, domain::*, history::Actor};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -18,18 +19,63 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {}
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// One parameterized statement within an atomic mutation batch.
+pub struct Statement {
+    pub sql: String,
+    pub params: Vec<Value>,
+}
+impl Statement {
+    pub fn new(sql: impl Into<String>, params: Vec<Value>) -> Self {
+        Self {
+            sql: sql.into(),
+            params,
+        }
+    }
+}
+
 /// Queries may return rows (including INSERT/UPDATE RETURNING) or an empty list.
 /// No Send bound: the Worker runtime is single threaded.
 #[allow(async_fn_in_trait)]
 pub trait Store {
     async fn query<T: DeserializeOwned>(&self, sql: &str, params: Vec<Value>) -> Result<Vec<T>>;
+    /// Must be atomic. Never implement by issuing independent queries.
+    async fn batch(&self, _statements: Vec<Statement>) -> Result<Vec<Vec<Value>>> {
+        Err(Error::Storage("Atomic batch is not supported".into()))
+    }
 }
 pub struct Repository<S> {
     store: S,
+    actor: Actor,
 }
 impl<S: Store> Repository<S> {
     pub fn new(store: S) -> Self {
-        Self { store }
+        Self {
+            store,
+            actor: Actor::system(),
+        }
+    }
+    pub fn with_actor(store: S, actor: Actor) -> Self {
+        Self { store, actor }
+    }
+    async fn mutate<T: DeserializeOwned>(
+        &self,
+        scope: Scope,
+        sql: &str,
+        params: Vec<Value>,
+    ) -> Result<Vec<T>> {
+        mutation::execute(&self.store, &self.actor, scope, sql, params).await
+    }
+    async fn mutate_one<T: DeserializeOwned>(
+        &self,
+        scope: Scope,
+        sql: &str,
+        params: Vec<Value>,
+    ) -> Result<T> {
+        self.mutate(scope, sql, params)
+            .await?
+            .into_iter()
+            .next()
+            .ok_or(Error::NotFound)
     }
     async fn one<T: DeserializeOwned>(&self, sql: &str, params: Vec<Value>) -> Result<T> {
         self.store
@@ -38,10 +84,6 @@ impl<S: Store> Repository<S> {
             .into_iter()
             .next()
             .ok_or(Error::NotFound)
-    }
-    async fn execute(&self, sql: &str, params: Vec<Value>) -> Result<()> {
-        self.store.query::<Value>(sql, params).await?;
-        Ok(())
     }
     pub async fn projects(&self) -> Result<Vec<Project>> {
         self.store
@@ -103,7 +145,8 @@ impl<S: Store> Repository<S> {
     }
     pub async fn create_ticket(&self, project: i64, title: &str, body: &str) -> Result<Ticket> {
         validate_name(title).map_err(Error::Validation)?;
-        self.one(
+        self.mutate_one(
+            Scope::create(),
             "INSERT INTO tickets(project_id,number,title,body)
              SELECT id,next_ticket_number,?,? FROM projects WHERE id=? RETURNING *",
             vec![title.into(), body.into(), project.into()],
@@ -116,7 +159,8 @@ impl<S: Store> Repository<S> {
         if !t.sort_order.is_finite() {
             return Err(Error::Validation("sort order must be finite".into()));
         }
-        self.one(
+        self.mutate_one(
+            Scope::ticket(t.id),
             "UPDATE tickets SET title=?,body=?,status=?,priority=?,assignee=?,sort_order=?,
              external_url=?,external_id=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
              WHERE id=? RETURNING *",
@@ -135,8 +179,13 @@ impl<S: Store> Repository<S> {
         .await
     }
     pub async fn delete_ticket(&self, id: i64) -> Result<()> {
-        self.execute("DELETE FROM tickets WHERE id=?", vec![id.into()])
-            .await
+        self.mutate::<Value>(
+            Scope::ticket(id),
+            "DELETE FROM tickets WHERE id=?",
+            vec![id.into()],
+        )
+        .await
+        .map(|_| ())
     }
     pub async fn labels(&self) -> Result<Vec<Label>> {
         self.store
@@ -163,18 +212,22 @@ impl<S: Store> Repository<S> {
             .await
     }
     pub async fn add_label(&self, ticket: i64, label: i64) -> Result<()> {
-        self.execute(
+        self.mutate::<Value>(
+            Scope::ticket(ticket),
             "INSERT INTO ticket_labels(ticket_id,label_id) VALUES(?,?)",
             vec![ticket.into(), label.into()],
         )
         .await
+        .map(|_| ())
     }
     pub async fn remove_label(&self, ticket: i64, label: i64) -> Result<()> {
-        self.execute(
+        self.mutate::<Value>(
+            Scope::ticket(ticket),
             "DELETE FROM ticket_labels WHERE ticket_id=? AND label_id=?",
             vec![ticket.into(), label.into()],
         )
         .await
+        .map(|_| ())
     }
     pub async fn dependencies(&self) -> Result<Vec<Dependency>> {
         self.store
@@ -189,18 +242,22 @@ impl<S: Store> Repository<S> {
             .map_err(Error::Dependency)?
             .check(edge)
             .map_err(Error::Dependency)?;
-        self.execute(
+        self.mutate::<Value>(
+            Scope::relation(edge.blocker_id, edge.blocked_id),
             "INSERT INTO ticket_dependencies(blocker_id,blocked_id) VALUES(?,?)",
             vec![edge.blocker_id.into(), edge.blocked_id.into()],
         )
         .await
+        .map(|_| ())
     }
     pub async fn remove_dependency(&self, edge: Dependency) -> Result<()> {
-        self.execute(
+        self.mutate::<Value>(
+            Scope::relation(edge.blocker_id, edge.blocked_id),
             "DELETE FROM ticket_dependencies WHERE blocker_id=? AND blocked_id=?",
             vec![edge.blocker_id.into(), edge.blocked_id.into()],
         )
         .await
+        .map(|_| ())
     }
     pub async fn comments(&self, ticket: i64) -> Result<Vec<Comment>> {
         self.store
@@ -224,6 +281,40 @@ impl<S: Store> Repository<S> {
 
 #[cfg(target_arch = "wasm32")]
 impl Store for worker::D1Database {
+    async fn batch(&self, statements: Vec<Statement>) -> Result<Vec<Vec<Value>>> {
+        use worker::wasm_bindgen::JsValue;
+        let statements = statements
+            .into_iter()
+            .map(|s| {
+                let params: Vec<JsValue> = s
+                    .params
+                    .into_iter()
+                    .map(|v| match v {
+                        Value::Null => JsValue::NULL,
+                        Value::String(s) => JsValue::from_str(&s),
+                        Value::Number(n) => JsValue::from_f64(n.as_f64().unwrap()),
+                        Value::Bool(b) => JsValue::from_f64(if b { 1.0 } else { 0.0 }),
+                        _ => unreachable!("only scalar SQL arguments"),
+                    })
+                    .collect();
+                self.prepare(&s.sql)
+                    .bind(&params)
+                    .map_err(|e| Error::Storage(e.to_string()))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        worker::D1Database::batch(self, statements)
+            .await
+            .map_err(|e| Error::Storage(e.to_string()))?
+            .into_iter()
+            .map(|r| {
+                if !r.success() {
+                    return Err(Error::Storage(r.error().unwrap_or_default()));
+                }
+                r.results().map_err(|e| Error::Storage(e.to_string()))
+            })
+            .collect()
+    }
+
     async fn query<T: DeserializeOwned>(&self, sql: &str, params: Vec<Value>) -> Result<Vec<T>> {
         use worker::wasm_bindgen::JsValue;
         let params: Vec<JsValue> = params
@@ -252,6 +343,10 @@ impl Store for worker::D1Database {
     }
 }
 impl<S: Store> Store for &S {
+    async fn batch(&self, statements: Vec<Statement>) -> Result<Vec<Vec<Value>>> {
+        (**self).batch(statements).await
+    }
+
     async fn query<T: DeserializeOwned>(&self, sql: &str, params: Vec<Value>) -> Result<Vec<T>> {
         (**self).query(sql, params).await
     }

@@ -23,7 +23,8 @@ upserts return 200. Deletes return `{"ok":true}`. Errors have the form
 
 All domain lists return `{"data":[...],"next_cursor":"123"}`. `next_cursor` is
 null at the end. Pass it as `cursor` to fetch the next page. `limit` defaults to
-50, maximum 100, minimum 1. Results use ascending numeric IDs; cursors are exclusive.
+50, maximum 100, minimum 1. Results use ascending numeric IDs (ticket history
+uses descending IDs); cursors are exclusive.
 Pagination is not a snapshot: concurrent updates can change matching results.
 IDs and relationship IDs are positive integers. Unknown mutation fields are rejected.
 PATCH changes only supplied fields; explicit null clears nullable fields.
@@ -74,6 +75,7 @@ curl -sS -X PATCH "$TICKETS_URL/api/v1/projects/1" -H "Authorization: Bearer $TI
 | --- | --- | --- |
 | GET | `/tickets` | Paginated tickets with filters below |
 | GET | `/tickets/{id-or-key}` | Numeric ID or key such as `EX-12` |
+| GET | `/tickets/{id-or-key}/history` | Append-only changes, newest first; see Ticket change history |
 | POST | `/tickets` | Required `project_id`, `title`; other editable fields optional |
 | PATCH | `/tickets/{id-or-key}` | Editable fields below |
 | DELETE | `/tickets/{id-or-key}` | Deletes ticket, comments, label links and dependency edges |
@@ -316,3 +318,36 @@ Weeks contain `start`, `end`, `coverage=none|partial|full`, nullable `created`,
 `completed`, `imported`. Null is unavailable, never zero. Deleted historic cohort
 rows have null ticket/key/title and remain counted. Full metric definitions,
 coverage, event-time attribution and deferred scope: [Home analytics](design/home-analytics.md).
+
+## Ticket change history
+
+`GET /api/v1/tickets/{id-or-key}/history?limit=50&cursor=<id>` requires the same
+session/bearer authentication as ticket reads. It returns `data` and
+`next_cursor` (null at end). **History alone uses descending IDs**, newest first,
+with an exclusive cursor; default limit 50, range 1–100. Pass the returned cursor
+unchanged. New writes do not shift older pages; this is not a snapshot.
+
+Each entry contains `id`, `subject_id` (durable ticket identity), `ticket_id`,
+`actor_kind` (`user`, `api_token`, `webhook`, `system`), `actor_id`, `actor_label`,
+`field`, `old_value`, `new_value`, and `recorded_at` (UTC ISO 8601). Actor labels
+are safe server-generated aliases (`Owner`, `API token #N`, `GitHub`, `System`);
+IDs are stable and no credentials, email addresses or account names are copied.
+History actor fields cannot be supplied in mutation documents.
+
+Fields: `created`, `deleted`, `status`, `priority`, `assignee`, `title`,
+`description`, `project`, `label_added`, `label_removed`, `blocker_added`,
+`blocker_removed`, `blocks_added`, `blocks_removed`. `claim`, `heartbeat`, `expiry`
+and `release` are reserved for TIK-61; there is no claim API yet. Old/new values
+are JSON scalars for ordinary fields, `{id,name,key}` for projects,
+`{id,name,color}` for labels and `{id,key,title}` for dependencies. Absent sides
+are null. `created` contains an initial snapshot; migration baselines contain
+`{title,baseline:true}` and use the observation timestamp, not a fabricated past
+change. Title/description history is raw text; render it as text or use the shared
+Markdown sanitizer, never raw HTML.
+
+History is append-only and commits atomically with each ticket write. No-op
+updates and replayed imports/webhooks emit no changes. Ticket and label deletion
+cascades record removed relationships on surviving tickets. History survives
+ticket deletion internally, but this endpoint returns 404 for a deleted ticket;
+reused numeric IDs resolve only the new durable identity. No history write or
+purge endpoint is exposed. Analytics `ticket_events` is independent and unchanged.

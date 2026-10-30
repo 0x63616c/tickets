@@ -1,5 +1,4 @@
 //! Owner-allowlisted PR ingestion, independent of issue mirroring.
-use crate::repository::Store;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use worker::*;
@@ -99,11 +98,9 @@ pub async fn handle(env: &Env, event: &str, bytes: &[u8]) -> Result<Response> {
     let links =
         tickets_core::pull_request::links(&pr.title, pr.body.as_deref().unwrap_or_default());
     let db = env.d1("DB")?;
-    // One atomic statement. Triggers resolve all keys and update links/statuses;
-    // no per-ticket requests and eight parameters regardless of reference count.
-    let rows: Vec<Value> = Store::query(
+    // Common atomic mutation batch includes trigger-driven status transitions.
+    let rows: Vec<Value> = crate::mutation::pull_request(
         &db,
-        tickets_core::pull_request::UPSERT,
         vec![
             json!(repo),
             json!(pr.number),

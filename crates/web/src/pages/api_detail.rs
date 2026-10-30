@@ -20,6 +20,36 @@ struct CommentRecord {
     #[serde(skip)]
     reveal: bool,
 }
+#[derive(Clone, Deserialize)]
+struct HistoryPage {
+    data: Vec<tickets_core::history::Entry>,
+    next_cursor: Option<String>,
+}
+#[derive(Clone)]
+enum Activity {
+    Change(tickets_core::history::Entry),
+    Comment(CommentRecord),
+}
+impl Activity {
+    fn time(&self) -> &str {
+        match self {
+            Self::Change(e) => &e.recorded_at,
+            Self::Comment(c) => &c.created_at,
+        }
+    }
+    fn id(&self) -> i64 {
+        match self {
+            Self::Change(e) => e.id,
+            Self::Comment(c) => c.id,
+        }
+    }
+    fn key(&self) -> String {
+        match self {
+            Self::Change(e) => format!("history-{}", e.id),
+            Self::Comment(c) => format!("comment-{}-{}", c.id, c.body),
+        }
+    }
+}
 #[derive(Clone, Copy)]
 struct DetailState {
     owner: StoredValue<leptos::reactive::owner::WeakOwner>,
@@ -28,12 +58,50 @@ struct DetailState {
     selector: StoredValue<String>,
     ticket: RwSignal<Option<BoardTicket>>,
     comments: RwSignal<Vec<CommentRecord>>,
+    history: RwSignal<Vec<tickets_core::history::Entry>>,
+    history_cursor: RwSignal<Option<String>>,
+    history_busy: RwSignal<bool>,
+    history_error: RwSignal<String>,
+    history_failed_older: RwSignal<bool>,
     busy: RwSignal<bool>,
     loading: RwSignal<bool>,
     error: RwSignal<String>,
     revision: RwSignal<u64>,
 }
 impl DetailState {
+    async fn refresh_history(self, ticket_id: i64) -> Result<HistoryPage, String> {
+        let newest = self
+            .history
+            .with_untracked(|entries| entries.first().map(|e| e.id));
+        let mut entries = vec![];
+        let mut cursor = None;
+        loop {
+            let suffix = cursor
+                .as_ref()
+                .map(|c| format!("?cursor={c}"))
+                .unwrap_or_default();
+            let page: HistoryPage = serde_json::from_value(
+                api(
+                    "GET",
+                    &format!("/api/v1/tickets/{ticket_id}/history{suffix}"),
+                    Value::Null,
+                )
+                .await?,
+            )
+            .map_err(|e| e.to_string())?;
+            let overlaps = newest.is_some_and(|id| page.data.iter().any(|e| e.id <= id));
+            entries.extend(page.data);
+            cursor = page.next_cursor;
+            // Fetch through bursts larger than one page before merging, so the
+            // retained history window never has a silent gap in the middle.
+            if newest.is_none() || overlaps || cursor.is_none() {
+                return Ok(HistoryPage {
+                    data: entries,
+                    next_cursor: cursor,
+                });
+            }
+        }
+    }
     /// Detail reads and writes must stop when this ticket's keyed page unmounts.
     /// Use the page owner even from effects or short-lived editor children.
     fn spawn(self, task: impl std::future::Future<Output = ()> + 'static) {
@@ -72,6 +140,7 @@ impl DetailState {
         self.id.set(ticket.id);
         let mut comments =
             all::<CommentRecord>(&format!("tickets/{}/comments", self.id.get_untracked())).await?;
+        let history = self.refresh_history(ticket.id).await;
         if background
             && (crate::live::editing()
                 || self.busy.get_untracked()
@@ -95,6 +164,25 @@ impl DetailState {
             comment.reveal = reveal_comments;
         }
         self.comments.set(comments);
+        match history {
+            Ok(page) => {
+                let first_load = self.history.with_untracked(Vec::is_empty);
+                self.history.update(|entries| {
+                    entries.extend(page.data);
+                    entries.sort_by_key(|e| std::cmp::Reverse(e.id));
+                    entries.dedup_by_key(|e| e.id);
+                });
+                if first_load {
+                    self.history_cursor.set(page.next_cursor);
+                }
+                self.history_error.set(String::new());
+            }
+            Err(error) => {
+                self.history_failed_older.set(false);
+                self.history_error
+                    .set(format!("Could not load activity: {error}"));
+            }
+        }
         self.revision.update(|r| *r += 1);
         if restore_label_focus {
             gloo_timers::future::TimeoutFuture::new(0).await;
@@ -150,6 +238,11 @@ fn DetailPage(selector: String) -> impl IntoView {
         selector: StoredValue::new(selector),
         ticket: RwSignal::new(None),
         comments: RwSignal::new(vec![]),
+        history: RwSignal::new(vec![]),
+        history_cursor: RwSignal::new(None),
+        history_busy: RwSignal::new(false),
+        history_error: RwSignal::new(String::new()),
+        history_failed_older: RwSignal::new(false),
         busy: RwSignal::new(false),
         loading: RwSignal::new(true),
         error: RwSignal::new(String::new()),
@@ -236,7 +329,7 @@ fn DetailPage(selector: String) -> impl IntoView {
                     <div class="pr-link-row"><a class="subtle-link" href=pr.url target="_blank" rel="noopener noreferrer"><Icon name="link"/><span>{format!("{}#{} · {}",pr.repo,pr.number,pr.title)}</span><Icon name="external"/></a><span class="muted">{format!("{} · {}",match pr.state.as_str(){"open"=>"Open","draft"=>"Draft","merged"=>"Merged","closed"=>"Closed",state=>state},if pr.closes{"Closes ticket"}else{"Reference"})}</span></div>
                 }).collect_view()}</section>
             })}
-            <section class="activity" aria-label="Comments and activity"><div class="section-heading"><h2>"Activity"</h2></div>{move||state.ticket.get().filter(|t|t.external_id.as_deref().is_some_and(|id|id.starts_with("github:"))).map(|t|view!{<div class="import-activity"><Icon name="link"/><span>"Imported from GitHub"</span>{t.external_url.map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener noreferrer">"Source issue"<Icon name="external"/></a>})}</div>})}<For each=move||state.comments.get() key=|c|(c.id,c.body.clone()) children=|comment|view!{<ApiComment comment/>}/><CommentEditor/></section>
+            <section class="activity" aria-label="Comments and activity"><div class="section-heading"><h2>"Activity"</h2></div>{move||state.ticket.get().filter(|t|t.external_id.as_deref().is_some_and(|id|id.starts_with("github:"))).map(|t|view!{<div class="import-activity"><Icon name="link"/><span>"Imported from GitHub"</span>{t.external_url.map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener noreferrer">"Source issue"<Icon name="external"/></a>})}</div>})}<ActivityFeed/><CommentEditor/></section>
             </article></div></Show>
         <Presence show=edit><EditTicket close=Callback::new(move|_|edit.set(false))/></Presence>
         <Presence show=dependency><DependencyEditor close=Callback::new(move|_|dependency.set(false))/></Presence>
@@ -378,6 +471,60 @@ fn EditTicket(close: Callback<()>) -> impl IntoView {
     view! {<Modal title="Edit ticket" locked=Signal::derive(move||state.busy.get()) on_close=close><form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move|e|{e.prevent_default();state.write("PATCH",format!("/api/v1/tickets/{}",state.id.get_untracked()),json!({"title":title.get_untracked(),"body":body.get_untracked()}),move||close.run(()));} ><div class="modal-body"><TextInput id="detail-title" label="Title" value=title/><MarkdownEditor body label="Description"/><p role="alert">{move||state.error.get()}</p></div><div class="modal-footer"><BusyButton busy=state.busy disabled=Signal::derive(move||title.get().trim().is_empty())>"Save ticket"</BusyButton></div></form></Modal>}
 }
 #[component]
+fn ActivityFeed() -> impl IntoView {
+    let state = expect_context::<DetailState>();
+    let load_older = move |_| {
+        if state.history_busy.get_untracked() {
+            return;
+        }
+        let Some(cursor) = state.history_cursor.get_untracked() else {
+            return;
+        };
+        let revision = state.revision.get_untracked();
+        state.history_busy.set(true);
+        state.history_error.set(String::new());
+        state.spawn(async move {
+            let result = api(
+                "GET",
+                &format!(
+                    "/api/v1/tickets/{}/history?cursor={cursor}",
+                    state.id.get_untracked()
+                ),
+                Value::Null,
+            )
+            .await
+            .and_then(|v| serde_json::from_value::<HistoryPage>(v).map_err(|e| e.to_string()));
+            if revision == state.revision.get_untracked() {
+                match result {
+                    Ok(page) => {
+                        state.history.update(|entries| entries.extend(page.data));
+                        state.history_cursor.set(page.next_cursor);
+                    }
+                    Err(error) => {
+                        state.history_failed_older.set(true);
+                        state
+                            .history_error
+                            .set(format!("Could not load older activity: {error}"));
+                    }
+                }
+            }
+            state.history_busy.set(false);
+        });
+    };
+    view! {
+        <div class="activity-feed" aria-label="Ticket history">
+            <For each=move||{
+                let mut entries=state.history.get().into_iter().map(Activity::Change).chain(state.comments.get().into_iter().map(Activity::Comment)).collect::<Vec<_>>();
+                entries.sort_by(|a,b|b.time().cmp(a.time()).then_with(||b.id().cmp(&a.id())));
+                entries
+            } key=Activity::key children=|entry|match entry {Activity::Change(entry)=>view!{<HistoryEvent entry/>}.into_any(),Activity::Comment(comment)=>view!{<ApiComment comment/>}.into_any()}/>
+        </div>
+        <Show when=move||!state.history_error.get().is_empty()><div class="history-error" role="alert">{move||state.history_error.get()}<button class="button button-ghost" disabled=move||state.busy.get() || state.history_busy.get() on:click=move|_|{if state.history_failed_older.get_untracked(){load_older(())}else{state.spawn(async move{if let Err(e)=state.load(false).await{state.history_error.set(e);}})}}>"Retry activity"</button></div></Show>
+        <Show when=move||state.history_cursor.get().is_some()><BusyButton variant="ghost" class="history-more" busy=state.history_busy disabled=state.busy on_click=Callback::new(load_older)>"Load older activity"</BusyButton></Show>
+    }
+}
+
+#[component]
 fn ApiComment(comment: CommentRecord) -> impl IntoView {
     let deleting = RwSignal::new(false);
     let state = expect_context::<DetailState>();
@@ -409,7 +556,7 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     let comment_root = NodeRef::<leptos::html::Div>::new();
     // Unchanged comments retain their keyed nodes and never replay.
     use_ascii_reveal(comment_root, Signal::derive(|| false), comment.reveal);
-    view! {<div node_ref=comment_root class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||editable><button class="button button-ghost comment-action" disabled=move||state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><BusyButton kind="button" status_label="Deleting comment" variant="ghost" class="comment-action" busy=Signal::derive(move||deleting.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{deleting.set(true);state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{});})>"Delete"</BusyButton></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone() project=state.ticket.get().and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
+    view! {<div node_ref=comment_root class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><ActivityTime iso=comment.created_at/><Show when=move||editable><button class="button button-ghost comment-action" disabled=move||state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><BusyButton kind="button" status_label="Deleting comment" variant="ghost" class="comment-action" busy=Signal::derive(move||deleting.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{deleting.set(true);state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{});})>"Delete"</BusyButton></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone() project=state.ticket.get().and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
 }
 #[component]
 fn CommentEditor(

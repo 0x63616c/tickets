@@ -178,6 +178,32 @@ impl Browser {
         println!("Screenshot: {}", path.display());
         Ok(())
     }
+    fn full_screenshot(&mut self, path: &Path) -> Result<()> {
+        // Reuse the preceding viewport PNG when it already covers the document.
+        // Managed headless Chrome can lose cached glyphs on a second raster pass.
+        if self.eval("scrollY===0 && document.documentElement.scrollHeight===innerHeight")? == true
+        {
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .ok_or("missing PNG name")?;
+            fs::copy(path.with_file_name(name.replace("-full.png", ".png")), path)?;
+            return Ok(());
+        }
+        let size = self.eval(
+            "({width:innerWidth,height:innerHeight,full:document.documentElement.scrollHeight})",
+        )?;
+        let width = size["width"].as_u64().ok_or("missing width")? as u32;
+        let height = size["height"].as_u64().ok_or("missing height")? as u32;
+        self.viewport(
+            width,
+            size["full"].as_u64().ok_or("missing full height")? as u32,
+        )?;
+        self.eval("window.scrollTo(0,0);true")?;
+        self.screenshot(path)?;
+        self.viewport(width, height)?;
+        Ok(())
+    }
     pub(crate) fn click(&mut self, selector: &str) -> Result<()> {
         let selector = serde_json::to_string(selector)?;
         // An outgoing native dialog intentionally keeps the page inert through exit.
@@ -423,6 +449,14 @@ pub fn board_before(root: &Path) -> super::Result {
 /// Real API, real Worker, real keyboard events; isolated D1 lifecycle is owned by api_smoke.
 pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     let mut b = Browser::start(root)?;
+    if mode == "detail"
+        && (env::var_os("TICKETS_BEFORE_ASSETS").is_some()
+            || env::var_os("TICKETS_DETAIL_CAPTURE_ONLY").is_some())
+    {
+        // Capture settled text in the supported reduced-motion mode. Functional
+        // detail checks keep normal motion and verify comment reveal behavior.
+        b.call("Emulation.setEmulatedMedia", json!({"features":[{"name":"prefers-color-scheme","value":"dark"},{"name":"prefers-reduced-motion","value":"reduce"}]}))?;
+    }
     b.go("http://127.0.0.1:8795/login?next=%2Fsettings%2Ftokens")?;
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
@@ -714,26 +748,45 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
 
 /// Issue #9: browser-level component safety and persistent editing against local D1.
 fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
-    let output = root.join("docs/screenshots/detail");
+    let output = root.join("docs/screenshots/TIK-60");
     fs::create_dir_all(&output)?;
     b.go("http://127.0.0.1:8795/ticket?id=2")?;
-    if env::var_os("TICKETS_BEFORE_ASSETS").is_some() {
-        b.wait("document.body.innerText.includes('Page not found')")?;
-        b.screenshot(&output.join("before-desktop.png"))?;
-        b.viewport(390, 900)?;
-        b.screenshot(&output.join("before-mobile.png"))?;
-        b.viewport(1440, 900)?;
-        b.go("http://127.0.0.1:8795/list?project=1")?;
-        b.wait("document.querySelectorAll('.api-list-row').length===7")?;
-        b.click("#list-ticket-2 .row-title")?;
-        b.wait("!!document.querySelector('dialog h1')")?;
-        b.screenshot(&output.join("before-list-preview.png"))?;
-        b.go("http://127.0.0.1:8795/design/ticket")?;
-        b.wait("!!document.querySelector('.ticket-detail h1')")?;
-        b.screenshot(&output.join("target-desktop.png"))?;
+    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Group the ticket list by status' && !!document.querySelector('[role=listbox][aria-label=Project] [role=option]')")?;
+    // Same fixture and saved changes for both real asset versions.
+    b.eval("(async()=>{const t=await fetch('/api/v1/tickets/2').then(r=>r.json());for(const patch of [{priority:1,status:'in_progress'}, {priority:t.priority,status:t.status}]) {const r=await fetch('/api/v1/tickets/2',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});if(!r.ok)throw Error('history fixture failed');}return true})()")?;
+    b.go("http://127.0.0.1:8795/ticket?id=2")?;
+    b.wait("!!document.querySelector('.activity') && document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    let before = env::var_os("TICKETS_BEFORE_ASSETS").is_some();
+    let prefix = if before { "before" } else { "after" };
+    if !before {
+        b.wait("document.querySelectorAll('.history-event').length>=5")?;
+    }
+    b.wait("!document.querySelector('[data-ar-t]')")?;
+    b.screenshot(&output.join(format!("{prefix}-desktop.png")))?;
+    b.full_screenshot(&output.join(format!("{prefix}-desktop-full.png")))?;
+    b.eval("document.querySelector('.activity').scrollIntoView({block:'center'});true")?;
+    b.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width":1440,"height":900,"deviceScaleFactor":2,"mobile":false}),
+    )?;
+    super::component::crop(
+        b,
+        ".activity",
+        &output.join(format!("{prefix}-activity.png")),
+    )?;
+    b.viewport(390, 900)?;
+    b.eval("document.querySelector('.ticket-detail h1').scrollIntoView({block:'start'});true")?;
+    b.screenshot(&output.join(format!("{prefix}-mobile.png")))?;
+    b.full_screenshot(&output.join(format!("{prefix}-mobile-full.png")))?;
+    b.eval("document.querySelector('.activity').scrollIntoView({block:'start'});true")?;
+    b.screenshot(&output.join(format!("{prefix}-mobile-activity.png")))?;
+    if before || env::var_os("TICKETS_DETAIL_CAPTURE_ONLY").is_some() {
         return Ok(());
     }
-    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Group the ticket list by status' && !!document.querySelector('[role=listbox][aria-label=Project] [role=option]')")?;
+    b.viewport(1440, 900)?;
+    b.go("http://127.0.0.1:8795/ticket?id=2")?;
+    b.wait("document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
     click_text(b, "button", "Edit ticket")?;
     b.wait("!!document.querySelector('#detail-title')")?;
     b.text("#detail-title", "Make every status change accessible")?;
@@ -747,7 +800,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("document.querySelector('[aria-label=Status]').value==='In progress' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     select_value(b, "Priority", "Urgent")?;
     b.wait("document.querySelector('[aria-label=Priority]').value==='Urgent' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
-    b.text("input[aria-label=Assignee]", "agent")?;
+    b.text("input[aria-label=Assignee]", "fixture-agent")?;
     b.eval("document.querySelector('.assignee-editor').requestSubmit()")?;
     b.wait("document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.click(".label-menu .menu-trigger")?;
@@ -810,15 +863,16 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     select_value(b, "Project", "2")?;
     b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.go("http://127.0.0.1:8795/ticket?id=2")?;
-    b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('[aria-label=Priority]')?.value==='Urgent' && document.querySelector('input[aria-label=Assignee]')?.value==='agent' && document.querySelector('.comment .markdown')?.textContent.includes('Reviewed:')")?;
+    b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('[aria-label=Priority]')?.value==='Urgent' && document.querySelector('input[aria-label=Assignee]')?.value==='fixture-agent' && document.querySelector('.comment .markdown')?.textContent.includes('Reviewed:')")?;
     select_value(b, "Project", "1")?;
     b.wait("document.querySelector('.detail-overline .mono')?.textContent==='TKT-8' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.wait("document.querySelector('.toast')?.textContent.includes('Saved')")?;
     b.click("[aria-label='Dismiss notification']")?;
-    b.screenshot(&output.join("after-desktop.png"))?;
+    b.wait("!document.querySelector('[data-ar-t]')")?;
+    b.screenshot(&output.join("verified-desktop.png"))?;
     b.viewport(390, 900)?;
     b.wait("document.documentElement.scrollWidth<=innerWidth")?;
-    b.screenshot(&output.join("after-mobile.png"))?;
+    b.screenshot(&output.join("verified-mobile.png"))?;
     b.eval("document.querySelector('.properties').scrollIntoView();true")?;
     b.click(".properties-toggle")?;
     b.screenshot(&output.join("after-mobile-properties.png"))?;
@@ -828,6 +882,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("document.querySelector('#list-ticket-2').focus();true")?;
     b.key("Enter", 13, 0)?;
     b.wait("location.pathname==='/t/TKT-8' && !!document.querySelector('.ticket-detail h1')")?;
+    b.wait("!!document.querySelector('.topbar .button-primary:not([disabled])') && document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
     b.key("c", 67, 0)?;
     b.wait("!!document.querySelector('#board-title')")?;
     b.text("#board-title", "Created from detail")?;
@@ -841,8 +896,31 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     select_value(b, "Status", "Done")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Verification rejection') && document.querySelector('[aria-label=Status]').value==='In progress'")?;
     b.eval("window.fetch=window.savedFetch;true")?;
+    b.wait("fetch('/api/v1/tickets/2/history?limit=100').then(r=>r.json()).then(p=>['created','title','description','status','priority','assignee','label_added','label_removed','blocks_added','project'].every(f=>p.data.some(e=>e.field===f)) && p.data.some(e=>e.actor_kind==='user') && p.data.filter(e=>e.actor_kind==='user').every(e=>e.actor_label==='Owner') && !p.data.some(e=>e.field==='status' && e.new_value==='done'))")?;
+    b.eval(r#"(async()=>{const t=await fetch('/api/v1/tickets/2').then(r=>r.json());for(const body of ["<script>window.historyXss=1</script><img src=x onerror='window.historyXss=1'>",t.body]) {const r=await fetch('/api/v1/tickets/2',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({body})});if(!r.ok)throw Error('history XSS seed');}return true})()"#)?;
+    b.go("http://127.0.0.1:8795/ticket?id=2")?;
+    b.wait("!!document.querySelector('.history-diff summary') && document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
+    b.click(".history-diff summary")?;
+    b.wait("document.querySelector('.history-diff[open] pre')?.textContent.includes('<script>') && !window.historyXss")?;
+    b.wait("!!document.querySelector('.history-diff[open] pre') && !document.querySelector('.history-diff script,.history-diff [onerror]')")?;
+    // Refetch via existing invalidations and page backwards without duplicates.
+    b.eval("(async()=>{for(let i=0;i<52;i++){const r=await fetch('/api/v1/tickets/2',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({assignee:'fixture-'+i})});if(!r.ok)throw Error('history pagination seed');}return true})()")?;
+    b.go("http://127.0.0.1:8795/ticket?id=2")?;
+    b.wait("document.querySelectorAll('.history-event').length===50 && !!document.querySelector('.history-more')")?;
+    b.eval("window.savedFetch=window.fetch;window.fetch=(i,o)=>((i instanceof Request?i.url:String(i)).includes('/history?cursor=')?Promise.resolve(new Response(JSON.stringify({error:{message:'Activity fixture failure'}}),{status:503,headers:{'Content-Type':'application/json'}})):window.savedFetch(i,o));true")?;
+    b.click(".history-more")?;
+    b.wait("document.querySelector('.history-error')?.textContent.includes('Activity fixture failure') && document.querySelectorAll('.history-event').length===50")?;
+    b.eval("window.fetch=window.savedFetch;true")?;
+    click_text(b, ".history-error button", "Retry activity")?;
+    b.wait("document.querySelectorAll('.history-event').length>50 && !document.querySelector('.history-more') && new Set([...document.querySelectorAll('.history-event')].map(e=>e.dataset.historyId)).size===document.querySelectorAll('.history-event').length")?;
+    b.eval("window.loadedHistoryIds=[...document.querySelectorAll('.history-event')].map(e=>e.dataset.historyId);true")?;
+    b.click(".history-diff summary")?;
+    b.click(".history-event .activity-time")?;
+    b.wait("document.querySelector('.history-event .activity-time[aria-pressed=true]')?.textContent.includes('UTC')")?;
+
     b.click("button[aria-label='Remove dependency 3']")?;
     b.wait("document.querySelectorAll('.dependency-row').length===1 && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.wait("window.loadedHistoryIds.every(id=>document.querySelector('[data-history-id=\"'+id+'\"]')) && !!document.querySelector('.history-diff[open]') && !document.querySelector('.history-more')")?;
     b.wait("fetch('/api/v1/tickets/2').then(r=>r.json()).then(t=>t.blocks.length===0 && t.blocked_by.length===1)")?;
     click_text(b, "button", "Add dependency")?;
     b.text("#dependency-search", "TKT-4 ")?;
