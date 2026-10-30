@@ -116,3 +116,33 @@
  #token-label { min-height:44px; }
  .modal:has(.token-secret,.token-revoke,#token-label) button { min-height:44px; min-width:44px; }
 }
+
+/* Pickup policies extend the existing Settings form rhythm. */
+.pickup-settings .settings-description { margin-bottom:var(--space-5); }
+.pickup-scope { max-width:320px; }
+.pickup-inheritance { margin-top:var(--space-2); margin-bottom:var(--space-5); }
+.pickup-settings form { max-width:640px; }
+.pickup-editor fieldset { border:0; border-top:1px solid var(--border); padding:var(--space-3) 0 var(--space-5); margin:0; min-width:0; }
+.pickup-editor legend { padding:0 var(--space-2) 0 0; font-size:var(--text-base); font-weight:var(--weight-semibold); }
+.pickup-fixed, .pickup-toggle { display:flex; align-items:center; justify-content:space-between; gap:var(--space-4); }
+.pickup-fixed { padding-top:var(--space-1); }
+.pickup-toggle { padding-block:var(--space-3); cursor:pointer; }
+.pickup-toggle > span { min-width:0; }
+.pickup-toggle strong { display:block; font-weight:var(--weight-medium); }
+.pickup-toggle > span > span { display:block; color:var(--text-muted); font-size:var(--text-sm); margin-top:var(--space-1); }
+.pickup-toggle input { width:16px; height:16px; flex:0 0 16px; accent-color:var(--accent); }
+.pickup-toggle:has(input:disabled) { cursor:default; }
+.pickup-labels { margin-top:var(--space-2); }
+.pickup-numbers { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); }
+.pickup-numbers input { font-variant-numeric:tabular-nums; }
+.pickup-settings :is(input:not([type=checkbox]), .select-trigger) { border-color:color-mix(in srgb,var(--text-muted) 65%,var(--surface)); }
+.pickup-settings .settings-save { flex-wrap:wrap; margin-top:var(--space-2); }
+.pickup-result { min-height:20px; margin-top:var(--space-3); color:var(--text-muted); font-size:var(--text-sm); }
+.component-stage[data-component=pickup-rules] { width:688px; max-width:100%; }
+@media (max-width:600px) {
+ .pickup-numbers { grid-template-columns:1fr; }
+ .pickup-settings .button, .pickup-settings input:not([type=checkbox]), .pickup-settings .select-trigger { min-height:44px; }
+}
+
+#pickup-scope-hint:empty, #pickup-labels-error:empty { display:none; }
+.pickup-editor .settings-error { overflow-wrap:anywhere; }

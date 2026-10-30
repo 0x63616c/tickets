@@ -186,10 +186,11 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.eval(r#"(async()=>{
       const api=async(p,body,method='POST')=>{const r=await fetch('/api/v1/'+p,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error('Seed failed');return r.json()};
       await api('projects',{name:'Tickets',key_prefix:'TKT',color:'#5e6ad2'});
-      for(const [name,color] of [['Feature','#8b82d9'],['Bug','#eb5757'],['Infrastructure','#4ea7fc'],['Design','#c6a1b9']])await api('labels',{name,color});
+      const labels=[];
+      for(const [name,color] of [['Feature','#8b82d9'],['Bug','#eb5757'],['Infrastructure','#4ea7fc'],['Design','#c6a1b9']])labels.push(await api('labels',{name,color}));
       for(const [i,title] of ['Keep keyboard focus after moving tickets','Group the ticket list by status','Link projects to GitHub','Preserve compact metadata'].entries()){
         const t=await api('tickets',{project_id:1,title,status:['in_progress','todo','backlog','done'][i],priority:2,body:'### Acceptance criteria\n- [x] Show status, labels and priority\n- [ ] Keep keyboard focus visible\n\nUse the status menu or drag a card to move it.'});
-        await api('tickets/'+t.id+'/labels/'+(i+1),{});
+        await api('tickets/'+t.id+'/labels/'+labels[i].id,{});
       }
       await api('tickets/2/dependencies/1',{});
       await api('tickets/1/comments',{body:'Verify the shortcut hints and labels in each view.'});

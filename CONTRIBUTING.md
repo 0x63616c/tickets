@@ -697,3 +697,19 @@ project icon schema changes additive and validate values in core.
   failed-save absence, and captures TIK-60 fixtures. Its before mode uses the same
   fixture on actual base assets. `component-shot history` captures isolated 2×
   rows. `import-check` verifies history attribution and replay idempotence.
+
+## Pickup leases (TIK-61)
+
+- Core owns pickup validation, pure eligibility and total ordering; shared SQLite
+  dispatch tests keep the SQL adapter aligned. The claim selector and mutation
+  scope run inside the TIK-60 write batch, never from a prior preview.
+- Owner identity comes from auth. Require the per-acquisition claim ID on heartbeat
+  and release; never renew an expired lease. Cron expires 25 leases per minute,
+  preserving statuses changed by a human/webhook. Keep notifications bounded.
+- `waiting-on-calum` is seeded by migration. Empty-workspace checks must allow
+  this label; choose newly created label IDs from API responses where possible.
+- `cargo xtask pickup-check` verifies local D1 claims, contention, heartbeat,
+  release, cron and history. `settings-check` covers rule editing and overrides.
+  `component-shot pickup-rules` captures fixture-only dark desktop/mobile and 2×
+  crops; `--before-assets <base-dist>` captures the previous Settings appearance.
+  See docs/design/claim-next.md for the lease contract and research.

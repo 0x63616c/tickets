@@ -414,3 +414,12 @@ Live invalidations merge new entries through the loaded boundary, retaining olde
 pages and open diffs. Relative time refreshes each minute. Failed reads preserve
 saved content.
 Use `component-shot history` and `detail-check` for dark desktop/mobile evidence.
+
+### Pickup rules (TIK-61)
+
+Settings → Pickup rules extends the existing form with a shared scope SelectField,
+compact labeled checkbox rows, numeric capacity/lease fields, and explicit Save.
+Workspace inheritance stays visible; projects can save a complete override or use
+workspace rules again. Unsaved edits lock scope until saved/discarded. Errors keep
+inputs intact. `/design/c/pickup-rules` and `/design/settings/pickup-rules` use sample
+data only; `component-shot pickup-rules` captures the rendered editor and pages.

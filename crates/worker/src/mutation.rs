@@ -10,6 +10,11 @@ pub struct Scope {
     params: Vec<Value>,
 }
 impl Scope {
+    /// Selector is internal SQL only; evaluated after the batch obtains its write lock.
+    pub(crate) fn selection(sql: String, params: Vec<Value>) -> Self {
+        Self { sql, params }
+    }
+
     /// Include neighboring tickets so deletion cascades are visible on survivors.
     pub fn ticket(id: i64) -> Self {
         Self { sql: "SELECT id FROM tickets WHERE id=? OR id IN (SELECT blocked_id FROM ticket_dependencies WHERE blocker_id=? UNION SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=?)".into(), params:vec![id.into(),id.into(),id.into()] }
@@ -43,6 +48,7 @@ impl Scope {
     }
 }
 const SNAPSHOT: &str = "json_object('status',t.status,'priority',t.priority,'assignee',t.assignee,'title',t.title,'body',t.body,
+ 'claim',json_object('owner',t.claimed_by,'id',t.claim_id,'expires_at',t.claim_expires_at,'heartbeat_at',t.claim_heartbeat_at,'action',t.claim_event,'version',t.claim_version),
  'project',json_object('id',p.id,'name',p.name,'key',p.key_prefix),
  'labels',json((SELECT json_group_array(json(v)) FROM (SELECT json_object('id',l.id,'name',l.name,'color',l.color) v FROM labels l JOIN ticket_labels tl ON tl.label_id=l.id WHERE tl.ticket_id=t.id ORDER BY l.id))),
  'blockers',json((SELECT json_group_array(json(v)) FROM (SELECT json_object('id',b.id,'key',bp.key_prefix||'-'||b.number,'title',b.title) v FROM ticket_dependencies d JOIN tickets b ON b.id=d.blocker_id JOIN projects bp ON bp.id=b.project_id WHERE d.blocked_id=t.id ORDER BY b.id))),

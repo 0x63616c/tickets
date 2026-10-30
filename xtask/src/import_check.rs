@@ -479,7 +479,7 @@ pub fn check(token: &str) -> Result<()> {
         assert_eq!(a["body"], b["body"]);
     }
     assert_eq!(api.list("/api/v1/projects")?.len(), 2);
-    assert_eq!(api.list("/api/v1/labels")?.len(), 2);
+    assert_eq!(api.list("/api/v1/labels")?.len(), 3); // Two imported labels plus waiting-on-calum.
     // A partial import must tolerate previously imported issues outside its selection.
     api.call(
         Method::PUT,
