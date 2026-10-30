@@ -9,3 +9,14 @@ before list-cold: 38/77 overlap samples; 38 skeleton samples; 55 PNG frames over
 before home-list: 37/80 overlap samples; 37 skeleton samples; 47 PNG frames over 4s
 before home-list-mobile: 38/75 overlap samples; 38 skeleton samples; 76 PNG frames over 4s
 before list-catchup: 0/83 overlap samples; 0 skeleton samples; 63 PNG frames over 4s
+after board-cold: 0/82 overlap samples; 38 skeleton samples; 68 PNG frames over 4s
+after board-slow: 0/82 overlap samples; 42 skeleton samples; 64 PNG frames over 4s
+after home-board: 0/83 overlap samples; 38 skeleton samples; 69 PNG frames over 4s
+after board-empty: 0/83 overlap samples; 38 skeleton samples; 69 PNG frames over 4s
+after home-board-mobile: 0/81 overlap samples; 37 skeleton samples; 80 PNG frames over 4s
+after board-catchup: 0/82 overlap samples; 0 skeleton samples; 69 PNG frames over 4s
+after board-refresh: 0/83 overlap samples; 0 skeleton samples; 63 PNG frames over 4s
+after list-cold: 0/81 overlap samples; 38 skeleton samples; 58 PNG frames over 4s
+after home-list: 0/82 overlap samples; 37 skeleton samples; 64 PNG frames over 4s
+after home-list-mobile: 0/82 overlap samples; 37 skeleton samples; 80 PNG frames over 4s
+after list-catchup: 0/84 overlap samples; 0 skeleton samples; 50 PNG frames over 4s
