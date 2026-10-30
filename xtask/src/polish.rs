@@ -40,7 +40,8 @@ pub fn check(root: &Path, password: &str) -> Result {
         const api=async(path,body,method='POST')=>{const r=await fetch('/api/v1/'+path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error('Seed request failed: '+path);return r.json()};
         await api('projects',{name:'Tickets',key_prefix:'TKT',color:'#5e6ad2'});
         await api('projects',{name:'Quantum',key_prefix:'QUA',color:'#4ea7fc'});
-        for(const [name,color] of [['Feature','#8b82d9'],['Bug','#eb5757'],['Infrastructure','#4ea7fc'],['Design','#c6a1b9']])await api('labels',{name,color});
+        const labels=[];
+        for(const [name,color] of [['Feature','#8b82d9'],['Bug','#eb5757'],['Infrastructure','#4ea7fc'],['Design','#c6a1b9']])labels.push(await api('labels',{name,color}));
         const groups=[
           ['backlog', ['Remember filters when switching views','Import labels from GitHub issues','Add a keyboard shortcut reference','Archive completed projects']],
           ['todo', ['Group the ticket list by status','Create and edit tickets','Link projects to GitHub','Keep open views in sync']],
@@ -52,7 +53,7 @@ pub fn check(root: &Path, password: &str) -> Result {
           n++;
           const ticket=await api('tickets',{project_id:1,title,status,priority:n===4?0:n<5?4:2,sort_order:n*1024});
           const label=n===3||n===10?4:n===12?2:[8,11,13,14].includes(n)?3:1;
-          await api('tickets/'+ticket.id+'/labels/'+label,{});
+          await api('tickets/'+ticket.id+'/labels/'+labels[label-1].id,{});
         }
         await api('tickets/11/dependencies/6',{});
         await api('tickets/11/dependencies/8',{});

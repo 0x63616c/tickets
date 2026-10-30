@@ -103,7 +103,7 @@ fn api_fields_relationships_cascades_and_actors() {
             &db,
             &token,
             "POST",
-            "/api/v1/tickets/1/labels/1",
+            "/api/v1/tickets/1/labels/2",
             Value::Null,
         )
         .await;
@@ -111,7 +111,7 @@ fn api_fields_relationships_cascades_and_actors() {
             &db,
             &token,
             "DELETE",
-            "/api/v1/tickets/1/labels/1",
+            "/api/v1/tickets/1/labels/2",
             Value::Null,
         )
         .await;
@@ -119,11 +119,11 @@ fn api_fields_relationships_cascades_and_actors() {
             &db,
             &token,
             "POST",
-            "/api/v1/tickets/1/labels/1",
+            "/api/v1/tickets/1/labels/2",
             Value::Null,
         )
         .await;
-        call(&db, &user, "DELETE", "/api/v1/labels/1", Value::Null).await;
+        call(&db, &user, "DELETE", "/api/v1/labels/2", Value::Null).await;
         let entries = history(&db, 1).await;
         assert_eq!(
             entries

@@ -49,7 +49,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.click("#ticket-2 .card-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
     b.click(".label-menu .menu-trigger")?;
-    b.wait("document.querySelectorAll('.label-menu .menu-item').length===0")?;
+    b.wait("document.querySelectorAll('.label-menu .menu-item').length===1 && document.querySelector('.label-menu .menu-item').textContent.includes('waiting-on-calum')")?;
     b.text("#label-filter", "Release")?;
     b.wait("document.querySelector('.label-menu [data-create]')?.textContent.includes('Create label Release')")?;
     b.click(".label-menu [data-create]")?;

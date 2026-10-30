@@ -59,7 +59,7 @@ fn inventory_matches_later_presentation_without_changing_history() {
     block_on(async {
         let db = Sqlite::new();
         seed(&db);
-        db.0.execute_batch("INSERT INTO tickets(project_id,number,title,status) VALUES(1,1,'Later','todo'),(1,2,'Active later','in_progress'),(1,3,'Todo','todo'); INSERT INTO labels(name,color) VALUES('LaTeR','#888888'); INSERT INTO ticket_labels VALUES(1,1),(2,1);").unwrap();
+        db.0.execute_batch("INSERT INTO tickets(project_id,number,title,status) VALUES(1,1,'Later','todo'),(1,2,'Active later','in_progress'),(1,3,'Todo','todo'); INSERT INTO labels(name,color) VALUES('LaTeR','#888888'); INSERT INTO ticket_labels SELECT id,(SELECT id FROM labels WHERE name='LaTeR') FROM tickets WHERE id IN (1,2);").unwrap();
         let h = home(&db, &[]).await;
         assert_eq!(h["projects"][0]["backlog"], 1);
         assert_eq!(h["projects"][0]["todo"], 1);

@@ -17,8 +17,8 @@ and authentication details. Examples below form a disposable walkthrough, **not
 an instruction to seed a live workspace**. For real work, list existing resources
 and substitute their returned IDs/keys, cursor and desired fields. Execute only
 the operations needed for the requested task. The walkthrough assumes an empty
-instance (projects 1/2, tickets 1/2, label/comment 1). HTTP expectations and JSON
-subsets in comments are checked by `cargo xtask skill-check` against local D1.
+instance (projects 1/2, tickets 1/2, label 2/comment 1; label 1 is the seeded
+waiting-on-calum label). HTTP expectations and JSON subsets in comments are checked by `cargo xtask skill-check` against local D1.
 
 ## Access and project selection
 
@@ -105,18 +105,18 @@ on deletion returns 404. A ticket is blocked while any incoming blocker is
 neither done nor canceled.
 
 ```sh
-# expect {"status":200,"body":{"data":[]}}
+# expect {"status":200,"body":{"data":[{"id":1,"name":"waiting-on-calum"}]}}
 curl -sS "$TICKETS_URL/api/v1/labels" -H "Authorization: Bearer $TICKETS_TOKEN"
-# expect {"status":201,"body":{"id":1,"name":"bug"}}
+# expect {"status":201,"body":{"id":2,"name":"bug"}}
 curl -sS "$TICKETS_URL/api/v1/labels" -H "Authorization: Bearer $TICKETS_TOKEN" \
   -H 'Content-Type: application/json' -d '{"name":"bug","color":"#dd6677"}'
 # expect {"status":200}
-curl -sS -X POST "$TICKETS_URL/api/v1/tickets/1/labels/1" -H "Authorization: Bearer $TICKETS_TOKEN"
+curl -sS -X POST "$TICKETS_URL/api/v1/tickets/1/labels/2" -H "Authorization: Bearer $TICKETS_TOKEN"
 # expect {"status":200}
 curl -sS -X POST "$TICKETS_URL/api/v1/tickets/1/dependencies/2" -H "Authorization: Bearer $TICKETS_TOKEN"
 # expect {"status":409}
 curl -sS -X POST "$TICKETS_URL/api/v1/tickets/2/dependencies/1" -H "Authorization: Bearer $TICKETS_TOKEN"
-# expect {"status":200,"body":{"labels":[{"id":1,"name":"bug"}],"blocks":[2]}}
+# expect {"status":200,"body":{"labels":[{"id":2,"name":"bug"}],"blocks":[2]}}
 curl -sS "$TICKETS_URL/api/v1/tickets/1" -H "Authorization: Bearer $TICKETS_TOKEN"
 ```
 
@@ -140,7 +140,7 @@ curl -sS -G "$TICKETS_URL/api/v1/tickets" -H "Authorization: Bearer $TICKETS_TOK
   --data-urlencode 'limit=1' --data-urlencode 'cursor=1'
 # expect {"status":200,"body":{"data":[{"id":1}],"next_cursor":null}}
 curl -sS -G "$TICKETS_URL/api/v1/tickets" -H "Authorization: Bearer $TICKETS_TOKEN" \
-  --data-urlencode 'project=1' --data-urlencode 'status=in_progress' --data-urlencode 'label=1' \
+  --data-urlencode 'project=1' --data-urlencode 'status=in_progress' --data-urlencode 'label=2' \
   --data-urlencode 'assignee=agent' --data-urlencode 'blocked=false' --data-urlencode 'q=render bug'
 # expect {"status":200,"body":{"data":[{"id":2,"blocked_by":[1]}]}}
 curl -sS -G "$TICKETS_URL/api/v1/tickets" -H "Authorization: Bearer $TICKETS_TOKEN" \
@@ -148,7 +148,7 @@ curl -sS -G "$TICKETS_URL/api/v1/tickets" -H "Authorization: Bearer $TICKETS_TOK
 # expect {"status":200}
 curl -sS -X DELETE "$TICKETS_URL/api/v1/tickets/1/dependencies/2" -H "Authorization: Bearer $TICKETS_TOKEN"
 # expect {"status":200}
-curl -sS -X DELETE "$TICKETS_URL/api/v1/tickets/1/labels/1" -H "Authorization: Bearer $TICKETS_TOKEN"
+curl -sS -X DELETE "$TICKETS_URL/api/v1/tickets/1/labels/2" -H "Authorization: Bearer $TICKETS_TOKEN"
 # expect {"status":200,"body":{"blocks":[],"labels":[]}}
 curl -sS "$TICKETS_URL/api/v1/tickets/1" -H "Authorization: Bearer $TICKETS_TOKEN"
 # expect {"status":200,"body":{"id":1,"project_id":2,"key":"DST-1","assignee":null}}
@@ -223,8 +223,8 @@ Pass `next_cursor` unchanged with `cursor`; limit is 1–100 (default 50).
 Rows contain `field`, JSON `old_value`/`new_value`, UTC `recorded_at`, durable
 `subject_id`, and server-selected `actor_kind`, `actor_id`, `actor_label`.
 Fields cover creation, status, priority, assignee, labels, title, description,
-blockers and project moves. Claim/heartbeat/expiry/release kinds are reserved;
-there are no claim endpoints yet. History is read-only; no-ops emit no rows.
+blockers, project moves, claims, heartbeats, expiry and release. History is
+read-only; no-ops emit no rows. Successful heartbeats always record renewal.
 Deleted tickets return 404; retained history never leaks through a reused ID.
 Description/title values are raw text, not trusted HTML. Migration `created`
 entries mark the start of tracking, not a reconstructed edit history.
@@ -311,4 +311,54 @@ from updated_at or treat PR observation versions as merge timestamps.
 ```sh
 # expect {"status":200,"body":{"cohort":[],"next_cursor":null}}
 curl -sS "$TICKETS_URL/api/v1/analytics/home" -H "Authorization: Bearer $TICKETS_TOKEN"
+```
+
+## Claim work, renew it, and release it
+
+Use the saved rules rather than choosing work by judgment. Preview with
+`GET /api/v1/next?project=<id>` if useful, then claim with
+`POST /api/v1/next/claim` and `{"project":<id>}` (omit project for all projects).
+A 200 returns `{ticket, reason}`; a 204 is empty and means wait for eligible work.
+Use the **returned** ticket, which may differ from a prior preview. Todo-only,
+active-claim exclusion and archived-project exclusion are fixed. Defaults also
+skip open blockers, open/draft PRs and `waiting-on-calum`, prefer tickets blocking
+open work, then priority and oldest creation, and cap each project at 3 tickets
+In Progress or actively claimed. Rules are editable in Settings → Pickup rules;
+GET `/api/v1/pickup-rules[?project=<id>]` shows the effective document and source.
+Do not change rules just to obtain a blocked ticket.
+
+Retain the numeric ticket ID, `claim_id` and `claim_expires_at`. The claim belongs
+to the authenticated token/user, not an arbitrary agent name. With the same token,
+POST `/api/v1/tickets/{id}/claim/heartbeat` with the exact JSON body
+`{"claim_id":"<returned claim_id>"}` before expiry, typically every third of the
+lease (10 minutes for the 30-minute default). Use each returned expiry to schedule
+the next renewal. A 409 means ownership is gone: stop work and reconcile. An
+uncertain/failed renewal is not proof of ownership; stop before the known expiry.
+The claim ID fences stale workers even if they share a token.
+
+After opening a PR or completing work, PATCH status to `in_review` or `done`, then
+POST `/api/v1/tickets/{id}/claim/release` with that same claim ID. Release preserves
+those statuses; abandoning an In Progress ticket releases it back to Todo.
+Cron reclaims expired leases every minute in batches of 25. Every claim,
+heartbeat, release and expiry appears in ticket history. Do not blindly retry an
+uncertain claim POST: first read tickets and reconcile `claimed_by`/`claim_id`.
+Work can be retried after expiry; keep external operations idempotent and check
+for existing branches/PRs. A lease does not guarantee exactly-once external work.
+
+The disposable walkthrough claims its remaining Todo ticket, then has no
+eligible tickets:
+
+```sh
+# expect {"status":200,"body":{"source":"workspace","rules":{"concurrency_cap":3,"lease_seconds":1800}}}
+curl -sS "$TICKETS_URL/api/v1/pickup-rules" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":200,"body":{"ticket":{"id":2,"status":"todo"}}}
+curl -sS "$TICKETS_URL/api/v1/next" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":200,"body":{"ticket":{"id":2,"status":"in_progress"}}}
+curl -sS -X POST "$TICKETS_URL/api/v1/next/claim" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{}'
+# expect {"status":204}
+curl -sS "$TICKETS_URL/api/v1/next" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":204}
+curl -sS -X POST "$TICKETS_URL/api/v1/next/claim" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{}'
 ```

@@ -69,6 +69,7 @@ pub const SCALARS: &[(&str, &str)] = &[
     ("title", "title"),
     ("description", "body"),
     ("project", "project"),
+    ("claim", "claim"),
 ];
 pub const SETS: &[(&str, &str)] = &[
     ("label", "labels"),
@@ -94,7 +95,7 @@ pub fn diff_sql() -> String {
             .collect::<std::collections::BTreeMap<_, _>>(),
     )
     .expect("static scalar fields");
-    queries.push(format!("SELECT subject_id,ticket_id,f.key,json_quote(json_extract(old,'$.'||f.value)),json_quote(json_extract(new,'$.'||f.value)) FROM pairs,json_each('{scalars}') f WHERE old IS NOT NULL AND new IS NOT NULL AND json_extract(old,'$.'||CASE WHEN f.key='project' THEN 'project.id' ELSE f.value END) IS NOT json_extract(new,'$.'||CASE WHEN f.key='project' THEN 'project.id' ELSE f.value END)"));
+    queries.push(format!("SELECT subject_id,ticket_id,CASE WHEN f.key='claim' THEN coalesce(json_extract(new,'$.claim.action'),'claim') ELSE f.key END,json_quote(json_extract(old,'$.'||f.value)),json_quote(json_extract(new,'$.'||f.value)) FROM pairs,json_each('{scalars}') f WHERE old IS NOT NULL AND new IS NOT NULL AND json_extract(old,'$.'||CASE WHEN f.key='project' THEN 'project.id' ELSE f.value END) IS NOT json_extract(new,'$.'||CASE WHEN f.key='project' THEN 'project.id' ELSE f.value END)"));
     let sets = serde_json::to_string(
         &SETS
             .iter()
@@ -132,6 +133,11 @@ pub fn diff(old: Option<&Value>, new: Option<&Value>) -> Vec<Value> {
             old[property] != new[property]
         };
         if changed {
+            let field = if *field == "claim" {
+                new[property]["action"].as_str().unwrap_or("claim")
+            } else {
+                field
+            };
             changes
                 .push(json!({"field":field,"old_value":old[property],"new_value":new[property]}));
         }

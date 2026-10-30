@@ -113,9 +113,11 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("!!document.querySelector('.secret') && document.querySelector('.token-acknowledge').disabled")?;
     b.click(".token-saved input")?;
     b.click(".token-acknowledge")?;
-    b.wait("!document.querySelector('.secret')")?;
+    b.wait("!document.querySelector('dialog') && document.activeElement.matches('.token-create')")?;
     b.click(".tokens button")?;
-    b.wait("document.querySelector('dialog')?.textContent.includes('Settings check')")?;
+    b.wait(
+        "document.querySelector('dialog[data-state=open]')?.textContent.includes('Settings check')",
+    )?;
     b.key("Escape", 27, 0)?;
     b.wait(
         "!document.querySelector('dialog') && document.activeElement.matches('.tokens button')",
@@ -164,6 +166,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('.app-shell').classList.contains('sidebar-open')")?;
     b.key("Escape", 27, 0)?;
     b.wait("document.activeElement.getAttribute('aria-label')==='Toggle sidebar'")?;
+    super::pickup::check(&mut b)?;
     b.sign_out()?;
     b.wait("location.pathname==='/login'")?;
     println!(

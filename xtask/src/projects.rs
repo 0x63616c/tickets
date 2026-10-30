@@ -200,7 +200,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress' && !document.querySelector('#ticket-2 [role=combobox]').disabled")?;
     b.go("http://127.0.0.1:8795/ticket?id=2")?;
     b.wait("document.querySelector('[aria-label=Project]')?.value==='3'")?;
-    b.eval("(async()=>{const r=await fetch('/api/v1/labels');const body=await r.json();if(body.data.length!==0)throw Error('expected no labels');return true})()")?;
+    b.eval("(async()=>{const r=await fetch('/api/v1/labels');const body=await r.json();if(body.data.length!==1 || body.data[0].name!=='waiting-on-calum')throw Error('expected seeded label');return true})()")?;
     b.click(".label-menu .menu-trigger")?;
     b.wait("document.activeElement.id==='label-filter'")?;
     b.eval("(()=>{const i=document.querySelector('#label-filter');if(i.getAttribute('aria-label')!=='Filter or create label'||i.placeholder!=='Filter labels…')throw Error('label filter accessibility');const r=i.getBoundingClientRect(),m=i.closest('.popup').getBoundingClientRect();if(r.left-5<m.left||r.right+5>m.right)throw Error('label filter focus overflow');return true})()")?;
@@ -227,14 +227,14 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('.menu-trigger').getAttribute('aria-expanded')==='false' && document.activeElement.matches('.label-menu .menu-trigger')")?;
     // Remove, then attach the case-insensitive match with Enter; no second label.
     b.click(".label-menu .menu-trigger")?;
-    b.click(".label-menu .menu-item")?;
+    b.click(".label-menu .menu-item[data-value='2']")?;
     b.wait("!document.querySelector('.property-labels .label-chip')")?;
     b.click(".label-menu .menu-trigger")?;
     b.wait("document.querySelector('#label-filter').value===''")?;
     b.text("#label-filter", "feature")?;
     b.key("Enter", 13, 0)?;
     b.wait("!!document.querySelector('.property-labels .label-chip')")?;
-    b.eval("(async()=>{const r=await fetch('/api/v1/labels');const body=await r.json();if(body.data.length!==1 || body.data[0].name!=='Feature')throw Error('duplicate label');return true})()")?;
+    b.eval("(async()=>{const r=await fetch('/api/v1/labels');const body=await r.json();if(body.data.length!==2 || body.data.filter(l=>l.name==='Feature').length!==1)throw Error('duplicate label');return true})()")?;
     b.click(".label-menu .menu-trigger")?;
     b.wait("document.querySelector('#label-filter').value===''")?;
     b.text("#label-filter", "Bug")?;
@@ -247,11 +247,11 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     }
     b.viewport(1440, 900)?;
     b.click(".label-menu .menu-trigger")?;
-    b.wait("document.querySelector('#label-filter').value==='' && document.querySelectorAll('.label-menu .menu-item').length===2")?;
+    b.wait("document.querySelector('#label-filter').value==='' && document.querySelectorAll('.label-menu .menu-item').length===3")?;
     b.text("#label-filter", "feat")?;
     b.wait("document.querySelectorAll('.label-menu .menu-item').length===2 && !document.querySelector('.label-menu .popup').textContent.includes('Bug')")?;
     b.text("#label-filter", "   ")?;
-    b.wait("document.querySelectorAll('.label-menu .menu-item').length===2 && !document.querySelector('.label-menu [data-create]')")?;
+    b.wait("document.querySelectorAll('.label-menu .menu-item').length===3 && !document.querySelector('.label-menu [data-create]')")?;
     b.text("#label-filter", "FEATURE")?;
     b.key("Enter", 13, 0)?;
     b.wait("document.querySelectorAll('.property-labels .label-chip').length===2 && document.activeElement.matches('.label-menu .menu-trigger')")?;

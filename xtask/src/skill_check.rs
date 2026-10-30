@@ -105,7 +105,11 @@ pub fn run(root: &Path, token: &str) -> Result<()> {
         } else {
             body
         };
-        let value: Value = serde_json::from_str(body).map_err(|_| fail())?;
+        let value: Value = if status == 204 && body.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_str(body).map_err(|_| fail())?
+        };
         if example.expected["status"].as_u64() != Some(u64::from(status))
             || example
                 .expected

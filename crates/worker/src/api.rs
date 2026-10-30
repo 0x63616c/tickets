@@ -73,6 +73,13 @@ fn bad(message: impl Into<String>) -> Failure {
 fn id(s: &str) -> Result<i64> {
     positive_id(s).map_err(bad)
 }
+fn project_query(q: &[(String, String)]) -> Result<Option<i64>> {
+    match q {
+        [] => Ok(None),
+        [(key, value)] if key == "project" => Ok(Some(id(value)?)),
+        _ => Err(bad("Expected only one optional project parameter")),
+    }
+}
 pub async fn handle<S: Store>(
     store: &S,
     method: &str,
@@ -175,6 +182,102 @@ async fn dispatch<S: Store>(
             status: 200,
             change: None,
             body: crate::analytics::home(r.0, q).await?,
+        });
+    }
+    if parts.as_slice() == ["api", "v1", "pickup-rules"]
+        && ["GET", "PUT", "DELETE"].contains(&method)
+    {
+        let project = project_query(q)?;
+        return Ok(Reply {
+            status: 200,
+            change: None,
+            body: crate::pickup::rules(r.0, project, method, body).await?,
+        });
+    }
+    if (method == "GET" && parts.as_slice() == ["api", "v1", "next"])
+        || (method == "POST" && parts.as_slice() == ["api", "v1", "next", "claim"])
+    {
+        let claim = method == "POST";
+        let project = if claim {
+            if !q.is_empty() {
+                return Err(bad("Use project in the claim body"));
+            }
+            #[derive(serde::Deserialize, Default)]
+            #[serde(deny_unknown_fields)]
+            struct Claim {
+                project: Option<i64>,
+            }
+            let request: Claim = if body.is_null() {
+                Claim::default()
+            } else {
+                serde_json::from_value(body).map_err(|e| bad(e.to_string()))?
+            };
+            if request.project.is_some_and(|id| id <= 0) {
+                return Err(bad("project must be a positive ID"));
+            }
+            request.project
+        } else {
+            project_query(q)?
+        };
+        return match crate::pickup::next(r, project, claim).await? {
+            Some(body) => Ok(Reply {
+                status: 200,
+                change: if claim {
+                    Some(CommittedChange {
+                        entity: "tickets".into(),
+                        id: row_id(&body["ticket"])?,
+                        action: "update".into(),
+                        projects: vec![body["ticket"]["project_id"].as_i64().unwrap()],
+                    })
+                } else {
+                    None
+                },
+                body,
+            }),
+            None => Ok(Reply {
+                status: 204,
+                change: None,
+                body: Value::Null,
+            }),
+        };
+    }
+    if let ("POST", [_, _, "tickets", key, "claim", action]) = (method, parts.as_slice()) {
+        if !["heartbeat", "release"].contains(action) {
+            return Err(Error::NotFound.into());
+        }
+        if !q.is_empty() {
+            return Err(bad("Claim operations do not accept query parameters"));
+        }
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Lease {
+            claim_id: String,
+        }
+        let request: Lease = serde_json::from_value(body).map_err(|e| bad(e.to_string()))?;
+        if request.claim_id.len() != 32 || !request.claim_id.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(bad("claim_id must be the returned 32-character claim ID"));
+        }
+        let ticket = resource(r, "tickets", key).await?;
+        let id = row_id(&ticket)?;
+        let body = crate::pickup::lease(r, id, &request.claim_id, *action == "heartbeat")
+            .await?
+            .ok_or_else(|| {
+                Failure(
+                    409,
+                    "claim_conflict",
+                    "Claim expired, was released, or belongs to another owner".into(),
+                )
+            })?;
+        return Ok(Reply {
+            status: 200,
+            change: Some(CommittedChange {
+                entity: "tickets".into(),
+                id,
+                action: "update".into(),
+                projects: vec![body["project_id"].as_i64().unwrap()],
+            }),
+            body,
         });
     }
     let entity = parts[2];

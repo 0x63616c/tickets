@@ -337,7 +337,7 @@ History actor fields cannot be supplied in mutation documents.
 Fields: `created`, `deleted`, `status`, `priority`, `assignee`, `title`,
 `description`, `project`, `label_added`, `label_removed`, `blocker_added`,
 `blocker_removed`, `blocks_added`, `blocks_removed`. `claim`, `heartbeat`, `expiry`
-and `release` are reserved for TIK-61; there is no claim API yet. Old/new values
+and `release` record the pickup lease lifecycle described below. Old/new values
 are JSON scalars for ordinary fields, `{id,name,key}` for projects,
 `{id,name,color}` for labels and `{id,key,title}` for dependencies. Absent sides
 are null. `created` contains an initial snapshot; migration baselines contain
@@ -351,3 +351,66 @@ cascades record removed relationships on surviving tickets. History survives
 ticket deletion internally, but this endpoint returns 404 for a deleted ticket;
 reused numeric IDs resolve only the new durable identity. No history write or
 purge endpoint is exposed. Analytics `ticket_events` is independent and unchanged.
+
+## Pickup rules and ticket claims
+
+`GET /api/v1/pickup-rules` returns `{rules, source:"workspace", project_id:null}`.
+With `?project=<positive ID>`, it returns that project's complete override, or the
+workspace rules with `source:"workspace"`. `PUT` on the same URL saves a complete
+validated document (all fields below required; unknown fields rejected with 422):
+
+```json
+{"skip_blocked":true,"skip_open_pr":true,"blockers_first":true,"priority_first":true,"excluded_labels":["waiting-on-calum"],"concurrency_cap":3,"lease_seconds":1800}
+```
+
+`DELETE /api/v1/pickup-rules?project=<id>` removes only the override and returns
+inherited rules. Deleting the workspace default is rejected. Cap is 1–100;
+lease duration is 60–86400 seconds; excluded labels are at most 20 unique names,
+1–100 characters each, matched without ASCII case. Saving rules never deletes labels.
+An override replaces the whole document; subsequent workspace edits affect only
+inheriting projects. Settings → Pickup rules exposes the same settings.
+
+`GET /api/v1/next[?project=<id>]` previews without writes. `POST
+/api/v1/next/claim` accepts `{}` (or an empty body), or `{"project":<id>}`.
+Both return HTTP 200 with `{ticket, reason}`, or **204 with no response body**.
+A preview is advisory; always use the claim response to choose work. Claims are
+atomic with ranking, capacity checks, In Progress, and history, including when
+multiple workers claim at the same time. Successful claims return the full ticket,
+including `claimed_by`, `claim_id`, `claim_expires_at`, `claim_heartbeat_at` (UTC).
+`claimed_by` is the safe authenticated identity, e.g. `api_token:12`, never a name
+or credential supplied by the caller. Do not use `assignee` as lease ownership.
+
+Todo is the only eligible status; Backlog and archived projects are always skipped.
+Tickets with an outstanding claim remain excluded until released/swept. Defaults
+exclude open blockers (anything except Done/Canceled), open or draft PRs, and the
+seeded `waiting-on-calum` label. Ranking prefers blockers of open tickets, then
+Urgent, High, Medium, Low, None, then oldest creation and numeric ID. The cap counts
+each In Progress ticket or unexpired claim once within its project, including
+manual work. Across projects, the same rank tuple uses each project's effective
+preferences. Disabling priority gives a neutral rank ahead of priority-ranked
+candidates; disabling blocker preference removes that candidate's blocker boost.
+Example reason: `High priority, oldest eligible Todo in its ranking group,
+unblocks TIK-50`.
+
+`POST /api/v1/tickets/{id-or-key}/claim/heartbeat` and `.../claim/release`
+require `{"claim_id":"<the 32-character ID returned by claim>"}` and the same
+user/token identity that acquired it. Both return the updated full ticket. Missing
+or malformed input is 400; an expired, replaced, released or differently owned
+claim is 409 `claim_conflict`, with no history write. Unknown ticket is 404.
+Heartbeat extends from server time by the current effective lease duration, never
+shortens it, and cannot revive expiry. Every successful heartbeat is recorded,
+including repeated requests within one timestamp interval.
+
+Release clears the lease and returns In Progress to Todo. To finish, first PATCH
+the ticket to In Review/Done, then release: later statuses are preserved. A cron
+every minute clears up to 25 expired leases (oldest first) and returns only those
+still In Progress to Todo; later ticks drain a larger backlog. Claim, heartbeat,
+release and expiry use the same atomic mutation/history path as other edits.
+History's claim event values contain owner, claim ID, expiry, heartbeat, action and
+monotonic event version; regular ticket reads also include the event/version.
+
+This is renewable ownership, not exactly-once execution. Stop work after losing
+or failing to renew a lease; confirm ownership before side effects. Do not blindly
+retry a timed-out claim request: it may have committed. Reconcile by reading
+In Progress tickets and their `claimed_by`/`claim_id` first. External operations
+should be idempotent; inspect existing branches and PRs before creating them.

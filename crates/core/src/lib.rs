@@ -48,3 +48,5 @@ pub mod pull_request;
 pub mod analytics;
 
 pub mod history;
+
+pub mod pickup;
