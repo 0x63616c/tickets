@@ -19,6 +19,8 @@ mod import_github;
 #[cfg(not(target_arch = "wasm32"))]
 mod live;
 #[cfg(not(target_arch = "wasm32"))]
+mod loading;
+#[cfg(not(target_arch = "wasm32"))]
 mod login;
 #[cfg(not(target_arch = "wasm32"))]
 mod mirror_check;
@@ -65,7 +67,12 @@ fn run(directory: &Path, program: &str, args: &[&str]) -> Result {
     Ok(())
 }
 
+fn web_dependencies(root: &Path) -> Result {
+    run(root, "npm", &["ci", "--prefix", "crates/web"])
+}
+
 fn build(root: &Path) -> Result {
+    web_dependencies(root)?;
     run(
         &root.join("crates/web"),
         "trunk",
@@ -98,6 +105,8 @@ fn main() -> Result {
         return Err("expected exactly one task: dev, build, migrate, ci, api-smoke, skill-check, live-check, import-github, import-check, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
     }
     match task.as_deref() {
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("loading-check") => loading::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("home-shot") => home::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
@@ -178,6 +187,7 @@ fn main() -> Result {
             Some(other) => Err(format!("unknown migrate flag {other}; expected --remote").into()),
         },
         Some("autofill-check") => autofill::check(root),        Some("ci") => {
+            web_dependencies(root)?;
             autofill::check(root)?;
             run(root, "cargo", &["fmt", "--all", "--check"])?;
             run(root, "cargo", &["build", "--workspace", "--locked"])?;

@@ -900,14 +900,20 @@ pub fn CommandPalette() -> impl IntoView {
             })
             .unwrap_or("")
     });
+    let reveal_root = NodeRef::<leptos::html::Div>::new();
+    use_ascii_reveal(
+        reveal_root,
+        Signal::derive(move || loading.get() || busy.get()),
+        false,
+    );
     view! {
         <Modal title="Search and commands" open=Signal::derive(move||design.dialog.get()==DialogKind::Command) locked=busy.into() on_close=close>
             <div class="command-palette" aria-busy=move||busy.get().to_string() on:keydown=on_key>
                 <Show when=move||mode.get()!=Mode::Search><div class="command-context" id="command-context"><button class="icon-button" aria-label="Back" disabled=busy on:click=move|_|back.run(())><span class="command-back"><Icon name="arrow"/></span></button><span class="mono">{move||target.get().map(|t|t.key)}</span><span class="menu-title">{move||target.get().map(|t|t.title)}</span></div></Show>
-                <div class="command-search"><Icon name="search"/><input node_ref=input role="combobox" aria-label=search_label aria-autocomplete="list" aria-haspopup="grid" aria-expanded="true" aria-controls="command-results" aria-describedby=move||if mode.get()==Mode::Search{"command-help"}else{"command-context"} aria-activedescendant=move||(!rows.get().is_empty()).then(||format!("command-option-{}",active.get())) autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" maxlength="200" placeholder=move||match mode.get(){Mode::Search=>"Search tickets or commands…",Mode::Actions=>"Search actions…",Mode::Status=>"Change status…",Mode::Priority=>"Change priority…",Mode::Project=>"Move to project…"} prop:value=query readonly=busy on:input=move|ev|{query.set(event_target_value(&ev));active.set(0);}/><Show when=move||loading.get()||busy.get()><AsciiSpinner label="Loading"/></Show></div>
+                <div class="command-search"><Icon name="search"/><input node_ref=input role="combobox" aria-label=search_label aria-autocomplete="list" aria-haspopup="grid" aria-expanded="true" aria-controls="command-results" aria-describedby=move||if mode.get()==Mode::Search{"command-help"}else{"command-context"} aria-activedescendant=move||(!rows.get().is_empty()).then(||format!("command-option-{}",active.get())) autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" maxlength="200" placeholder=move||match mode.get(){Mode::Search=>"Search tickets or commands…",Mode::Actions=>"Search actions…",Mode::Status=>"Change status…",Mode::Priority=>"Change priority…",Mode::Project=>"Move to project…"} prop:value=query readonly=busy on:input=move|ev|{query.set(event_target_value(&ev));active.set(0);}/><Show when=move||loading.get()||busy.get()><LoadingIndicator label="Loading"/></Show></div>
                 <Show when=move||mode.get()==Mode::Search><div class="command-help" id="command-help"><span>"Filter with "<code>"status:todo"</code>" or "<code>"p:QUA"</code></span><span>{move||SearchQuery::parse(&query.get()).ok().and_then(|q|q.project).unwrap_or_else(||"All projects".into())}</span></div></Show>
                 <Show when=move||!error.get().is_empty()><div class="command-error" role="alert"><span>{error}</span><Show when=move||mode.get()==Mode::Search && SearchQuery::parse(&query.get()).is_ok()><button class="button button-ghost" on:click=move|_|retry.update(|r|*r+=1)>"Retry"</button></Show></div></Show>
-                <div id="command-results" class="command-results" role="grid" tabindex="-1" aria-colcount="2" aria-label=search_label aria-busy=move||loading.get().to_string()>
+                <div node_ref=reveal_root id="command-results" class="command-results" role="grid" tabindex="-1" aria-colcount="2" aria-label=search_label aria-busy=move||loading.get().to_string()>
                     {move||{
                         let mut previous="";
                         rows.get().into_iter().enumerate().map(|(index,row)|{
@@ -929,7 +935,7 @@ pub fn CommandPalette() -> impl IntoView {
                         }).collect_view()
                     }}
                     <Show when=move||rows.get().is_empty() && !loading.get() && error.get().is_empty()><div class="command-empty" role="status"><strong>"No results"</strong><p>{move||if mode.get()==Mode::Search{"Try a ticket key, fewer words, or a different filter."}else{"Clear your search to see all choices."}}</p></div></Show>
-                    <Show when=move||loading.get() && rows.get().is_empty()><p class="command-empty" role="status">"Searching tickets…"</p></Show>
+                    <Show when=move||loading.get() && rows.get().is_empty()><div class="command-empty" role="status" aria-label="Searching tickets"><AsciiSkeleton lines=4/></div></Show>
                 </div>
                 <div class="command-footer"><span><Shortcut>"↑ ↓"</Shortcut>" Navigate"</span><Show when=move||!rows.get().is_empty()><span><Shortcut>"↵"</Shortcut>{enter_label}</span></Show><span><Shortcut>"esc"</Shortcut>{move||if mode.get()==Mode::Search{" Close"}else{" Back"}}</span><Show when=move||mode.get()==Mode::Search && rows.get().get(active.get()).is_some_and(|r|r.ticket.is_some())><button class="command-actions" on:click=move|_|actions.run(())>"Actions"<Shortcut>{action_hint}</Shortcut></button></Show></div>
             </div>

@@ -97,9 +97,12 @@ pub mod auth_queries;
 #[cfg(any(target_arch = "wasm32", test))]
 fn is_public_asset(path: &str) -> bool {
     // wasm-bindgen emits the local DOM bridge under a content-addressed snippet.
-    // Match the one build-owned module, not arbitrary nested JavaScript paths.
+    // Match only build-owned modules, not arbitrary nested JavaScript paths.
     path.strip_prefix("/snippets/tickets-web-")
-        .and_then(|rest| rest.strip_suffix("/src/components/dom.js"))
+        .and_then(|rest| {
+            rest.strip_suffix("/src/components/dom.js")
+                .or_else(|| rest.strip_suffix("/node_modules/ascii-reveal/dist/core.js"))
+        })
         .is_some_and(|hash| hash.len() == 16 && hash.bytes().all(|b| b.is_ascii_hexdigit()))
         || path.starts_with("/fonts/")
         || matches!(
@@ -125,11 +128,17 @@ mod tests {
     use super::is_public_asset;
 
     #[test]
-    fn only_the_hashed_dom_bridge_is_public() {
+    fn only_known_hashed_modules_are_public() {
         assert!(is_public_asset(
             "/snippets/tickets-web-8e589db3b4472a38/src/components/dom.js"
         ));
+        assert!(is_public_asset(
+            "/snippets/tickets-web-8e589db3b4472a38/node_modules/ascii-reveal/dist/core.js"
+        ));
         for path in [
+            "/snippets/tickets-web-8e589db3b4472a38/node_modules/ascii-reveal/dist/core.js.bak",
+            "/snippets/tickets-web-8e589db3b4472a38/node_modules/ascii-reveal/dist/index.js",
+            "/snippets/tickets-web-notahash/node_modules/ascii-reveal/dist/core.js",
             "/snippets/private.js",
             "/snippets/tickets-web-notahash/src/components/dom.js",
             "/snippets/tickets-web-8e589db3b4472a38/src/components/secret.js",
