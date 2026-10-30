@@ -534,7 +534,12 @@ exceptions must still fail immediately; never replay writes to recover navigatio
   Never log callback URLs, codes, state, GitHub response bodies or credentials.
   Do not rotate the store key without re-encrypting the row. Remove the setup
   state after registration; `load_credentials` does not require it.
-  Installation handling and the webhook switch belong to Phase 2.
+  Register via the manifest flow, set the App webhook URL to
+  `/api/v1/github/app/webhook`, grant Checks write/Pull requests read/Metadata read,
+  subscribe to PR/check suite/check run events, then follow the installation link
+  and select All repositories. The App replaces per-repo hooks; verify it before
+  removing the old hooks. Both endpoints retain the `GITHUB_PR_OWNERS` allowlist.
+  `GET /api/v1/github/app` exposes registration/installed repositories only.
 - The callback embeds the existing dark `:root` tokens and `github-app.css` in
   a hash-authorized style block, without font assets or JavaScript. Keep its
   fixed error pages and public-metadata renderer separate from secret structs.
@@ -551,7 +556,15 @@ exceptions must still fail immediately; never replay writes to recover navigatio
 - Latest per-PR snapshots persist even with no links, preventing stale restoration.
   GitHub timestamp ties prefer terminal states; same-state ties retain first delivery.
 - Atomic snapshot writes resolve all keys with JSON joins; ticket read aggregates
-  include ordered PR metadata without extra D1 calls. No GitHub network writes.
+  include ordered PR metadata without extra D1 calls. App checks use WebCrypto
+  RS256 JWTs and short-lived installation tokens; never log keys/tokens or upstream
+  errors. Override `GITHUB_API_BASE_URL` only for local test servers. Check posting
+  must not fail a committed PR status sync. Migration 0015 stores check results
+  separately by repo/PR/head SHA, avoiding ticket status triggers on CI writes.
+  Check suite CI status means latest other-app conclusion, not aggregate CI.
+  The fixture-only `/design/c/pr-check-status` previews CI/Tickets indicators.
+  RSA PEMs under `crates/core/tests/fixtures/github-app-test-*` are disposable
+  generated test keys, never application credentials.
 - `cargo xtask mirror-check` also runs signed PR acceptance and captures before/after
   dark desktop/mobile evidence under `docs/screenshots/32`. Set
   `TICKETS_BEFORE_ASSETS` to base-commit assets for before captures.

@@ -33,33 +33,10 @@ pub async fn webhook(mut req: Request, env: &Env) -> Result<Response> {
         Ok(s) if !s.to_string().is_empty() => s.to_string(),
         _ => return Response::error("Webhook unavailable", 503),
     };
-    if req
-        .headers()
-        .get("Content-Length")?
-        .and_then(|s| s.parse::<usize>().ok())
-        .is_some_and(|n| n > MAX_BODY)
-    {
-        return Response::error("Payload too large", 413);
-    }
-    let signature = req
-        .headers()
-        .get("X-Hub-Signature-256")?
-        .unwrap_or_default();
-    if !signature.starts_with("sha256=") || signature.len() != 71 {
-        return Response::error("Invalid signature", 401);
-    }
-    let mut bytes = Vec::new();
-    let mut stream = req.stream()?;
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
-        if chunk.len() > MAX_BODY.saturating_sub(bytes.len()) {
-            return Response::error("Payload too large", 413);
-        }
-        bytes.extend_from_slice(&chunk);
-    }
-    if !mapping::signature_matches(&signature, &digest(&secret, &bytes).await?) {
-        return Response::error("Invalid signature", 401);
-    }
+    let bytes = match signed_body(&mut req, &secret).await? {
+        Ok(bytes) => bytes,
+        Err(response) => return Ok(response),
+    };
     let event = req.headers().get("X-GitHub-Event")?.unwrap_or_default();
     if event == "pull_request" || event == "ping" {
         return crate::github_prs::handle(env, &event, &bytes).await;
@@ -75,4 +52,39 @@ pub async fn webhook(mut req: Request, env: &Env) -> Result<Response> {
     };
     Response::from_json(&serde_json::json!({"ignored": true, "reason": reason}))
         .map(|response| response.with_status(202))
+}
+
+/// Shared bounded streaming and constant-time authentication for both endpoints.
+pub(crate) async fn signed_body(
+    req: &mut Request,
+    secret: &str,
+) -> Result<std::result::Result<Vec<u8>, Response>> {
+    if req
+        .headers()
+        .get("Content-Length")?
+        .and_then(|s| s.parse::<usize>().ok())
+        .is_some_and(|n| n > MAX_BODY)
+    {
+        return Ok(Err(Response::error("Payload too large", 413)?));
+    }
+    let signature = req
+        .headers()
+        .get("X-Hub-Signature-256")?
+        .unwrap_or_default();
+    if !signature.starts_with("sha256=") || signature.len() != 71 {
+        return Ok(Err(Response::error("Invalid signature", 401)?));
+    }
+    let mut bytes = Vec::new();
+    let mut stream = req.stream()?;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        if chunk.len() > MAX_BODY.saturating_sub(bytes.len()) {
+            return Ok(Err(Response::error("Payload too large", 413)?));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    if !mapping::signature_matches(&signature, &digest(secret, &bytes).await?) {
+        return Ok(Err(Response::error("Invalid signature", 401)?));
+    }
+    Ok(Ok(bytes))
 }

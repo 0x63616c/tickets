@@ -49,14 +49,7 @@ pub async fn handle(env: &Env, event: &str, bytes: &[u8]) -> Result<Response> {
         Err(_) => return Response::error("Malformed PR payload", 400),
     };
     let owner = &payload.repository.owner.login;
-    let allowed = env
-        .var("GITHUB_PR_OWNERS")
-        .map(|v| v.to_string())
-        .unwrap_or_default();
-    if !allowed
-        .split(',')
-        .any(|v| !v.trim().is_empty() && v.trim().eq_ignore_ascii_case(owner))
-    {
+    if !owner_allowed(env, owner) {
         return Ok(Response::empty()?.with_status(202));
     }
     if ![
@@ -135,4 +128,12 @@ pub async fn handle(env: &Env, event: &str, bytes: &[u8]) -> Result<Response> {
             204
         },
     ))
+}
+
+pub(crate) fn owner_allowed(env: &Env, owner: &str) -> bool {
+    env.var("GITHUB_PR_OWNERS")
+        .map(|v| v.to_string())
+        .unwrap_or_default()
+        .split(',')
+        .any(|v| !v.trim().is_empty() && v.trim().eq_ignore_ascii_case(owner))
 }

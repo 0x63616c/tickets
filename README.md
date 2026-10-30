@@ -31,5 +31,11 @@ are ignored and issue reconciliation no longer runs.
 
 GitHub App registration is available through the
 [manifest callback setup flow](docs/API.md#github-app-registration-phase-1).
-Phase 1 stores encrypted app credentials and provides an installation link;
-installation processing and the webhook switch follow in Phase 2.
+Register through the manifest flow, then follow the installation link and select
+**All repositories**. Configure Checks write/Pull requests read permissions and
+the App webhook URL `/api/v1/github/app/webhook`; keep `GITHUB_PR_OWNERS` set.
+The App replaces per-repository hooks, syncs PR status, and posts Tickets checks
+with linked ticket details. Ticket pages show current-head Tickets and CI results.
+Remove old hooks after verifying the installation; the legacy endpoint continues
+working during the transition. `GET /api/v1/github/app` reports installed repos
+without secrets.
