@@ -759,7 +759,8 @@ project icon schema changes additive and validate values in core.
   copies and the faster migrations job cannot win an immutable-cache save race
   with an incomplete host-only snapshot.
 - Install pinned Rust build tools with `taiki-e/install-action` prebuilt binaries
-  rather than compiling them with `cargo install` on cache misses.
+  rather than compiling them with `cargo install` on cache misses. Check cached
+  binary versions first, so a warm Cargo bin cache also skips the installer.
 - CI puts `.github/scripts/npm` ahead of npm after recording the real executable.
   It reuses `npm ci --prefix crates/web` within a job only while both npm manifests
   match a successful install and node_modules exists. Repeated installs rewrite
