@@ -394,7 +394,7 @@ pub(crate) fn crop(b: &mut Browser, selector: &str, path: &Path) -> super::Resul
     )?;
     let selector = serde_json::to_string(selector)?;
     b.eval("Promise.race([Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))),new Promise(r=>setTimeout(r,300))]).then(()=>true)")?;
-    let clip=b.eval(&format!("(()=>{{const e=document.querySelector({selector}),r=e.getBoundingClientRect();let left=r.left,top=r.top,right=r.right,bottom=r.bottom;e.querySelectorAll('.popup:not([hidden])').forEach(p=>{{const q=p.getBoundingClientRect();left=Math.min(left,q.left);top=Math.min(top,q.top);right=Math.max(right,q.right);bottom=Math.max(bottom,q.bottom);}});return {{x:Math.max(0,Math.floor(left)-8),y:Math.max(0,Math.floor(top)-8),width:Math.ceil(right-left)+16,height:Math.ceil(bottom-top)+16,scale:1}}}})()"))?;
+    let clip=b.eval(&format!("(()=>{{const e=document.querySelector({selector}),r=e.getBoundingClientRect();let left=r.left,top=r.top,right=r.right,bottom=r.bottom;e.querySelectorAll('.popup:not([hidden])').forEach(p=>{{const q=p.getBoundingClientRect();left=Math.min(left,q.left);top=Math.min(top,q.top);right=Math.max(right,q.right);bottom=Math.max(bottom,q.bottom);}});return {{x:Math.max(0,Math.floor(left+window.scrollX)-8),y:Math.max(0,Math.floor(top+window.scrollY)-8),width:Math.ceil(right-left)+16,height:Math.ceil(bottom-top)+16,scale:1}}}})()"))?;
     let result = b.call(
         "Page.captureScreenshot",
         json!({"format":"png","captureBeyondViewport":true,"clip":clip}),

@@ -250,7 +250,8 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
                     Err(_)=>return reply(json!({"error":"Unable to read body"}),400),
                 }
             } else {Value::Null};
-            let actor=authenticated[0]["token_id"].as_i64().map(tickets_core::history::Actor::api_token).unwrap_or_else(||tickets_core::history::Actor::user(user_id));
+            let mut actor=authenticated[0]["token_id"].as_i64().map(tickets_core::history::Actor::api_token).unwrap_or_else(||tickets_core::history::Actor::user(user_id));
+            if let Some(label)=authenticated[0]["actor_label"].as_str(){actor.label=label.to_owned();}
             let response=crate::api::handle_as(&db,&actor,req.method().as_ref(),&path,&query,body).await;
             if let Some(change) = response.change {
                 // Best effort after D1 commit: notification cannot roll back or fail a write.

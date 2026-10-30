@@ -437,6 +437,16 @@ async fn dispatch<S: Store>(
                 .into_iter()
                 .collect::<Vec<_>>();
             if entity == "comments" && method != "GET" {
+                if !r.owns_comment(&existing) {
+                    return Err(Failure(
+                        403,
+                        "forbidden",
+                        "Only the comment author can edit or delete it".into(),
+                    ));
+                }
+                if !existing["deleted_at"].is_null() {
+                    return Err(Error::NotFound.into());
+                }
                 let ticket = r
                     .get("tickets", existing["ticket_id"].as_i64().unwrap())
                     .await?;

@@ -135,8 +135,8 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   returned HTML is sanitized, including raw HTML and forced-disabled task checkboxes.
 - Domain lists use ascending ID cursors (`data`, `next_cursor`, default limit 50,
   maximum 100). Full-text search treats q as a literal FTS5 phrase. API mutations
-  reject unknown fields; PATCH null clears nullable fields. Comments use the
-  single-user author `owner`. Errors use `error.code` and `error.message`.
+  reject unknown fields; PATCH null clears nullable fields. Comments snapshot authenticated user/token names; ownership uses durable
+  user/token IDs, never display names. Deleted comments return empty-body stubs. Errors use `error.code` and `error.message`.
 - After successful domain writes return internal change metadata for the Worker
   to notify project rooms; notification failure must never fail the write. Validate
   domain documents in core, keep transport in the authenticated Worker adapter,
@@ -153,6 +153,14 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   Checks using that port must be serialized across worktrees too, or run inside
   separate local network namespaces. Browser policies must permit loopback access;
   isolate any test-only policy override to the child process, never shared settings.
+
+For a browser/runtime-only retry after a successful local build, set
+`TICKETS_SKIP_BUILD=1` on api-smoke/skill-check/browser checks. This still creates
+fresh isolated local D1 state; it only reuses web/Worker outputs. Verify those
+outputs belong to the current worktree (shared Cargo artifacts can be replaced
+by another job); use `RUSTC_WRAPPER=` and touch the Worker crate root to force a
+fresh compile if identity fixture assertions detect an old Worker. CI performs a full build in pickup-check, then reuses that verified build for
+its sequential isolated API/browser checks; each check still creates fresh D1 state.
 
 ## Authentication conventions
 - All `/api/*` handlers must pass through the Worker auth gate, except health, login, the independently HMAC-authenticated GitHub webhook, and the setup-state-authorized GitHub App manifest callback. Invalid Authorization headers must not fall back to a cookie.
@@ -177,7 +185,8 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
 - Keep tool logic in Rust `xtask`. `cargo xtask design-check` checks a local
   running UI through Chromium and captures 1440×900 dark screenshots. See
   `docs/design-system.md` for browser, server, and output overrides.
-- UI screenshots must show actual rendered routes with fonts loaded. Include
+- UI screenshots must show actual rendered routes with fonts loaded. CDP crop
+  coordinates include `window.scrollX/Y`; add those offsets to viewport rectangles. Include
   the previous real UI as the before image; the scaffold exception no longer
   applies. Font OFL notices live alongside the bundled fonts, not as a repo license.
 
@@ -769,3 +778,20 @@ project icon schema changes additive and validate values in core.
   `component-shot pickup-rules` captures fixture-only dark desktop/mobile and 2×
   crops; `--before-assets <base-dist>` captures the previous Settings appearance.
   See docs/design/claim-next.md for the lease contract and research.
+
+## CI build caches
+
+- Cargo jobs restore the shared `check` cache (including main's existing cache).
+  `rust-cache` hashes Cargo.lock, manifests, Cargo configuration and the pinned
+  toolchain; Cargo separates host and wasm32 artifacts inside `target/`. Only
+  main's `check` job saves caches, so PR runs cannot fill the quota with branch
+  copies and the faster migrations job cannot win an immutable-cache save race
+  with an incomplete host-only snapshot.
+- Install pinned Rust build tools with `taiki-e/install-action` prebuilt binaries
+  rather than compiling them with `cargo install` on cache misses. Check cached
+  binary versions first, so a warm Cargo bin cache also skips the installer.
+- CI puts `.github/scripts/npm` ahead of npm after recording the real executable.
+  It reuses `npm ci --prefix crates/web` within a job only while both npm manifests
+  match a successful install and node_modules exists. Repeated installs rewrite
+  the JS imported by wasm-bindgen and cause a release Wasm rebuild for every
+  browser check. Other npm commands pass through; local xtask behavior is unchanged.

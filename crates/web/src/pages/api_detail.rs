@@ -17,6 +17,16 @@ struct CommentRecord {
     body: String,
     author: String,
     created_at: String,
+    #[serde(default)]
+    author_kind: String,
+    #[serde(default)]
+    edited_at: Option<String>,
+    #[serde(default)]
+    deleted: bool,
+    #[serde(default)]
+    can_edit: bool,
+    #[serde(skip)]
+    pending: bool,
     #[serde(skip)]
     reveal: bool,
 }
@@ -46,7 +56,10 @@ impl Activity {
     fn key(&self) -> String {
         match self {
             Self::Change(e) => format!("history-{}", e.id),
-            Self::Comment(c) => format!("comment-{}-{}", c.id, c.body),
+            Self::Comment(c) => format!(
+                "comment-{}-{}-{}-{:?}-{}",
+                c.id, c.body, c.deleted, c.edited_at, c.can_edit
+            ),
         }
     }
 }
@@ -66,6 +79,7 @@ struct DetailState {
     busy: RwSignal<bool>,
     loading: RwSignal<bool>,
     error: RwSignal<String>,
+    comment_error: RwSignal<String>,
     revision: RwSignal<u64>,
 }
 impl DetailState {
@@ -195,7 +209,12 @@ impl DetailState {
             return;
         }
         self.busy.set(true);
-        self.error.set(String::new());
+        let comment_write = path.contains("/comments/");
+        if comment_write {
+            self.comment_error.set(String::new());
+        } else {
+            self.error.set(String::new());
+        }
         self.spawn(async move {
             match api(method, &path, body).await {
                 Ok(_) => {
@@ -204,9 +223,24 @@ impl DetailState {
                         self.error.set(format!("Saved, but could not reload: {e}"));
                     }
                     self.board.notice.set("Saved.".into());
+                    if comment_write {
+                        let selector = if method == "PATCH" {
+                            format!(
+                                "[data-comment-id='{}'] .comment-action-edit",
+                                path.rsplit('/').next().unwrap_or("")
+                            )
+                        } else {
+                            ".activity > .comment-form textarea".into()
+                        };
+                        focus_thread(selector);
+                    }
                 }
                 Err(e) => {
-                    self.error.set(e);
+                    if comment_write {
+                        self.comment_error.set(e);
+                    } else {
+                        self.error.set(e);
+                    }
                     self.revision.update(|r| *r += 1);
                 }
             }
@@ -246,6 +280,7 @@ fn DetailPage(selector: String) -> impl IntoView {
         busy: RwSignal::new(false),
         loading: RwSignal::new(true),
         error: RwSignal::new(String::new()),
+        comment_error: RwSignal::new(String::new()),
         revision: RwSignal::new(0),
     };
     provide_context(state);
@@ -329,7 +364,7 @@ fn DetailPage(selector: String) -> impl IntoView {
                     <div class="pr-link-row"><a class="subtle-link" href=pr.url target="_blank" rel="noopener noreferrer"><Icon name="link"/><span>{format!("{}#{} · {}",pr.repo,pr.number,pr.title)}</span><Icon name="external"/></a><PrCheckStatus conclusion=pr.ci_status/><PrCheckStatus label="Tickets" conclusion=pr.tickets_check/><span class="muted">{format!("{} · {}",match pr.state.as_str(){"open"=>"Open","draft"=>"Draft","merged"=>"Merged","closed"=>"Closed",state=>state},if pr.closes{"Closes ticket"}else{"Reference"})}</span></div>
                 }).collect_view()}</section>
             })}
-            <section class="activity" aria-label="Comments and activity"><div class="section-heading"><h2>"Activity"</h2></div>{move||state.ticket.get().filter(|t|t.external_id.as_deref().is_some_and(|id|id.starts_with("github:"))).map(|t|view!{<div class="import-activity"><Icon name="link"/><span>"Imported from GitHub"</span>{t.external_url.map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener noreferrer">"Source issue"<Icon name="external"/></a>})}</div>})}<ActivityFeed/><CommentEditor/></section>
+            <section class="activity" aria-label="Comments and activity"><div class="section-heading"><h2>"Activity"</h2></div>{move||state.ticket.get().filter(|t|t.external_id.as_deref().is_some_and(|id|id.starts_with("github:"))).map(|t|view!{<div class="import-activity"><Icon name="link"/><span>"Imported from GitHub"</span>{t.external_url.map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener noreferrer">"Source issue"<Icon name="external"/></a>})}</div>})}<ActivityFeed/><Show when=move||!state.comment_error.get().is_empty()><p class="comment-error" role="alert">{move||state.comment_error.get()}</p></Show><CommentEditor/></section>
             </article></div></Show>
         <Presence show=edit><EditTicket close=Callback::new(move|_|edit.set(false))/></Presence>
         <Presence show=dependency><DependencyEditor close=Callback::new(move|_|dependency.set(false))/></Presence>
@@ -514,7 +549,7 @@ fn ActivityFeed() -> impl IntoView {
     view! {
         <div class="activity-feed" aria-label="Ticket history">
             <For each=move||{
-                let mut entries=state.history.get().into_iter().map(Activity::Change).chain(state.comments.get().into_iter().map(Activity::Comment)).collect::<Vec<_>>();
+                let mut entries=state.history.get().into_iter().filter(|e|e.field!="comment_created").map(Activity::Change).chain(state.comments.get().into_iter().map(Activity::Comment)).collect::<Vec<_>>();
                 entries.sort_by(|a,b|b.time().cmp(a.time()).then_with(||b.id().cmp(&a.id())));
                 entries
             } key=Activity::key children=|entry|match entry {Activity::Change(entry)=>view!{<HistoryEvent entry/>}.into_any(),Activity::Comment(comment)=>view!{<ApiComment comment/>}.into_any()}/>
@@ -530,7 +565,8 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     let state = expect_context::<DetailState>();
     let editing = RwSignal::new(false);
     let id = comment.id;
-    let editable = comment.author == "owner";
+    let confirming = RwSignal::new(false);
+    let editable = comment.can_edit && !comment.deleted && !comment.pending;
     let author = if comment.body.starts_with("<!-- tickets-import:github:") {
         comment
             .body
@@ -538,13 +574,11 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
             .nth(1)
             .and_then(|s| s.split_once("** on GitHub"))
             .map(|(login, _)| format!("@{login}"))
-            .unwrap_or_else(|| "GitHub".into())
-    } else if comment.author != "owner" {
-        comment.author.clone()
+            .unwrap_or_else(|| comment.author.clone())
     } else {
-        "You".into()
+        comment.author.clone()
     };
-    let display_body = if author != "You" {
+    let display_body = if comment.body.starts_with("<!-- tickets-import:github:") {
         comment
             .body
             .split_once("** on GitHub\n\n")
@@ -553,10 +587,18 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     } else {
         comment.body.clone()
     };
+    let is_bot = comment.author_kind == "bot";
+    let deleted = comment.deleted;
+    let pending = comment.pending;
+    let edited = comment.edited_at.clone();
+    let initial_body = StoredValue::new(comment.body.clone());
+    let display_body = StoredValue::new(display_body);
     let comment_root = NodeRef::<leptos::html::Div>::new();
     // Unchanged comments retain their keyed nodes and never replay.
     use_ascii_reveal(comment_root, Signal::derive(|| false), comment.reveal);
-    view! {<div node_ref=comment_root class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><ActivityTime iso=comment.created_at/><Show when=move||editable><button class="button button-ghost comment-action" disabled=move||state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><BusyButton kind="button" status_label="Deleting comment" variant="ghost" class="comment-action" busy=Signal::derive(move||deleting.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{deleting.set(true);state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{});})>"Delete"</BusyButton></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone() project=state.ticket.get().and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
+    view! {<div node_ref=comment_root class="comment" class:comment-deleted=deleted class:comment-pending=pending data-comment-id=id on:keydown=move|e|{if e.key()=="Escape" && confirming.get_untracked() && !state.busy.get_untracked(){e.prevent_default();e.stop_propagation();confirming.set(false);focus_thread(format!("[data-comment-id='{id}'] .comment-action-delete"));}} aria-busy=pending.to_string()><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>().to_uppercase()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong>{is_bot.then(||view!{<span class="comment-bot">"Bot"</span>})}<ActivityTime iso=comment.created_at/>{edited.map(|time|view!{<ActivityTime iso=time edited=true/>})}{pending.then(||view!{<span role="status" class="muted">"Posting…"</span>})}<Show when=move||editable && !editing.get() && !confirming.get()><button type="button" class="button button-ghost comment-action comment-action-edit" disabled=move||state.busy.get() on:click=move|_|{confirming.set(false);editing.set(true);focus_thread(format!("[data-comment-id='{id}'] textarea"));}>"Edit"</button><button type="button" class="button button-ghost comment-action comment-action-delete" disabled=move||state.busy.get() on:click=move|_|{confirming.set(true);focus_thread(format!("[data-comment-id='{id}'] .comment-confirm button"));}>"Delete"</button></Show></div>
+    <Show when=move||confirming.get()><div class="comment-confirm" role="group" aria-label="Confirm comment deletion"><span>"Delete this comment?"</span><BusyButton kind="button" status_label="Deleting comment" variant="ghost" busy=Signal::derive(move||deleting.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{deleting.set(true);state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{});})>"Confirm delete"</BusyButton><button type="button" class="button button-ghost" disabled=move||state.busy.get() on:click=move|_|{confirming.set(false);focus_thread(format!("[data-comment-id='{id}'] .comment-action-delete"));}>"Cancel"</button></div></Show>
+    {if deleted {view!{<p class="muted">"Comment deleted"</p>}.into_any()} else {view!{<Show when=move||editing.get() fallback=move||view!{<Markdown source=display_body.get_value() project=state.ticket.get().and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))/>}><CommentEditor id=id initial=initial_body.get_value() close=Callback::new(move|_|{editing.set(false);focus_thread(format!("[data-comment-id='{id}'] .comment-action-edit"));})/></Show>}.into_any()}}</div></div>}
 }
 #[component]
 fn CommentEditor(
@@ -566,13 +608,87 @@ fn CommentEditor(
 ) -> impl IntoView {
     let state = expect_context::<DetailState>();
     let body = RwSignal::new(initial);
-    view! {<form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="comment-form" class:has-draft=move||id.is_some() || !body.get().is_empty() on:submit=move|e|{e.prevent_default();let path=id.map(|id|format!("/api/v1/comments/{id}")).unwrap_or_else(||format!("/api/v1/tickets/{}/comments",state.id.get_untracked()));state.write(if id.is_some(){"PATCH"}else{"POST"},path,json!({"body":body.get_untracked()}),move||{body.set(String::new());if let Some(close)=close{close.run(());}});}><MarkdownEditor body label="Write a comment"/><div><span>"Markdown supported"</span>{close.map(|close|view!{<button class="button button-ghost" type="button" disabled=move||state.busy.get() on:click=move|_|close.run(())>"Cancel"</button>})}<BusyButton busy=state.busy status_label="Saving comment" variant="secondary" disabled=Signal::derive(move||body.get().trim().is_empty())>{if id.is_some(){"Save comment"}else{"Comment"}}<Icon name="arrow"/></BusyButton></div></form>}
+    let form = NodeRef::<leptos::html::Form>::new();
+    let account = expect_context::<crate::pages::settings::AccountState>();
+    let submit = move || {
+        let text = body.get_untracked();
+        if state.busy.get_untracked() || text.trim().is_empty() {
+            return;
+        }
+        let path = id
+            .map(|id| format!("/api/v1/comments/{id}"))
+            .unwrap_or_else(|| format!("/api/v1/tickets/{}/comments", state.id.get_untracked()));
+        if id.is_some() {
+            state.write("PATCH", path, json!({"body":text}), move || {
+                body.set(String::new());
+                if let Some(close) = close {
+                    close.run(());
+                }
+            });
+        } else {
+            let snapshot = state.comments.get_untracked();
+            state.busy.set(true);
+            state.comment_error.set(String::new());
+            state.comments.update(|comments| {
+                comments.push(CommentRecord {
+                    id: -1,
+                    body: text.clone(),
+                    author: account.account.get_untracked().label(),
+                    author_kind: "user".into(),
+                    created_at: js_sys::Date::new_0()
+                        .to_iso_string()
+                        .as_string()
+                        .unwrap_or_default(),
+                    edited_at: None,
+                    deleted: false,
+                    can_edit: false,
+                    pending: true,
+                    reveal: true,
+                })
+            });
+            state.spawn(async move {
+                match api("POST", &path, json!({"body":text})).await {
+                    Ok(value) => {
+                        body.set(String::new());
+                        if let Ok(saved) = serde_json::from_value::<CommentRecord>(value) {
+                            state.comments.update(|comments| {
+                                comments.retain(|c| !c.pending);
+                                comments.push(CommentRecord {
+                                    reveal: true,
+                                    ..saved
+                                });
+                            });
+                        }
+                        if let Err(error) = state.load(false).await {
+                            state
+                                .comment_error
+                                .set(format!("Comment posted, but could not reload: {error}"));
+                        }
+                    }
+                    Err(error) => {
+                        state.comments.set(snapshot);
+                        state.comment_error.set(error);
+                    }
+                }
+                state.busy.set(false);
+                focus_thread(".activity > .comment-form textarea".into());
+            });
+        }
+    };
+    view! {<form node_ref=form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="comment-form" class:has-draft=move||id.is_some() || !body.get().is_empty() on:keydown=move|e|{
+        if e.key()=="Enter" && (e.meta_key() || e.ctrl_key()) && !e.is_composing() {e.prevent_default();e.stop_propagation();if let Some(form)=form.get(){let _=form.request_submit();}}
+        if e.key()=="Escape" && !state.busy.get_untracked() && let Some(close)=close {e.prevent_default();e.stop_propagation();close.run(());}
+    } on:submit=move|e|{e.prevent_default();submit();}><MarkdownEditor body label="Write a comment" disabled=state.busy/><div><span>{if id.is_some(){"Markdown · ⌘/Ctrl+Enter to save"}else{"Markdown · ⌘/Ctrl+Enter to send"}}</span>{close.map(|close|view!{<button class="button button-ghost" type="button" disabled=move||state.busy.get() on:click=move|_|close.run(())>"Cancel"</button>})}<BusyButton busy=state.busy status_label="Saving comment" variant="secondary" disabled=Signal::derive(move||body.get().trim().is_empty())>{if id.is_some(){"Save comment"}else{"Comment"}}<Icon name="arrow"/></BusyButton></div></form>}
 }
 #[component]
-pub(crate) fn MarkdownEditor(body: RwSignal<String>, label: &'static str) -> impl IntoView {
+pub(crate) fn MarkdownEditor(
+    body: RwSignal<String>,
+    label: &'static str,
+    #[prop(optional, into)] disabled: Signal<bool>,
+) -> impl IntoView {
     let mode = RwSignal::new("Write".to_string());
     let preview = Signal::derive(move || mode.get() == "Preview");
-    view! {<div class="markdown-editor"><SegmentedControl label="Editor mode" options=vec!["Write","Preview"] value=mode/><Show when=move||preview.get() fallback=move||view!{<label class="field"><span>{label}</span><textarea autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=label placeholder=if label=="Write a comment"{"Leave a comment…"}else{"Add details…"} rows="4" prop:value=move||body.get() on:input=move|e|body.set(event_target_value(&e))/></label>}><div class="markdown-preview">{move||view!{<Markdown source=body.get() project={use_context::<DetailState>().and_then(|state|state.ticket.get()).and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))}/>}}</div></Show></div>}
+    view! {<div class="markdown-editor"><SegmentedControl label="Editor mode" options=vec!["Write","Preview"] value=mode/><Show when=move||preview.get() fallback=move||view!{<label class="field"><span>{label}</span><textarea autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=label placeholder=if label=="Write a comment"{"Leave a comment…"}else{"Add details…"} rows="4" disabled=move||disabled.get() prop:value=move||body.get() on:input=move|e|body.set(event_target_value(&e))/></label>}><div class="markdown-preview">{move||view!{<Markdown source=body.get() project={use_context::<DetailState>().and_then(|state|state.ticket.get()).and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))}/>}}</div></Show></div>}
 }
 
 /// `2026-10-28T…` → `Oct 28`; falls back to the raw value.
@@ -628,4 +744,15 @@ fn PropertiesHeading(expanded: RwSignal<bool>) -> impl IntoView {
     view! {<h2 class="properties-heading">"Properties"</h2><button class="button button-ghost properties-toggle" type="button" aria-controls="ticket-properties-body" aria-expanded=move||expanded.get().to_string() on:click=move|_|{
         expanded.update(|v| *v = !*v);
     }>"Properties"<Icon name="chevron"/></button>}
+}
+
+// Focus only document nodes after async reconciliation; child signals may be disposed.
+fn focus_thread(selector: String) {
+    request_animation_frame(move || {
+        if let Ok(Some(element)) = document().query_selector(&selector)
+            && let Some(element) = element.dyn_ref::<web_sys::HtmlElement>()
+        {
+            let _ = element.focus();
+        }
+    });
 }
