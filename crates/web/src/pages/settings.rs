@@ -117,7 +117,7 @@ pub fn Settings() -> impl IntoView {
             <nav class="settings-nav" aria-label="Settings">
                 <A href=format!("{base}/account") attr:class="nav-item"><Icon name="user"/>"Account"</A>
                 <A href=format!("{base}/api-tokens") attr:class="nav-item"><Icon name="code"/>"API tokens"</A>
-                <A href=format!("{base}/projects") attr:class="nav-item"><Icon name="project"/>"Projects & GitHub"</A>
+                <A href=format!("{base}/projects") attr:class="nav-item"><Icon name="github"/>"Projects & GitHub"</A>
                 <A href=format!("{base}/pickup-rules") attr:class="nav-item"><Icon name="list"/>"Pickup rules"</A>
                 <A href=format!("{base}/appearance") attr:class="nav-item"><Icon name="appearance"/>"Appearance"</A>
                 <div class="settings-nav-footer"><a href="/design" rel="external" class="nav-item quiet"><Icon name="grid"/>"Design system"<Icon name="arrow"/></a></div>
@@ -178,7 +178,7 @@ fn ProjectSettings(fixture: bool) -> impl IntoView {
     view! {<section node_ref=reveal_root class="settings-section"><h1>"Projects & GitHub"</h1><p class="settings-description">"Projects and their linked repositories."</p>
         <div class="settings-projects">{move||board.projects.get().into_iter().filter(|p|!p.archived).map(|p|{
             let repo=p.github_owner.zip(p.github_repo).map(|(owner,repo)|format!("{owner}/{repo}"));
-            view!{<div class="settings-project"><ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/><div><strong>{p.name}</strong><span class="muted mono">{p.key_prefix}</span></div>{repo.map(|repo|view!{<a class="subtle-link" href=format!("https://github.com/{repo}") target="_blank" rel="noreferrer">{repo.clone()}<Icon name="external"/></a>}.into_any()).unwrap_or_else(||view!{<span class="muted">"No repository linked"</span>}.into_any())}</div>}
+            view!{<div class="settings-project"><ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/><div><strong>{p.name}</strong><span class="muted mono">{p.key_prefix}</span></div>{repo.map(|repo|view!{<a class="subtle-link" href=format!("https://github.com/{repo}") target="_blank" rel="noreferrer"><Icon name="github"/>{repo.clone()}<Icon name="external"/></a>}.into_any()).unwrap_or_else(||view!{<span class="muted">"No repository linked"</span>}.into_any())}</div>}
         }).collect_view()}</div>
         <Show when=move||board.loading.get()><LoadingSkeleton layout="projects"/></Show><Show when=move||!board.loading.get() && board.projects.get().iter().all(|p|p.archived)><p class="muted">"No active projects."</p></Show>
         <p class="settings-error" role="alert">{move||board.error.get()}</p>
@@ -242,7 +242,7 @@ fn GitHubSettings(fixture: bool) -> impl IntoView {
     };
     load();
     view! {<section class="settings-group settings-github" aria-labelledby="github-heading">
-        <h2 id="github-heading">"GitHub"</h2>
+        <h2 id="github-heading"><Icon name="github"/>"GitHub"</h2>
         <Show when=move || loading.get()><p class="loading-caption" role="status"><LoadingIndicator label="Loading GitHub connection"/>"Loading GitHub connection…"</p></Show>
         <Show when=move || !error.get().is_empty()>
             <p class="settings-error" role="alert">{error}</p>
@@ -253,7 +253,7 @@ fn GitHubSettings(fixture: bool) -> impl IntoView {
                 return view! {
                     <p class="github-description">"Connect the Tickets GitHub App to link PRs, move tickets and post checks."</p>
                     <div class="github-actions">
-                        <a class="button button-primary" href="/github/app/register" rel="external">"Connect GitHub"</a>
+                        <a class="button button-primary" href="/github/app/register" rel="external"><Icon name="github"/>"Connect GitHub"</a>
                         <a class="subtle-link" href="/github/app/register?name=alt" rel="external" title="If GitHub says the app name is taken, try Tickets WWW." aria-label="Use fallback name if the app name is taken">"Use fallback name"</a>
                     </div>
                 }.into_any();
@@ -263,7 +263,7 @@ fn GitHubSettings(fixture: bool) -> impl IntoView {
             let install_url = format!("{}/installations/new", url.trim_end_matches('/'));
             let installed = !app.installations.is_empty();
             view! {
-                <p class="github-description"><a class="subtle-link" href=url target="_blank" rel="noreferrer">{label}<Icon name="external"/></a></p>
+                <p class="github-description"><a class="subtle-link" href=url target="_blank" rel="noreferrer"><Icon name=if crate::ui::is_github_url(&url){"github"}else{"link"}/>{label}<Icon name="external"/></a></p>
                 <Show when=move || !installed><p class="field-hint">"App registered. Install it to connect your repositories."</p></Show>
                 <Show when=move || installed><p class="github-connected" role="status">"Connected"</p></Show>
                 {app.installations.into_iter().map(|installation| view! {
@@ -272,7 +272,7 @@ fn GitHubSettings(fixture: bool) -> impl IntoView {
                         <div><dt>"Repositories"</dt><dd>{if installation.repository_selection == "all" {"All repositories"} else {"Selected repositories"}}</dd></div>
                     </dl>
                 }).collect_view()}
-                <div class="github-actions"><a class=if installed {"button button-secondary"} else {"button button-primary"} href=install_url target="_blank" rel="noreferrer">{if installed {"Manage on GitHub"} else {"Install on GitHub"}}<Icon name="external"/></a></div>
+                <div class="github-actions"><a class=if installed {"button button-secondary"} else {"button button-primary"} href=install_url target="_blank" rel="noreferrer"><Icon name=if crate::ui::is_github_url(&install_url){"github"}else{"link"}/>{if installed {"Manage on GitHub"} else {"Install on GitHub"}}<Icon name="external"/></a></div>
             }.into_any()
         })}
     </section>}

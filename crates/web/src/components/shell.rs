@@ -181,7 +181,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
                     <DropdownMenu class="project-dropdown" trigger_class="icon-button project-more-trigger" label=format!("More actions for {}",edit.name) trigger_content=Box::new(||view!{<Icon name="more"/>}.into_any())>
                         <MenuItem on_select=Callback::new(move|_|{let edit=edit.clone();request_animation_frame(move||editor.set(Some(edit)));})><Icon name="edit"/>"Edit project…"</MenuItem>
                         <MenuItem on_select=Callback::new(move|_|{wasm_bindgen_futures::spawn_local(async move{let url=format!("{}/board?project={id}",window().location().origin().unwrap_or_default());let result=wasm_bindgen_futures::JsFuture::from(window().navigator().clipboard().write_text(&url)).await;state.toast.set(if result.is_ok(){"Project link copied."}else{"Could not copy. Allow clipboard access and try again."}.into());});})><Icon name="copy"/>"Copy link"</MenuItem>
-                        {repo.map(|repo|view!{<MenuItem on_select=Callback::new(move|_|{let _=window().open_with_url_and_target_and_features(&format!("https://github.com/{repo}"),"_blank","noopener,noreferrer");})><Icon name="external"/>"Open on GitHub"</MenuItem>})}
+                        {repo.map(|repo|view!{<MenuItem on_select=Callback::new(move|_|{let _=window().open_with_url_and_target_and_features(&format!("https://github.com/{repo}"),"_blank","noopener,noreferrer");})><Icon name="github"/>"Open on GitHub"</MenuItem>})}
                         <MenuSeparator/>
                         <MenuItem on_select=Callback::new(move|_|{let arch=arch.clone();request_animation_frame(move||archive.set(Some(arch)));})><Icon name="archive"/>"Archive project"</MenuItem>
                     </DropdownMenu></div>
@@ -267,7 +267,7 @@ pub fn TopBar(
 #[component]
 pub fn ProjectHeader(#[prop(default = "board")] view: &'static str) -> impl IntoView {
     view! {
-        <div class="view-tabs"><nav aria-label="Ticket view"><A href="/design/board" attr:class=if view == "board" { "view-tab selected" } else { "view-tab" }><Icon name="board"/>"Board"</A><A href="/design/list" attr:class=if view == "list" { "view-tab selected" } else { "view-tab" }><Icon name="list"/>"List"</A></nav><a class="subtle-link" href="https://github.com/0x63616c/tickets" target="_blank" rel="noreferrer"><Icon name="link"/>"0x63616c/tickets"<Icon name="external"/></a></div>
+        <div class="view-tabs"><nav aria-label="Ticket view"><A href="/design/board" attr:class=if view == "board" { "view-tab selected" } else { "view-tab" }><Icon name="board"/>"Board"</A><A href="/design/list" attr:class=if view == "list" { "view-tab selected" } else { "view-tab" }><Icon name="list"/>"List"</A></nav><a class="subtle-link" href="https://github.com/0x63616c/tickets" target="_blank" rel="noreferrer"><Icon name="github"/>"0x63616c/tickets"<Icon name="external"/></a></div>
     }
 }
 

@@ -114,12 +114,16 @@ pub fn HistoryEvent(entry: Entry) -> impl IntoView {
     let expandable = matches!(field.as_str(), "description" | "title");
     let old_text = entry.old_value.as_str().unwrap_or("").to_owned();
     let new_text = entry.new_value.as_str().unwrap_or("").to_owned();
-    let icon = match field.as_str() {
-        "label_added" | "label_removed" => "tag",
-        "blocker_added" | "blocker_removed" | "blocks_added" | "blocks_removed" => "link",
-        "assignee" => "user",
-        "created" => "plus",
-        _ => "clock",
+    let icon = if entry.actor_kind == ActorKind::Webhook {
+        "github"
+    } else {
+        match field.as_str() {
+            "label_added" | "label_removed" => "tag",
+            "blocker_added" | "blocker_removed" | "blocks_added" | "blocks_removed" => "link",
+            "assignee" => "user",
+            "created" => "plus",
+            _ => "clock",
+        }
     };
     let actor_title = match entry.actor_kind {
         ActorKind::User => format!("User #{}", entry.actor_id),

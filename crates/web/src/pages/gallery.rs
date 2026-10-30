@@ -62,7 +62,7 @@ pub fn ComponentPreview() -> impl IntoView {
 #[component]
 fn FoundationGallery() -> impl IntoView {
     view! {<section class="specimen"><div class="specimen-label"><h2>"Interaction foundations"</h2><p>"Isolated previews, keyboard behavior and motion."</p></div><div class="specimen-content">{COMPONENTS.iter().map(|name|view!{<a class="button" rel="external" href=format!("/design/c/{name}")>{*name}</a>}).collect_view()}</div></section>
-    <section class="specimen"><div class="specimen-label"><h2>"Loading & identity"</h2><p>"ascii-reveal · skeleton sweep and text decode."</p></div><div class="specimen-content"><LoadingIndicator/><BusyButton busy=Signal::derive(||true)>"Save project"</BusyButton><ProjectIcon name="Tickets" icon="ticket"/><ProjectIcon name="Quantum" icon="box" color="#4ea7fc"/><ProjectIcon name="Apps" icon="🚀"/><ProjectIcon name="Website" color="#27a644"/></div></section>}
+    <section class="specimen"><div class="specimen-label"><h2>"Loading & identity"</h2><p>"ascii-reveal · skeleton sweep and text decode."</p></div><div class="specimen-content"><span class="icon-label"><Icon name="github"/>"GitHub"</span><LoadingIndicator/><BusyButton busy=Signal::derive(||true)>"Save project"</BusyButton><ProjectIcon name="Tickets" icon="ticket"/><ProjectIcon name="Quantum" icon="box" color="#4ea7fc"/><ProjectIcon name="Apps" icon="🚀"/><ProjectIcon name="Website" color="#27a644"/></div></section>}
 }
 #[component]
 fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
@@ -85,7 +85,7 @@ fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
         "loader"=>view!{<div class="sample-controls"><div class="loading-caption"><LoadingIndicator/>"Loading tickets…"</div></div>}.into_any(),
         "reveal"=>view!{<RevealPreview/>}.into_any(),
         "skeletons"=>{let layout=match variant.as_str(){"list"=>"list","detail"=>"detail","projects"=>"projects",_=>"board"};view!{<LoadingSkeleton layout/>}.into_any()},
-        "icons"=>view!{<div class="sample-controls"><ProjectIcon name="Tickets" icon="ticket" size="large"/><ProjectIcon name="Quantum" icon="box" color="#4ea7fc" size="large"/><ProjectIcon name="Apps" icon="🚀" size="large"/><ProjectIcon name="Website" color="#27a644" size="large"/></div>}.into_any(),
+        "icons"=>view!{<div class="sample-controls"><span class="icon-label"><Icon name="github"/>"GitHub"</span><ProjectIcon name="Tickets" icon="ticket" size="large"/><ProjectIcon name="Quantum" icon="box" color="#4ea7fc" size="large"/><ProjectIcon name="Apps" icon="🚀" size="large"/><ProjectIcon name="Website" color="#27a644" size="large"/></div>}.into_any(),
         "busy-button" if variant=="cycle"=>view!{<BusyPreview/>}.into_any(),
         "busy-button"=>view!{<div class="sample-controls"><BusyButton busy=Signal::derive(||true)>"Create ticket"</BusyButton><BusyButton variant="secondary" busy=Signal::derive(||true)>"Save changes"</BusyButton><Button variant="primary">"Create ticket"</Button></div>}.into_any(),
         "tabs"=>view!{<SegmentedControl label="Description mode" options=vec!["Write","Preview"] value=tabs/>}.into_any(),
