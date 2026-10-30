@@ -123,7 +123,8 @@ curl -sS "$TICKETS_URL/api/v1/tickets/1" -H "Authorization: Bearer $TICKETS_TOKE
 ## Lists, filters, search and pagination
 
 All domain lists return `data` and `next_cursor` (null at end). Pass the returned
-cursor unchanged for the next page; default limit 50, range 1–100. IDs ascend,
+cursor unchanged for the next page; default limit 50, range 1–100. IDs ascend
+(except ticket history, which descends),
 cursors are exclusive, and pagination is not a snapshot during concurrent writes.
 Filters combine with AND: `project` ID, `status`, `label` ID, exact `assignee`,
 `blocked=true|false`, `q`. Search is a literal FTS5 phrase over title/body,
@@ -212,6 +213,27 @@ curl -sS -X PUT "$TICKETS_URL/api/v1/tickets/by-external?id=github%3Aexample-org
 curl -sS -X PUT "$TICKETS_URL/api/v1/tickets/by-external?id=github%3Aexample-org%2Fexample%3A12" \
   -H "Authorization: Bearer $TICKETS_TOKEN" -H 'Content-Type: application/json' \
   -d '{"project_id":1,"title":"Updated import"}'
+```
+
+## Ticket change history
+
+Read `GET /api/v1/tickets/{id-or-key}/history` to see committed changes and actors.
+Unlike other domain lists, history uses **descending IDs (newest first)**.
+Pass `next_cursor` unchanged with `cursor`; limit is 1–100 (default 50).
+Rows contain `field`, JSON `old_value`/`new_value`, UTC `recorded_at`, durable
+`subject_id`, and server-selected `actor_kind`, `actor_id`, `actor_label`.
+Fields cover creation, status, priority, assignee, labels, title, description,
+blockers and project moves. Claim/heartbeat/expiry/release kinds are reserved;
+there are no claim endpoints yet. History is read-only; no-ops emit no rows.
+Deleted tickets return 404; retained history never leaks through a reused ID.
+Description/title values are raw text, not trusted HTML. Migration `created`
+entries mark the start of tracking, not a reconstructed edit history.
+
+```sh
+# expect {"status":200,"body":{"data":[{"field":"title","actor_kind":"api_token","old_value":"Imported issue","new_value":"Updated import"}]}}
+curl -sS "$TICKETS_URL/api/v1/tickets/3/history?limit=1" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":400}
+curl -sS "$TICKETS_URL/api/v1/tickets/3/history?limit=101" -H "Authorization: Bearer $TICKETS_TOKEN"
 ```
 
 ## Errors

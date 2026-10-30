@@ -15,6 +15,7 @@ use std::{
     time::Duration,
 };
 const NAMES: &[&str] = &[
+    "history",
     "palette",
     "sidebar",
     "user-menu",

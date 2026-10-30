@@ -131,7 +131,7 @@ fn migration_does_not_invent_completion_or_historical_project() {
     files.sort();
     for file in files
         .iter()
-        .filter(|p| !p.file_name().unwrap().to_str().unwrap().starts_with("0011"))
+        .filter(|p| p.file_name().unwrap().to_str().unwrap() < "0011")
     {
         db.execute_batch(&std::fs::read_to_string(file).unwrap())
             .unwrap();

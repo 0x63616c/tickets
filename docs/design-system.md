@@ -402,3 +402,14 @@ style: `--menu-item-gap: 2px`, `--menu-inset: 4px` and
 and separate from adjacent items. Separators use the same gap and inset.
 The sidebar account trigger shows the display name (falling back to username)
 and initial at the bottom; its shared popup opens above with a bottom-left origin.
+## Ticket activity (TIK-60)
+
+`HistoryEvent` is shared by API detail, `/design/ticket` and `/design/c/history`.
+Compact rows align a 16px shared glyph with actor/action/value text and a relative
+`time` (click/tap or keyboard activation toggles exact UTC). Title and description changes expand to escaped
+before/after text, keeping large bodies out of the scanning path. The real Activity
+feed merges comments and history newest first; older history loads explicitly.
+Live invalidations merge new entries through the loaded boundary, retaining older
+pages and open diffs. Relative time refreshes each minute. Failed reads preserve
+saved content.
+Use `component-shot history` and `detail-check` for dark desktop/mobile evidence.

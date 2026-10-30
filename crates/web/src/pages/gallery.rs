@@ -27,6 +27,7 @@ pub fn Gallery() -> impl IntoView {
 }
 
 pub const COMPONENTS: &[&str] = &[
+    "history",
     "palette",
     "sidebar",
     "user-menu",
@@ -68,6 +69,7 @@ fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
     let show = RwSignal::new(false);
     let tabs = RwSignal::new("Write".to_string());
     match name {
+        "history"=>view!{<div class="history-preview"><h2>"Activity"</h2><div class="activity-feed">{history_fixture().into_iter().map(|entry|view!{<HistoryEvent entry/>}).collect_view()}</div></div>}.into_any(),
         "palette"=>{let state=expect_context::<DesignState>();state.dialog.set(DialogKind::Command);view!{<CommandPalette/>}.into_any()},
         "sidebar" | "user-menu"=>view!{<Sidebar/>}.into_any(),
         "select"=>view!{<label class="field"><span>"Status"</span><Select label="Example status" options=Status::ALL.map(Status::name).to_vec() value=selected/></label>}.into_any(),

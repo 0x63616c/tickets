@@ -21,4 +21,4 @@ tickets-core = { version = "0.1.0", path = "../core" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 futures = { version = "0.3.34", default-features = false, features = ["executor"] }
-rusqlite = { version = "0.41.0", features = ["bundled"] }
+rusqlite = { version = "0.41.0", features = ["bundled", "limits"] }

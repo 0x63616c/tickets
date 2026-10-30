@@ -27,6 +27,17 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     assert_eq!(linked["status"], "in_review");
     assert_eq!(linked["pull_requests"].as_array().unwrap().len(), 1);
     assert_eq!(linked["pull_requests"][0]["head_sha"], "abc123");
+    let history = api.list(&format!("{path}/history"))?;
+    assert_eq!(
+        history.len(),
+        2,
+        "signed duplicate delivery appended history"
+    );
+    assert_eq!(history[0]["actor_kind"], "webhook");
+    assert_eq!(history[0]["actor_id"], "github");
+    assert_eq!(history[0]["old_value"], "todo");
+    assert_eq!(history[0]["new_value"], "in_review");
+
     // Repositories are accepted by their configured owner alone.
     let output = root.join("docs/screenshots/32");
     std::fs::create_dir_all(&output)?;
@@ -69,6 +80,14 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     assert!(get()?["pull_requests"].as_array().unwrap().is_empty());
     send("pull_request", payload(key), true, 202)?;
     assert!(get()?["pull_requests"].as_array().unwrap().is_empty());
+    let history = api.list(&format!("{path}/history"))?;
+    assert_eq!(
+        history.len(),
+        3,
+        "stale delivery or unlink appended a false field change"
+    );
+    assert_eq!(history[0]["new_value"], "done");
+    assert_eq!(history[0]["actor_kind"], "webhook");
     println!(
         "PR check passed: HMAC, owner allowlist, unknown keys, linking, API key/head SHA, merge, stale replay, unlink and dark desktop/mobile UI"
     );

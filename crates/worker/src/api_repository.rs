@@ -1,8 +1,9 @@
 //! Domain API persistence. Identifiers come only from validated route/field allowlists;
 //! every caller value is bound as a parameter. D1 transport remains in Store.
+use crate::mutation::{self, Scope};
 use crate::repository::{Error, Repository, Result, Store};
 use serde_json::{Value, json};
-use tickets_core::domain::Dependency;
+use tickets_core::{domain::Dependency, history::Actor};
 
 // Correlated subqueries are part of one D1 request; ordered inner SELECTs keep
 // arrays deterministic without multiplying ticket rows through joins.
@@ -30,7 +31,7 @@ fn selection(entity: &str) -> &str {
     }
 }
 
-pub(crate) struct ApiRepository<'a, S>(pub &'a S);
+pub(crate) struct ApiRepository<'a, S>(pub &'a S, pub &'a Actor);
 impl<S: Store> ApiRepository<'_, S> {
     pub async fn ticket_projects(&self, id: i64) -> Result<Vec<i64>> {
         let related: Vec<Value> = self.0.query("SELECT DISTINCT project_id FROM tickets WHERE id IN (SELECT blocked_id FROM ticket_dependencies WHERE blocker_id=? UNION SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=?)", vec![id.into(), id.into()]).await?;
@@ -47,6 +48,32 @@ impl<S: Store> ApiRepository<'_, S> {
             .collect())
     }
 
+    async fn mutate_one(&self, scope: Scope, sql: &str, params: Vec<Value>) -> Result<Value> {
+        mutation::execute(self.0, self.1, scope, sql, params)
+            .await?
+            .into_iter()
+            .next()
+            .ok_or(Error::NotFound)
+    }
+    pub async fn history(&self, ticket: i64, limit: i64, cursor: i64) -> Result<Value> {
+        let mut rows: Vec<Value> = self.0.query("SELECT h.* FROM ticket_history h JOIN ticket_subjects s ON s.id=h.subject_id WHERE s.ticket_id=? AND (?=0 OR h.id<?) ORDER BY h.id DESC LIMIT ?",vec![ticket.into(),cursor.into(),cursor.into(),(limit+1).into()]).await?;
+        let more = rows.len() > limit as usize;
+        rows.truncate(limit as usize);
+        let next = if more {
+            rows.last().map(|v| v["id"].to_string())
+        } else {
+            None
+        };
+        for row in &mut rows {
+            for field in ["old_value", "new_value"] {
+                if let Some(value) = row[field].as_str() {
+                    row[field] =
+                        serde_json::from_str(value).map_err(|e| Error::Storage(e.to_string()))?;
+                }
+            }
+        }
+        Ok(json!({"data":rows,"next_cursor":next}))
+    }
     async fn rows(&self, sql: &str, p: Vec<Value>) -> Result<Vec<Value>> {
         self.0.query(sql, p).await
     }
@@ -125,16 +152,23 @@ impl<S: Store> ApiRepository<'_, S> {
         } else {
             String::new()
         };
-        self.one(
-            &format!(
-                "INSERT INTO {entity}({}) VALUES({}){conflict} RETURNING *",
-                fields.join(","),
-                expressions.join(",")
-            ),
-            values,
-        )
-        .await
+        let sql = format!(
+            "INSERT INTO {entity}({}) VALUES({}){conflict} RETURNING *",
+            fields.join(","),
+            expressions.join(",")
+        );
+        if entity == "tickets" {
+            let scope = if upsert {
+                Scope::external(input["external_id"].as_str().unwrap())
+            } else {
+                Scope::create()
+            };
+            self.mutate_one(scope, &sql, values).await
+        } else {
+            self.one(&sql, values).await
+        }
     }
+
     pub async fn patch(&self, entity: &str, existing: &Value, input: &Value) -> Result<Value> {
         tickets_core::api::validate(entity, input).map_err(Error::Validation)?;
         let obj = input.as_object().unwrap();
@@ -159,21 +193,33 @@ impl<S: Store> ApiRepository<'_, S> {
             set.push("updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')".into());
         }
         values.push(existing["id"].clone());
-        self.one(
-            &format!(
-                "UPDATE {entity} SET {} WHERE id=? RETURNING *",
-                set.join(",")
-            ),
-            values,
-        )
-        .await
+        let sql = format!(
+            "UPDATE {entity} SET {} WHERE id=? RETURNING *",
+            set.join(",")
+        );
+        if entity == "tickets" {
+            self.mutate_one(
+                Scope::ticket(existing["id"].as_i64().unwrap()),
+                &sql,
+                values,
+            )
+            .await
+        } else {
+            self.one(&sql, values).await
+        }
     }
     pub async fn delete(&self, entity: &str, id: i64) -> Result<()> {
-        self.one(
-            &format!("DELETE FROM {entity} WHERE id=? RETURNING id"),
-            vec![id.into()],
-        )
-        .await?;
+        let sql = format!("DELETE FROM {entity} WHERE id=? RETURNING id");
+        if entity == "tickets" || entity == "labels" {
+            let scope = if entity == "tickets" {
+                Scope::ticket(id)
+            } else {
+                Scope::label(id)
+            };
+            self.mutate_one(scope, &sql, vec![id.into()]).await?;
+        } else {
+            self.one(&sql, vec![id.into()]).await?;
+        }
         Ok(())
     }
     pub async fn create_comment(&self, ticket: i64, input: &Value) -> Result<Value> {
@@ -191,13 +237,13 @@ impl<S: Store> ApiRepository<'_, S> {
         other: i64,
         add: bool,
     ) -> Result<Option<i64>> {
-        let r = Repository::new(self.0);
+        let r = Repository::with_actor(self.0, self.1.clone());
         if kind == "labels" {
             self.get("labels", other).await?;
             if add {
                 r.add_label(ticket, other).await?;
             } else {
-                self.one("DELETE FROM ticket_labels WHERE ticket_id=? AND label_id=? RETURNING ticket_id",vec![ticket.into(),other.into()]).await?;
+                self.mutate_one(Scope::ticket(ticket), "DELETE FROM ticket_labels WHERE ticket_id=? AND label_id=? RETURNING ticket_id",vec![ticket.into(),other.into()]).await?;
             }
         } else {
             let project = self.get("tickets", other).await?["project_id"].as_i64();
@@ -208,7 +254,7 @@ impl<S: Store> ApiRepository<'_, S> {
             if add {
                 r.add_dependency(edge).await?;
             } else {
-                self.one("DELETE FROM ticket_dependencies WHERE blocker_id=? AND blocked_id=? RETURNING blocker_id",vec![ticket.into(),other.into()]).await?;
+                self.mutate_one(Scope::relation(ticket,other), "DELETE FROM ticket_dependencies WHERE blocker_id=? AND blocked_id=? RETURNING blocker_id",vec![ticket.into(),other.into()]).await?;
             }
             return Ok(project);
         }
