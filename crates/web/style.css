@@ -17,8 +17,8 @@ h2 { font-size: var(--text-base); font-weight: 550; }
 .icon { width: 16px; height: 16px; flex: 0 0 16px; vertical-align: middle; }
 .mono, code { font-family: var(--font-mono); font-size: var(--text-xs); }
 .muted { color: var(--text-muted); font-size: var(--text-sm); }
-.skip-link { position: fixed; top: -60px; left: 16px; z-index: 100; background: var(--text); color: var(--bg); padding: 8px 16px; }
-.skip-link:focus { top: 12px; }
+.skip-link { position: fixed; top: -60px; left: var(--space-4); z-index: 100; background: var(--text); color: var(--bg); padding: var(--space-2) var(--space-4); }
+.skip-link:focus { top: var(--space-3); }
 .app-shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-height: 100dvh; }
 .sidebar { background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100dvh; padding: 16px 12px 0; overflow-y: auto; }
 .workspace { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }

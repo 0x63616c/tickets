@@ -12,6 +12,8 @@ pbkdf2 = "0.12"
 serde_json = "1.0.154"
 shlex = "2.0.1"
 sha2 = "0.10"
+proc-macro2 = "1.0.107"
+syn = "2.0.119"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 httpdate = "1.0"
