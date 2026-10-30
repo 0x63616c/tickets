@@ -132,16 +132,16 @@ pub fn check(root: &Path, password: &str) -> Result {
 
 fn interactions(b: &mut Browser) -> Result {
     b.go(&format!("{URL}/board"))?;
-    b.wait("document.querySelectorAll('.api-ticket').length===15 && document.querySelectorAll('.board-column').length===4")?;
+    b.wait("document.querySelectorAll('.api-ticket').length===15 && document.querySelectorAll('.board-column').length===5")?;
     b.wait("document.querySelector('.sidebar').getBoundingClientRect().width===240 && [...document.querySelectorAll('.board-column')].every(e=>e.getBoundingClientRect().width>=240)")?;
-    // Picking up a card does not shift columns. Moving to review reveals its group.
+    // Picking up a card does not shift columns. Empty In review stays visible.
     b.eval("document.querySelector('#ticket-9').focus();true")?;
     b.key(" ", 32, 0)?;
-    b.wait("document.querySelectorAll('.board-column').length===4 && document.activeElement.id==='ticket-9'")?;
+    b.wait("document.querySelectorAll('.board-column').length===5 && document.activeElement.id==='ticket-9'")?;
     b.key("ArrowRight", 39, 0)?;
     b.wait("document.querySelector('#ticket-9').closest('section').getAttribute('aria-label')==='In review'")?;
     b.key("Escape", 27, 0)?;
-    b.wait("document.querySelectorAll('.board-column').length===4 && document.activeElement.id==='ticket-9' && document.querySelector('#ticket-9').closest('section').getAttribute('aria-label')==='In progress'")?;
+    b.wait("document.querySelectorAll('.board-column').length===5 && document.activeElement.id==='ticket-9' && document.querySelector('#ticket-9').closest('section').getAttribute('aria-label')==='In progress'")?;
     b.key("ArrowRight", 39, 0)?;
     b.wait("document.activeElement.id==='ticket-13'")?;
     b.click("[aria-label='Add ticket to Todo']")?;

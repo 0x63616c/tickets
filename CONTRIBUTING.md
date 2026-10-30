@@ -209,8 +209,10 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
 ## Kanban ordering and verification
 
 - The API board lives at `/board`; `/design*` retains its fixture-only state. Projects
-  are selected in the sidebar. Hide Canceled by default; `?canceled=true` reveals it.
-  Match the fixture's four default columns; show In review when populated.
+  are selected in the sidebar. Show every status by default except Canceled, including empty In review.
+  The Columns checkbox menu keeps at least one visible and saves per project in
+  browser localStorage (`tickets.board.columns.project.<id>`). Fixture preferences
+  use the separate `tickets.fixture.board.columns.<name>` namespace.
   Status selects always offer all six statuses. Use equal flex
   columns with a 240px minimum and 16px gaps. The sidebar stays 240px; extra
   columns scroll inside the board. The footer counts tickets in visible statuses.
@@ -244,6 +246,11 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   project isolation. Screenshots are written to `docs/screenshots/kanban/` at
   1440×900 and 390×900. `board-before` captures the previous real `/` route on a
   running local Worker at port 8787 before changing frontend assets.
+
+`cargo xtask component-shot board-columns --output docs/screenshots/TIK-50`
+captures fixture-only toolbar, popover and full board evidence at desktop/mobile
+sizes; `--before-assets <dist>` captures the previous toolbar (which has no
+Columns popover).
 
 ### Board topbar creation
 
