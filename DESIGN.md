@@ -67,13 +67,20 @@ waiting, then a fast decode reveal (about 300–500ms) as data arrives. Reduced 
 removes both effects: static skeletons and immediate content. Other interactions
 retain their short opacity and color feedback.
 
-The initial full-document startup (TIK-84) uses the real Stub path as a two-tone
-ASCII mark on black: `--stub-ink` (#ededed, matching the favicon) for the body and
-`--text-muted` for the edge. A 600ms diagonal resolve and soft shimmer give way
-to a scattered glyph dissolve, then an opacity/slight-scale fade of the black
-using `--duration-splash-exit` (280ms) after
-content is ready (900ms minimum).
-Reduced motion uses the final static mark, a 500ms minimum and opacity only.
+The initial full-document startup (TIK-84, refined in TIK-87) uses the real Stub
+path as a two-tone ASCII mark on black: `--stub-ink` (#ededed, matching the favicon)
+for the body and `--stub-edge` (#a78bfa) for a continuous one-cell purple outline,
+including notches and perforation holes. The lighter purple keeps thin `+` edge
+glyphs legible against black without a glow. The grid is sampled once and on resize.
+A 550ms cubic ease-out opacity fade and 12px rise lead into a continuous sine-wave
+float (±9px vertically / 2.2s, ±6px horizontally / 3.4s, ±1.6° rotation / 3.8s).
+Only `translate`, `rotate` and opacity animate, as compositor-run CSS keyframes; scramble, shimmer and scattered
+dissolve are removed. After content is ready (900ms minimum from first paint),
+the mark fades and rises 16px over 400ms with an ease-in curve, then the black
+backdrop fades using `--duration-splash-exit` (280ms), for a 680ms exit. This quiet
+upward departure is a splash-only exception to the normal UI easing rule.
+Reduced motion uses the same static outlined mark, a 500ms minimum and opacity-only
+entry and exit. The readiness/busy wait, safety cap and skip rules are unchanged.
 In-app ascii-reveal starts after the splash is removed; component previews skip it.
 
 Shared Select/DropdownMenu/Combobox replace browser selects. Keep the compact
