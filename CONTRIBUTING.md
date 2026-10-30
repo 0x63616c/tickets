@@ -438,6 +438,26 @@ See docs/design-system.md for shared component signatures, controlled async valu
 presence ownership, motion/reduced-motion tokens and fixture variants. Keep all
 project icon schema changes additive and validate values in core.
 
+## Sidebar and settings (TIK-40)
+
+- `/home` renders the current board until the dedicated Home page lands (TIK-43).
+  `/` remains the Board shortcut. G then H/B/L navigates; `?` opens shortcuts.
+- Account identity comes from `/api/v1/me`, with nullable `display_name` falling
+  back to the authenticated username. Never substitute a literal You/Y avatar.
+- `/settings` redirects to `/settings/account`; sections are `account`,
+  `api-tokens`, `projects`, `appearance`. `/settings/tokens` redirects to
+  `/settings/api-tokens`. Keep the token lifecycle UI for TIK-41 to redesign.
+- Project counts use `open_ticket_count` from the API (exclude done/canceled).
+  Section disclosure, theme (dark default), and reduced motion preferences use
+  browser localStorage; unavailable storage must not block navigation.
+- `cargo xtask settings-check` verifies account persistence, token lifecycle and
+  redirects, shortcuts, preferences and mobile navigation in isolated local D1.
+  It shares port 8795 and must run sequentially with other Worker checks.
+- `cargo xtask settings-shot` captures fixture-only Settings sections and full
+  pages in `docs/screenshots/TIK-40`; `TICKETS_BEFORE_ASSETS` selects the actual
+  prior settings route. `component-shot sidebar` and `component-shot user-menu`
+  provide 2× crops. Never capture a live account or revealed API secret.
+
 ## New-ticket composer verification
 
 - The shared TicketComposer owns draft controls and keyboard behavior; BoardComposer

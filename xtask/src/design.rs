@@ -199,6 +199,24 @@ impl Browser {
         ))?;
         Ok(())
     }
+    pub(crate) fn sign_out(&mut self) -> Result<()> {
+        if self.eval("!!document.querySelector('.account-trigger')")? == true {
+            if self.eval(
+                "document.querySelector('.account-trigger').getBoundingClientRect().height===0",
+            )? == true
+            {
+                self.click("[aria-label='Toggle sidebar']")?;
+            }
+            self.click(".account-trigger")?;
+            self.wait(
+                "document.querySelector('.account-trigger').getAttribute('aria-expanded')==='true'",
+            )?;
+            self.click(".user-menu [role=menuitem]:last-child")?;
+        } else {
+            self.eval("[...document.querySelectorAll('.sidebar-bottom button')].find(b=>b.textContent.includes('Sign out')).click();true")?;
+        }
+        Ok(())
+    }
     pub(crate) fn text(&mut self, selector: &str, text: &str) -> Result<()> {
         self.click(selector)?;
         self.eval(&format!(
@@ -393,7 +411,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
-    b.wait("location.pathname === '/settings/tokens'")?;
+    b.wait("['/settings/tokens','/settings/api-tokens'].includes(location.pathname)")?;
     b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("document.body.innerText.includes('No projects yet')")?;
     b.eval(r#"(async()=>{
@@ -512,7 +530,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     )?;
     b.wait("document.querySelectorAll('.command-results .menu-item').length===1 && document.querySelector('.command-results').textContent.includes('TKT-4')")?;
     b.key("Escape", 27, 0)?;
-    b.wait("!document.querySelector('dialog') && document.querySelector('.sidebar-bottom').textContent.includes('Sign out') && !document.querySelector('.sidebar-bottom').textContent.includes('Sign in')")?;
+    b.wait("!document.querySelector('dialog') && document.querySelector('.user-menu').textContent.includes('Sign out')")?;
     b.click(".toast button")?;
     let output = root.join("docs/screenshots/kanban");
     fs::create_dir_all(&output)?;
@@ -526,7 +544,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===4 && !document.querySelector('.add-card').disabled && document.body.innerText.includes('No tickets yet')")?;
     check_composer(&mut b)?;
-    b.eval("[...document.querySelectorAll('.sidebar-bottom button')].find(b=>b.textContent.includes('Sign out')).click();true")?;
+    b.sign_out()?;
     b.wait("location.pathname==='/login'")?;
     b.go("http://127.0.0.1:8795/?canceled=true")?;
     b.wait("location.pathname==='/login' && !document.querySelector('.sidebar, .ticket-card')")?;

@@ -76,10 +76,10 @@ fn TicketContent(ticket: Ticket) -> impl IntoView {
                     <div class="section-heading"><h2>"Activity"</h2><span class="muted">"Today"</span></div>
                     <div class="activity-event"><StatusIcon status=ticket.status/><span>"You set the status to "<strong>{ticket.status.name()}</strong></span><time>"10:24"</time></div>
                     {(id == 7).then(|| view! {
-                        <Comment author="You" initials="Y" time="10:32" text="The status menu should work everywhere the ticket appears. Dragging can stay a convenience."/>
+                        <Comment author="Sample User" initials="S" time="10:32" text="The status menu should work everywhere the ticket appears. Dragging can stay a convenience."/>
                         <Comment author="Agent" initials="A" time="10:41" text="Agreed. I’ll preserve **keyboard focus** and announce the new status after a move."/>
                     })}
-                    {move || current.get().added_comments.into_iter().map(|text| view! { <Comment author="You" initials="Y" time="Just now" text/> }).collect_view()}
+                    {move || current.get().added_comments.into_iter().map(|text| view! { <Comment author="Sample User" initials="S" time="Just now" text/> }).collect_view()}
                     <form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="comment-form" on:submit=move |ev| {
                         ev.prevent_default();
                         let value = comment.get_untracked().trim().to_string();

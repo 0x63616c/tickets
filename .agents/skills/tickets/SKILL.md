@@ -22,6 +22,11 @@ subsets in comments are checked by `cargo xtask skill-check` against local D1.
 
 ## Access and project selection
 
+`GET /api/v1/me` also returns `username` and nullable `display_name`.
+Update the account label with `PATCH /api/v1/me` and only `display_name`
+(trimmed text, at most 80 characters; null clears it). This never changes login
+credentials. Project reads include `open_ticket_count`, excluding done/canceled.
+
 Check access, list projects and choose an appropriate unarchived project. Create
 one only if needed; prefixes are 1–10 uppercase ASCII letters, colors `#RRGGBB`.
 Link with `github_owner`, positive `github_project_number`, `github_project_kind`

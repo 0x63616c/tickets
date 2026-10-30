@@ -150,3 +150,49 @@ mod password_tests {
         assert!(!constant_eq(&result, &wrong));
     }
 }
+
+/// Optional account label. Authentication continues to use the deployment username.
+pub fn display_name(input: &serde_json::Value) -> Result<Option<String>, &'static str> {
+    let obj = input.as_object().ok_or("Expected an account object")?;
+    if obj.len() != 1 || !obj.contains_key("display_name") {
+        return Err("Only display_name can be updated");
+    }
+    match &obj["display_name"] {
+        serde_json::Value::Null => Ok(None),
+        serde_json::Value::String(name) => {
+            let name = name.trim();
+            if name.chars().count() > 80 || name.chars().any(char::is_control) {
+                return Err(
+                    "Display name must be at most 80 characters without control characters",
+                );
+            }
+            Ok((!name.is_empty()).then(|| name.to_owned()))
+        }
+        _ => Err("Display name must be text or null"),
+    }
+}
+
+#[cfg(test)]
+mod account_tests {
+    use super::display_name;
+    use serde_json::json;
+    #[test]
+    fn validates_nullable_display_name() {
+        assert_eq!(
+            display_name(&json!({"display_name":"  Sample User  "})),
+            Ok(Some("Sample User".into()))
+        );
+        for v in [json!({"display_name":null}), json!({"display_name":"  "})] {
+            assert_eq!(display_name(&v), Ok(None));
+        }
+        for v in [
+            json!({}),
+            json!({"display_name":3}),
+            json!({"display_name":"a", "username":"b"}),
+            json!({"display_name":"x".repeat(81)}),
+            json!({"display_name":"a\nb"}),
+        ] {
+            assert!(display_name(&v).is_err());
+        }
+    }
+}

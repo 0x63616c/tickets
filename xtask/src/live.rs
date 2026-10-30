@@ -72,7 +72,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
         browser.text("#username", "fixture")?;
         browser.text("#password", password)?;
         browser.click("button[type=submit]")?;
-        browser.wait("location.pathname==='/settings/tokens'")?;
+        browser.wait("['/settings/tokens','/settings/api-tokens'].includes(location.pathname)")?;
         browser.go("http://127.0.0.1:8795/")?;
         browser.wait("document.querySelectorAll('.ticket-card').length===1")?;
         Ok(())
