@@ -2,7 +2,7 @@
 
 The workspace pins stable Rust 1.99.1 with rustfmt, clippy and the
 `wasm32-unknown-unknown` target. Run `rustup show` to install it. Use Node.js 22
-or newer for Wrangler. Install the build tools:
+or newer for Wrangler and the pinned ascii-reveal web dependency. Install the build tools:
 
 ```sh
 cargo install worker-build --version 0.8.7 --locked
@@ -13,6 +13,7 @@ npm install --global wrangler@4.154.0
 From the repository root:
 
 ```sh
+npm ci --prefix crates/web # Required before direct Trunk/Cargo wasm builds
 cargo xtask build    # Trunk release assets, then workers-rs release bundle
 cargo xtask dev      # Build both, then wrangler dev --local (port 8787)
 cargo xtask migrate  # Apply pending versioned SQL to local D1 only
@@ -122,7 +123,8 @@ Run auth-verify first to prepare its ignored browser storage. Screenshot capture
 never include the one-time secret. The before screenshot for #4 reuses the actual
 scaffold capture from the base branch, whose UI was unchanged by #3.
 
-For a faster frontend-only loop, run `trunk serve --port 8086` from `crates/web`
+For a faster frontend-only loop, first run `npm ci --prefix crates/web` from the
+repository root, then `trunk serve --port 8086` from `crates/web`
 with `NO_COLOR=true` and `CARGO_TARGET_DIR` pointing to this worktree's `target/`.
 Run `cargo xtask design-check` from the repository root to capture and check those
 routes (default server: `http://127.0.0.1:8086`). To check the Worker instead, set

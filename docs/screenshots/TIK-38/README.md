@@ -1,5 +1,8 @@
 # TIK-38 review evidence
 
+> Historical TIK-38 evidence. TIK-47 replaces these custom loaders and static
+> skeletons with the published ascii-reveal library; see [current evidence](../TIK-47/README.md).
+
 Baseline: `63107b4275807a3a54956b8708921d1153dd20fc`. Before PNGs use the unchanged built assets saved before
 implementation, served locally with fixture data. After PNGs use `/design/c/*`.
 All component captures are dark, font-loaded, cropped at 2× DPR.

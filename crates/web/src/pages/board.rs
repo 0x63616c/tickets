@@ -513,6 +513,12 @@ pub fn ApiBoard() -> impl IntoView {
         }
     });
     on_cleanup(move || handle.remove());
+    let reveal_root = NodeRef::<leptos::html::Div>::new();
+    use_ascii_reveal(
+        reveal_root,
+        Signal::derive(move || state.loading.get()),
+        true,
+    );
     view! {
         <h1 class="sr-only">"Board"</h1><header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><span class="breadcrumb-current">{move||state.projects.get().into_iter().find(|p|p.id==state.project.get()).map(|p|view!{<ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/>{p.name}})}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-primary" disabled=move||state.project.get()==0 || state.busy.get() || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
         <div class="view-tabs"><nav aria-label="Ticket view"><span class="view-tab selected"><Icon name="board"/>"Board"</span><a class="view-tab" href="/list"><Icon name="list"/>"List"</a></nav><crate::pages::projects::ProjectLinks/></div>
@@ -524,14 +530,14 @@ pub fn ApiBoard() -> impl IntoView {
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.project.get()==0><div class="empty-project"><div class="empty-state"><Icon name="project"/><h2>"No projects yet"</h2><a class="button button-primary" href="/projects">"Create project"</a></div></div></Show>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.project.get()!=0 && !state.tickets.get().iter().any(|t|t.project_id==state.project.get())><div class="empty-project"><EmptyState title="No tickets yet" description="Add the first ticket to this project." action="New ticket" icon="ticket" on_action=Callback::new(move|_|state.composer.set(Some(Status::Todo)))/></div></Show>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.tickets.get().iter().any(|t|t.project_id==state.project.get()) && !state.tickets.get().iter().any(|t|state.visible(t) && (t.status!=Status::Canceled || show_canceled.get()))><div class="board-message empty-state"><h2>"No tickets match this view"</h2><button class="button" on:click=move|_|{state.query.set(String::new());state.label.set(String::new());state.assignee.set(String::new());}>"Clear filters"</button></div></Show>
-        <Show when=move||state.project.get()!=0><div class="board api-board" aria-label="Ticket board" aria-busy=move||state.busy.get().to_string()>{Status::ALL.into_iter().map(|s|view!{
+        <Show when=move||state.project.get()!=0><div node_ref=reveal_root class="board api-board" aria-label="Ticket board" aria-busy=move||state.busy.get().to_string()>{Status::ALL.into_iter().map(|s|view!{
             <Show when=move|| (s!=Status::Canceled || show_canceled.get()) && (s!=Status::InReview || !state.column(s,false).is_empty())>
             <section class="board-column" aria-label=s.name() on:dragover=move|e|e.prevent_default() on:drop=move|e|{e.prevent_default();if let Some(ticket)=state.dragged.get_untracked(){state.move_to(ticket,s,None);}}>
             <div class="column-heading"><StatusIcon status=s/><h2>{s.name()}</h2><span class="count">{move||state.column(s,true).len()}</span><button class="icon-button" aria-label=format!("Add ticket to {}",s.name()) disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/></button></div>
             <div class="column-cards"><For each=move||state.column(s,true) key=|t| (id(t),format!("{t:?}")) children=move|ticket|view!{<ApiCard ticket/>}/></div><button class="add-card" disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/>"New ticket"</button></section>
             </Show>
         }).collect_view()}</div></Show>
-        <div class="view-footer" id="board-keys"><span>{move||crate::count::count_label(state.tickets.get().iter().filter(|t|state.visible(t) && (t.status!=Status::Canceled || show_canceled.get())).count(), "ticket")}</span><span>"Space: pick up / drop · Arrows: move · Esc: cancel"</span></div>
+        <div class="view-footer" id="board-keys"><span hidden=move||state.loading.get()>{move||crate::count::count_label(state.tickets.get().iter().filter(|t|state.visible(t) && (t.status!=Status::Canceled || show_canceled.get())).count(), "ticket")}</span><span>"Space: pick up / drop · Arrows: move · Esc: cancel"</span></div>
         {let shown=present_value(state.composer.into());move||shown.get().map(|status|view!{<BoardComposer status/>})}
     }
 }

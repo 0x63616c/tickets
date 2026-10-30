@@ -133,13 +133,15 @@ pub fn HomePage() -> impl IntoView {
             board.composer.set(Some(crate::fixtures::Status::Todo));
         }
     });
+    let reveal_root = NodeRef::<leptos::html::Div>::new();
+    use_ascii_reveal(reveal_root, Signal::derive(move || busy.get()), true);
     view! {
         <header class="topbar"><h1 class="home-title">"Home"</h1><div class="topbar-actions"><button class="button button-primary" disabled=move||!fixture && board.projects.get().is_empty() on:click=move|_|create.run(())><Icon name="plus"/>"New ticket"</button></div></header>
-        <div class="home-page" aria-busy=move||busy.get().to_string()>
+        <div node_ref=reveal_root class="home-page" aria-busy=move||busy.get().to_string()>
             <div class="home-toolbar"><SelectField label="Home project" value=scope options=Signal::derive(move||{
                 let mut items=vec![SelectOption::new("","All active projects")];
                 items.extend(board.projects.get().into_iter().filter(|p|!p.archived).map(|p|SelectOption::new(p.id.to_string(),p.name)));items
-            }) on_change=change_scope/><span class="home-period">"8 weeks · UTC"</span><span class="home-freshness">{move||response.get().map(|h|format!("Updated {} UTC",h.as_of.get(11..16).unwrap_or("")))}</span><Show when=move||busy.get()><AsciiSpinner label="Refreshing Home"/></Show><IconButton label="Refresh Home" icon="refresh" on_click=Callback::new(move|_|revision.update(|r|*r+=1)) disabled=Signal::derive(move||busy.get())/></div>
+            }) on_change=change_scope/><span class="home-period">"8 weeks · UTC"</span><span class="home-freshness">{move||response.get().map(|h|format!("Updated {} UTC",h.as_of.get(11..16).unwrap_or("")))}</span><Show when=move||busy.get()><LoadingIndicator label="Refreshing Home"/></Show><IconButton label="Refresh Home" icon="refresh" on_click=Callback::new(move|_|revision.update(|r|*r+=1)) disabled=Signal::derive(move||busy.get())/></div>
             <Show when=move||!error.get().is_empty()><div class="home-error" role="alert"><span>{move||if response.get().is_some(){format!("Couldn’t refresh. Showing the last update. {}",error.get())}else{error.get()}}</span><button class="button button-secondary" on:click=move|_|revision.update(|r|*r+=1)>"Retry"</button></div></Show>
             {move||response.get().map(|home|view!{<HomeContent home scope=scope.get() metric=metric.get() base/>}.into_any()).unwrap_or_else(||if busy.get() || error.get().is_empty() {view!{<HomeSkeleton/>}.into_any()}else{().into_any()})}
         </div>
@@ -292,5 +294,5 @@ fn TicketRows(items: Vec<HomeTicket>, fixture: bool, empty: &'static str) -> imp
 
 #[component]
 fn HomeSkeleton() -> impl IntoView {
-    view! {<div class="home-loading" role="status" aria-label="Loading Home"><div class="home-metrics">{(0..4).map(|_|view!{<div class="home-metric"><Skeleton shape="short"/><Skeleton shape="heading"/><Skeleton shape="meta"/></div>}).collect_view()}</div><div class="home-charts">{(0..2).map(|_|view!{<div class="home-chart"><Skeleton shape="heading"/><div class="home-plot-skeleton"/><Skeleton shape="short"/></div>}).collect_view()}</div><div class="home-queues">{(0..2).map(|_|view!{<div><Skeleton shape="heading"/>{(0..5).map(|_|view!{<div class="home-ticket-row"><Skeleton/></div>}).collect_view()}</div>}).collect_view()}</div></div>}
+    view! {<div class="home-loading" role="status" aria-label="Loading Home"><div class="home-metrics">{(0..4).map(|_|view!{<div class="home-metric"><AsciiSkeleton lines=1 class="skeleton-short"/><AsciiSkeleton lines=1 class="skeleton-heading"/><AsciiSkeleton lines=1 class="skeleton-meta"/></div>}).collect_view()}</div><div class="home-charts">{(0..2).map(|_|view!{<div class="home-chart"><AsciiSkeleton lines=1 class="skeleton-heading"/><AsciiSkeleton rows=12 class="home-plot-skeleton"/><AsciiSkeleton lines=1 class="skeleton-short"/></div>}).collect_view()}</div><div class="home-queues">{(0..2).map(|_|view!{<div><AsciiSkeleton lines=1 class="skeleton-heading"/>{(0..5).map(|_|view!{<div class="home-ticket-row"><AsciiSkeleton lines=1/></div>}).collect_view()}</div>}).collect_view()}</div></div>}
 }

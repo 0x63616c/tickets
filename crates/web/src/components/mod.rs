@@ -1,3 +1,5 @@
+mod ascii_reveal;
+pub use ascii_reveal::*;
 mod composer;
 pub use composer::*;
 mod feedback;

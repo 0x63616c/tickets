@@ -57,10 +57,16 @@ pub fn ApiProjects() -> impl IntoView {
     });
     let archived = RwSignal::new(false);
     board.refresh();
+    let reveal_root = NodeRef::<leptos::html::Div>::new();
+    use_ascii_reveal(
+        reveal_root,
+        Signal::derive(move || board.loading.get()),
+        true,
+    );
     view! {
         <header class="topbar"><div class="breadcrumbs"><Icon name="project"/>"Projects"</div><button class="button button-primary" disabled=move||board.loading.get() || !board.signed_in.get() on:click=move|_|editor.set(Some(None))><Icon name="plus"/>"New project"</button></header>
-        <div class="projects-page">
-            <div class="projects-heading"><h1>"Projects"</h1><span class="muted">{move||crate::count::count_label(board.projects.get().iter().filter(|p|archived.get() || !p.archived).count(), "project")}</span><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Show archived"</label></div>
+        <div node_ref=reveal_root class="projects-page">
+            <div class="projects-heading"><h1>"Projects"</h1><span class="muted" hidden=move||board.loading.get()>{move||crate::count::count_label(board.projects.get().iter().filter(|p|archived.get() || !p.archived).count(), "project")}</span><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Show archived"</label></div>
             <Show when=move||board.loading.get()><LoadingSkeleton layout="projects"/></Show>
             <Show when=move||!board.error.get().is_empty()><p role="alert">{move||board.error.get()}" "<button class="button" on:click=move|_|board.refresh()>"Retry"</button></p></Show>
             <Show when=move||!board.loading.get() && board.error.get().is_empty()>

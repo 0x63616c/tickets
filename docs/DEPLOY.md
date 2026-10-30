@@ -12,7 +12,9 @@ Every push to `main` runs the `deploy` job in `.github/workflows/ci.yml` after t
 environment (deployments restricted to `main`) and:
 
 1. applies pending D1 migrations with `cargo xtask migrate --remote`;
-2. builds the Leptos assets and Worker with `cargo xtask build`;
+2. installs the locked npm dependency with `npm ci --prefix crates/web`, then
+   builds the Leptos assets and Worker with `cargo xtask build` (which also ensures
+   that install for local callers);
 3. runs `wrangler deploy --env production`, uploading the login secrets from a
    temporary 0600 file that is deleted afterwards;
 4. smoke-tests `/api/health` and checks that unauthenticated `/api/v1` returns 401.
