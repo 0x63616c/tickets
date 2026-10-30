@@ -1,7 +1,9 @@
 # TIK-59 — board creation actions
 
 Before assets: `cd30ecc67378c79a47a9649e1ce727ae180cb6ac` (synced origin/main,
-including TIK-52), built in `/tmp/tik53-baseline`. After assets: this branch.
+including TIK-52), built in `/tmp/tik53-baseline`. After assets: `9c5d634` (the original TIK-59
+implementation before the subsequent main sync). This pair isolates TIK-59 from
+independently merged shell and branding changes.
 Both use the same in-memory `/design/board` fixtures, dark scheme, bundled fonts,
 and 1440×900 / 390×900 viewports. No production data or services are used.
 

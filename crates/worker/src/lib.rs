@@ -107,7 +107,14 @@ fn is_public_asset(path: &str) -> bool {
         || path.starts_with("/fonts/")
         || matches!(
             path,
-            "/favicon.ico" | "/favicon.svg" | "/favicon-32.png" | "/apple-touch-icon.png"
+            "/favicon.ico"
+                | "/favicon.svg"
+                | "/favicon-32.png"
+                | "/apple-touch-icon.png"
+                | "/icon-192.png"
+                | "/icon-512.png"
+                | "/icon-maskable-512.png"
+                | "/site.webmanifest"
         )
         || (path.matches('/').count() == 1
             && path.rsplit_once('-').is_some_and(|(_, tail)| {
@@ -150,7 +157,16 @@ mod tests {
 
     #[test]
     fn icon_paths_are_public_exactly() {
-        for path in ["/favicon.svg", "/favicon-32.png", "/apple-touch-icon.png"] {
+        for path in [
+            "/favicon.ico",
+            "/favicon.svg",
+            "/favicon-32.png",
+            "/apple-touch-icon.png",
+            "/icon-192.png",
+            "/icon-512.png",
+            "/icon-maskable-512.png",
+            "/site.webmanifest",
+        ] {
             assert!(is_public_asset(path), "{path} must be public");
             for suffix in [".bak", "/x"] {
                 let nearby = format!("{path}{suffix}");

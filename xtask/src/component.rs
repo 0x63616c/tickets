@@ -167,6 +167,10 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
             capture_composer(&mut b, &server.url, &output, before.is_some())?;
             continue;
         }
+        if matches!(name, "sidebar" | "user-menu") {
+            sidebar_shots(&mut b, &server.url, name, &output, before.is_some())?;
+            continue;
+        }
         if before.is_some() {
             capture_before(&mut b, &server.url, name, &output)?;
             continue;
@@ -210,6 +214,9 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
                 }
             )),
         )?;
+        if matches!(name, "select" | "menu" | "combobox") {
+            check_menu_spacing(&mut b)?;
+        }
         match name {
             "select" => check_select(&mut b)?,
             "menu" => check_menu(&mut b)?,
@@ -239,6 +246,90 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
         }
     }
     println!("PASS component PNGs: fixture data, dark, 2× DPR, tight bounds, loaded fonts");
+    Ok(())
+}
+fn check_menu_spacing(b: &mut Browser) -> super::Result {
+    b.wait("(()=>{const p=document.querySelector('.popup:not([hidden])');if(!p)return false;const r=p.getBoundingClientRect();return [...p.querySelectorAll('.menu-item')].every(i=>{const q=i.getBoundingClientRect(),prev=i.previousElementSibling;return q.left-r.left>=4 && r.right-q.right>=4 && getComputedStyle(i).borderRadius==='4px' && (!prev?.matches('.menu-item') || Math.abs(q.top-prev.getBoundingClientRect().bottom-2)<0.5);});})()")?;
+    Ok(())
+}
+fn sidebar_shots(
+    b: &mut Browser,
+    base: &str,
+    name: &str,
+    output: &Path,
+    before: bool,
+) -> super::Result {
+    b.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width":1200,"height":900,"deviceScaleFactor":2,"mobile":false}),
+    )?;
+    let prefix = if before { "before" } else { "after" };
+    b.go(&format!("{base}/design/c/{name}"))?;
+    b.wait("!!document.querySelector('.sidebar .account-trigger')")?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    b.wait("document.querySelector('.sidebar').getBoundingClientRect().width===240 && document.querySelector('.sidebar').getBoundingClientRect().height===620")?;
+    if !before {
+        b.wait("document.querySelector('.workspace').textContent==='Tickets' && !document.querySelector('.workspace button') && !document.body.textContent.includes('Tickets account') && document.querySelector('.account-name').textContent==='Sample User' && document.querySelector('.account-trigger .avatar').textContent==='S'")?;
+    }
+    if name == "user-menu" {
+        b.click(".account-trigger")?;
+        b.wait(
+            "document.querySelector('.account-trigger').getAttribute('aria-expanded')==='true'",
+        )?;
+    }
+    visible_crop(b, ".sidebar", &output.join(format!("{prefix}-{name}.png")))?;
+    if !before && name == "user-menu" {
+        check_menu_spacing(b)?;
+        b.wait("document.querySelector('.account-dropdown .popup').dataset.side==='top' && getComputedStyle(document.querySelector('.account-dropdown .popup')).transformOrigin.startsWith('0px')")?;
+        b.wait("document.activeElement.textContent.trim()==='Settings'")?;
+        b.key("ArrowDown", 40, 0)?;
+        b.wait("document.activeElement.textContent.includes('Keyboard shortcuts')")?;
+        b.key(" ", 32, 0)?;
+        b.wait("!!document.querySelector('dialog[open]')")?;
+        b.key("Escape", 27, 0)?;
+        b.wait("!document.querySelector('dialog') && document.activeElement.matches('.account-trigger')")?;
+        for (key, code) in [("Enter", 13), (" ", 32), ("ArrowUp", 38), ("ArrowDown", 40)] {
+            b.key(key, code, 0)?;
+            b.wait("document.querySelector('.account-trigger').getAttribute('aria-expanded')==='true' && document.activeElement.matches('[role=menuitem]')")?;
+            b.key("Escape", 27, 0)?;
+            b.wait("document.activeElement.matches('.account-trigger') && document.querySelector('.account-trigger').getAttribute('aria-expanded')==='false'")?;
+        }
+    }
+    if !before && name == "user-menu" {
+        b.key("Enter", 13, 0)?;
+        b.wait("document.activeElement.textContent.trim()==='Settings'")?;
+        b.key("Enter", 13, 0)?;
+        b.wait("location.pathname==='/design/settings/account'")?;
+    }
+    if name == "sidebar" {
+        b.viewport(1200, 900)?;
+        b.go(&format!("{base}/design/board"))?;
+        b.wait("!!document.querySelector('.sidebar .account-trigger')")?;
+        b.eval("document.fonts.ready.then(()=>true)")?;
+        b.screenshot(&output.join(format!("{prefix}-desktop.png")))?;
+        b.viewport(390, 844)?;
+        b.click("[aria-label='Toggle sidebar']")?;
+        b.wait("document.querySelector('[aria-label=\"Toggle sidebar\"]').getAttribute('aria-expanded')==='true'")?;
+        b.click(".account-trigger")?;
+        b.wait(
+            "document.querySelector('.account-trigger').getAttribute('aria-expanded')==='true'",
+        )?;
+        b.screenshot(&output.join(format!("{prefix}-mobile.png")))?;
+        if !before {
+            b.wait("document.querySelector('.account-dropdown .popup').dataset.side==='top'")?;
+            b.key("Escape", 27, 0)?;
+            b.wait("document.activeElement.matches('.account-trigger') && !!document.querySelector('.sidebar-dismiss')")?;
+            b.key("Escape", 27, 0)?;
+            b.wait("document.activeElement.getAttribute('aria-label')==='Toggle sidebar' && !document.querySelector('.sidebar-dismiss')")?;
+            b.viewport(390, 360)?;
+            b.click("[aria-label='Toggle sidebar']")?;
+            b.wait("(()=>{const n=document.querySelector('.sidebar-nav'),a=document.querySelector('.account-trigger').getBoundingClientRect();return n.scrollHeight>n.clientHeight && a.bottom<=innerHeight && a.top>=44;})()")?;
+        }
+    }
+    b.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width":1200,"height":900,"deviceScaleFactor":2,"mobile":false}),
+    )?;
     Ok(())
 }
 pub(crate) fn crop(b: &mut Browser, selector: &str, path: &Path) -> super::Result {

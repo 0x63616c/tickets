@@ -1,7 +1,14 @@
 //! Held fixture responses on the real routes; no delay or mocked animation in the app.
 use crate::{component::FixtureServer, design::Browser};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
-use std::{collections::HashMap, env, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    env, fs,
+    path::PathBuf,
+    thread,
+    time::{Duration, Instant},
+};
 
 pub fn check(root: &std::path::Path) -> super::Result {
     let before = env::var_os("TICKETS_BEFORE_ASSETS");
@@ -41,6 +48,10 @@ pub fn check(root: &std::path::Path) -> super::Result {
     }
     let server = FixtureServer::start_with_api(&assets, fixtures)?;
     let mut b = Browser::start_named(root, "loading")?;
+    cold_overflow(root, &server.url, phase)?;
+    if phase == "before" {
+        return Ok(());
+    }
     // Hold responses (including sequential reads) until explicitly released. Watch
     // library-owned DOM markers so a static lookalike cannot satisfy the check.
     b.call("Page.addScriptToEvaluateOnNewDocument", json!({"source":r#"
@@ -117,9 +128,6 @@ pub fn check(root: &std::path::Path) -> super::Result {
             )?;
         }
     }
-    if phase == "before" {
-        return Ok(());
-    }
     // Search uses the same package for its result skeleton and newly arrived
     // ticket text, while the user's input keeps focus throughout the transition.
     b.go(&format!("{}/board", server.url))?;
@@ -192,5 +200,117 @@ pub fn check(root: &std::path::Path) -> super::Result {
     println!(
         "PASS loading: real routes and search, moving package sweeps, decode arrival, repeated busy buttons, OS/app reduced motion, interrupted decode, disposal and mobile overflow"
     );
+    Ok(())
+}
+
+/// Cold navigation includes module/CSS/Wasm arrival, held skeletons and live decode.
+/// Compare with settled extents, allowing the page's legitimate vertical scrolling
+/// and the board's intentional horizontal scrolling without allowing loader growth.
+fn cold_overflow(root: &std::path::Path, url: &str, phase: &str) -> super::Result {
+    let output = root.join("docs/screenshots/TIK-62");
+    fs::create_dir_all(&output)?;
+    let mut reports = Vec::new();
+    let mut failures = Vec::new();
+    for (width, height) in [(1280, 800), (390, 844)] {
+        for (name, route, ready) in [
+            ("board", "/board", ".api-ticket .card-title"),
+            ("list", "/list", ".row-title"),
+            ("detail", "/t/TKT-1", ".ticket-detail h1"),
+            ("projects", "/projects", ".api-project-row"),
+            ("home", "/", ".home-metric strong"),
+        ] {
+            let mut b = Browser::start_named(root, "loading-cold")?;
+            b.viewport(width, height)?;
+            b.call("Network.setCacheDisabled", json!({"cacheDisabled":true}))?;
+            b.call("Network.emulateNetworkConditions", json!({"offline":false,"latency":150,"downloadThroughput":200_000,"uploadThroughput":75_000,"connectionType":"cellular3g"}))?;
+            b.call("Emulation.setCPUThrottlingRate", json!({"rate":4}))?;
+            b.call("Page.addScriptToEvaluateOnNewDocument", json!({"source":format!(r#"
+                window.loadingHeld=true; window.loadingWaiters=[];
+                const fetchBeforeLoading=window.fetch;
+                window.fetch=async (...args)=>{{
+                    const response=await fetchBeforeLoading(...args);
+                    const url=args[0] instanceof Request ? args[0].url : String(args[0]);
+                    if(url.includes('/api/v1/') && window.loadingHeld)
+                        await new Promise(r=>window.loadingWaiters.push(r));
+                    return response;
+                }};
+                window.releaseLoading=()=>{{window.loadingHeld=false;window.loadingWaiters.forEach(r=>r());}};
+                {}
+            "#, include_str!("loading_probe.js"))}))?;
+            b.call("Page.navigate", json!({"url":format!("{url}{route}")}))?;
+            let start = Instant::now();
+            while b.eval(
+                "!!document.querySelector('.ars canvas') && window.loadingWaiters?.length>0",
+            )? != true
+            {
+                if start.elapsed() > Duration::from_secs(120) {
+                    return Err(format!("Cold loading timed out: {name} {width}").into());
+                }
+                thread::sleep(Duration::from_millis(100));
+            }
+            b.wait(
+                "[...document.querySelectorAll('link[rel=stylesheet]')].every(link=>!!link.sheet)",
+            )?;
+            b.eval("document.fonts.ready.then(()=>true)")?;
+            // Capture the held Home skeleton: its unbounded sweep canvases are
+            // the reproducible two-axis failure. The marker has no layout size.
+            if name == "home" {
+                b.eval(r#"(()=>{const d=document.documentElement,m=document.createElement('canvas');
+                    m.width=innerWidth;m.height=innerHeight;m.style='position:fixed;inset:0;pointer-events:none;z-index:2147483647';m.id='overflow-evidence';
+                    const c=m.getContext('2d'),x=d.scrollWidth>d.clientWidth,y=d.scrollHeight>d.clientHeight;
+                    c.fillStyle='#eb5757';if(x)c.fillRect(0,innerHeight-6,innerWidth,6);if(y)c.fillRect(innerWidth-6,0,6,innerHeight);
+                    c.font='12px monospace';c.fillText(`document ${d.scrollWidth}×${d.scrollHeight} / client ${d.clientWidth}×${d.clientHeight}`,12,innerHeight-16);
+                    document.body.append(m);return true;})()"#)?;
+                let png = b.call(
+                    "Page.captureScreenshot",
+                    json!({"format":"png","captureBeyondViewport":false}),
+                )?;
+                fs::write(
+                    output.join(format!("{phase}-home-{width}.png")),
+                    STANDARD.decode(png["data"].as_str().ok_or("missing PNG")?)?,
+                )?;
+                b.eval("document.querySelector('#overflow-evidence').remove();true")?;
+            }
+            b.eval("window.releaseLoading();true")?;
+            b.wait(&format!("!!document.querySelector('{ready}') && !document.querySelector('.ars, .ar-overlay canvas, [data-ar-t]')"))?;
+            b.eval("new Promise(r=>setTimeout(()=>r(true),500))")?;
+            let report = b.eval(r#"(()=>{
+                window.loadingProbeDone=true;
+                const frames=window.loadingFrames, settled=frames.at(-1);
+                const violations=frames.filter(f=>['document','main'].some(scope=>f[scope] && settled[scope] &&
+                    (f[scope].width>Math.max(settled[scope].width,settled[scope].clientWidth)+1 ||
+                     f[scope].height>Math.max(settled[scope].height,settled[scope].clientHeight)+1)));
+                const peak=scope=>frames.reduce((p,f)=>({width:Math.max(p.width,f[scope]?.width||0),height:Math.max(p.height,f[scope]?.height||0)}),{width:0,height:0});
+                return {settled, samples:frames.length, phases:Object.fromEntries(['skeleton','decode','content'].map(p=>[p,frames.filter(f=>f.phase===p).length])),
+                    peakDocument:peak('document'),peakMain:peak('main'),violationCount:violations.length,
+                    violations:violations.filter(f=>f.offenders).slice(0,8)};
+            })()"#)?;
+            let count = report["violationCount"]
+                .as_u64()
+                .ok_or("missing overflow count")?;
+            println!(
+                "{phase} cold {name} {width}×{height}: {count} overflow frames; settled {}",
+                report["settled"]
+            );
+            if count > 0 {
+                failures.push(format!("{name} {width}×{height}: {count} frames"));
+            }
+            for stage in ["skeleton", "decode"] {
+                if report["phases"][stage].as_u64().unwrap_or(0) == 0 {
+                    failures.push(format!(
+                        "{name} {width}×{height}: no sampled {stage} frames"
+                    ));
+                }
+            }
+            reports.push(json!({"route":route,"width":width,"height":height,"report":report}));
+        }
+    }
+    fs::write(
+        output.join(format!("{phase}-overflow.json")),
+        serde_json::to_vec_pretty(&reports)?,
+    )?;
+    if phase != "before" && !failures.is_empty() {
+        return Err(format!("Transient loading overflow: {}", failures.join(", ")).into());
+    }
     Ok(())
 }

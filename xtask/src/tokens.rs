@@ -6,7 +6,9 @@ use crate::{
 use std::{fs, path::Path};
 
 pub fn shots(root: &Path) -> super::Result {
-    let output = root.join("docs/screenshots/TIK-41");
+    let output = std::env::var_os("TICKETS_SCREENSHOT_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.join("docs/screenshots/TIK-41"));
     fs::create_dir_all(&output)?;
     let server = FixtureServer::start(&root.join("crates/web/dist"))?;
     for (size, width, height) in [("desktop", 1440, 900), ("mobile", 390, 844)] {
@@ -25,12 +27,15 @@ pub fn shots(root: &Path) -> super::Result {
         capture(&mut b, &output, "empty", size, ".settings-content")?;
         b.go(&format!("{}/design/settings/api-tokens", server.url))?;
         b.wait("document.querySelectorAll('.tokens li').length===3")?;
+        b.wait("!document.querySelector('.token-access') && !document.body.innerText.includes('No expiration')")?;
+        b.wait("document.querySelector('.token-list-heading').getBoundingClientRect().top-document.querySelector('.settings-description').getBoundingClientRect().bottom<=16")?;
         capture(&mut b, &output, "list", size, ".settings-content")?;
         b.click(".token-history input")?;
         b.wait("document.querySelectorAll('.tokens li').length===4")?;
         capture(&mut b, &output, "history", size, ".settings-content")?;
         b.click(".token-create")?;
         b.wait("document.activeElement.id==='token-label'")?;
+        b.wait("document.querySelector('.token-grant h3')?.textContent==='Full workspace access'")?;
         b.text("#token-label", "Fixture · Documentation example")?;
         capture(&mut b, &output, "create", size, "dialog")?;
         b.click(".settings-footer button[type=submit]")?;
