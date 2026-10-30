@@ -381,6 +381,9 @@ to Settings after install, showing the account and repository selection. See
 docs/API.md; the App replaces per-repository hooks while the legacy webhook
 remains supported.
 `GITHUB_PR_OWNERS` controls ingestion for both webhook endpoints.
+`GET /api/v1/github/app/credentials` is bearer-only encrypted export for one-time
+retrieval onto the operator box; decrypt locally with `GITHUB_APP_STORE_KEY` as
+documented in docs/API.md. Sessions receive 403; an unregistered App returns 404.
 
 Ticket reads' `pull_requests` include nullable `tickets_check` and `ci_status`
 conclusions for the current PR head SHA. `tickets_check` is success when linked
@@ -393,4 +396,6 @@ and `[KEY-N]` title links as before. Nullable `tickets_check_run_id` and
 ```sh
 # expect {"status":200,"body":{"registered":false,"app_slug":null,"installations":[]}}
 curl -sS "$TICKETS_URL/api/v1/github/app" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":404,"body":{"error":{"code":"not_found"}}}
+curl -sS "$TICKETS_URL/api/v1/github/app/credentials" -H "Authorization: Bearer $TICKETS_TOKEN"
 ```
