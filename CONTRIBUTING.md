@@ -505,7 +505,7 @@ project icon schema changes additive and validate values in core.
   the action level on errors. Project moves preserve GitHub provenance.
 - `CHROME_BIN=<headless-chromium> cargo xtask palette-check` exercises search,
   actions, clipboard, mutation retry and stale responses against isolated local D1.
-  It shares port 8795 with the other Worker checks. `component-shot palette` captures
+  CI runs it sequentially with the other port-8795 checks. `component-shot palette` captures
   fixture-only states, 2× dialog crops, mobile and a full-page dark view. Pass
   `--before-assets <base crates/web/dist> --output docs/screenshots/TIK-44` for the
   previous real component, or omit `--before-assets` for the current implementation.

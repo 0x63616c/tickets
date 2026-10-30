@@ -41,7 +41,17 @@ failed-save retry, project moves, clipboard, creation and stale-response handlin
 The API ranking regression uses SQLite and the complete migration chain, asserting
 two database calls including authentication.
 
-The broader `contrast-check` currently stops at the existing sidebar `⌘ K` badge:
-10px versus its 11px badge minimum (measured text contrast is 6.35:1). The sidebar
-rule comes from TIK-40 and is outside this palette change. Palette contrast was
-measured separately in the Impeccable review; see [review.md](review.md).
+Final verification after merging `origin/main` at `6f1b42a`:
+
+- `cargo fmt --all --check`
+- `cargo clippy --workspace --all-targets -- -D warnings`
+- `cargo clippy --workspace --all-targets --target wasm32-unknown-unknown -- -D warnings`
+- `cargo test --workspace` (test debug info set to 1 to isolate shared-cache artifacts)
+- `palette-check`, `skill-check` (36 curl examples), `first-run-check`,
+  `polish-check`, `contrast-check`, `design-check`, and `component-shot all`
+- Impeccable critique and polish; see [review.md](review.md)
+
+All passed. The initial contrast run found the TIK-40 sidebar's 10px shortcut
+badge; merged TIK-41 already fixes it. One local login-focus check needed a retry.
+Port-8795 collisions were retried without stopping other jobs. Builds and final
+captures were serialized to keep asset replacement out of browser runs.
