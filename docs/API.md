@@ -241,9 +241,10 @@ setup state; it is not a general agent API endpoint.
    value) and `GITHUB_APP_STORE_KEY` (standard base64 of 32 random bytes).
    CI deploys them from production environment secrets
    `TICKETS_GITHUB_APP_SETUP_STATE` and `TICKETS_GITHUB_APP_STORE_KEY`.
-2. In the owner's signed-in browser, visit `GET /github/app/register`. This
-   Worker-rendered page automatically POSTs the manifest and configured setup
-   state to `https://github.com/settings/apps/new`; a **Create GitHub App** button
+2. In the owner's signed-in browser, open **Settings → Account → GitHub** and
+   click **Connect GitHub**. This navigates outside the SPA to
+   `GET /github/app/register`. This Worker-rendered page automatically POSTs the
+   manifest and configured setup state to `https://github.com/settings/apps/new`; a **Continue to GitHub** button
    also works without JavaScript. The manifest uses the request's HTTP(S) origin
    for its URLs (including local development). `?name=alt` selects **Tickets WWW**
    instead of **Tickets by World Wide Webb**; other names are ignored.
@@ -265,8 +266,11 @@ setup state; it is not a general agent API endpoint.
 4. The Worker stores public metadata and encrypts `{pem, webhook_secret,
    client_secret}` with AES-256-GCM. `secrets_ciphertext` is standard base64 of
    a fresh 12-byte IV followed by ciphertext and its 16-byte authentication tag.
-   The 200 page confirms registration and links to the app and **Install on all
-   repositories**. Choose **All repositories** on GitHub's installation screen.
+   The 200 page confirms registration and links to the app and **Install the
+   app**, plus a link back to `/settings`. GitHub returns to
+   `/settings` after installation via the manifest `setup_url`. Settings shows
+   **Install on GitHub** until an installation is received, then **Connected**,
+   the account, repository selection and **Manage on GitHub**.
 
 The code must contain 1–128 ASCII letters, digits, `_` or `-`. Missing/empty
 secrets or an invalid store key return 503; incorrect/missing state returns 403;
@@ -322,10 +326,10 @@ never appear in logs or responses. `GITHUB_API_BASE_URL` optionally overrides
 Redirects are never followed with credentials.
 
 `GET /api/v1/github/app` requires normal bearer/session authentication and returns
-`{registered, app_slug, installations:[{account_login, repository_selection,
-repos:["owner/repo"]}]}`. `app_slug` is null before registration; repos and
-installations are ordered. This read never decrypts credentials or calls GitHub,
-and exposes no secrets.
+`{registered, app_slug, app_name, html_url, installations:[{account_login,
+repository_selection, repos:["owner/repo"]}]}`. `app_slug`, `app_name` and `html_url`
+are null before registration; repos and installations are ordered. This read
+never decrypts credentials or calls GitHub, and exposes no secrets.
 
 ## GitHub webhook and imported tickets
 

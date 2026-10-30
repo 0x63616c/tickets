@@ -152,7 +152,8 @@ test('compiled manifest callback validates, exchanges and encrypts without netwo
     const html = await response(worker, query, 200);
     assert.ok(html.includes('&lt;Fixture &amp; App&gt;'));
     assert.ok(html.includes('href="https://github.com/apps/fixture-app/installations/new"'));
-    assert.ok(html.includes('Install on all repositories'));
+    assert.ok(html.includes('Install the app'));
+    assert.ok(html.includes('href="/settings"'));
     assert.ok(html.includes('href="https://github.com/apps/fixture-app"'));
     const saved = db.db.prepare('SELECT * FROM github_app').get();
     assert.equal(saved.app_id, 42);
@@ -339,7 +340,7 @@ test('app signatures, bounded body, installation lifecycle, and unchanged legacy
     db.db.prepare("INSERT INTO api_tokens(user_id,name,token_hash) VALUES(1,'fixture',?)").run(createHash('sha256').update(bearer).digest('hex'));
     const overview=await worker.fetch(new Request('https://fixture.invalid/api/v1/github/app', {headers:{Authorization:`Bearer ${bearer}`}}));
     assert.equal(overview.status,200);
-    assert.deepEqual(await overview.json(),{registered:true,app_slug:'fixture-app',installations:[{account_login:'fixture-owner',repository_selection:'all',repos:[]}]});
+    assert.deepEqual(await overview.json(),{registered:true,app_slug:'fixture-app',app_name:fixture.name,html_url:fixture.html_url,installations:[{account_login:'fixture-owner',repository_selection:'all',repos:[]}]});
     assert.equal(overview.headers.get('Cache-Control'),'no-store');
     await signed(worker,'installation',{action:'deleted',installation:install},204);
     assert.equal(db.db.prepare('SELECT count(*) n FROM github_app_installations').get().n,0);

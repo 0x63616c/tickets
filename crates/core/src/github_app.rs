@@ -219,7 +219,7 @@ fn page(title: &str, body: &str) -> String {
 pub fn registration_html(app: &AppMetadata) -> String {
     let links = if valid_app_url(app) {
         format!(
-            "<p><a class=\"install\" href=\"https://github.com/apps/{}/installations/new\" rel=\"noreferrer\">Install on all repositories</a></p><p><a href=\"{}\" rel=\"noreferrer\">View app on GitHub</a></p>",
+            "<p><a class=\"install\" href=\"https://github.com/apps/{}/installations/new\" rel=\"noreferrer\">Install the app</a></p><p><a href=\"{}\" rel=\"noreferrer\">View app on GitHub</a></p>",
             escape_html(&app.slug),
             escape_html(&app.html_url),
         )
@@ -229,7 +229,7 @@ pub fn registration_html(app: &AppMetadata) -> String {
     page(
         "GitHub App registered",
         &format!(
-            "<p>The app &quot;{}&quot; was registered.</p>{links}",
+            "<p>The app &quot;{}&quot; was registered. Install the app to connect your repositories.</p>{links}<p><a href=\"/settings\">Back to Settings</a></p>",
             escape_html(&app.name),
         ),
     )
@@ -301,7 +301,7 @@ pub fn register_html(
     page(
         "Create GitHub App",
         &format!(
-            "<p>Continue on GitHub to create the app. If you are not redirected, use the button below.</p><form id=\"f\" method=\"post\" action=\"https://github.com/settings/apps/new?state={state}\"><input type=\"hidden\" name=\"manifest\" value=\"{}\"><button class=\"install\" type=\"submit\">Create GitHub App</button></form><script>{AUTO_SUBMIT}</script>",
+            "<p>Redirecting to GitHub…</p><form id=\"f\" method=\"post\" action=\"https://github.com/settings/apps/new?state={state}\"><input type=\"hidden\" name=\"manifest\" value=\"{}\"><button class=\"install\" type=\"submit\">Continue to GitHub</button></form><script>{AUTO_SUBMIT}</script>",
             escape_html(&manifest.to_string()),
         ),
     )
@@ -507,6 +507,8 @@ mod tests {
         assert!(html.contains("&lt;script&gt;&quot;A&amp;B&#39;s&quot;&lt;/script&gt;"));
         assert!(html.contains("https://github.com/apps/fixture-app/installations/new"));
         assert!(html.contains("href=\"https://github.com/apps/fixture-app\""));
+        assert!(html.contains("href=\"/settings\">Back to Settings"));
+        assert!(html.contains("Install the app"));
         for forbidden in [
             "<script",
             "<link",
@@ -518,7 +520,8 @@ mod tests {
             assert!(!html.contains(forbidden), "{forbidden}");
         }
         parsed.app.html_url = "javascript:alert(1)\" onmouseover=\"alert(1)".into();
-        assert!(!registration_html(&parsed.app).contains("href="));
+        assert!(!registration_html(&parsed.app).contains("https://github.com"));
+        assert!(registration_html(&parsed.app).contains("href=\"/settings\""));
         let style = html
             .split_once("<style>")
             .unwrap()
@@ -559,7 +562,8 @@ mod tests {
         let origin = "https://tickets.worldwidewebb.co";
         let html = register_html(origin, "a&b=+ /?\"'é", None, None);
         assert!(html.contains("id=\"f\" method=\"post\" action=\"https://github.com/settings/apps/new?state=a%26b%3D%2B%20%2F%3F%22%27%C3%A9\""));
-        assert!(html.contains(">Create GitHub App</button>"));
+        assert!(html.contains(">Continue to GitHub</button>"));
+        assert!(html.contains("Redirecting to GitHub…"));
         assert_eq!(
             manifest_from_html(&html),
             json!({

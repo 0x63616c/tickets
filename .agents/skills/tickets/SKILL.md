@@ -370,11 +370,16 @@ curl -sS -X POST "$TICKETS_URL/api/v1/next/claim" -H "Authorization: Bearer $TIC
 
 ## GitHub App and linked PR checks
 
-`GET /api/v1/github/app` returns `{registered, app_slug, installations}` with each
-installation's `account_login`, `repository_selection`, and ordered `repos` names.
+`GET /api/v1/github/app` returns `{registered, app_slug, app_name, html_url,
+installations}` with each installation's `account_login`, `repository_selection`,
+and ordered `repos` names.
 It requires bearer/session authentication, exposes no secrets, and makes no GitHub
-requests. Register/install through the browser manifest flow in docs/API.md; the
-App replaces per-repository hooks while the legacy webhook remains supported.
+requests. Register/install from Settings → Account → GitHub in the owner's browser:
+**Connect GitHub** navigates to `/github/app/register`, which POSTs the manifest
+with server-side state; **Install on GitHub** follows registration. GitHub returns
+to Settings after install, showing the account and repository selection. See
+docs/API.md; the App replaces per-repository hooks while the legacy webhook
+remains supported.
 `GITHUB_PR_OWNERS` controls ingestion for both webhook endpoints.
 
 Ticket reads' `pull_requests` include nullable `tickets_check` and `ci_status`
