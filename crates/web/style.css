@@ -548,3 +548,36 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
   .ticket-composer .modal-footer { flex-wrap: wrap; }
   .discard-prompt { flex-basis: 100%; }
 }
+
+/* Repository metadata remains visible on narrow screens. */
+.repository-table .projects-table-head, .repository-table .api-project-row {
+  grid-template-columns: minmax(140px, 1fr) 80px minmax(180px, 1.2fr) 120px;
+  gap: var(--space-4);
+}
+.repository-table .projects-table-head, .repository-table .api-project-row { padding-right: 48px; }
+.repository-table .project-counts, .repository-table .api-project-row > .project-repository {
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1);
+}
+.repository-table .api-project-row > .project-repository { padding-right: 0; min-width: 0; }
+.repository-links { min-width: 0; max-width: 100%; }
+.repository-links > a { max-width: 100%; overflow-wrap: anywhere; }
+.repository-shortcuts { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-1); font-size: var(--text-sm); }
+.github-project-link { font-size: var(--text-sm); }
+.project-counts, .project-activity { font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
+@media (max-width: 1000px) {
+  .repository-table .projects-table-head, .repository-table .api-project-row {
+    grid-template-columns: minmax(100px, 1fr) 72px minmax(140px, 1.2fr);
+  }
+  .repository-table .projects-table-head > :nth-child(4) { display: none; }
+  .repository-table .project-activity { grid-column: 3; }
+  .repository-table .project-activity::before { content: "Last activity: "; }
+}
+@media (max-width: 600px) {
+  .repository-table .projects-table-head { display: none; }
+  .repository-table .api-project-row { grid-template-columns: minmax(0, 1fr) 72px; gap: var(--space-3); }
+  .repository-table .project-repository, .repository-table .project-activity { grid-column: 1 / -1; }
+  .repository-table .api-project-row > .project-counts { padding-right: 0; }
+  .repository-table .repository-links a { min-height: 44px; }
+  .repository-table .repository-shortcuts { gap: var(--space-4); }
+  .repository-table .project-row-action { top: 16px; transform: none; }
+}

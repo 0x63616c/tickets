@@ -21,6 +21,8 @@ mod screenshots;
 #[cfg(not(target_arch = "wasm32"))]
 mod settings;
 mod skill_check;
+#[cfg(not(target_arch = "wasm32"))]
+mod tokens;
 
 use std::{env, error::Error, path::Path, process::Command};
 
@@ -36,6 +38,8 @@ mod first_run;
 mod palette;
 #[cfg(not(target_arch = "wasm32"))]
 mod polish;
+#[cfg(not(target_arch = "wasm32"))]
+mod project_repos;
 #[cfg(not(target_arch = "wasm32"))]
 mod projects;
 
@@ -90,6 +94,8 @@ fn main() -> Result {
     }
     match task.as_deref() {
         #[cfg(not(target_arch = "wasm32"))]
+        Some("tokens-shot") => tokens::shots(root),
+        #[cfg(not(target_arch = "wasm32"))]
         Some("settings-shot") => settings::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-check") => api_smoke::settings(root),
@@ -132,6 +138,8 @@ fn main() -> Result {
         Some("contrast-check") => api_smoke::contrast(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("projects-check") => api_smoke::projects(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("project-repos-check") => project_repos::check(root),
         Some("first-run-check") => api_smoke::first_run(root),
         Some("build") => build(root),
         Some("dev") => {

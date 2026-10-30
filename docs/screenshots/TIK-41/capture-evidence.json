@@ -1,0 +1,1023 @@
+{
+  "fixtureOnly": true,
+  "base": "http://127.0.0.1:8842",
+  "secretSubstitution": "tk_FIXTURE_ONLY_NOT_A_VALID_TOKEN_0000000000000000000000000000000000",
+  "method": "One fresh Chromium process per capture; local D1 fixtures reset before each state.",
+  "screenshots": [
+    {
+      "filename": "before-empty-desktop.png",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "form": {
+        "x": 272,
+        "y": 76,
+        "width": 656,
+        "height": 222.5,
+        "top": 76,
+        "right": 928,
+        "bottom": 298.5,
+        "left": 272
+      },
+      "rows": []
+    },
+    {
+      "filename": "before-empty-mobile.png",
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "form": {
+        "x": 16,
+        "y": 112,
+        "width": 358,
+        "height": 240.5,
+        "top": 112,
+        "right": 374,
+        "bottom": 352.5,
+        "left": 16
+      },
+      "rows": []
+    },
+    {
+      "filename": "before-list-desktop.png",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "form": {
+        "x": 272,
+        "y": 76,
+        "width": 656,
+        "height": 222.5,
+        "top": 76,
+        "right": 928,
+        "bottom": 298.5,
+        "left": 272
+      },
+      "rows": [
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 272,
+            "y": 322.5,
+            "width": 656,
+            "height": 73,
+            "top": 322.5,
+            "right": 928,
+            "bottom": 395.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 272,
+            "y": 395.5,
+            "width": 656,
+            "height": 73,
+            "top": 395.5,
+            "right": 928,
+            "bottom": 468.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 272,
+            "y": 468.5,
+            "width": 656,
+            "height": 73,
+            "top": 468.5,
+            "right": 928,
+            "bottom": 541.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 272,
+            "y": 541.5,
+            "width": 656,
+            "height": 73,
+            "top": 541.5,
+            "right": 928,
+            "bottom": 614.5,
+            "left": 272
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-list-mobile.png",
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "form": {
+        "x": 16,
+        "y": 112,
+        "width": 358,
+        "height": 240.5,
+        "top": 112,
+        "right": 374,
+        "bottom": 352.5,
+        "left": 16
+      },
+      "rows": [
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 16,
+            "y": 376.5,
+            "width": 358,
+            "height": 73,
+            "top": 376.5,
+            "right": 374,
+            "bottom": 449.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 16,
+            "y": 449.5,
+            "width": 358,
+            "height": 73,
+            "top": 449.5,
+            "right": 374,
+            "bottom": 522.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 16,
+            "y": 522.5,
+            "width": 358,
+            "height": 73,
+            "top": 522.5,
+            "right": 374,
+            "bottom": 595.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 16,
+            "y": 595.5,
+            "width": 358,
+            "height": 73,
+            "top": 595.5,
+            "right": 374,
+            "bottom": 668.5,
+            "left": 16
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-create-desktop.png",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "form": {
+        "x": 272,
+        "y": 76,
+        "width": 656,
+        "height": 222.5,
+        "top": 76,
+        "right": 928,
+        "bottom": 298.5,
+        "left": 272
+      },
+      "rows": [
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 272,
+            "y": 322.5,
+            "width": 656,
+            "height": 73,
+            "top": 322.5,
+            "right": 928,
+            "bottom": 395.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 272,
+            "y": 395.5,
+            "width": 656,
+            "height": 73,
+            "top": 395.5,
+            "right": 928,
+            "bottom": 468.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 272,
+            "y": 468.5,
+            "width": 656,
+            "height": 73,
+            "top": 468.5,
+            "right": 928,
+            "bottom": 541.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 272,
+            "y": 541.5,
+            "width": 656,
+            "height": 73,
+            "top": 541.5,
+            "right": 928,
+            "bottom": 614.5,
+            "left": 272
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-create-mobile.png",
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "form": {
+        "x": 16,
+        "y": 112,
+        "width": 358,
+        "height": 240.5,
+        "top": 112,
+        "right": 374,
+        "bottom": 352.5,
+        "left": 16
+      },
+      "rows": [
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 16,
+            "y": 376.5,
+            "width": 358,
+            "height": 73,
+            "top": 376.5,
+            "right": 374,
+            "bottom": 449.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 16,
+            "y": 449.5,
+            "width": 358,
+            "height": 73,
+            "top": 449.5,
+            "right": 374,
+            "bottom": 522.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 16,
+            "y": 522.5,
+            "width": 358,
+            "height": 73,
+            "top": 522.5,
+            "right": 374,
+            "bottom": 595.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 16,
+            "y": 595.5,
+            "width": 358,
+            "height": 73,
+            "top": 595.5,
+            "right": 374,
+            "bottom": 668.5,
+            "left": 16
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-secret-desktop.png",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "form": {
+        "x": 272,
+        "y": 76,
+        "width": 656,
+        "height": 222.5,
+        "top": 76,
+        "right": 928,
+        "bottom": 298.5,
+        "left": 272
+      },
+      "secret": {
+        "x": 272,
+        "y": 322.5,
+        "width": 656,
+        "height": 161.5,
+        "top": 322.5,
+        "right": 928,
+        "bottom": 484,
+        "left": 272
+      },
+      "rows": [
+        {
+          "name": "Fixture · Documentation example",
+          "rect": {
+            "x": 272,
+            "y": 508,
+            "width": 656,
+            "height": 73,
+            "top": 508,
+            "right": 928,
+            "bottom": 581,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 272,
+            "y": 581,
+            "width": 656,
+            "height": 73,
+            "top": 581,
+            "right": 928,
+            "bottom": 654,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 272,
+            "y": 654,
+            "width": 656,
+            "height": 73,
+            "top": 654,
+            "right": 928,
+            "bottom": 727,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 272,
+            "y": 727,
+            "width": 656,
+            "height": 73,
+            "top": 727,
+            "right": 928,
+            "bottom": 800,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 272,
+            "y": 800,
+            "width": 656,
+            "height": 73,
+            "top": 800,
+            "right": 928,
+            "bottom": 873,
+            "left": 272
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-secret-mobile.png",
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "form": {
+        "x": 16,
+        "y": 112,
+        "width": 358,
+        "height": 240.5,
+        "top": 112,
+        "right": 374,
+        "bottom": 352.5,
+        "left": 16
+      },
+      "secret": {
+        "x": 16,
+        "y": 376.5,
+        "width": 358,
+        "height": 197.5,
+        "top": 376.5,
+        "right": 374,
+        "bottom": 574,
+        "left": 16
+      },
+      "rows": [
+        {
+          "name": "Fixture · Documentation example",
+          "rect": {
+            "x": 16,
+            "y": 598,
+            "width": 358,
+            "height": 73,
+            "top": 598,
+            "right": 374,
+            "bottom": 671,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 16,
+            "y": 671,
+            "width": 358,
+            "height": 73,
+            "top": 671,
+            "right": 374,
+            "bottom": 744,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 16,
+            "y": 744,
+            "width": 358,
+            "height": 73,
+            "top": 744,
+            "right": 374,
+            "bottom": 817,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 16,
+            "y": 817,
+            "width": 358,
+            "height": 73,
+            "top": 817,
+            "right": 374,
+            "bottom": 890,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 16,
+            "y": 890,
+            "width": 358,
+            "height": 73,
+            "top": 890,
+            "right": 374,
+            "bottom": 963,
+            "left": 16
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-secret-copied-desktop.png",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "form": {
+        "x": 272,
+        "y": 76,
+        "width": 656,
+        "height": 222.5,
+        "top": 76,
+        "right": 928,
+        "bottom": 298.5,
+        "left": 272
+      },
+      "secret": {
+        "x": 272,
+        "y": 322.5,
+        "width": 656,
+        "height": 161.5,
+        "top": 322.5,
+        "right": 928,
+        "bottom": 484,
+        "left": 272
+      },
+      "rows": [
+        {
+          "name": "Fixture · Documentation example",
+          "rect": {
+            "x": 272,
+            "y": 551.5,
+            "width": 656,
+            "height": 73,
+            "top": 551.5,
+            "right": 928,
+            "bottom": 624.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 272,
+            "y": 624.5,
+            "width": 656,
+            "height": 73,
+            "top": 624.5,
+            "right": 928,
+            "bottom": 697.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 272,
+            "y": 697.5,
+            "width": 656,
+            "height": 73,
+            "top": 697.5,
+            "right": 928,
+            "bottom": 770.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 272,
+            "y": 770.5,
+            "width": 656,
+            "height": 73,
+            "top": 770.5,
+            "right": 928,
+            "bottom": 843.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 272,
+            "y": 843.5,
+            "width": 656,
+            "height": 73,
+            "top": 843.5,
+            "right": 928,
+            "bottom": 916.5,
+            "left": 272
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-secret-copied-mobile.png",
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "form": {
+        "x": 16,
+        "y": 112,
+        "width": 358,
+        "height": 240.5,
+        "top": 112,
+        "right": 374,
+        "bottom": 352.5,
+        "left": 16
+      },
+      "secret": {
+        "x": 16,
+        "y": 376.5,
+        "width": 358,
+        "height": 197.5,
+        "top": 376.5,
+        "right": 374,
+        "bottom": 574,
+        "left": 16
+      },
+      "rows": [
+        {
+          "name": "Fixture · Documentation example",
+          "rect": {
+            "x": 16,
+            "y": 641.5,
+            "width": 358,
+            "height": 73,
+            "top": 641.5,
+            "right": 374,
+            "bottom": 714.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 16,
+            "y": 714.5,
+            "width": 358,
+            "height": 73,
+            "top": 714.5,
+            "right": 374,
+            "bottom": 787.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 16,
+            "y": 787.5,
+            "width": 358,
+            "height": 73,
+            "top": 787.5,
+            "right": 374,
+            "bottom": 860.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 16,
+            "y": 860.5,
+            "width": 358,
+            "height": 73,
+            "top": 860.5,
+            "right": 374,
+            "bottom": 933.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 16,
+            "y": 933.5,
+            "width": 358,
+            "height": 73,
+            "top": 933.5,
+            "right": 374,
+            "bottom": 1006.5,
+            "left": 16
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-revoke-desktop.png",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "form": {
+        "x": 272,
+        "y": 76,
+        "width": 656,
+        "height": 222.5,
+        "top": 76,
+        "right": 928,
+        "bottom": 298.5,
+        "left": 272
+      },
+      "rows": [
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 272,
+            "y": 322.5,
+            "width": 656,
+            "height": 73,
+            "top": 322.5,
+            "right": 928,
+            "bottom": 395.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 272,
+            "y": 395.5,
+            "width": 656,
+            "height": 73,
+            "top": 395.5,
+            "right": 928,
+            "bottom": 468.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 272,
+            "y": 468.5,
+            "width": 656,
+            "height": 73,
+            "top": 468.5,
+            "right": 928,
+            "bottom": 541.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 272,
+            "y": 541.5,
+            "width": 656,
+            "height": 73,
+            "top": 541.5,
+            "right": 928,
+            "bottom": 614.5,
+            "left": 272
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-revoke-mobile.png",
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "form": {
+        "x": 16,
+        "y": 112,
+        "width": 358,
+        "height": 240.5,
+        "top": 112,
+        "right": 374,
+        "bottom": 352.5,
+        "left": 16
+      },
+      "rows": [
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 16,
+            "y": 376.5,
+            "width": 358,
+            "height": 73,
+            "top": 376.5,
+            "right": 374,
+            "bottom": 449.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 16,
+            "y": 449.5,
+            "width": 358,
+            "height": 73,
+            "top": 449.5,
+            "right": 374,
+            "bottom": 522.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 16,
+            "y": 522.5,
+            "width": 358,
+            "height": 73,
+            "top": 522.5,
+            "right": 374,
+            "bottom": 595.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 16,
+            "y": 595.5,
+            "width": 358,
+            "height": 73,
+            "top": 595.5,
+            "right": 374,
+            "bottom": 668.5,
+            "left": 16
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-revoked-desktop.png",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "form": {
+        "x": 272,
+        "y": 76,
+        "width": 656,
+        "height": 222.5,
+        "top": 76,
+        "right": 928,
+        "bottom": 298.5,
+        "left": 272
+      },
+      "rows": [
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 272,
+            "y": 322.5,
+            "width": 656,
+            "height": 73,
+            "top": 322.5,
+            "right": 928,
+            "bottom": 395.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 272,
+            "y": 395.5,
+            "width": 656,
+            "height": 73,
+            "top": 395.5,
+            "right": 928,
+            "bottom": 468.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 272,
+            "y": 468.5,
+            "width": 656,
+            "height": 73,
+            "top": 468.5,
+            "right": 928,
+            "bottom": 541.5,
+            "left": 272
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 272,
+            "y": 541.5,
+            "width": 656,
+            "height": 73,
+            "top": 541.5,
+            "right": 928,
+            "bottom": 614.5,
+            "left": 272
+          }
+        }
+      ]
+    },
+    {
+      "filename": "before-revoked-mobile.png",
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "form": {
+        "x": 16,
+        "y": 112,
+        "width": 358,
+        "height": 240.5,
+        "top": 112,
+        "right": 374,
+        "bottom": 352.5,
+        "left": 16
+      },
+      "rows": [
+        {
+          "name": "Fixture · Build agent",
+          "rect": {
+            "x": 16,
+            "y": 376.5,
+            "width": 358,
+            "height": 73,
+            "top": 376.5,
+            "right": 374,
+            "bottom": 449.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Release automation",
+          "rect": {
+            "x": 16,
+            "y": 449.5,
+            "width": 358,
+            "height": 73,
+            "top": 449.5,
+            "right": 374,
+            "bottom": 522.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Local CLI",
+          "rect": {
+            "x": 16,
+            "y": 522.5,
+            "width": 358,
+            "height": 73,
+            "top": 522.5,
+            "right": 374,
+            "bottom": 595.5,
+            "left": 16
+          }
+        },
+        {
+          "name": "Fixture · Retired import",
+          "rect": {
+            "x": 16,
+            "y": 595.5,
+            "width": 358,
+            "height": 73,
+            "top": 595.5,
+            "right": 374,
+            "bottom": 668.5,
+            "left": 16
+          }
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "state": "secret",
+      "size": "desktop",
+      "focusAfterCreate": {
+        "tag": "BODY",
+        "id": ""
+      },
+      "secretIsFixture": true
+    },
+    {
+      "state": "secret",
+      "size": "mobile",
+      "focusAfterCreate": {
+        "tag": "BODY",
+        "id": ""
+      },
+      "secretIsFixture": true
+    },
+    {
+      "state": "secret-copied",
+      "size": "desktop",
+      "focusAfterCreate": {
+        "tag": "BODY",
+        "id": ""
+      },
+      "secretIsFixture": true
+    },
+    {
+      "state": "secret-copied",
+      "size": "mobile",
+      "focusAfterCreate": {
+        "tag": "BODY",
+        "id": ""
+      },
+      "secretIsFixture": true
+    },
+    {
+      "state": "revoked",
+      "size": "desktop",
+      "noConfirmation": true
+    },
+    {
+      "state": "revoked",
+      "size": "mobile",
+      "noConfirmation": true
+    }
+  ],
+  "errors": []
+}

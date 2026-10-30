@@ -45,7 +45,9 @@ remain managed by deployment secrets, separate from this account label.
 | POST | `/projects` | Required `name`, `key_prefix`, `color` |
 | PATCH | `/projects/{id}` | Any editable project fields, including `archived` |
 
-Project reads include read-only `open_ticket_count`, counting all statuses except
+Project reads include read-only `done_ticket_count` (done only), nullable
+`last_activity_at` (latest ticket `updated_at`, including canceled tickets), and
+`open_ticket_count`, counting all statuses except
 `done` and `canceled` in the same SQL query, independent of ticket pagination.
 
 Project fields: `name`, `key_prefix` (1–10 uppercase ASCII letters), `color`
