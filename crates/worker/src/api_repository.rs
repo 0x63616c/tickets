@@ -24,7 +24,7 @@ fn selection(entity: &str) -> &str {
     if entity == "tickets" {
         TICKET_SELECT
     } else if entity == "projects" {
-        "projects.*, (SELECT count(*) FROM tickets WHERE project_id=projects.id AND status NOT IN ('done','canceled')) AS open_ticket_count"
+        "projects.*, (SELECT count(*) FROM tickets WHERE project_id=projects.id AND status NOT IN ('done','canceled')) AS open_ticket_count, (SELECT count(*) FROM tickets WHERE project_id=projects.id AND status='done') AS done_ticket_count, (SELECT max(updated_at) FROM tickets WHERE project_id=projects.id) AS last_activity_at"
     } else {
         "*"
     }

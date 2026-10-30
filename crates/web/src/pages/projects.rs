@@ -15,12 +15,25 @@ pub(crate) fn github_link(p: &Project) -> Option<ProjectLink> {
     .ok()
 }
 
+pub(crate) fn repository(p: &Project) -> Option<String> {
+    let owner = p.github_owner.as_deref()?;
+    let repo = p.github_repo.as_deref()?;
+    (tickets_core::github::valid_owner(owner) && tickets_core::github::valid_repo(repo))
+        .then(|| format!("{owner}/{repo}"))
+}
+
+#[component]
+fn RepositoryLinks(repo: String) -> impl IntoView {
+    view! { <div class="repository-links"><a class="subtle-link" href=format!("https://github.com/{repo}") target="_blank" rel="noreferrer">{repo.clone()}<Icon name="external"/></a><div class="repository-shortcuts"><a class="subtle-link" href=format!("https://github.com/{repo}/pulls") target="_blank" rel="noreferrer">"Open PRs"</a><a class="subtle-link" href=format!("https://github.com/{repo}/actions") target="_blank" rel="noreferrer">"Actions / CI"</a></div></div> }
+}
+
 #[component]
 pub fn ProjectLinks() -> impl IntoView {
     let board = expect_context::<BoardState>();
-    view! { {move || board.projects.get().iter().find(|p| p.id==board.project.get()).and_then(|p| github_link(p).map(|link| (link, p.github_repo.clone()))).map(|(link, repo)| {
-        let repository=repo.filter(|repo|tickets_core::github::valid_repo(repo)).map(|repo| {let label=format!("{}/{}",link.owner,repo);view!{<a class="subtle-link" href=format!("https://github.com/{label}") target="_blank" rel="noreferrer">{label.clone()}<Icon name="external"/></a>}});
-        view! { <div class="project-links"><a class="subtle-link" href=link.url() target="_blank" rel="noreferrer"><Icon name="link"/>{format!("{} / Project {}",link.owner,link.number)}<Icon name="external"/></a>{repository}</div> }
+    view! { {move || board.projects.get().iter().find(|p| p.id==board.project.get()).map(|p| {
+        let repo=repository(p);
+        let project=github_link(p);
+        view! { <div class="project-links">{repo.map(|repo|view!{<a class="subtle-link" href=format!("https://github.com/{repo}") target="_blank" rel="noreferrer">{repo.clone()}<Icon name="external"/></a>})}{project.map(|link|view!{<a class="subtle-link" href=link.url() target="_blank" rel="noreferrer">{format!("GitHub Project {}",link.number)}<Icon name="external"/></a>})}</div> }
     })} }
 }
 
@@ -51,15 +64,18 @@ pub fn ApiProjects() -> impl IntoView {
             <Show when=move||board.loading.get()><LoadingSkeleton layout="projects"/></Show>
             <Show when=move||!board.error.get().is_empty()><p role="alert">{move||board.error.get()}" "<button class="button" on:click=move|_|board.refresh()>"Retry"</button></p></Show>
             <Show when=move||!board.loading.get() && board.error.get().is_empty()>
-                <div class="projects-table"><div class="projects-table-head"><span>"Name"</span><span>"Tickets"</span><span>"GitHub"</span></div>
+                <div class="projects-table repository-table"><div class="projects-table-head"><span>"Name"</span><span>"Tickets"</span><span>"Repository"</span><span>"Last activity"</span></div>
                 {move||board.projects.get().into_iter().filter(|p|archived.get() || !p.archived).map(|p| {
                     let id=p.id;
                     let edit=p.clone();
-                    let link=github_link(&p);
+                    let repo=repository(&p);
+                    let activity=p.last_activity_at.clone();
+                    let project=github_link(&p);
                     view! { <div class="project-row api-project-row">
                         <div><a class="project-title" href="/" on:click=move|e|{if !board.select_project(id){e.prevent_default();}}><ProjectIcon name=p.name.clone() icon=p.icon.clone().unwrap_or_default() color=p.color.clone()/><div><strong>{p.name}</strong><p class="mono">{p.key_prefix}{if p.archived {" · Archived"}else{""}}</p></div></a></div>
-                        <span class="muted">{move||board.tickets.get().iter().filter(|t|t.project_id==id).count()}</span>
-                        <span class="muted">{link.map(|link|view!{<a class="subtle-link" href=link.url() target="_blank" rel="noreferrer">{format!("{} / {}",link.owner,link.number)}<Icon name="external"/></a>}.into_any()).unwrap_or_else(||view!{<span>"Not linked"</span>}.into_any())}</span>
+                        <span class="muted project-counts"><span>{format!("{} open",p.open_ticket_count)}</span><span>{format!("{} done",p.done_ticket_count)}</span></span>
+                        <span class="muted project-repository">{repo.map(|repo|view!{<RepositoryLinks repo/>}.into_any()).unwrap_or_else(||view!{<span>"Not linked"</span>}.into_any())}{project.map(|link|view!{<a class="subtle-link github-project-link" href=link.url() target="_blank" rel="noreferrer">{format!("GitHub Project {}",link.number)}<Icon name="external"/></a>})}</span>
+                        <span class="muted project-activity">{activity.map(|at|view!{<time datetime=at.clone() title=at.clone()>{at.chars().take(10).collect::<String>()}</time>}.into_any()).unwrap_or_else(||view!{<span>"No activity"</span>}.into_any())}</span>
                         <button class="icon-button project-row-action" aria-label=format!("Edit project {}",edit.name) on:click=move|_|editor.set(Some(Some(edit.clone())))><Icon name="more"/></button>
                     </div> }
                 }).collect_view()}
@@ -118,6 +134,7 @@ fn ProjectEditor(
             .unwrap_or_default(),
     );
     let archived = RwSignal::new(project.as_ref().is_some_and(|p| p.archived));
+    let saved_owner = project.as_ref().and_then(|p| p.github_owner.clone());
     let busy = RwSignal::new(false);
     let error = RwSignal::new(String::new());
     view! { <Modal open title=if id.is_some(){"Edit project"}else{"New project"} on_close locked=Signal::derive(move||busy.get())>
@@ -128,8 +145,8 @@ fn ProjectEditor(
             let link=if owner.get_untracked().trim().is_empty(){Ok(None)}else{ProjectLink::parse(&owner.get_untracked(),"",&kind.get_untracked()).map(Some)};
             let link=match link{Ok(link)=>link,Err(e)=>{error.set(e);return;}};
             let repository=repo.get_untracked().trim().to_string();
-            if !repository.is_empty() && (!tickets_core::github::valid_repo(&repository) || link.is_none()) {error.set("Enter a repository name and link its GitHub Project first.".into());return;}
-            let body=json!({"name":name.get_untracked().trim(),"key_prefix":prefix.get_untracked().trim(),"color":color.get_untracked(),"icon":if icon.get_untracked().is_empty(){None}else{Some(icon.get_untracked())},"archived":archived.get_untracked(),"github_owner":link.as_ref().map(|l|&l.owner),"github_project_number":link.as_ref().map(|l|l.number),"github_project_kind":link.as_ref().map(|l|l.kind.as_str()).unwrap_or("users"),"github_repo":if repository.is_empty(){None}else{Some(repository)}});
+            if !repository.is_empty() && (!tickets_core::github::valid_repo(&repository) || (link.is_none() && saved_owner.is_none())) {error.set("Enter a repository name and link its GitHub Project first.".into());return;}
+            let body=json!({"name":name.get_untracked().trim(),"key_prefix":prefix.get_untracked().trim(),"color":color.get_untracked(),"icon":if icon.get_untracked().is_empty(){None}else{Some(icon.get_untracked())},"archived":archived.get_untracked(),"github_owner":link.as_ref().map(|l|l.owner.clone()).or_else(||if repository.is_empty(){None}else{saved_owner.clone()}),"github_project_number":link.as_ref().map(|l|l.number),"github_project_kind":link.as_ref().map(|l|l.kind.as_str()).unwrap_or(&kind.get_untracked()),"github_repo":if repository.is_empty(){None}else{Some(repository)}});
             if let Err(e)=tickets_core::api::validate_create("projects",&body){error.set(e);return;}
             busy.set(true);
             spawn_local(async move{

@@ -43,6 +43,12 @@ impl Drop for FixtureServer {
 }
 impl FixtureServer {
     pub(crate) fn start(assets: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::start_with_api(assets, std::collections::HashMap::new())
+    }
+    pub(crate) fn start_with_api(
+        assets: &Path,
+        fixtures: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         listener.set_nonblocking(true)?;
         let url = format!("http://{}", listener.local_addr()?);
@@ -69,7 +75,9 @@ impl FixtureServer {
                             .canonicalize()
                             .ok()
                             .filter(|p| p.starts_with(&assets) && p.is_file());
-                        let (body, mime) = if path.starts_with("/api/v1/projects") {
+                        let (body, mime) = if let Some(fixture) = fixtures.get(path) {
+                            (serde_json::to_vec(fixture).unwrap(), "application/json")
+                        } else if path.starts_with("/api/v1/projects") {
                             (br##"{"data":[{"id":1,"name":"Tickets","key_prefix":"TKT","color":"#5e6ad2","archived":false,"icon":null,"github_owner":null,"github_repo":null,"github_project_number":null,"github_project_kind":"users","next_ticket_number":1}],"next_cursor":null}"##.to_vec(),"application/json")
                         } else if path == "/api/v1/tokens" {
                             (b"[]".to_vec(), "application/json")
