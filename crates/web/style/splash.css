@@ -8,8 +8,7 @@
   overflow: hidden;
   background: var(--bg);
   color: var(--stub-ink);
-  transition: opacity var(--duration-splash-exit) var(--ease-out),
-    transform var(--duration-splash-exit) var(--ease-out);
+  transition: opacity var(--duration-splash-exit) var(--ease-out);
 }
 
 #boot-splash pre {
@@ -23,8 +22,36 @@
   width: calc(var(--boot-columns) * 0.6em);
   height: calc(var(--boot-rows) * 1.2em);
   white-space: pre;
+  /* Individual translate/rotate apply before the scale, so the float is in screen px. */
   transform: scale(var(--boot-scale));
+  animation:
+    boot-bob 1.1s ease-in-out -0.55s infinite alternate,
+    boot-tilt 1.9s ease-in-out -0.95s infinite alternate;
+  will-change: translate, rotate;
 }
+
+/* Soft entry/exit: fade plus a short drift; entry rises into the float, exit keeps rising. */
+#boot-splash .boot-mark {
+  opacity: 0;
+  translate: 0 12px;
+  transition: opacity 550ms var(--ease-out), translate 550ms var(--ease-out);
+  will-change: opacity, translate;
+}
+#boot-splash.boot-in .boot-mark { opacity: 1; translate: 0 0; }
+#boot-splash.boot-leaving .boot-mark {
+  opacity: 0;
+  translate: 0 -16px;
+  transition: opacity 400ms cubic-bezier(.4, 0, 1, 1), translate 400ms cubic-bezier(.4, 0, 1, 1);
+}
+
+#boot-splash .boot-sway {
+  animation: boot-sway 1.7s ease-in-out -0.85s infinite alternate;
+  will-change: translate;
+}
+
+@keyframes boot-bob { from { translate: 0 9px; } to { translate: 0 -9px; } }
+@keyframes boot-sway { from { translate: -6px 0; } to { translate: 6px 0; } }
+@keyframes boot-tilt { from { rotate: -1.6deg; } to { rotate: 1.6deg; } }
 
 #boot-splash pre span {
   display: inline-block;
@@ -33,15 +60,19 @@
   height: 1.2em;
 }
 
-#boot-splash .boot-edge { color: var(--text-muted); }
+#boot-splash .boot-edge { color: var(--stub-edge); }
 #boot-splash .boot-body { color: var(--stub-ink); }
-#boot-splash.boot-exit {
-  opacity: 0;
-  transform: scale(1.015);
-  pointer-events: none;
+/* Reduced motion: still outlined mark, opacity-only fades. */
+#boot-splash.boot-reduced pre,
+#boot-splash.boot-reduced .boot-sway { animation: none; translate: none; rotate: none; }
+#boot-splash.boot-reduced .boot-mark { translate: none; }
+@media (prefers-reduced-motion: reduce) {
+  #boot-splash pre,
+  #boot-splash .boot-sway { animation: none; translate: none; rotate: none; }
+  #boot-splash .boot-mark { translate: none; }
 }
 
-#boot-splash.boot-reduced { transform: none; }
-@media (prefers-reduced-motion: reduce) {
-  #boot-splash.boot-exit { transform: none; }
+#boot-splash.boot-exit {
+  opacity: 0;
+  pointer-events: none;
 }
