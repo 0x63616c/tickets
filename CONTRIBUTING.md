@@ -240,6 +240,14 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   1440×900 and 390×900. `board-before` captures the previous real `/` route on a
   running local Worker at port 8787 before changing frontend assets.
 
+### Board topbar creation
+
+The board topbar shows connection state only; create tickets with a column's
+labelled + button. The C shortcut defaults to Todo. Other views keep their
+New ticket action. `cargo xtask component-shot board-topbar` captures fixture-only
+44px board chrome and full-page desktop/mobile evidence; `--before-assets`
+uses baseline assets. `board-check` verifies all six column creation defaults.
+
 ## List view conventions
 
 - `/list` shares API ticket loading and creation with the board; `/design/list`
@@ -495,6 +503,10 @@ Windows line endings; apply repository formatting checks to our own files.
   `target/*chromium*.log` when the check job fails; use these logs to distinguish
   profile/process failures from slow startup before changing launch policy.
 
+
+Browser readiness predicates may retry CDP document/context replacement errors
+across hard navigations, within the existing timeout. Browser actions and JavaScript
+exceptions must still fail immediately; never replay writes to recover navigation.
 
 ## Pull request ingestion conventions
 

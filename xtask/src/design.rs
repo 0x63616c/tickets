@@ -106,7 +106,23 @@ impl Browser {
     }
     pub(crate) fn wait(&mut self, expression: &str) -> Result<()> {
         let start = Instant::now();
-        while self.eval(expression)? != true {
+        loop {
+            match self.eval(expression) {
+                Ok(value) if value == true => return Ok(()),
+                Ok(_) => {}
+                // A hard navigation can replace the document between readiness polls.
+                // Retry predicates only; actions and JavaScript exceptions still fail.
+                Err(error)
+                    if error.to_string().starts_with("Runtime.evaluate:")
+                        && [
+                            "Inspected target navigated or closed",
+                            "Execution context was destroyed",
+                            "Cannot find context with specified id",
+                        ]
+                        .iter()
+                        .any(|message| error.to_string().contains(message)) => {}
+                Err(error) => return Err(error),
+            }
             if start.elapsed() > Duration::from_secs(15) {
                 let _ = self.screenshot(Path::new("target/browser-failure.png"));
                 let context=self.eval("({url:location.href,title:document.title,body:document.body.innerText.slice(0,1200)})").unwrap_or_default();
@@ -114,7 +130,6 @@ impl Browser {
             }
             thread::sleep(Duration::from_millis(100));
         }
-        Ok(())
     }
     pub(crate) fn go(&mut self, url: &str) -> Result<()> {
         // Page.navigate can return before the new document replaces the old one.
@@ -127,7 +142,7 @@ impl Browser {
         self.wait(
             "!!document.querySelector('.topbar, .auth-page, .login-page, .component-stage')",
         )?;
-        self.eval("document.fonts.ready.then(() => true)")?;
+        self.wait("document.fonts.ready.then(() => true)")?;
         Ok(())
     }
     pub(crate) fn viewport(&mut self, width: u32, height: u32) -> Result<()> {
@@ -523,11 +538,11 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.eval("window.fetch=window.boardFetch;true")?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
-    b.eval("document.querySelector('.topbar .button-primary').focus();true")?;
+    b.eval("document.querySelector('[aria-label=\"Add ticket to In review\"]').focus();true")?;
     b.key("c", 67, 0)?;
-    b.wait("!!document.querySelector('#board-title') && document.querySelectorAll('dialog').length===1")?;
+    b.wait("!!document.querySelector('#board-title') && document.querySelectorAll('dialog').length===1 && document.querySelector('[aria-label=\"New ticket status\"]').value==='Todo'")?;
     b.key("Escape", 27, 0)?;
-    b.click(".topbar .button-primary")?;
+    b.click("[aria-label='Add ticket to Todo']")?;
     b.text("#board-title", "Created from the board")?;
     b.click("dialog button[type=submit]")?;
     b.wait(
@@ -560,6 +575,14 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===4 && !document.querySelector('.add-card').disabled && document.body.innerText.includes('No tickets yet')")?;
     check_composer(&mut b)?;
+    for route in ["list?project=1", "t/TKT-1", "home"] {
+        b.go(&format!("http://127.0.0.1:8795/{route}"))?;
+        b.wait("document.querySelector('.topbar .button-primary')?.textContent.includes('New ticket') && !document.querySelector('.topbar .button-primary').disabled")?;
+        b.click(".topbar .button-primary")?;
+        b.wait("document.querySelector('[aria-label=\"New ticket status\"]')?.value==='Todo'")?;
+        b.key("Escape", 27, 0)?;
+        b.wait("!document.querySelector('dialog')")?;
+    }
     b.sign_out()?;
     b.wait("location.pathname==='/login'")?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
@@ -866,10 +889,7 @@ fn check_composer(b: &mut Browser) -> Result<()> {
     b.viewport(1440, 900)?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("!!document.querySelector('[aria-label=\"Add ticket to Backlog\"]') && !document.querySelector('[aria-label=\"Add ticket to Backlog\"]').disabled")?;
-    b.click("[aria-label='Add ticket to Backlog']")?;
-    b.wait("document.querySelector('[aria-label=\"New ticket status\"]')?.value==='Backlog'")?;
-    b.key("Escape", 27, 0)?;
-    b.wait("!document.querySelector('dialog')")?;
+    b.wait("!document.querySelector('.topbar button') && !document.querySelector('.topbar .toolbar-divider') && document.querySelector('.topbar').getBoundingClientRect().height===44")?;
     for (label, value) in [
         ("Backlog", "backlog"),
         ("Todo", "todo"),
@@ -878,8 +898,8 @@ fn check_composer(b: &mut Browser) -> Result<()> {
         ("Done", "done"),
         ("Canceled", "canceled"),
     ] {
-        b.click(".topbar .button-primary")?;
-        b.wait("document.activeElement.id==='board-title' && document.querySelector('[aria-label=\"New ticket status\"]').value==='Todo'")?;
+        b.click(&format!("[aria-label='Add ticket to {label}']"))?;
+        b.wait(&format!("document.activeElement.id==='board-title' && document.querySelector('[aria-label=\"New ticket status\"]').value==='{label}'"))?;
         b.text("#board-title", &format!("Composer {value}"))?;
         if value == "backlog" {
             b.key("Tab", 9, 0)?;
