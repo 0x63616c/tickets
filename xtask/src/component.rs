@@ -254,6 +254,10 @@ fn sidebar_shots(
     output: &Path,
     before: bool,
 ) -> super::Result {
+    b.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width":1200,"height":900,"deviceScaleFactor":2,"mobile":false}),
+    )?;
     let prefix = if before { "before" } else { "after" };
     b.go(&format!("{base}/design/c/{name}"))?;
     b.wait("!!document.querySelector('.sidebar .account-trigger')")?;
@@ -317,6 +321,10 @@ fn sidebar_shots(
             b.wait("(()=>{const n=document.querySelector('.sidebar-nav'),a=document.querySelector('.account-trigger').getBoundingClientRect();return n.scrollHeight>n.clientHeight && a.bottom<=innerHeight && a.top>=44;})()")?;
         }
     }
+    b.call(
+        "Emulation.setDeviceMetricsOverride",
+        json!({"width":1200,"height":900,"deviceScaleFactor":2,"mobile":false}),
+    )?;
     Ok(())
 }
 pub(crate) fn crop(b: &mut Browser, selector: &str, path: &Path) -> super::Result {
