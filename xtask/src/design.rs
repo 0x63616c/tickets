@@ -142,7 +142,7 @@ impl Browser {
         self.wait(
             "!!document.querySelector('.topbar, .auth-page, .login-page, .component-stage')",
         )?;
-        self.eval("document.fonts.ready.then(() => true)")?;
+        self.wait("document.fonts.ready.then(() => true)")?;
         Ok(())
     }
     pub(crate) fn viewport(&mut self, width: u32, height: u32) -> Result<()> {
