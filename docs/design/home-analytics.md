@@ -15,6 +15,9 @@ Skeleton and AsciiSpinner. Charts have no entrance or count-up animation.
 Default scope is all currently unarchived projects; one active project can be
 selected. Archived blockers still block their active dependents. Open means
 backlog, todo, in_progress or in_review; done and canceled are terminal.
+Inventory categories follow Board/List: a Todo ticket tagged `later` appears in
+Backlog. Active/resolved statuses take precedence; stored statuses and history
+remain unchanged.
 
 | Measurement | Definition |
 | --- | --- |

@@ -520,9 +520,11 @@ project icon schema changes additive and validate values in core.
 - `cargo xtask home-shot` uses immutable fixture HTTP data on an OS-assigned port,
   checks Home interaction/states and saves docs/screenshots/TIK-43. Use
   `TICKETS_BEFORE_ASSETS` for the same fixture's previous real landing page.
+  CI runs the fixture check after building the web assets.
   `cargo test -p tickets-worker --test analytics` exercises full-migration history,
   exact cohorts and one-read query budgets. Keep first-run-check's empty-D1 flow
-  through Home and UI project creation.
+  through Home and UI project creation, then verify current counts and a completion
+  transition through its metric drilldown.
 ## Command palette (TIK-44)
 
 - Cmd/Ctrl+K uses `/api/v1/search`, independent of loaded board pages. Exact keys

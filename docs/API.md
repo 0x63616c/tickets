@@ -310,6 +310,8 @@ Optional query: `project=<active ID>`,
 (oldest first, flow only, default 7), `status=<open status>` (inventory only),
 `cursor=<subject ID>` (metric only). Cohorts use 50 rows and ascending durable
 subject IDs. Unknown, duplicate and incompatible parameters return 422.
+Inventory counts and status filters follow Board/List's `later` → Backlog display
+rule; cohort rows retain the stored ticket status.
 Weeks contain `start`, `end`, `coverage=none|partial|full`, nullable `created`,
 `completed`, `imported`. Null is unavailable, never zero. Deleted historic cohort
 rows have null ticket/key/title and remain counted. Full metric definitions,

@@ -55,6 +55,35 @@ fn inventory_coverage_imports_and_exact_completion_cohorts() {
     });
 }
 #[test]
+fn inventory_matches_later_presentation_without_changing_history() {
+    block_on(async {
+        let db = Sqlite::new();
+        seed(&db);
+        db.0.execute_batch("INSERT INTO tickets(project_id,number,title,status) VALUES(1,1,'Later','todo'),(1,2,'Active later','in_progress'),(1,3,'Todo','todo'); INSERT INTO labels(name,color) VALUES('LaTeR','#888888'); INSERT INTO ticket_labels VALUES(1,1),(2,1);").unwrap();
+        let h = home(&db, &[]).await;
+        assert_eq!(h["projects"][0]["backlog"], 1);
+        assert_eq!(h["projects"][0]["todo"], 1);
+        assert_eq!(h["projects"][0]["in_progress"], 1);
+        let backlog = home(&db, &[("metric", "inventory"), ("status", "backlog")]).await;
+        assert_eq!(backlog["cohort_total"], 1);
+        assert_eq!(backlog["cohort"][0]["key"], "EX-1");
+        let todo = home(&db, &[("metric", "inventory"), ("status", "todo")]).await;
+        assert_eq!(todo["cohort_total"], 1);
+        assert_eq!(todo["cohort"][0]["key"], "EX-3");
+        assert_eq!(h["weeks"][7]["created"], 3);
+        assert_eq!(
+            db.0.query_row(
+                "SELECT count(*) FROM ticket_events WHERE kind='status'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            0
+        );
+    });
+}
+
+#[test]
 fn events_are_atomic_ignore_edits_and_survive_deletion_and_id_reuse() {
     block_on(async {
         let db = Sqlite::new();

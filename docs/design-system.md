@@ -8,6 +8,7 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 
 | Route | Reference |
 | --- | --- |
+| `/design/home` | Current work, eight UTC weeks, review/blocked queues and chart data tables |
 | `/design/board` | Four-column Kanban; status menu and drag alternatives; counts, labels, blockers |
 | `/design/list` | 36px rows grouped by status; aligned ID, label, comment, project, and date fields |
 | `/design/ticket` | TKT-7; sanitized Markdown, task list, comments, properties, both dependency directions |

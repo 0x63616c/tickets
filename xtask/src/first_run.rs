@@ -104,7 +104,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         "document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found')",
     )?;
         // Stop the previous page's live requests before expiring the session.
-        b.go("about:blank")?;
+        b.call("Page.navigate", serde_json::json!({"url":"about:blank"}))?;
         b.wait("location.href==='about:blank'")?;
         b.call("Network.clearBrowserCookies", serde_json::json!({}))?;
         b.go("http://127.0.0.1:8795/t/FIRST-2")?;

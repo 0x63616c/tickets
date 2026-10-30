@@ -8,13 +8,20 @@ buckets(n,start,end) AS (
  UNION ALL SELECT n+1,end,strftime('%Y-%m-%dT%H:%M:%fZ',end,'+7 days') FROM buckets WHERE n<7
 ),
 active_projects AS (SELECT * FROM projects WHERE archived=0),
+-- Match Board/List presentation without rewriting the stored status or history.
+inventory AS (
+ SELECT t.*,CASE WHEN t.status='todo' AND EXISTS(
+  SELECT 1 FROM ticket_labels tl JOIN labels l ON l.id=tl.label_id
+  WHERE tl.ticket_id=t.id AND l.name='later' COLLATE NOCASE
+ ) THEN 'backlog' ELSE t.status END AS display_status FROM tickets t
+),
 current AS (
- SELECT s.id AS subject_id,t.id AS ticket_id,t.project_id,p.key_prefix || '-' || t.number AS key,t.title,t.status,t.priority,
+ SELECT s.id AS subject_id,t.id AS ticket_id,t.project_id,p.key_prefix || '-' || t.number AS key,t.title,t.display_status AS status,t.priority,
  (SELECT count(*) FROM ticket_dependencies d JOIN tickets blocker ON blocker.id=d.blocker_id
   WHERE d.blocked_id=t.id AND blocker.status NOT IN ('done','canceled')) AS blocker_count,
  (SELECT min(blocker.id) FROM ticket_dependencies d JOIN tickets blocker ON blocker.id=d.blocker_id
   WHERE d.blocked_id=t.id AND blocker.status NOT IN ('done','canceled')) AS blocker_id
- FROM tickets t JOIN active_projects p ON p.id=t.project_id JOIN ticket_subjects s ON s.ticket_id=t.id
+ FROM inventory t JOIN active_projects p ON p.id=t.project_id JOIN ticket_subjects s ON s.ticket_id=t.id
  WHERE (?1=0 OR t.project_id=?1) AND t.status NOT IN ('done','canceled')
 ),
 flow AS (
@@ -44,11 +51,11 @@ display AS (
 ),
 project_counts AS (
  SELECT p.id,p.name,p.color,p.icon,
- count(CASE WHEN t.status='backlog' THEN 1 END) AS backlog,
- count(CASE WHEN t.status='todo' THEN 1 END) AS todo,
- count(CASE WHEN t.status='in_progress' THEN 1 END) AS in_progress,
- count(CASE WHEN t.status='in_review' THEN 1 END) AS in_review
- FROM active_projects p LEFT JOIN tickets t ON t.project_id=p.id GROUP BY p.id ORDER BY p.name,p.id
+ count(CASE WHEN t.display_status='backlog' THEN 1 END) AS backlog,
+ count(CASE WHEN t.display_status='todo' THEN 1 END) AS todo,
+ count(CASE WHEN t.display_status='in_progress' THEN 1 END) AS in_progress,
+ count(CASE WHEN t.display_status='in_review' THEN 1 END) AS in_review
+ FROM active_projects p LEFT JOIN inventory t ON t.project_id=p.id GROUP BY p.id ORDER BY p.name,p.id
 )
 SELECT (?1=0 OR EXISTS(SELECT 1 FROM active_projects WHERE id=?1)) AS scope_valid,
 json_object(
