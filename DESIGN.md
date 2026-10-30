@@ -128,3 +128,9 @@ and use `var(--name)` at the call site. Run `npm ci --prefix crates/web`, then
 CSS only). Do not use Stylelint disable comments. Fixing existing debt requires
 removing its entry/count from `xtask/lint-allowlist.json`; that file must exactly
 match remaining findings and must never grow. See CONTRIBUTING.md for the ratchet.
+
+## GitHub identity
+
+GitHub-related UI uses `<Icon name="github"/>` (octicons mark-github, MIT).
+The filled mark inherits `currentColor` and shares the 16px icon box; keep
+status indicators separate. Only brand external links whose host is `github.com`.

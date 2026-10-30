@@ -4,6 +4,14 @@ use leptos::prelude::*;
 use serde_json::{Value, json};
 use wasm_bindgen_futures::spawn_local;
 
+/// GitHub branding belongs only on HTTP(S) links to the exact GitHub host.
+pub(crate) fn is_github_url(value: &str) -> bool {
+    web_sys::Url::new(value).is_ok_and(|url| {
+        matches!(url.protocol().as_str(), "https:" | "http:")
+            && url.hostname().eq_ignore_ascii_case("github.com")
+    })
+}
+
 pub(crate) async fn api(method: &str, path: &str, body: Value) -> Result<Value, String> {
     api_typed(method, path, body)
         .await

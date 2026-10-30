@@ -465,14 +465,11 @@ pub fn CommandPalette() -> impl IntoView {
                         Row::command("Copy", "Copy link", "link", "", Action::Copy(true)),
                         Row::command("Copy", "Copy key", "code", "", Action::Copy(false)),
                     ]);
-                    if let Some(url) = t
-                        .external_url
-                        .filter(|u| u.starts_with("https://github.com/"))
-                    {
+                    if let Some(url) = t.external_url.filter(|u| crate::ui::is_github_url(u)) {
                         rows.push(Row::command(
                             "Links",
                             "Open in GitHub",
-                            "external",
+                            "github",
                             "",
                             Action::GitHub(url),
                         ));
