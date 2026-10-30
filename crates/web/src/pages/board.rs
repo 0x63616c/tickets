@@ -36,6 +36,20 @@ pub(crate) struct BoardTicket {
     #[serde(default)]
     pub external_id: Option<String>,
 }
+impl BoardTicket {
+    pub(crate) fn ui_status(&self) -> Status {
+        if self.status == Status::Todo
+            && self
+                .labels
+                .iter()
+                .any(|l| l.name.eq_ignore_ascii_case("later"))
+        {
+            Status::Backlog
+        } else {
+            self.status
+        }
+    }
+}
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub(crate) struct PullRequest {
     pub repo: String,
@@ -49,7 +63,7 @@ fn id(t: &BoardTicket) -> i64 {
     t.id
 }
 fn status(t: &BoardTicket) -> Status {
-    t.status
+    t.ui_status()
 }
 pub(crate) async fn all<T: DeserializeOwned>(path: &str) -> Result<Vec<T>, String> {
     #[derive(Deserialize)]
@@ -214,7 +228,7 @@ impl BoardState {
             .get()
             .into_iter()
             .filter(|t| {
-                t.status == s
+                t.ui_status() == s
                     && t.project_id == self.project.get()
                     && (!filtered || self.visible(t))
             })
@@ -249,7 +263,9 @@ impl BoardState {
             self.tickets.update(|ts| {
                 for (index, t) in column.iter().enumerate() {
                     if let Some(row) = ts.iter_mut().find(|r| id(r) == id(t)) {
-                        row.status = s;
+                        // A legacy `later` ticket can share the displayed Backlog
+                        // column while retaining its stored Todo status.
+                        row.status = t.status;
                         row.sort_order = (index + 1) as f64 * 1024.;
                     }
                 }
@@ -501,7 +517,7 @@ pub fn ApiBoard() -> impl IntoView {
         <h1 class="sr-only">"Board"</h1><header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><span class="breadcrumb-current">{move||state.projects.get().into_iter().find(|p|p.id==state.project.get()).map(|p|view!{<ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/>{p.name}})}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-primary" disabled=move||state.project.get()==0 || state.busy.get() || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
         <div class="view-tabs"><nav aria-label="Ticket view"><span class="view-tab selected"><Icon name="board"/>"Board"</span><a class="view-tab" href="/list"><Icon name="list"/>"List"</a></nav><crate::pages::projects::ProjectLinks/></div>
         <Show when=move||state.tickets.get().iter().any(|t|t.project_id==state.project.get())><div class="view-toolbar board-filters"><div class="filter-input"><Icon name="filter"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Filter tickets" disabled=move||state.dragged.get().is_some() placeholder="Filter tickets…" prop:value=move||state.query.get() on:input=move|e|state.query.set(event_target_value(&e))/></div>
-        <SelectField label="Filter by label" value=Signal::derive(move||state.label.get()) options=Signal::derive(move||std::iter::once(SelectOption::new("","All labels")).chain(state.labels.get().into_iter().map(|l|SelectOption::new(l.id,l.name))).collect()) on_change=Callback::new(move|next:String|state.label.set(next)) disabled=Signal::derive(move||state.dragged.get().is_some())/>
+        <SelectField label="Filter by label" value=Signal::derive(move||state.label.get()) options=Signal::derive(move||std::iter::once(SelectOption::new("","All labels")).chain(state.labels.get().into_iter().filter(|l|visible_label(&l.name)).map(|l|SelectOption::new(l.id,l.name))).collect()) on_change=Callback::new(move|next:String|state.label.set(next)) disabled=Signal::derive(move||state.dragged.get().is_some())/>
         <SelectField label="Filter by assignee" value=Signal::derive(move||state.assignee.get()) options=Signal::derive(move||{let mut names:Vec<_>=state.tickets.get().iter().filter(|t|t.project_id==state.project.get()).filter_map(|t|t.assignee.clone()).collect();names.sort();names.dedup();vec![SelectOption::new("","All assignees"),SelectOption::new("__unassigned","Unassigned")].into_iter().chain(names.into_iter().map(|n|SelectOption::new(&n,&n))).collect()}) on_change=Callback::new(move|next:String|state.assignee.set(next)) disabled=Signal::derive(move||state.dragged.get().is_some())/><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=move||show_canceled.get() disabled=move||state.dragged.get().is_some() on:change=move|_|toggle_canceled.run(())/>"Show canceled"</label></div></Show>
         <Show when=move||state.loading.get()><LoadingSkeleton layout="board"/></Show>
         <Show when=move||!state.error.get().is_empty()><div class="board-message" role="alert">{move||state.error.get()}" "" "<button class="button" on:click=move|_|state.refresh() disabled=move||state.busy.get() || state.loading.get()>"Reload board"</button></div></Show>

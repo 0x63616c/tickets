@@ -37,8 +37,15 @@ pub fn TextInput(
     view! { <label class="field" for=id>{(!hide_label).then(|| view! { <span>{label}</span> })}<input aria-label=hide_label.then_some(label) autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  id=id placeholder=placeholder prop:value=move || value.get() on:input=move |ev| value.set(event_target_value(&ev))/></label> }
 }
 
+/// Legacy import metadata remains stored but has dedicated UI affordances.
+pub(crate) fn visible_label(name: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    !name.starts_with("priority:") && name != "status:blocked" && name != "later"
+}
+
 #[component]
 pub fn LabelChip(#[prop(into)] name: String, #[prop(optional)] color: String) -> impl IntoView {
+    let visible = visible_label(&name);
     let class = match name.as_str() {
         "Feature" => "feature",
         "Bug" => "bug",
@@ -51,7 +58,7 @@ pub fn LabelChip(#[prop(into)] name: String, #[prop(optional)] color: String) ->
     } else {
         String::new()
     };
-    view! { <span class=format!("label-chip label-{class}") style=tint><svg viewBox="0 0 8 8" width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/></svg><span>{name}</span></span> }
+    view! { {visible.then(|| view! { <span title=name.clone() class=format!("label-chip label-{class}") style=tint><svg viewBox="0 0 8 8" width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/></svg><span>{name.clone()}</span></span> })} }
 }
 
 #[component]
@@ -106,6 +113,9 @@ pub fn EmptyState(
 }
 
 #[component]
-pub fn Markdown(#[prop(into)] source: String) -> impl IntoView {
-    view! { <div class="markdown" inner_html=tickets_core::markdown::render(&source)/> }
+pub fn Markdown(
+    #[prop(into)] source: String,
+    #[prop(optional_no_strip)] project: Option<String>,
+) -> impl IntoView {
+    view! { <div class="markdown" inner_html=tickets_core::markdown::render_in_project(&source, project.as_deref())/> }
 }

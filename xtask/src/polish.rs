@@ -115,6 +115,14 @@ pub fn check(root: &Path, password: &str) -> Result {
     } else {
         interactions(&mut b)?;
     }
+    if !before {
+        // The broad interaction audit deliberately ends logged out.
+        b.text("#username", "fixture")?;
+        b.text("#password", password)?;
+        b.click("button[type=submit]")?;
+        b.wait("location.pathname!='/login'")?;
+    }
+    super::cleanup::check(&mut b, root)?;
     println!(
         "PASS polish: {phase} captures of real board, list, detail, creation, commands, login, tokens and empty states at 1440×900 / 390×900; Projects preview explicitly labelled"
     );
