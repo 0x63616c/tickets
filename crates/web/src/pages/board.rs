@@ -231,6 +231,10 @@ impl BoardState {
                             .iter()
                             .any(|e| e.entity == "tickets" && e.id == id && e.action == "delete");
                         if deleted {
+                            if self.busy.get_untracked() || self.dragged.get_untracked().is_some() {
+                                self.live_revision.update(|r| *r += 1);
+                                return Ok(());
+                            }
                             self.tickets.update(|ts| {
                                 ts.retain(|t| t.id != id);
                                 for t in ts {
@@ -248,7 +252,9 @@ impl BoardState {
                                 serde_json::from_value(value).map_err(|e| e.to_string())?;
                             related.extend(ticket.blocks.iter().copied());
                             related.extend(ticket.blocked_by.iter().copied());
-                            self.apply_change_event(ticket, false);
+                            if !self.apply_change_event(ticket, false) {
+                                self.live_revision.update(|r| *r += 1);
+                            }
                         }
                     }
                     if events.iter().any(|e| e.entity == "dependencies") {

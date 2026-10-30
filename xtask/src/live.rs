@@ -207,7 +207,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
         json!({"title":"Live detail reconciliation verified"}),
     )?;
     b.wait("document.body.innerText.includes('Live detail reconciliation verified')")?;
-    b.click(".topbar .button-ghost")?;
+    b.click(".topbar .button-secondary")?;
     b.text("#detail-title", "Unsaved local draft")?;
     b.eval("document.activeElement.blur();true")?;
     api(

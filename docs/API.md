@@ -617,3 +617,9 @@ inactive boards remain coherent. Healthy focus and idle tabs do not reload lists
 hidden-tab events queue until visible. A reconnect reloads authoritative state
 and can reuse the edge response cache. Mutations invalidate cached reads; explicit
 Reload/Retry actions force reconciliation.
+
+The authenticated web transport uses fetch `cache: no-store`: browser disk-cache
+revalidation is separate from the app's session cache and Worker Cache API.
+This avoids missing-body/cache-read failures across hard navigation. Agents may
+still explicitly send `If-None-Match`; warm and cold successful representations
+honor validators, while invalid requests retain their normal errors.

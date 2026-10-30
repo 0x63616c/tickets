@@ -347,9 +347,7 @@ impl<S: Store> ApiRepository<'_, S> {
                 "project" => "project_id=?",
                 "status" => "status=?",
                 "assignee" => "assignee=?",
-                "label" => {
-                    "EXISTS(SELECT 1 FROM ticket_labels l WHERE l.ticket_id=tickets.id AND l.label_id=?)"
-                }
+                "label" => "tickets.id IN (SELECT ticket_id FROM ticket_labels WHERE label_id=?)",
                 "blocked" if v == "true" => {
                     "EXISTS(SELECT 1 FROM ticket_dependencies d JOIN tickets b ON b.id=d.blocker_id WHERE d.blocked_id=tickets.id AND b.status NOT IN ('done','canceled'))"
                 }

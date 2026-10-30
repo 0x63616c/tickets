@@ -1,6 +1,6 @@
 # TIK-71 measurements and caller audit
 
-Baseline: `b42be78` (TIK-65 + TIK-72). Implementation also merges TIK-75 loading exclusivity.
+Baseline: `b42be78` (TIK-65 + TIK-72). Implementation also merges TIK-75 loading exclusivity and TIK-83 font preferences.
 Cloudflare baseline supplied by Calum: 2,670,730 rows/day, 5,472 Worker requests,
 average CPU 12.7 ms/request (p50 4.76 ms, p99 74.9 ms).
 
@@ -90,6 +90,8 @@ must be included in post-deployment observation.
    `Repository::dependencies`, called by `add_dependency` to run core graph checks
    before the atomic SQL cycle trigger. This is mutation validation, not web
    polling; retained. Ticket-list relationship aggregates use indexed lookups.
+   The remaining ActivityTime minute timer only formats relative timestamps;
+   it performs no network calls. There is no separate SSE loader.
 
 ## Query plans and correctness
 
@@ -113,5 +115,5 @@ Two independent assessments reviewed the data/loading changes against DESIGN.md
 and the existing desktop/mobile Home PNGs. Mechanical detector: exit 0, `[]`.
 The polish pass fixed hidden-tab queue flushing, failed-cache eviction, explicit
 Reload/Retry behavior, visible reconciliation errors, and reconnect invalidation
-of an unused ticket collection. Layout, tokens and visual hierarchy are preserved.
+of an unused ticket collection. The performance change preserves layout, tokens and visual hierarchy. The merged upstream TIK-83 changes the default font. The browser transport bypasses disk caching while retaining app/edge caches; a two-window test covers hard navigation. Detail captures its initial live revision to avoid a redundant mount-time reload.
 Questions skipped: fixed implementation scope and existing approved design.

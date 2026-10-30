@@ -50,6 +50,24 @@ fn list_plans_use_covering_counts_and_indexed_relationships() {
                 assert!(!plan.contains("SCAN comments"), "{plan}");
             }
         }
+        let reply = handle(
+            &capture,
+            "GET",
+            "/api/v1/tickets",
+            &[("label".into(), "1".into())],
+            Value::Null,
+        )
+        .await;
+        assert_eq!(reply.status, 200);
+        let sql = capture.statements.borrow().last().unwrap().clone();
+        let mut statement = db.0.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
+        let plan = statement
+            .query_map([0, 1, 51], |r| r.get::<_, String>(3))
+            .unwrap()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap()
+            .join("\n");
+        assert!(plan.contains("ticket_labels_label_ticket"), "{plan}");
     });
 }
 #[test]

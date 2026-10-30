@@ -71,8 +71,11 @@ fn cacheable(path: &str) -> bool {
 
 async fn api_typed(method: &str, path: &str, body: Value) -> Result<Value, crate::login::ApiError> {
     use crate::login::ApiError;
-    let builder =
-        RequestBuilder::new(path).method(method.parse().map_err(|_| ApiError::InvalidResponse)?);
+    // The app owns session/in-flight reuse. Keep browser disk-cache revalidation
+    // out of authenticated fetches; edge caching and explicit API validators remain.
+    let builder = RequestBuilder::new(path)
+        .cache(web_sys::RequestCache::NoStore)
+        .method(method.parse().map_err(|_| ApiError::InvalidResponse)?);
     let request = if method == "GET" {
         builder.build().map_err(|_| ApiError::InvalidResponse)?
     } else {
