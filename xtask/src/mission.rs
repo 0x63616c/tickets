@@ -102,7 +102,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait(
         "document.querySelector('.mission-page').textContent.includes('Focus refresh arrived')",
     )?;
-    b.eval(r#"window.fetch=(url,opts)=>(url.url||String(url))==='/api/v1/mission'?Promise.resolve(new Response(JSON.stringify({error:{message:'Refresh fixture failure'}}),{status:503,headers:{'Content-Type':'application/json'}})):window.missionFetch(url,opts);dispatchEvent(new Event('focus'));true"#)?;
+    b.eval(r#"window.fetch=(url,opts)=>(url.url||String(url)).endsWith('/api/v1/mission')?Promise.resolve(new Response(JSON.stringify({error:{message:'Refresh fixture failure'}}),{status:503,headers:{'Content-Type':'application/json'}})):window.missionFetch(url,opts);dispatchEvent(new Event('focus'));true"#)?;
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Refresh fixture failure') && document.querySelector('.mission-page').textContent.includes('Focus refresh arrived')")?;
     b.eval("window.fetch=window.missionFetch;true")?;
     b.viewport(390, 844)?;

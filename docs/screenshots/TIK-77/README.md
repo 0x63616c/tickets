@@ -32,3 +32,9 @@ component captures showed no clipping or missing sections. The polish pass
 resolved premature empty confirmation during approval with live pending feedback
 and heading focus, and checked direct-entry sidebar loading. The documentation
 pass confirmed alignment with DESIGN.md; broader visual refinement stays TIK-81.
+
+Local release verification used a temporary distinct web binary name and a
+workspace compiler wrapper to prevent concurrent worktrees from replacing
+shared Cargo/wasm-bindgen artifacts. The configured Cargo target directory was
+preserved, and the tracked manifest/index configuration was restored afterward.
+CI uses the normal checked-in production build configuration.
