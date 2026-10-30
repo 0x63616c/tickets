@@ -1,6 +1,6 @@
 # TIK-71 measurements and caller audit
 
-Baseline: `b42be78` (TIK-65 + TIK-72). Implementation also merges TIK-75 loading exclusivity and TIK-83 font preferences.
+Baseline: `b42be78` (TIK-65 + TIK-72). Implementation also merges TIK-75 loading exclusivity, TIK-83 font preferences, TIK-50 columns and TIK-77 Mission Control.
 Cloudflare baseline supplied by Calum: 2,670,730 rows/day, 5,472 Worker requests,
 average CPU 12.7 ms/request (p50 4.76 ms, p99 74.9 ms).
 
@@ -67,6 +67,9 @@ must be included in post-deployment observation.
    reopened rooms during navigation. Timer polling and healthy focus reloads are
    gone. Rooms stay subscribed across routes; a version check closes the initial
    snapshot gap. Events patch one ticket, dependency peers, or metadata.
+Mission Control, merged while this work was running, also requests projects
+   on initial shell loading; it reuses the same coalesced project request. Its
+   separate report polling does not reload the ticket collection.
 2. **Projects with counts** (948 runs / 619,195 rows): `BoardState::fetch`, Home's
    `all::<Project>("projects")`, and Sidebar's ticket-signal effect each queried
    it. Every optimistic ticket update triggered another sidebar project load.
@@ -112,7 +115,7 @@ dependency lookups use forward/reverse indexes; PR/check lookups use composite
 indexes. Sparse ordered label/dependency/PR aggregates deliberately remain indexed
 correlated probes, avoiding row multiplication or aggregating the entire workspace
 for a small page. `ticket_key` keeps indexed prefix/number lookup. A reverse label
-index supports label-first queries. Migration 0018 is additive (0017 is reserved by the open TIK-77 Mission Control PR); triggers include
+index supports label-first queries. Migration 0018 is additive (0017 belongs to merged TIK-77 Mission Control); triggers include
 older writers, comments, label membership, dependencies and PR/check updates.
 
 Tests cover old-writer invalidation, indexed plans, existing query budgets,

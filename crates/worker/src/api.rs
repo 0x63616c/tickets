@@ -214,6 +214,16 @@ async fn dispatch<S: Store>(
             body: crate::analytics::home(r.0, q).await?,
         });
     }
+    if method == "GET" && parts == ["api", "v1", "mission"] {
+        return Ok(Reply {
+            status: 200,
+            change: None,
+            body: crate::mission::get(r.0).await?,
+        });
+    }
+    if let ("PUT", ["api", "v1", "mission", "reports", source]) = (method, parts.as_slice()) {
+        return Ok(crate::mission::put(r.0, source, &body.to_string()).await);
+    }
     if parts.as_slice() == ["api", "v1", "pickup-rules"]
         && ["GET", "PUT", "DELETE"].contains(&method)
     {

@@ -623,3 +623,5 @@ revalidation is separate from the app's session cache and Worker Cache API.
 This avoids missing-body/cache-read failures across hard navigation. Agents may
 still explicitly send `If-None-Match`; warm and cold successful representations
 honor validators, while invalid requests retain their normal errors.
+
+[Mission Control: report ingest, aggregated read and dashboard](mission-control.md).

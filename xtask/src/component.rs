@@ -16,6 +16,7 @@ use std::{
 };
 const NAMES: &[&str] = &[
     "pr-check-status",
+    "mission",
     "pickup-rules",
     "history",
     "board-topbar",
@@ -159,6 +160,10 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
     } else {
         vec![name]
     } {
+        if name == "mission" {
+            super::mission::shots(root, &assets, &output, before.is_some())?;
+            continue;
+        }
         if name == "pickup-rules" {
             super::pickup::shots(root, &assets, &output, before.is_some())?;
             continue;

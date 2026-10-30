@@ -68,8 +68,16 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
     });
     let scheduled = RwSignal::new(false);
     Effect::new(move |_| {
-        let active = ["/", "/home", "/board", "/list", "/ticket", "/projects"]
-            .contains(&path.get().as_str())
+        let active = [
+            "/",
+            "/home",
+            "/board",
+            "/list",
+            "/ticket",
+            "/projects",
+            "/mission",
+        ]
+        .contains(&path.get().as_str())
             || path.get().starts_with("/t/");
         if dirty.get()
             && active
@@ -86,8 +94,16 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
             spawn_local(async move {
                 TimeoutFuture::new(350).await;
                 if online.get_untracked()
-                    && (["/", "/home", "/board", "/list", "/ticket", "/projects"]
-                        .contains(&path.get_untracked().as_str())
+                    && ([
+                        "/",
+                        "/home",
+                        "/board",
+                        "/list",
+                        "/ticket",
+                        "/projects",
+                        "/mission",
+                    ]
+                    .contains(&path.get_untracked().as_str())
                         || path.get_untracked().starts_with("/t/"))
                     && !document().hidden()
                     && !editing()
