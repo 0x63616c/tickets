@@ -708,9 +708,16 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
         b.wait("!document.querySelector('.comment') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
         click_text(b, ".comment-form button", "Write")?;
     }
+    // New/edited comment bodies decode without replaying the ticket heading.
+    b.wait("!document.querySelector('[data-ar-t]')")?;
+    b.eval("window.commentDecoded=false;window.headingDecoded=false;window.commentObserver=new MutationObserver(()=>{if(document.querySelector('.comment .markdown [data-ar-t]'))window.commentDecoded=true;if(document.querySelector('.ticket-detail h1[data-ar-t],.ticket-detail h1 [data-ar-t]'))window.headingDecoded=true;});window.commentObserver.observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['data-ar-t']});true")?;
     b.text("textarea[aria-label='Write a comment']","The status menu should work everywhere the ticket appears. **Keyboard focus** stays visible.")?;
     click_text(b, ".comment-form button", "Comment")?;
     b.wait("!!document.querySelector('.comment strong') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.wait(
+        "window.commentDecoded && !window.headingDecoded && !document.querySelector('[data-ar-t]')",
+    )?;
+    b.eval("window.commentDecoded=false;true")?;
     click_text(b, ".comment button", "Edit")?;
     b.text(
         ".comment textarea",
@@ -720,6 +727,10 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("document.querySelector('.comment .markdown-preview strong')?.textContent==='keyboard focus'")?;
     click_text(b, ".comment button", "Save comment")?;
     b.wait("document.querySelector('.comment .markdown')?.textContent.includes('Reviewed:') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    b.wait(
+        "window.commentDecoded && !window.headingDecoded && !document.querySelector('[data-ar-t]')",
+    )?;
+    b.eval("window.commentObserver.disconnect();true")?;
     select_value(b, "Project", "2")?;
     b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.go("http://127.0.0.1:8795/ticket?id=2")?;

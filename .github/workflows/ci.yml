@@ -13,19 +13,21 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup show
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-      - run: cargo xtask ci
       - name: Install wasm build tools
         run: cargo install worker-build --version 0.8.7 --locked && cargo install trunk --version 0.21.14 --locked
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+      - run: npm ci --prefix crates/web
       - run: npm install --global wrangler@4.154.0
+      - run: cargo xtask ci
       - run: cargo xtask skill-check
       - run: cargo xtask import-check
       - run: CHROME_BIN=google-chrome cargo xtask mirror-check
       - run: CHROME_BIN=google-chrome cargo xtask first-run-check
       - run: CHROME_BIN=google-chrome cargo xtask palette-check
       - run: CHROME_BIN=google-chrome cargo xtask project-repos-check
+      - run: CHROME_BIN=google-chrome cargo xtask loading-check
       - run: CHROME_BIN=google-chrome cargo xtask component-shot all
       - run: CHROME_BIN=google-chrome cargo xtask home-shot
       - name: Upload Chromium startup logs
@@ -81,6 +83,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+      - run: npm ci --prefix crates/web
       - run: npm install --global wrangler@4.154.0
       - name: Apply D1 migrations to production
         run: cargo xtask migrate --remote
