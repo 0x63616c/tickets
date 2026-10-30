@@ -28,3 +28,8 @@ default; `--state all|open|closed`, `--since YYYY-MM-DD`, `--exclude N,M` and
 `--close-github` support the one-shot migration. See [migration usage](docs/DEVELOPMENT.md#github-import).
 The signed webhook remains available for pull-request integration; issue events
 are ignored and issue reconciliation no longer runs.
+
+GitHub App registration is available through the
+[manifest callback setup flow](docs/API.md#github-app-registration-phase-1).
+Phase 1 stores encrypted app credentials and provides an installation link;
+installation processing and the webhook switch follow in Phase 2.
