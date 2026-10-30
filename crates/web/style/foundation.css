@@ -142,6 +142,12 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
  .activity-time { min-height: 32px; }
 }
 
+.columns-menu { flex-shrink: 0; }
+.columns-menu .menu-trigger { min-height: 32px; }
+.columns-menu .menu-item > span { flex: 1; text-align: left; }
+.columns-hint { margin: var(--space-2); color: var(--text-muted); font-size: var(--text-xs); }
+
+.columns-menu .menu-item:disabled { opacity: 1; color: var(--text-muted); cursor: not-allowed; }
 .pr-check-status { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-muted); font-size: var(--text-sm); white-space: nowrap; }
 .pr-check-status.passed > span { color: var(--success); }
 .pr-check-status.failed > span { color: var(--danger); }

@@ -99,6 +99,7 @@ pub(crate) struct BoardState {
     pub(crate) projects: RwSignal<Vec<Project>>,
     pub(crate) labels: RwSignal<Vec<Label>>,
     pub(crate) project: RwSignal<i64>,
+    columns: ColumnVisibility,
     label: RwSignal<String>,
     assignee: RwSignal<String>,
     query: RwSignal<String>,
@@ -118,11 +119,16 @@ pub(crate) struct BoardState {
 }
 impl BoardState {
     pub(crate) fn new() -> Self {
+        let project = RwSignal::new(0);
+        let columns = ColumnVisibility::new(Signal::derive(move || {
+            format!("tickets.board.columns.project.{}", project.get())
+        }));
         Self {
             tickets: RwSignal::new(vec![]),
             projects: RwSignal::new(vec![]),
             labels: RwSignal::new(vec![]),
-            project: RwSignal::new(0),
+            project,
+            columns,
             label: RwSignal::new(String::new()),
             assignee: RwSignal::new(String::new()),
             query: RwSignal::new(String::new()),
@@ -475,14 +481,8 @@ impl BoardState {
         }
     }
     fn keyboard(self, ticket: i64, e: web_sys::KeyboardEvent) {
-        let last_column = if window().location().search().is_ok_and(|q| {
-            q.split('&')
-                .any(|part| part.trim_start_matches('?') == "canceled=true")
-        }) {
-            5
-        } else {
-            4
-        };
+        let columns = self.columns.visible.get_untracked();
+        let last_column = columns.len() - 1;
         if e.target()
             .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
             .is_some_and(|t| t.tag_name() != "ARTICLE")
@@ -537,13 +537,13 @@ impl BoardState {
         };
         if self.dragged.get_untracked() == Some(ticket) {
             if key == "ArrowLeft" || key == "ArrowRight" {
-                let at = Status::ALL.iter().position(|v| *v == s).unwrap_or(0);
+                let at = columns.iter().position(|v| *v == s).unwrap_or(0);
                 let next = if key == "ArrowLeft" {
                     at.saturating_sub(1)
                 } else {
                     (at + 1).min(last_column)
                 };
-                self.place(ticket, Status::ALL[next], None);
+                self.place(ticket, columns[next], None);
             } else if let Some(target) = target
                 && target != ticket
             {
@@ -563,7 +563,7 @@ impl BoardState {
         } else if let Some(target) = target {
             focus(target);
         } else if key == "ArrowLeft" || key == "ArrowRight" {
-            let Some(at) = Status::ALL.iter().position(|v| *v == s) else {
+            let Some(at) = columns.iter().position(|v| *v == s) else {
                 return;
             };
             let candidates: Vec<_> = if key == "ArrowLeft" {
@@ -572,7 +572,7 @@ impl BoardState {
                 (at + 1..=last_column).collect()
             };
             for next in candidates {
-                if let Some(t) = self.column(Status::ALL[next], true).first() {
+                if let Some(t) = self.column(columns[next], true).first() {
                     focus(id(t));
                     break;
                 }
@@ -604,6 +604,86 @@ fn focus(ticket: i64) {
     });
 }
 
+/// Shared by the live board and fixture preview. Fixture keys have their own namespace.
+#[derive(Clone, Copy)]
+pub struct ColumnVisibility {
+    pub(super) visible: Memo<Vec<Status>>,
+    key: Signal<String>,
+    choices: RwSignal<std::collections::HashMap<String, Vec<Status>>>,
+}
+impl ColumnVisibility {
+    pub(super) fn new(key: Signal<String>) -> Self {
+        let choices = RwSignal::new(std::collections::HashMap::<String, Vec<Status>>::new());
+        let visible = Memo::new(move |_| {
+            let key = key.get();
+            if let Some(value) = choices.get().get(&key) {
+                return value.clone();
+            }
+            let saved = super::settings::stored(&key, "");
+            serde_json::from_str::<Vec<Status>>(&saved)
+                .ok()
+                .filter(|values| !values.is_empty())
+                .map(|values| {
+                    Status::ALL
+                        .into_iter()
+                        .filter(|s| values.contains(s))
+                        .collect()
+                })
+                .unwrap_or_else(|| {
+                    Status::ALL
+                        .into_iter()
+                        .filter(|s| *s != Status::Canceled)
+                        .collect()
+                })
+        });
+        Self {
+            visible,
+            key,
+            choices,
+        }
+    }
+    fn toggle(self, status: Status) {
+        let mut next = self.visible.get_untracked();
+        if next.contains(&status) {
+            if next.len() == 1 {
+                return;
+            }
+            next.retain(|s| *s != status);
+        } else {
+            next.push(status);
+        }
+        // Keyboard navigation follows the rendered status order after re-enabling a column.
+        let next = Status::ALL
+            .into_iter()
+            .filter(|s| next.contains(s))
+            .collect::<Vec<_>>();
+        let key = self.key.get_untracked();
+        if let Ok(value) = serde_json::to_string(&next) {
+            super::settings::persist(&key, &value);
+        }
+        self.choices.update(|choices| {
+            choices.insert(key, next);
+        });
+    }
+}
+
+#[component]
+pub(super) fn ColumnsMenu(
+    columns: ColumnVisibility,
+    #[prop(into)] disabled: Signal<bool>,
+) -> impl IntoView {
+    view! {<DropdownMenu class="columns-menu" label="Columns" icon="board" disclosure=true disabled>
+        {Status::ALL.into_iter().map(|s|view!{
+            <MenuItem checked=Signal::derive(move||columns.visible.get().contains(&s))
+                disabled=Signal::derive(move||disabled.get() || (columns.visible.get().len()==1 && columns.visible.get().contains(&s)))
+                close_on_select=false on_select=Callback::new(move|_|columns.toggle(s))>
+                <StatusIcon status=s/><span>{s.name()}</span>
+            </MenuItem>
+        }).collect_view()}
+        <p class="columns-hint">"Keep at least one column visible."</p>
+    </DropdownMenu>}
+}
+
 #[component]
 pub fn ApiBoard() -> impl IntoView {
     let state = expect_context::<BoardState>();
@@ -624,20 +704,33 @@ pub fn ApiBoard() -> impl IntoView {
             state.select_project(id);
         }
     });
-    let navigate = leptos_router::hooks::use_navigate();
-    let show_canceled =
-        Signal::derive(move || query.get().get("canceled").as_deref() == Some("true"));
-    let toggle_canceled = Callback::new(move |_| {
-        let mut params = query.get_untracked();
-        if show_canceled.get_untracked() {
-            params.remove("canceled");
-        } else {
-            params.insert("canceled", "true".into());
+    // Preserve explicit canceled-column links while Columns owns saved visibility.
+    Effect::new(move |_| {
+        let params = query.get();
+        let project = state.project.get();
+        let pending_project = params
+            .get("project")
+            .and_then(|id| id.parse::<i64>().ok())
+            .is_some_and(|id| {
+                id != project
+                    && state
+                        .projects
+                        .get_untracked()
+                        .iter()
+                        .any(|p| p.id == id && !p.archived)
+            });
+        if project == 0 || pending_project {
+            return;
         }
-        navigate(
-            &format!("/board{}", params.to_query_string()),
-            Default::default(),
-        );
+        if params.get("canceled").as_deref() == Some("true")
+            && !state
+                .columns
+                .visible
+                .get_untracked()
+                .contains(&Status::Canceled)
+        {
+            state.columns.toggle(Status::Canceled);
+        }
     });
     let handle = window_event_listener(ev::keydown, move |e| {
         let editing = e
@@ -670,21 +763,21 @@ pub fn ApiBoard() -> impl IntoView {
         <h1 class="sr-only">"Board"</h1><header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><span class="breadcrumb-current">{move||state.projects.get().into_iter().find(|p|p.id==state.project.get()).map(|p|view!{<ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/>{p.name}})}</span></div><div class="topbar-actions"><Show when=move||state.refreshing.get() && !state.loading.get()><LoadingIndicator label="Refreshing board"/></Show><crate::live::LiveIndicator/></div></header>
         <div class="view-tabs"><nav aria-label="Ticket view"><span class="view-tab selected"><Icon name="board"/>"Board"</span><a class="view-tab" href="/list"><Icon name="list"/>"List"</a></nav><crate::pages::projects::ProjectLinks/></div>
         <Show when=move||!state.loading.get() fallback=||view!{<LoadingSkeleton layout="board"/>}>
-        <Show when=move||state.tickets.get().iter().any(|t|t.project_id==state.project.get())><div class="view-toolbar board-filters"><div class="filter-input"><Icon name="filter"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Filter tickets" disabled=move||state.dragged.get().is_some() placeholder="Filter tickets…" prop:value=move||state.query.get() on:input=move|e|state.query.set(event_target_value(&e))/></div>
+        <Show when=move||state.project.get()!=0><div class="view-toolbar board-filters"><div class="filter-input"><Icon name="filter"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Filter tickets" disabled=move||state.dragged.get().is_some() placeholder="Filter tickets…" prop:value=move||state.query.get() on:input=move|e|state.query.set(event_target_value(&e))/></div>
         <SelectField label="Filter by label" value=Signal::derive(move||state.label.get()) options=Signal::derive(move||std::iter::once(SelectOption::new("","All labels")).chain(state.labels.get().into_iter().filter(|l|visible_label(&l.name)).map(|l|SelectOption::new(l.id,l.name))).collect()) on_change=Callback::new(move|next:String|state.label.set(next)) disabled=Signal::derive(move||state.dragged.get().is_some())/>
-        <SelectField label="Filter by assignee" value=Signal::derive(move||state.assignee.get()) options=Signal::derive(move||{let mut names:Vec<_>=state.tickets.get().iter().filter(|t|t.project_id==state.project.get()).filter_map(|t|t.assignee.clone()).collect();names.sort();names.dedup();vec![SelectOption::new("","All assignees"),SelectOption::new("__unassigned","Unassigned")].into_iter().chain(names.into_iter().map(|n|SelectOption::new(&n,&n))).collect()}) on_change=Callback::new(move|next:String|state.assignee.set(next)) disabled=Signal::derive(move||state.dragged.get().is_some())/><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=move||show_canceled.get() disabled=move||state.dragged.get().is_some() on:change=move|_|toggle_canceled.run(())/>"Show canceled"</label></div></Show>
+        <SelectField label="Filter by assignee" value=Signal::derive(move||state.assignee.get()) options=Signal::derive(move||{let mut names:Vec<_>=state.tickets.get().iter().filter(|t|t.project_id==state.project.get()).filter_map(|t|t.assignee.clone()).collect();names.sort();names.dedup();vec![SelectOption::new("","All assignees"),SelectOption::new("__unassigned","Unassigned")].into_iter().chain(names.into_iter().map(|n|SelectOption::new(&n,&n))).collect()}) on_change=Callback::new(move|next:String|state.assignee.set(next)) disabled=Signal::derive(move||state.dragged.get().is_some())/><ColumnsMenu columns=state.columns disabled=Signal::derive(move||state.dragged.get().is_some() || state.busy.get())/></div></Show>
         <Show when=move||!state.error.get().is_empty()><div class="board-message" role="alert">{move||state.error.get()}" "" "<button class="button" on:click=move|_|state.catch_up() disabled=move||state.busy.get() || state.loading.get()>"Reload board"</button></div></Show>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.project.get()==0><div class="empty-project"><div class="empty-state"><Icon name="project"/><h2>"No projects yet"</h2><a class="button button-primary" href="/projects">"Create project"</a></div></div></Show>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.project.get()!=0 && !state.tickets.get().iter().any(|t|t.project_id==state.project.get())><div class="empty-project"><EmptyState title="No tickets yet" description="Add the first ticket to this project." action="New ticket" icon="ticket" on_action=Callback::new(move|_|state.composer.set(Some(Status::Todo)))/></div></Show>
-        <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.tickets.get().iter().any(|t|t.project_id==state.project.get()) && !state.tickets.get().iter().any(|t|state.visible(t) && (t.status!=Status::Canceled || show_canceled.get()))><div class="board-message empty-state"><h2>"No tickets match this view"</h2><button class="button" on:click=move|_|{state.query.set(String::new());state.label.set(String::new());state.assignee.set(String::new());}>"Clear filters"</button></div></Show>
+        <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.tickets.get().iter().any(|t|t.project_id==state.project.get()) && !state.tickets.get().iter().any(|t|state.visible(t) && state.columns.visible.get().contains(&status(t)))><div class="board-message empty-state"><h2>"No tickets in this view"</h2><p>"Show more columns or clear your filters to find tickets."</p><Show when=move||!state.query.get().is_empty() || !state.label.get().is_empty() || !state.assignee.get().is_empty()><button class="button" on:click=move|_|{state.query.set(String::new());state.label.set(String::new());state.assignee.set(String::new());}>"Clear filters"</button></Show></div></Show>
         <Show when=move||state.project.get()!=0><div node_ref=reveal_root class="board api-board" aria-label="Ticket board" aria-busy=move||(state.busy.get() || state.refreshing.get()).to_string()>{Status::ALL.into_iter().map(|s|view!{
-            <Show when=move|| (s!=Status::Canceled || show_canceled.get()) && (s!=Status::InReview || !state.column(s,false).is_empty())>
+            <Show when=move|| state.columns.visible.get().contains(&s)>
             <section class="board-column" aria-label=s.name() on:dragover=move|e|e.prevent_default() on:drop=move|e|{e.prevent_default();if let Some(ticket)=state.dragged.get_untracked(){state.move_to(ticket,s,None);}}>
             <div class="column-heading"><StatusIcon status=s/><h2>{s.name()}</h2><span class="count">{move||state.column(s,true).len()}</span><button class="icon-button" aria-label=format!("Add ticket to {}",s.name()) disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/></button></div>
             <div class="column-cards"><For each=move||state.column(s,true) key=|t| (id(t),format!("{t:?}")) children=move|ticket|view!{<ApiCard ticket/>}/></div><button class="add-card" disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/>"New ticket"</button></section>
             </Show>
         }).collect_view()}</div></Show>
-        <div class="view-footer" id="board-keys"><span hidden=move||state.loading.get()>{move||crate::count::count_label(state.tickets.get().iter().filter(|t|state.visible(t) && (t.status!=Status::Canceled || show_canceled.get())).count(), "ticket")}</span><span>"Space: pick up / drop · Arrows: move · Esc: cancel"</span></div>
+        <div class="view-footer" id="board-keys"><span hidden=move||state.loading.get()>{move||crate::count::count_label(state.tickets.get().iter().filter(|t|state.visible(t) && state.columns.visible.get().contains(&status(t))).count(), "ticket")}</span><span>"Space: pick up / drop · Arrows: move · Esc: cancel"</span></div>
         </Show>
         {let shown=present_value(state.composer.into());move||shown.get().map(|status|view!{<BoardComposer status/>})}
     }
