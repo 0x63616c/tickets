@@ -237,6 +237,7 @@ fn sidebar_key(event: web_sys::KeyboardEvent) {
 
 #[component]
 pub fn TopBar(
+    #[prop(default = true)] new_ticket: bool,
     #[prop(default = "Tickets")] title: &'static str,
     #[prop(default = false)] detail: bool,
 ) -> impl IntoView {
@@ -244,7 +245,7 @@ pub fn TopBar(
     view! {
         <header class="topbar">
             <div class="breadcrumbs"><A href="/design/projects"><Icon name="project"/>"Projects"</A>{(title != "Projects").then(|| view! { <span class="breadcrumb-slash">"/"</span><span class="breadcrumb-current">{move || if title == "Project" || title == "Tickets" || detail { state.current_project.get() } else { title.into() }}</span> })}{detail.then(|| view! { <span class="breadcrumb-slash">"/"</span><span class="mono">{move || format!("TKT-{}", state.selected_ticket.get())}</span> })}</div>
-            <div class="topbar-actions"><ConnectionIndicator state=ConnectionState::Connected/><span class="toolbar-divider"/>{if title == "Projects" { view! { <Button variant="primary" on_click=Callback::new(move |_| state.dialog.set(DialogKind::Project))><Icon name="plus"/>"New project"</Button> }.into_any() } else { view! { <Button variant="primary" on_click=Callback::new(move |_| state.new_ticket(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></Button> }.into_any() }}</div>
+            <div class="topbar-actions"><ConnectionIndicator state=ConnectionState::Connected/>{(new_ticket || title == "Projects").then(|| view! { <span class="toolbar-divider"/> })}{if title == "Projects" { view! { <Button variant="primary" on_click=Callback::new(move |_| state.dialog.set(DialogKind::Project))><Icon name="plus"/>"New project"</Button> }.into_any() } else if new_ticket { view! { <Button variant="primary" on_click=Callback::new(move |_| state.new_ticket(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></Button> }.into_any() } else { ().into_any() }}</div>
         </header>
     }
 }

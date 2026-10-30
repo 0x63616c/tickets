@@ -572,3 +572,11 @@ project icon schema changes additive and validate values in core.
   motion, and captures six small before/after PNGs across both runs. Set
   `TICKETS_BEFORE_ASSETS=<main-dist>` for the before run. Evidence and reproduction
   notes live in `docs/screenshots/TIK-47/`.
+
+### Board topbar creation
+
+The board topbar shows connection state only; create tickets with a column's
+labelled + button. The C shortcut defaults to Todo. Other views keep their
+New ticket action. `cargo xtask component-shot board-topbar` captures fixture-only
+44px board chrome and full-page desktop/mobile evidence; `--before-assets`
+uses baseline assets. `board-check` verifies all six column creation defaults.

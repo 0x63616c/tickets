@@ -66,7 +66,7 @@ pub fn check(root: &Path, password: &str) -> Result {
     b.go(&format!("{URL}/board"))?;
     b.wait("document.querySelectorAll('.api-ticket').length===15")?;
     pair(&mut b, &output, phase, "kanban")?;
-    b.click(".topbar .button-primary")?;
+    b.click("[aria-label='Add ticket to Todo']")?;
     b.wait("!!document.querySelector('#board-title')")?;
     pair(&mut b, &output, phase, "create-dialog")?;
     b.click("[aria-label='Close dialog']")?;
@@ -143,12 +143,12 @@ fn interactions(b: &mut Browser) -> Result {
     b.wait("document.querySelectorAll('.board-column').length===4 && document.activeElement.id==='ticket-9' && document.querySelector('#ticket-9').closest('section').getAttribute('aria-label')==='In progress'")?;
     b.key("ArrowRight", 39, 0)?;
     b.wait("document.activeElement.id==='ticket-13'")?;
-    b.click(".topbar .button-primary")?;
+    b.click("[aria-label='Add ticket to Todo']")?;
     b.wait("document.activeElement.id==='board-title'")?;
     b.key("k", 75, 4)?;
     b.wait("document.querySelectorAll('dialog').length===1 && !!document.querySelector('#board-title')")?;
     b.key("Escape", 27, 0)?;
-    b.wait("!document.querySelector('dialog') && document.activeElement.matches('.topbar .button-primary')")?;
+    b.wait("!document.querySelector('dialog') && document.activeElement.getAttribute('aria-label')==='Add ticket to Todo'")?;
     b.click(".search-trigger")?;
     b.text(".command-search input", "zzzz-no-match-zzzz")?;
     b.wait("document.querySelector('.command-empty')?.textContent.includes('No results')")?;
