@@ -153,10 +153,130 @@ impl BoardState {
         true
     }
     pub(crate) fn refresh(self) {
-        self.fetch(false);
+        if !self.loaded.get_untracked() {
+            self.fetch(false);
+        }
     }
     pub(crate) fn catch_up(self) {
+        crate::ui::invalidate_reads();
         self.fetch(true);
+    }
+    /// Reconcile only changed records; the collection survives route changes.
+    pub(crate) fn reconcile(self, events: Vec<tickets_core::live::ChangeEvent>) {
+        if events.iter().any(|e| e.id == 0) {
+            self.catch_up();
+            return;
+        }
+        self.refreshing.set(true);
+        spawn_local(async move {
+            let result = async {
+                let projects = all::<Project>("projects").await?;
+                self.projects.set(projects.clone());
+                let mut ids = std::collections::BTreeSet::new();
+                for event in &events {
+                    match event.entity.as_str() {
+                        "tickets" | "dependencies" => {
+                            ids.insert(event.id);
+                        }
+                        "labels" => {
+                            if self
+                                .tickets
+                                .get_untracked()
+                                .iter()
+                                .any(|t| t.id == event.id)
+                            {
+                                ids.insert(event.id);
+                            }
+                        }
+                        "comments" => {
+                            let comment = api(
+                                "GET",
+                                &format!("/api/v1/comments/{}", event.id),
+                                Value::Null,
+                            )
+                            .await?;
+                            if let Some(id) = comment["ticket_id"].as_i64() {
+                                ids.insert(id);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                if events.iter().any(|e| e.entity == "labels") {
+                    let labels = all::<Label>("labels").await?;
+                    self.labels.set(labels.clone());
+                    self.tickets.update(|tickets| {
+                        for ticket in tickets {
+                            ticket.labels = ticket
+                                .labels
+                                .iter()
+                                .filter_map(|old| labels.iter().find(|l| l.id == old.id).cloned())
+                                .collect();
+                        }
+                    });
+                }
+                // Home has no ticket collection: leave it unloaded until Board/List need it.
+                if self.loaded.get_untracked() {
+                    let mut related = std::collections::BTreeSet::new();
+                    for id in ids {
+                        if let Some(old) = self.tickets.get_untracked().iter().find(|t| t.id == id)
+                        {
+                            related.extend(old.blocks.iter().copied());
+                            related.extend(old.blocked_by.iter().copied());
+                        }
+                        let deleted = events
+                            .iter()
+                            .any(|e| e.entity == "tickets" && e.id == id && e.action == "delete");
+                        if deleted {
+                            self.tickets.update(|ts| {
+                                ts.retain(|t| t.id != id);
+                                for t in ts {
+                                    t.blocks.retain(|b| *b != id);
+                                    t.blocked_by.retain(|b| *b != id);
+                                }
+                            });
+                            continue;
+                        }
+                        // A global label event's ID may not also identify a ticket.
+                        let value =
+                            api("GET", &format!("/api/v1/tickets/{id}"), Value::Null).await?;
+                        {
+                            let ticket: BoardTicket =
+                                serde_json::from_value(value).map_err(|e| e.to_string())?;
+                            related.extend(ticket.blocks.iter().copied());
+                            related.extend(ticket.blocked_by.iter().copied());
+                            self.apply_change_event(ticket, false);
+                        }
+                    }
+                    if events.iter().any(|e| e.entity == "dependencies") {
+                        for id in related {
+                            let value =
+                                api("GET", &format!("/api/v1/tickets/{id}"), Value::Null).await?;
+                            self.apply_change_event(
+                                serde_json::from_value(value).map_err(|e| e.to_string())?,
+                                false,
+                            );
+                        }
+                    }
+                    self.tickets.update(|ts| {
+                        for t in ts {
+                            if let Some(p) = projects.iter().find(|p| p.id == t.project_id)
+                                && let Some((_, number)) = t.key.rsplit_once('-')
+                            {
+                                t.key = format!("{}-{number}", p.key_prefix);
+                            }
+                        }
+                    });
+                }
+                Ok::<(), String>(())
+            }
+            .await;
+            if let Err(error) = result {
+                self.error.set(error);
+            }
+            self.refreshing.set(false);
+            self.catchup_revision.update(|r| *r += 1);
+        });
     }
     fn fetch(self, background: bool) {
         if self.refreshing.get_untracked() {
@@ -544,7 +664,7 @@ pub fn ApiBoard() -> impl IntoView {
         <SelectField label="Filter by label" value=Signal::derive(move||state.label.get()) options=Signal::derive(move||std::iter::once(SelectOption::new("","All labels")).chain(state.labels.get().into_iter().filter(|l|visible_label(&l.name)).map(|l|SelectOption::new(l.id,l.name))).collect()) on_change=Callback::new(move|next:String|state.label.set(next)) disabled=Signal::derive(move||state.dragged.get().is_some())/>
         <SelectField label="Filter by assignee" value=Signal::derive(move||state.assignee.get()) options=Signal::derive(move||{let mut names:Vec<_>=state.tickets.get().iter().filter(|t|t.project_id==state.project.get()).filter_map(|t|t.assignee.clone()).collect();names.sort();names.dedup();vec![SelectOption::new("","All assignees"),SelectOption::new("__unassigned","Unassigned")].into_iter().chain(names.into_iter().map(|n|SelectOption::new(&n,&n))).collect()}) on_change=Callback::new(move|next:String|state.assignee.set(next)) disabled=Signal::derive(move||state.dragged.get().is_some())/><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=move||show_canceled.get() disabled=move||state.dragged.get().is_some() on:change=move|_|toggle_canceled.run(())/>"Show canceled"</label></div></Show>
         <Show when=move||state.loading.get()><LoadingSkeleton layout="board"/></Show>
-        <Show when=move||!state.error.get().is_empty()><div class="board-message" role="alert">{move||state.error.get()}" "" "<button class="button" on:click=move|_|state.refresh() disabled=move||state.busy.get() || state.loading.get()>"Reload board"</button></div></Show>
+        <Show when=move||!state.error.get().is_empty()><div class="board-message" role="alert">{move||state.error.get()}" "" "<button class="button" on:click=move|_|state.catch_up() disabled=move||state.busy.get() || state.loading.get()>"Reload board"</button></div></Show>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.project.get()==0><div class="empty-project"><div class="empty-state"><Icon name="project"/><h2>"No projects yet"</h2><a class="button button-primary" href="/projects">"Create project"</a></div></div></Show>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.project.get()!=0 && !state.tickets.get().iter().any(|t|t.project_id==state.project.get())><div class="empty-project"><EmptyState title="No tickets yet" description="Add the first ticket to this project." action="New ticket" icon="ticket" on_action=Callback::new(move|_|state.composer.set(Some(Status::Todo)))/></div></Show>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.tickets.get().iter().any(|t|t.project_id==state.project.get()) && !state.tickets.get().iter().any(|t|state.visible(t) && (t.status!=Status::Canceled || show_canceled.get()))><div class="board-message empty-state"><h2>"No tickets match this view"</h2><button class="button" on:click=move|_|{state.query.set(String::new());state.label.set(String::new());state.assignee.set(String::new());}>"Clear filters"</button></div></Show>

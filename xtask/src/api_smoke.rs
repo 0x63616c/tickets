@@ -128,6 +128,10 @@ pub fn mirror_check(root: &Path) -> Result<()> {
 pub fn pickup(root: &Path) -> Result<()> {
     run_inner_mode(root, false, false, "pickup")
 }
+#[cfg(not(target_arch = "wasm32"))]
+pub fn perf(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, false, "perf")
+}
 pub fn run(root: &Path, skill: bool) -> Result<()> {
     run_inner(root, skill, false)
 }
@@ -458,6 +462,14 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         ),
     )?;
     #[cfg(not(target_arch = "wasm32"))]
+    if _view == "perf" {
+        return super::perf_browser::check(
+            root,
+            &password,
+            token["token"].as_str().ok_or("token")?,
+        );
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     if _view == "pickup" {
         return pickup_check(&c, &config, &state);
     }
@@ -652,6 +664,8 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         "bearer",
         400,
     )?;
+    #[cfg(not(target_arch = "wasm32"))]
+    read_cache_check(&c)?;
     let token_path = format!("/api/v1/tokens/{}", token["metadata"]["id"]);
     c.call("DELETE", &token_path, Value::Null, "cookie", 200)?;
     c.call(
@@ -780,6 +794,92 @@ fn pickup_check(c: &Client, config: &Path, state: &Path) -> Result<()> {
     }
     println!(
         "PASS pickup D1: authentication, CSRF, empty 204, preview, concurrent HTTP claims, owner fencing, heartbeat, release, cron and history"
+    );
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn read_cache_check(c: &Client) -> Result<()> {
+    let header = fs::read_to_string(c.dir.join("bearer.local"))?;
+    let token = header
+        .strip_prefix("Authorization: Bearer ")
+        .ok_or("missing bearer")?
+        .trim();
+    let client = reqwest::blocking::Client::new();
+    for path in [
+        "/api/v1/projects?limit=100",
+        "/api/v1/tickets?limit=100",
+        "/api/v1/labels?limit=100",
+        "/api/v1/analytics/home",
+        "/api/v1/search?q=fixture",
+    ] {
+        let url = format!("http://127.0.0.1:{}{path}", c.port);
+        let first = client
+            .get(&url)
+            .bearer_auth(token)
+            .send()?
+            .error_for_status()?;
+        let tag = first.headers().get("ETag").ok_or("missing ETag")?.clone();
+        let version = first
+            .headers()
+            .get("X-Workspace-Version")
+            .ok_or("missing version")?
+            .clone();
+        if first
+            .headers()
+            .get("Cache-Control")
+            .and_then(|h| h.to_str().ok())
+            != Some("private, no-cache")
+        {
+            return Err("cache policy must be private".into());
+        }
+        let first_body = first.text()?;
+        let warm = client
+            .get(&url)
+            .bearer_auth(token)
+            .send()?
+            .error_for_status()?;
+        if warm.text()? != first_body {
+            return Err("warm cache changed response".into());
+        }
+        let unchanged = client
+            .get(&url)
+            .bearer_auth(token)
+            .header("If-None-Match", &tag)
+            .send()?;
+        if unchanged.status() != 304 || !unchanged.bytes()?.is_empty() {
+            return Err(format!("conditional GET failed: {path}").into());
+        }
+        let denied = client.get(&url).header("If-None-Match", &tag).send()?;
+        if denied.status() != 401 {
+            return Err("cache bypassed auth".into());
+        }
+        c.call("POST","/api/v1/labels",json!({"name":format!("cache-{}",tickets_core::auth::hash_token(path)),"color":"#5e6ad2"}),"bearer",201)?;
+        let changed = client
+            .get(&url)
+            .bearer_auth(token)
+            .header("If-None-Match", &tag)
+            .send()?;
+        if changed.status() != 200
+            || changed.headers().get("ETag") == Some(&tag)
+            || changed.headers().get("X-Workspace-Version") == Some(&version)
+        {
+            return Err("mutation did not invalidate cache".into());
+        }
+    }
+    let invalid = client
+        .get(format!(
+            "http://127.0.0.1:{}/api/v1/tickets?limit=101",
+            c.port
+        ))
+        .bearer_auth(token)
+        .header("If-None-Match", "*")
+        .send()?;
+    if invalid.status() != 400 {
+        return Err("conditional GET bypassed validation".into());
+    }
+    println!(
+        "PASS private read cache: warm bodies, ETag/304, auth, transactional invalidation and validation"
     );
     Ok(())
 }

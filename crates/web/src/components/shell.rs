@@ -76,24 +76,6 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
     let shortcuts = RwSignal::new(false);
     let editor = RwSignal::new(None::<tickets_core::domain::Project>);
     let archive = RwSignal::new(None::<tickets_core::domain::Project>);
-    let count_revision = RwSignal::new(0_u64);
-    Effect::new(move |_| {
-        board.tickets.track();
-        if fixture || board.loading.get_untracked() {
-            return;
-        }
-        count_revision.update(|r| *r += 1);
-        let revision = count_revision.get_untracked();
-        wasm_bindgen_futures::spawn_local(async move {
-            if let Ok(projects) =
-                crate::pages::board::all::<tickets_core::domain::Project>("projects").await
-                && !count_revision.is_disposed()
-                && count_revision.get_untracked() == revision
-            {
-                board.projects.set(projects);
-            }
-        });
-    });
     let signing_out = RwSignal::new(false);
     let navigate = leptos_router::hooks::use_navigate();
     let go = Callback::new(move |path: String| {

@@ -28,6 +28,10 @@ mod login;
 #[cfg(not(target_arch = "wasm32"))]
 mod mirror_check;
 #[cfg(not(target_arch = "wasm32"))]
+mod perf;
+#[cfg(not(target_arch = "wasm32"))]
+mod perf_browser;
+#[cfg(not(target_arch = "wasm32"))]
 mod pickup;
 #[cfg(not(target_arch = "wasm32"))]
 mod screenshots;
@@ -114,6 +118,10 @@ fn main() -> Result {
         return Err("expected exactly one task: dev, build, migrate, ci, api-smoke, skill-check, live-check, import-github, import-check, auth-hash, auth-bench, auth-verify, auth-screenshots".into());
     }
     match task.as_deref() {
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("perf-check") => perf::check(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("perf-browser-check") => api_smoke::perf(root),
         Some("check") if args.get(1).map(String::as_str) == Some("design-tokens") => design_tokens::check(root, &args[2..]),
         #[cfg(not(target_arch = "wasm32"))]
         Some("loading-check") => loading::check(root),

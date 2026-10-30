@@ -14,44 +14,55 @@ use web_sys::wasm_bindgen::{JsCast, closure::Closure};
 
 pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
     let dirty = RwSignal::new(false);
+    let events = RwSignal::new(BTreeMap::<(String, i64), ChangeEvent>::new());
+    let recover = RwSignal::new(false);
     let online = RwSignal::new(window().navigator().on_line());
     let went_offline = window_event_listener(leptos::ev::offline, move |_| online.set(false));
-    let request = move || dirty.set(true);
+    let request = move || {
+        recover.set(true);
+        dirty.set(true);
+    };
     let went_online = window_event_listener(leptos::ev::online, move |_| {
         online.set(true);
         request();
     });
-    let focus = window_event_listener(leptos::ev::focus, move |_| request());
-    let visibility = Closure::<dyn Fn()>::new(move || {
-        if !document().hidden() {
+    // Healthy live sockets already deliver changes. Focus is recovery only.
+    let focus = window_event_listener(leptos::ev::focus, move |_| {
+        if !matches!(board.connection.get_untracked(), ConnectionState::Connected) {
             request();
+        }
+    });
+    let visibility = Closure::<dyn Fn()>::new(move || {
+        if !document().hidden()
+            && (dirty.get_untracked()
+                || !matches!(board.connection.get_untracked(), ConnectionState::Connected))
+        {
+            if !matches!(board.connection.get_untracked(), ConnectionState::Connected) {
+                recover.set(true);
+            }
+            dirty.set(true);
         }
     });
     document()
         .add_event_listener_with_callback("visibilitychange", visibility.as_ref().unchecked_ref())
         .expect("visibility listener");
-    let timer = gloo_timers::callback::Interval::new(60_000, move || {
-        if !document().hidden() {
-            request();
-        }
-    });
     let visibility = StoredValue::new_local(visibility);
-    let _timer = StoredValue::new_local(timer);
     on_cleanup(move || {
-        went_offline.remove();
-        went_online.remove();
-        focus.remove();
         visibility.with_value(|listener| {
             let _ = document().remove_event_listener_with_callback(
                 "visibilitychange",
                 listener.as_ref().unchecked_ref(),
             );
         });
+        went_offline.remove();
+        went_online.remove();
+        focus.remove();
     });
     // A single debounce coalesces room broadcasts, reconnects and browser events.
     Effect::new(move |_| {
         let revision = board.live_revision.get();
         if revision > 0 {
+            recover.set(true);
             dirty.set(true);
         }
     });
@@ -86,10 +97,18 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                     && !board.refreshing.get_untracked()
                 {
                     dirty.set(false);
-                    if !["/", "/home"].contains(&path.get_untracked().as_str()) {
-                        board.catch_up();
+                    let pending = events.get_untracked().into_values().collect::<Vec<_>>();
+                    events.update(|e| e.clear());
+                    crate::ui::invalidate_reads();
+                    if recover.get_untracked() {
+                        recover.set(false);
+                        if !["/", "/home"].contains(&path.get_untracked().as_str()) {
+                            board.catch_up();
+                        }
+                        board.catchup_revision.update(|r| *r += 1);
+                    } else {
+                        board.reconcile(pending);
                     }
-                    board.catchup_revision.update(|r| *r += 1);
                 }
                 scheduled.set(false);
             });
@@ -103,18 +122,10 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
             .iter()
             .map(|p| p.id)
             .collect::<Vec<_>>();
-        let project = board.project.get();
-        let active = online.get()
-            && board.signed_in.get()
-            && (["/", "/home", "/board", "/list", "/ticket"].contains(&path.as_str())
-                || path.starts_with("/t/"));
-        if !active {
-            vec![]
-        } else if ["/", "/home", "/list"].contains(&path.as_str()) {
-            projects
-        } else {
-            projects.into_iter().filter(|id| *id == project).collect()
-        }
+        // The store covers the whole workspace, so keep all project rooms across
+        // navigation. Otherwise an inactive project's cached tickets become stale.
+        let active = online.get() && board.signed_in.get() && !path.starts_with("/design");
+        if active { projects } else { vec![] }
     });
     Effect::new(move |_| {
         let ids: Vec<i64> = subscriptions.get();
@@ -129,6 +140,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                 let _ = Abortable::new(
                     async move {
                         let mut attempt = 0u32;
+                        let mut connected_once = false;
                         loop {
                             board.connection.set(if window().navigator().on_line() {
                                 ConnectionState::Reconnecting
@@ -157,8 +169,16 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                                     states.borrow_mut().insert(id, true);
                                     if states.borrow().values().all(|open| *open) {
                                         board.connection.set(ConnectionState::Connected);
+                                        // Close the snapshot-to-subscription gap with two cheap
+                                        // rows (auth + version), not another collection download.
+                                        if !connected_once && crate::ui::version_changed().await {
+                                            request();
+                                        }
                                     }
-                                    board.live_revision.update(|r| *r += 1);
+                                    if connected_once {
+                                        board.live_revision.update(|r| *r += 1);
+                                    }
+                                    connected_once = true;
                                     attempt = 0;
                                     while let Some(Ok(message)) = socket.next().await {
                                         if let Message::Text(text) = message
@@ -166,7 +186,13 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                                                 serde_json::from_str::<ChangeEvent>(&text)
                                             && event.project_id == id
                                         {
-                                            board.live_revision.update(|r| *r += 1);
+                                            events.update(|events| {
+                                                events.insert(
+                                                    (event.entity.clone(), event.id),
+                                                    event,
+                                                );
+                                            });
+                                            dirty.set(true);
                                         }
                                     }
                                 }

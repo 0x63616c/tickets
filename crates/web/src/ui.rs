@@ -4,11 +4,71 @@ use leptos::prelude::*;
 use serde_json::{Value, json};
 use wasm_bindgen_futures::spawn_local;
 
+type Load = futures_util::future::Shared<
+    futures_util::future::LocalBoxFuture<'static, Result<Value, String>>,
+>;
+thread_local! {
+    static VERSION: std::cell::RefCell<String> = Default::default();
+    static READS: std::cell::RefCell<std::collections::BTreeMap<String, Load>> = Default::default();
+}
+pub(crate) async fn version_changed() -> bool {
+    let previous = VERSION.with(|v| v.borrow().clone());
+    match api("GET", "/api/v1/version", Value::Null).await {
+        Ok(value) => value["version"].as_i64() != previous.parse::<i64>().ok(),
+        Err(_) => true,
+    }
+}
+pub(crate) fn invalidate_reads() {
+    READS.with(|reads| reads.borrow_mut().clear());
+}
+
 pub(crate) async fn api(method: &str, path: &str, body: Value) -> Result<Value, String> {
+    use futures_util::FutureExt;
+    let cached = method == "GET" && cacheable(path);
+    if cached {
+        let key = if path.starts_with("/api/v1/analytics/") || path.starts_with("/api/v1/search") {
+            format!("{path}#{}", (js_sys::Date::now() / 60_000.) as u64)
+        } else {
+            path.to_owned()
+        };
+        let request_path = path.to_owned();
+        let load = READS.with(|reads| {
+            let mut reads = reads.borrow_mut();
+            if reads.len() >= 128 {
+                reads.clear();
+            }
+            reads
+                .entry(key.clone())
+                .or_insert_with(|| {
+                    async move {
+                        api_typed("GET", &request_path, Value::Null)
+                            .await
+                            .map_err(|e| e.to_string())
+                    }
+                    .boxed_local()
+                    .shared()
+                })
+                .clone()
+        });
+        let result = load.await;
+        if result.is_err() {
+            READS.with(|reads| {
+                reads.borrow_mut().remove(&key);
+            });
+        }
+        return result;
+    }
     api_typed(method, path, body)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|e| e.to_string())
 }
+fn cacheable(path: &str) -> bool {
+    matches!(
+        path.split('?').next(),
+        Some("/api/v1/projects" | "/api/v1/labels" | "/api/v1/analytics/home" | "/api/v1/search")
+    )
+}
+
 async fn api_typed(method: &str, path: &str, body: Value) -> Result<Value, crate::login::ApiError> {
     use crate::login::ApiError;
     let builder =
@@ -20,6 +80,9 @@ async fn api_typed(method: &str, path: &str, body: Value) -> Result<Value, crate
     };
     let response = request.send().await.map_err(|_| ApiError::Network)?;
     let status = response.status();
+    if let Some(version) = response.headers().get("X-Workspace-Version") {
+        VERSION.with(|v| *v.borrow_mut() = version);
+    }
     if status == 401 {
         let message = if path == "/api/v1/login" {
             "Incorrect username or password."
@@ -50,6 +113,9 @@ async fn api_typed(method: &str, path: &str, body: Value) -> Result<Value, crate
             Err(_) => format!("Request failed (HTTP {status})."),
         };
         return Err(ApiError::Http { status, message });
+    }
+    if method != "GET" {
+        invalidate_reads();
     }
     response.json().await.map_err(|_| ApiError::InvalidResponse)
 }

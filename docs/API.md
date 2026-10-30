@@ -572,3 +572,48 @@ or failing to renew a lease; confirm ownership before side effects. Do not blind
 retry a timed-out claim request: it may have committed. Reconcile by reading
 In Progress tickets and their `claimed_by`/`claim_id` first. External operations
 should be idempotent; inspect existing branches and PRs before creating them.
+
+### Read caching and weekly analytics (TIK-71)
+
+`GET /api/v1/projects`, `/tickets`, `/labels`, `/search` and
+`/analytics/home` support weak `ETag` / `If-None-Match`. Reuse the tag for the
+**same complete URL**, including filters and cursor. A matching, still-cached
+successful representation returns an empty 304. Every request is authenticated
+first; responses use `Cache-Control: private, no-cache`. Comment responses are
+never shared because `can_edit` depends on the author.
+
+The Worker keeps serialized list/analytics responses in its Cache API for 60
+seconds, keyed by URL, schema version and the workspace's transactional version.
+Analytics also includes the UTC minute in its key. A hit reads only auth and one
+version row; it does not scan ticket history, render Markdown, or parse and
+serialize the cached JSON. Cache failures fall back to authoritative SQL. A cold
+miss still computes the existing analytics snapshot; this is a response rollup
+cache, not reconstructed historical data. Cache storage is local to a Cloudflare
+location. There is no promise of a warm hit in another location.
+
+For Analytics page weekly flow, reuse `GET /api/v1/analytics/home[?project=ID]`.
+Its stable typed shape includes `as_of`, `history_from`, and
+`weeks: [{start, end, coverage, created, completed, imported}]` (eight UTC Monday
+weeks, oldest first). `coverage` is `none|partial|full`; unavailable counts are
+null, never zero. Created means native creation, imported is separate, and
+completed counts each durable subject once per week at its observed completion
+project. Project changes/deletion retain historical semantics. The same response
+also supplies current counts/queues and per-project inventory. Drill down using
+`metric=created|completed&week=0..7&cursor=ID`; reuse the returned `next_cursor`.
+See [the analytics contract](design/home-analytics.md) for the full shape.
+
+`GET /api/v1/version` returns `{ "version": <integer> }` under the same auth
+gate. List responses expose that version as `X-Workspace-Version`. Clients may
+compare it after connecting live rooms to close the initial snapshot/subscription
+gap cheaply. All ticket, project, label, comment, dependency, label membership,
+PR-link/check, event and coverage writes advance it through additive triggers,
+including writes from older Workers. Versions are opaque invalidation values,
+not event IDs. Reconnect still requires reconciliation: live events have no replay.
+
+The web app shares its ticket collection for the shell's lifetime, deduplicates
+project/label/analytics/search requests, and patches affected ticket records on
+live events. It subscribes to every workspace project across route changes so
+inactive boards remain coherent. Healthy focus and idle tabs do not reload lists;
+hidden-tab events queue until visible. A reconnect reloads authoritative state
+and can reuse the edge response cache. Mutations invalidate cached reads; explicit
+Reload/Retry actions force reconciliation.

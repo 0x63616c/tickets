@@ -811,3 +811,22 @@ requires both builds to exist; rebuild after source changes before using it.
   match a successful install and node_modules exists. Repeated installs rewrite
   the JS imported by wasm-bindgen and cause a release Wasm rebuild for every
   browser check. Other npm commands pass through; local xtask behavior is unchanged.
+
+## D1 read-efficiency verification
+
+`cargo xtask perf-check` replays a documented Home → Board → List → ticket →
+Home/Analytics session, five idle minute ticks, and three live updates against
+isolated local D1. It obtains actual `meta.rows_read` from a disposable loopback
+Worker because wrangler's CLI strips that metadata. It writes SQL, query plans
+and `report.json` under `target/d1-perf-<pid>/`. The baseline is commit `b42be78`;
+fetch repository history before running it. This deterministic request-schedule
+replay is not a browser timing measurement or production CPU measurement.
+
+`CHROME_BIN=<headless-chromium> cargo xtask perf-browser-check` separately checks
+one shared collection across SPA navigation, targeted live patches, hidden-tab
+catch-up and one Home project request. It uses the isolated API smoke lifecycle
+(port 8795) and fixture-only screenshots under `docs/screenshots/TIK-71/`.
+`api-smoke` additionally checks private edge caching, conditional 304, auth before
+cache, invalidation and validation. Cached list requests add one version lookup
+(one auth + one version read on a hit; three calls on a miss). Existing mutation
+budgets and the shared dispatch statement budgets are unchanged.

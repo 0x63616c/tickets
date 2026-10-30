@@ -78,7 +78,7 @@ pub async fn notify(env: &Env, db: &D1Database, change: crate::api::CommittedCha
         mut projects,
     } = change;
     // Labels are global. Invalidate every project, including currently empty boards.
-    if projects.is_empty() {
+    if projects.is_empty() || entity == "projects" {
         projects = Store::query::<serde_json::Value>(db, "SELECT id FROM projects", vec![])
             .await
             .map_err(|_| Error::RustError("Project lookup failed".into()))?

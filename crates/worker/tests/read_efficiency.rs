@@ -1,0 +1,89 @@
+#![cfg(not(target_arch = "wasm32"))]
+mod common;
+use common::Sqlite;
+use futures::executor::block_on;
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
+use std::cell::RefCell;
+use tickets_worker::{
+    api::handle,
+    repository::{Result, Store},
+};
+
+struct Capture<'a> {
+    db: &'a Sqlite,
+    statements: RefCell<Vec<String>>,
+}
+impl Store for Capture<'_> {
+    async fn query<T: DeserializeOwned>(&self, sql: &str, params: Vec<Value>) -> Result<Vec<T>> {
+        self.statements.borrow_mut().push(sql.into());
+        self.db.query(sql, params).await
+    }
+}
+#[test]
+fn list_plans_use_covering_counts_and_indexed_relationships() {
+    block_on(async {
+        let db = Sqlite::new();
+        db.0.execute_batch("INSERT INTO projects(name,key_prefix,color) VALUES('Fixture','FIX','#5e6ad2'); INSERT INTO tickets(project_id,number,title) VALUES(1,1,'Fixture');").unwrap();
+        let capture = Capture {
+            db: &db,
+            statements: RefCell::new(vec![]),
+        };
+        for (path, index) in [
+            ("/api/v1/projects", "tickets_project_status_activity"),
+            ("/api/v1/tickets", "comments_visible_ticket"),
+        ] {
+            let reply = handle(&capture, "GET", path, &[], Value::Null).await;
+            assert_eq!(reply.status, 200, "{}", reply.body);
+            let sql = capture.statements.borrow().last().unwrap().clone();
+            let mut statement = db.0.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
+            let plan = statement
+                .query_map([0, 51], |row| row.get::<_, String>(3))
+                .unwrap()
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .unwrap()
+                .join("\n");
+            assert!(plan.contains(index), "{plan}");
+            if path.ends_with("tickets") {
+                assert!(sql.contains("JOIN projects ticket_project"));
+                assert!(plan.contains("sqlite_autoindex_ticket_labels_1"), "{plan}");
+                assert!(!plan.contains("SCAN comments"), "{plan}");
+            }
+        }
+    });
+}
+#[test]
+fn old_writer_relationship_and_history_changes_advance_version() {
+    let db = Sqlite::new();
+    let version = || {
+        db.0.query_row(
+            "SELECT version FROM workspace_version WHERE id=1",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .unwrap()
+    };
+    let mut previous = version();
+    for sql in [
+        "INSERT INTO projects(name,key_prefix,color) VALUES('Fixture','FIX','#5e6ad2')",
+        "INSERT INTO tickets(project_id,number,title) VALUES(1,1,'One'),(1,2,'Two')",
+        "UPDATE tickets SET title='Changed' WHERE id=1",
+        "INSERT INTO labels(name,color) VALUES('bug','#5e6ad2')",
+        "INSERT INTO ticket_labels VALUES(1,1)",
+        "INSERT INTO ticket_dependencies VALUES(1,2)",
+        "INSERT INTO comments(ticket_id,author,body,author_kind,author_id) VALUES(1,'Fixture','Comment','user','1')",
+        "UPDATE comments SET deleted_at='2026-10-30T00:00:00.000Z' WHERE id=1",
+        "DELETE FROM ticket_dependencies WHERE blocker_id=1",
+        "DELETE FROM ticket_labels WHERE ticket_id=1",
+        "UPDATE analytics_coverage SET started_at='2026-10-29T00:00:00.000Z' WHERE id=1",
+        "UPDATE projects SET archived=1 WHERE id=1",
+        "DELETE FROM tickets WHERE id=2",
+    ] {
+        db.0.execute_batch(sql).unwrap();
+        assert!(version() > previous, "{sql}");
+        previous = version();
+    }
+    let response = block_on(handle(&db, "GET", "/api/v1/projects", &[], json!(null)));
+    assert_eq!(response.status, 200);
+    assert_eq!(response.body["data"][0]["open_ticket_count"], 1);
+}
