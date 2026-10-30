@@ -154,8 +154,13 @@
   Card bodies and list row bodies open the ticket; nested controls and links
   retain their own actions. Enter opens a focused card/row; a drag never opens it.
 - `CHROME_BIN=<headless-chromium> cargo xtask card-shots` captures fixture-only
-  card variants and board/list desktop/mobile evidence in `docs/screenshots/TIK-46/`.
+  card variants and board/list desktop/mobile evidence in `docs/screenshots/TIK-57/`.
   Set `TICKETS_BEFORE_ASSETS` to base-commit built assets for matching before PNGs.
+- Blocked tickets retain their status column. Board/list markers use `--blocked`,
+  with focusable shared tooltips naming unresolved blockers (key + title); live
+  dependency changes clear the marker when every blocker is done/canceled.
+  `cargo xtask card-shots` captures TIK-57 fixture evidence (single/multiple blockers,
+  desktop/mobile board/list and tooltip) using matching base assets when supplied.
 - Cards: Tab to focus; arrows navigate. Space picks up, arrows change column or
   position, Space saves, Escape cancels. Status selects remain the touch-friendly
   alternative. Mouse drops on a card insert before it; drops on a column append.

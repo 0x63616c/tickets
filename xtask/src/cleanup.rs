@@ -47,7 +47,7 @@ pub fn check(b: &mut Browser, root: &Path) -> super::Result {
     if !before {
         b.wait("![...document.querySelectorAll('.label-chip')].some(e=>/priority:|status:blocked|^later$/.test(e.textContent)) && !document.body.innerText.includes('Canceled fixture ticket')")?;
         b.wait("[...document.querySelectorAll('[aria-label=Backlog] .row-title')].some(e=>e.textContent==='Deferred fixture ticket')")?;
-        b.wait(&format!("document.querySelector('#list-ticket-{id} .row-blocked')?.textContent.includes('Blocked')"))?;
+        b.wait(&format!("document.querySelector('#list-ticket-{id} .row-blocked')?.getAttribute('aria-label').startsWith('Blocked by ')"))?;
         b.eval(r#"(()=>{const rows=[...document.querySelectorAll('.api-list-row')];const x=rows[0].querySelector('.row-title').getBoundingClientRect().x;if(!rows.every(r=>r.querySelector('.row-title').getBoundingClientRect().x===x))throw Error('Misaligned title columns');return true})()"#)?;
     }
     for (size, width) in [("desktop", 1440), ("mobile", 390)] {

@@ -558,7 +558,7 @@ fn ApiCard(ticket: BoardTicket) -> impl IntoView {
                         t.id == *b && !matches!(t.status, Status::Done | Status::Canceled)
                     })
                 })
-                .map(|t| t.key)
+                .map(|t| (t.key, t.title))
                 .collect::<Vec<_>>()
         };
     let navigate = leptos_router::hooks::use_navigate();
@@ -577,10 +577,9 @@ fn ApiCard(ticket: BoardTicket) -> impl IntoView {
         on:keydown=move|e|{if e.key()=="Enter" && !ticket_interactive_target(e.target()) && state.dragged.get_untracked().is_none(){e.prevent_default();open.run(());}else{state.keyboard(ticket_id,e);}}
         on:dragstart=move|e|{was_dragged.set(true);state.pickup(ticket_id);if let Some(data)=e.data_transfer(){let _=data.set_data("text/plain",&ticket_id.to_string());}} on:dragend=move|_|state.cancel()
         on:dragover=move|e|{e.prevent_default();e.stop_propagation();} on:drop=move|e|{e.prevent_default();e.stop_propagation();if let Some(moving)=state.dragged.get_untracked() && moving!=ticket_id{state.move_to(moving,s,Some(ticket_id));}}>
-        <div class="card-top"><span class="mono ticket-id">{key.clone()}</span><span class="card-indicators"><span title=priority.name()><PriorityIcon priority/></span>
+        <div class="card-top"><span class="mono ticket-id">{key.clone()}</span><span class="card-indicators">{move||{let blockers=blocked();(!blockers.is_empty()).then(||view!{<BlockedIndicator blockers/>})}}<span title=priority.name()><PriorityIcon priority/></span>
             <span class="card-status" title=s.name()><SelectField label=format!("Move {key} to status") value=Signal::derive(move||s.name().to_string()) options=Signal::derive(move||Status::ALL.into_iter().map(SelectOption::status).collect()) on_change=Callback::new(move|next:String|state.move_to(ticket_id,Status::from_name(&next),None)) disabled=Signal::derive(move||state.busy.get() || state.dragged.get().is_some())/></span>
         </span></div><a class="card-title" href=href title=ticket.title.clone()>{ticket.title.clone()}</a>
-        {move||{let keys=blocked(); (!keys.is_empty()).then(||{let note=format!("Blocked by {}",keys.join(", "));view!{<span class="blocked-note" title=note.clone()><Icon name="blocked"/><span>{note.clone()}</span></span>}})}}
         <div class="card-bottom"><CardLabels labels=ticket.labels/><span class="card-meta">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<span class="comment-count" aria-label=crate::count::count_label(n,"comment")><Icon name="comment"/>{n}</span>})}</span></div>
     </article>}
 }

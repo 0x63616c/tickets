@@ -158,9 +158,6 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); opacity: 1
 .card-label-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; }
 .card-label-names { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-meta { flex-shrink: 0; margin-left: auto; }
-.blocked-note { display: flex; gap: 4px; align-items: center; color: var(--warning); font-size: var(--text-xs); margin-top: 6px; min-width: 0; }
-.blocked-note > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.blocked-note .icon { width: 12px; height: 12px; flex-basis: 12px; }
 .ticket-card:focus-visible, .ticket-card:has(.card-title:focus-visible), .ticket-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .ticket-card:active:not(.drag-over):not(:has(button:active)) { transform: scale(.97); }
 .ticket-card.drag-over { transform: none; }
@@ -566,7 +563,7 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 }
 
 /* Fixed list tracks keep metadata aligned regardless of labels or blockers. */
-.api-list-row { display: grid; grid-template-columns: 16px 88px 16px minmax(100px, 1fr) 68px 150px 28px 100px 44px; gap: 12px; }
+.api-list-row { display: grid; grid-template-columns: 16px 88px 16px minmax(100px, 1fr) 16px 150px 28px 100px 44px; gap: 12px; }
 .api-list-row > * { min-width: 0; }
 .api-list-row .ticket-id { width: auto; }
 .api-list-row .row-labels { max-width: none; }
@@ -576,7 +573,7 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .properties-toggle { display: none; }
 .import-activity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); padding-block: var(--space-3); }
 @media (max-width: 1200px) {
-  .api-list-row { grid-template-columns: 16px 88px 16px minmax(100px, 1fr) 68px 120px 28px; gap: 8px; }
+  .api-list-row { grid-template-columns: 16px 88px 16px minmax(100px, 1fr) 16px 120px 28px; gap: 8px; }
   .api-list-row .row-project, .api-list-row .row-date { display: none; }
 }
 @media (max-width: 760px) {
@@ -592,7 +589,7 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
   .live-indicator { display: none; }
 }
 @media (min-width: 761px) and (max-width: 1000px) {
-  .api-list-row { grid-template-columns: 16px 88px 16px minmax(0, 1fr) 68px 28px; }
+  .api-list-row { grid-template-columns: 16px 88px 16px minmax(0, 1fr) 16px 28px; }
   .api-list-row .row-labels { display: none; }
 }
 .api-list-row .row-project-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -629,3 +626,7 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
   .repository-table .repository-shortcuts { gap: var(--space-4); }
   .repository-table .project-row-action { top: 16px; transform: none; }
 }
+
+.blocked-indicator.row-blocked { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; color: var(--blocked); border-radius: var(--radius-sm); }
+.blocked-indicator .icon { width: 14px; height: 14px; }
+.blocked-indicator:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

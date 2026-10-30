@@ -385,10 +385,14 @@ status select right, title clamped at two lines with its full hover title, then
 label colour dots and comma-separated short names (up to three) with ellipsis.
 The label summary hover title retains full visible label names. Priority labels
 stay stored and are hidden on cards. Comment counts sit at the footer right;
-blocked notes occupy one truncated line. The same layout serves fixture and API
+blocked glyphs sit beside priority in the header. The same layout serves fixture and API
 cards. Whole-card and whole-list-row clicks open the ticket while nested
 controls/links retain their own actions. Enter opens the focused surface.
 Card press scales to .97, except during drag or reduced motion.
+
+Blocked board/list tickets keep their normal status. A 14px blocked glyph uses
+`--blocked` (`#f07856`) in a focusable 16px slot; the shared tooltip names each
+unresolved blocker by key and title. Resolved dependencies clear live.
 
 `cargo xtask card-shots` captures fixture-only 2× cropped long-title, many-label,
 urgent and blocked cards plus desktop/mobile board and list PNGs.
