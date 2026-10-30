@@ -45,7 +45,7 @@
 </head>
 <body>
   <div id="boot-splash">
-    <pre aria-hidden="true"></pre>
+    <div class="boot-mark"><div class="boot-sway"><pre aria-hidden="true"></pre></div></div>
     <span class="sr-only" role="status">Loading Tickets</span>
   </div>
   <script>
@@ -56,7 +56,6 @@
         splash.remove();
         return;
       }
-      const start = performance.now();
       const art = splash.querySelector("pre");
       const media = matchMedia("(prefers-reduced-motion: reduce)");
       let storedReduce = false;
@@ -68,13 +67,13 @@
       let lastFrame = -Infinity;
       let firstPaint = null;
       let exiting = false;
-      let exitStart = 0;
       let removed = false;
       let cells = [];
       let columns = 0;
       let rows = 0;
-      const DISSOLVE_MS = 220;
-      const ramp = ["·", "~", "o", "x", "+", "=", "*", "%", "$", "@"];
+      const MARK_EXIT_MS = 400;
+      const BACKDROP_EXIT_MS = 280;
+
       const ready = () => { readyAt ??= performance.now(); };
       const remove = () => {
         if (removed) return;
@@ -118,13 +117,14 @@
           }
           return alpha / (255 * sample * sample);
         });
-        cells = coverage.map((value, i) => {
+        // One shared occupancy threshold keeps the contour and holes continuous.
+        const filled = coverage.map(value => value >= 0.5);
+        cells = filled.map((value, i) => {
           const x = i % columns, y = Math.floor(i / columns);
-          const edge = value < 0.98 || [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) =>
+          const edge = value && [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) =>
             x + dx < 0 || x + dx >= columns || y + dy < 0 || y + dy >= rows ||
-            coverage[(y + dy) * columns + x + dx] < 0.5);
-          return { value, edge, diagonal: (x / (columns - 1) + y / (rows - 1)) / 2,
-            glyph: edge ? Math.min(3, Math.floor(value * 4)) : 7 + ((x + y * 3) % 2) };
+            !filled[(y + dy) * columns + x + dx]);
+          return { value, edge, glyph: edge ? "+" : (x + y * 3) % 2 ? "$" : "%" };
         });
         splash.style.setProperty("--boot-columns", columns);
         splash.style.setProperty("--boot-rows", rows);
@@ -133,80 +133,49 @@
         splash.style.setProperty("--boot-scale",
           Math.min(innerWidth * 0.44, innerHeight * 0.9) / (columns * fontSize * 0.6));
       }
-      function render(elapsed, dissolve = 0) {
-        const reduce = reduced();
+      function render() {
         let html = "";
-        const band = ((Math.max(0, elapsed - 600) % 1800) / 1800) * 1.5 - 0.25;
         cells.forEach((cell, i) => {
-          let glyph = " ";
-          if (cell.value > 0.08) {
-            let index = cell.glyph;
-            if (!reduce && elapsed < 600 * (0.15 + cell.diagonal * 0.85)) {
-              index = Math.floor(Math.random() * ramp.length);
-            } else if (!reduce && elapsed >= 600) {
-              const light = Math.max(0, 1 - Math.abs(cell.diagonal - band) / 0.16);
-              index = Math.min(9, index + Math.round(light * 2));
-            }
-            glyph = ramp[index];
-            // Exit: cells drop out in a scattered, diagonal-weighted order.
-            if (dissolve > 0) {
-              const order = ((i * 2654435761) % 997) / 997 * 0.6 + cell.diagonal * 0.4;
-              if (order < dissolve) glyph = " ";
-              else if (order < dissolve + 0.2) glyph = ramp[Math.max(0, index - 4)];
-            }
-          }
+          const glyph = cell.value ? cell.glyph : " ";
           html += `<span class="${cell.edge ? "boot-edge" : "boot-body"}">${glyph}</span>`;
           if ((i + 1) % columns === 0 && i + 1 < cells.length) html += "\n";
         });
-        art.innerHTML = html; // Only the fixed ramp and generated classes enter HTML.
+        art.innerHTML = html; // Only fixed glyphs and generated classes enter HTML.
       }
       function resize() {
         if (exiting) return;
-        try { build(); render(performance.now() - start); } catch (_) { remove(); }
+        try { build(); render(); } catch (_) { remove(); }
       }
       function tick(now) {
-        if (removed) return;
-        if (exiting) {
-          const progress = (now - exitStart) / DISSOLVE_MS;
-          render(now - firstPaint, Math.min(1.2, progress * 1.2));
-          if (progress >= 1) {
-            splash.classList.add("boot-exit");
-            clearTimeout(exitTimer);
-            exitTimer = setTimeout(remove, 280);
-            return;
-          }
-          frame = requestAnimationFrame(tick);
-          return;
-        }
+        if (removed || exiting) return;
         firstPaint ??= now;
+        const elapsed = now - firstPaint;
         if (now - lastFrame >= 1000 / 30) {
           lastFrame = now;
-          const elapsed = now - firstPaint;
-          // Reduced motion keeps exactly the same glyphs throughout the hold.
-          if (!reduced() || art.dataset.reduced !== "true") render(elapsed);
-          art.dataset.reduced = String(reduced());
+          splash.classList.toggle("boot-reduced", reduced());
           const busy = document.querySelector('body > :not(#boot-splash) [aria-busy="true"], body > [aria-busy="true"]');
           if (readyAt !== null && elapsed >= (reduced() ? 500 : 900) &&
               (!busy || now - readyAt >= 1500)) {
             exiting = true;
-            exitStart = now;
-            splash.classList.toggle("boot-reduced", reduced());
-            if (reduced()) {
+            // Mark fades and drifts up first, then the black backdrop fades into the app.
+            splash.classList.add("boot-leaving");
+            exitTimer = setTimeout(() => {
               splash.classList.add("boot-exit");
-              exitTimer = setTimeout(remove, 280);
-              return;
-            }
-            // Dissolve the glyphs on black first so the art never overlays the app.
-            exitTimer = setTimeout(remove, DISSOLVE_MS + 600);
+              exitTimer = setTimeout(remove, BACKDROP_EXIT_MS);
+            }, MARK_EXIT_MS);
+            return;
           }
         }
         frame = requestAnimationFrame(tick);
       }
       try {
         build();
-        render(0); // Synchronous: the first paint already contains the Stub.
+        render(); // Sample once; motion never rebuilds the grid.
+        splash.classList.toggle("boot-reduced", reduced());
         window.addEventListener("resize", resize);
         frame = requestAnimationFrame(tick);
+        // Float and fades are CSS on the compositor, so they keep moving while wasm compiles.
+        requestAnimationFrame(() => requestAnimationFrame(() => splash.classList.add("boot-in")));
       } catch (_) { remove(); } // Unsupported canvas must never cover the app.
     })();
   </script>
