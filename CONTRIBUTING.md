@@ -148,6 +148,14 @@
   completed writes and restore the local snapshot; if compensation fails, ask
   the user to reload and reconcile with the server. #16 should defer incoming
   events during a local move, then refetch authoritative state.
+- Cards use the compact Dots layout: key, priority and icon-only status select;
+  two-line title; label dots and up to three short names, with full labels in the
+  hover title. Hide priority metadata labels without changing stored data.
+  Card bodies and list row bodies open the ticket; nested controls and links
+  retain their own actions. Enter opens a focused card/row; a drag never opens it.
+- `CHROME_BIN=<headless-chromium> cargo xtask card-shots` captures fixture-only
+  card variants and board/list desktop/mobile evidence in `docs/screenshots/TIK-46/`.
+  Set `TICKETS_BEFORE_ASSETS` to base-commit built assets for matching before PNGs.
 - Cards: Tab to focus; arrows navigate. Space picks up, arrows change column or
   position, Space saves, Escape cancels. Status selects remain the touch-friendly
   alternative. Mouse drops on a card insert before it; drops on a column append.
