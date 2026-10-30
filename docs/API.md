@@ -605,9 +605,11 @@ See [the analytics contract](design/home-analytics.md) for the full shape.
 `GET /api/v1/version` returns `{ "version": <integer> }` under the same auth
 gate. List responses expose that version as `X-Workspace-Version`. Clients may
 compare it after connecting live rooms to close the initial snapshot/subscription
-gap cheaply. All ticket, project, label, comment, dependency, label membership,
-PR-link/check, event and coverage writes advance it through additive triggers,
-including writes from older Workers. Versions are opaque invalidation values,
+gap cheaply. Ticket, project, label, comment, dependency, label membership, PR-link, event
+and coverage writes advance it through additive triggers. Check metadata advances
+it only for a linked current head; unlinked/stale-head checks cannot change
+cached ticket payloads. These triggers cover
+writes from older Workers. Versions are opaque invalidation values,
 not event IDs. Reconnect still requires reconciliation: live events have no replay.
 
 The web app shares its ticket collection for the shell's lifetime, deduplicates
