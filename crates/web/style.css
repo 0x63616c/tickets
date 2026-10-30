@@ -256,7 +256,7 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .label-menu .menu > .field { margin: 8px; }
 .label-menu .menu > .field input { padding-inline: 8px; }
 .menu-heading { display: block; padding: 8px; font-size: var(--text-xs); color: var(--text-muted); }
-.menu-item { display: flex; align-items: center; gap: 8px; padding: 8px; min-height: 36px; width: 100%; min-width: 0; text-align: left; border-radius: var(--radius-sm); font-size: var(--text-sm); }
+.menu-item { display: flex; align-items: center; gap: var(--space-2); padding: var(--menu-item-padding); min-height: 32px; width: 100%; min-width: 0; text-align: left; border-radius: var(--radius-sm); font-size: var(--text-sm); }
 .menu-item .mono { flex-shrink: 0; }
 .menu-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) {

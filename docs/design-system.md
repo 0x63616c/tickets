@@ -239,7 +239,7 @@ All are exported from `crate::components`.
 | --- | --- |
 | `SelectField { label, options: Signal<Vec<SelectOption>>, value: Signal<String>, on_change: Callback<String>, disabled }` | Controlled single selection. `SelectOption::new(value, label)`; `SelectOption::project(project)` includes its icon; `::status(status)` and `::priority(priority)` include their semantic icons. Callers own async saving and rollback. |
 | `Select { label, options: Vec<&str>, value: RwSignal<String>, on_change? }` | Small adapter for static choices and fixture/local state. |
-| `DropdownMenu { label, children }` | Roving focus, typeahead, Escape/Tab/outside dismissal and origin-aware positioning. Compose `MenuItem { on_select, checked?: Signal<bool>, shortcut? }` and `MenuSeparator`. Optional submenus are not implemented. |
+| `DropdownMenu { label, children, trigger_content? }` | Roving focus, typeahead, Escape/Tab/outside dismissal and origin-aware positioning. An optional trigger content slot supports the account avatar/name while retaining the labelled button. Compose `MenuItem { on_select, checked?: Signal<bool>, shortcut? }` and `MenuSeparator`. Optional submenus are not implemented. |
 | `Combobox { label, input_id?, options, selected: Signal<Vec<String>>, on_toggle, on_create?, busy }` | Searchable multi-select. Search stays editable; arrows enter options. Enter toggles an exact match in selection-only mode. With `on_create`, Enter submits the trimmed name to the caller’s create-or-attach flow (an already attached label stays attached); option selection always toggles. Opening focuses search; Arrow Up from the first option returns there. Selection is authoritative and async errors remain on the owning page. |
 | `Tooltip { text, children }` | 500ms initial pointer delay, immediate keyboard display, 700ms skip-delay window after a tooltip. Escape/blur/leave dismiss. Never use as the only accessible label. |
 | `SegmentedControl { label, options, value: RwSignal<String>, instant?: Signal<bool> }` | Equal-width mutually exclusive buttons with `aria-pressed`, roving tabindex, Left/Right/Home/End and a transform-only sliding indicator. Keyboard changes skip motion; `instant` also suppresses movement for external shortcuts. Markdown Write/Preview uses it. |
@@ -393,3 +393,12 @@ Card press scales to .97, except during drag or reduced motion.
 `cargo xtask card-shots` captures fixture-only 2× cropped long-title, many-label,
 urgent and blocked cards plus desktop/mobile board and list PNGs.
 `TICKETS_BEFORE_ASSETS=/absolute/base/crates/web/dist` captures matching baselines.
+
+### Menu spacing (TIK-53)
+
+All DropdownMenu, SelectField and Combobox options use the shared `.menu-item`
+style: `--menu-item-gap: 2px`, `--menu-inset: 4px` and
+`--menu-item-padding: 6px 8px`. Rounded highlights stay inset from the popup
+and separate from adjacent items. Separators use the same gap and inset.
+The sidebar account trigger shows the display name (falling back to username)
+and initial at the bottom; its shared popup opens above with a bottom-left origin.
