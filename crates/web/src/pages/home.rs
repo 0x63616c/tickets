@@ -273,7 +273,7 @@ fn WeeklyFlow(weeks: Vec<Week>, scope: String, base: &'static str) -> impl IntoV
                 {w.created.map(|n|view!{<rect x=x y=134.-n as f64*scale width="9" height=n as f64*scale rx="2" class="mark-created"/>})}
                 {w.completed.map(|n|view!{<rect x=x+11. y=134.-n as f64*scale width="9" height=n as f64*scale rx="2" class="mark-completed"/>})}
                 {w.created.is_none().then(||view!{<text x=x+10. y="126" text-anchor="middle">"—"</text>})}
-                <text x=x+10. y="158" text-anchor="middle">{label}</text></g>}}).collect_view()}
+                {(i%2==0 && i<6 || i==7).then(||view!{<text class="flow-week-label" x=x+10. y="158" text-anchor="middle">{label}</text>})}</g>}}).collect_view()}
         </svg>
         <details class="chart-data"><summary>"View counts and tickets"</summary><table><caption class="sr-only">"Weekly flow in UTC"</caption><thead><tr><th>"Week of"</th><th>"Created"</th><th>"Completed"</th><th>"Coverage"</th></tr></thead><tbody>{weeks.into_iter().enumerate().map(|(i,w)|view!{<tr><th scope="row">{date(&w.start)}{if i==7{" · so far"}else{""}}</th>{[("created",w.created),("completed",w.completed)].into_iter().map(|(m,n)|view!{<td>{n.map(|n|view!{<A href=format!("{}&week={i}",link(base,&scope,m))>{n}</A>}.into_any()).unwrap_or_else(||"—".into_any())}</td>}).collect_view()}<td>{match w.coverage.as_str(){"none"=>"Unavailable","partial"=>"Since capture",_=>"Recorded"}}</td></tr>}).collect_view()}</tbody></table></details>
     }

@@ -27,6 +27,18 @@ pub fn shots(root: &Path) -> super::Result {
     scoped["in_flight"] = json!(7);
     scoped["in_review"] = json!(3);
     scoped["blocked"] = json!(1);
+    for field in ["review_queue", "blocked_queue"] {
+        scoped[field] = Value::Array(
+            scoped[field]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|t| t["key"].as_str().unwrap_or("").starts_with("TKT-"))
+                .cloned()
+                .collect(),
+        );
+    }
+
     let fixtures = HashMap::from([
         (
             "/api/v1/me".into(),
@@ -52,6 +64,9 @@ pub fn shots(root: &Path) -> super::Result {
     for (size, width) in [("desktop", 1440), ("mobile", 390)] {
         b.viewport(width, 900)?;
         b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+        if phase == "after" {
+            b.wait("(()=>{const labels=[...document.querySelectorAll('.flow-week-label')].map(e=>e.getBoundingClientRect());return labels.length>1&&labels.every((r,i)=>!i||r.left>labels[i-1].right+2)})()")?;
+        }
         b.screenshot(&output.join(format!("{phase}-home-{size}.png")))?;
     }
     if phase == "before" {
@@ -72,10 +87,8 @@ pub fn shots(root: &Path) -> super::Result {
     b.wait("document.querySelectorAll('.home-cohort .home-ticket-row').length===5")?;
     b.go(&format!("{}/", server.url))?;
     b.wait("!!document.querySelector('.home-metric strong')")?;
-    b.click("[aria-label='Home project']")?;
-    b.key("ArrowDown", 40, 0)?;
-    b.key("Enter", 13, 0)?;
-    b.wait("location.search==='?project=2' || location.search==='?project=1'")?;
+    b.choose("[aria-label='Home project']", "1")?;
+    b.wait("location.search==='?project=1'")?;
     b.go(&format!("{}/home?project=1", server.url))?;
     b.wait("document.querySelectorAll('.project-chart-row').length===1 && document.querySelector('.home-metric strong').textContent==='7'")?;
     // Hold a scope request, fail a refresh, then retry without replacing saved data.

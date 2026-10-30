@@ -1,7 +1,7 @@
 .home-title { margin: 0; font-size: var(--text-base); font-weight: var(--weight-semibold); }
 .home-page { padding: 0 var(--space-6) var(--space-6); max-width: 1600px; }
 .home-toolbar { min-height: 56px; display: flex; align-items: center; gap: var(--space-3); }
-.home-toolbar .select-field { max-width: 240px; }
+.home-toolbar .select-root { min-width: 0; max-width: 240px; }
 .home-period, .home-freshness, .home-note, .home-coverage { color: var(--text-muted); font-size: var(--text-sm); }
 .home-freshness { margin-left: auto; }
 .home-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border-block: 1px solid var(--border); margin-bottom: var(--space-6); }
@@ -82,7 +82,9 @@
  .home-metric:nth-child(3) { padding-left: 0; border-top: 1px solid var(--border); }
  .home-metric:nth-child(4) { border-top: 1px solid var(--border); }
  .home-toolbar { gap: var(--space-2); flex-wrap: wrap; padding-block: var(--space-2); }
- .home-toolbar .select-field { max-width: 200px; }
+ .home-toolbar .select-root { max-width: 200px; }
  .home-period { font-size: var(--text-xs); }
  .home-chart { padding: var(--space-3); min-height: 374px; }
 }
+
+.home-ticket-rows { min-height: 180px; }

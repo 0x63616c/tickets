@@ -16,7 +16,8 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 | `/design/projects` | Project list and New project flow |
 | `/design` | Buttons, inputs, selects, status/priority icons, labels, avatars, connection states, overlays, tokens |
 
-The real API-backed board is `/`; see [Kanban](kanban.md) for its persistence,
+Home is available at `/` and `/home`. The real API-backed board is `/board`;
+see [Kanban](kanban.md) for its persistence,
 keyboard controls, local verification and #16 change-event hook.
 The API-backed list is `/list`: it reuses the grouped fixture rows and inline
 status/priority icons, with project/label/assignee/status filters and sort in the

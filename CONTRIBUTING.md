@@ -134,7 +134,7 @@
 
 ## Kanban ordering and verification
 
-- The API board lives at `/`; `/design*` retains its fixture-only state. Projects
+- The API board lives at `/board`; `/design*` retains its fixture-only state. Projects
   are selected in the sidebar. Hide Canceled by default; `?canceled=true` reveals it.
   Match the fixture's four default columns; show In review when populated.
   Status selects always offer all six statuses. Use equal flex
@@ -447,8 +447,8 @@ project icon schema changes additive and validate values in core.
 
 ## Sidebar and settings (TIK-40)
 
-- `/home` renders the current board until the dedicated Home page lands (TIK-43).
-  `/` remains the Board shortcut. G then H/B/L navigates; `?` opens shortcuts.
+- `/` and `/home` render Home; `/board` renders Board.
+  G then H/B/L navigates; `?` opens shortcuts.
 - Account identity comes from `/api/v1/me`, with nullable `display_name` falling
   back to the authenticated username. Never substitute a literal You/Y avatar.
 - `/settings` redirects to `/settings/account`; sections are `account`,

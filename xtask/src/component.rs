@@ -447,7 +447,7 @@ fn check_combobox(b: &mut Browser) -> super::Result {
 /// Same real composer route, fixture-only HTTP responses, and viewport for each baseline.
 fn capture_composer(b: &mut Browser, base: &str, output: &Path, before: bool) -> super::Result {
     let phase = if before { "before" } else { "after" };
-    b.go(&format!("{base}/"))?;
+    b.go(&format!("{base}{}", if before { "/" } else { "/board" }))?;
     b.wait("!!document.querySelector('.topbar .button-primary') && !document.querySelector('.topbar .button-primary').disabled")?;
     b.click(".topbar .button-primary")?;
     b.wait("document.querySelector('dialog')?.dataset.state==='open'")?;
