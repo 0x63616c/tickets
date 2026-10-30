@@ -1,0 +1,47 @@
+/* Full-document startup only; deliberately independent of the app mount. */
+#boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--stub-ink);
+  transition: opacity var(--duration-splash-exit) var(--ease-out),
+    transform var(--duration-splash-exit) var(--ease-out);
+}
+
+#boot-splash pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: 400;
+  font-variant-ligatures: none;
+  line-height: 1.2;
+  letter-spacing: 0;
+  width: calc(var(--boot-columns) * 0.6em);
+  height: calc(var(--boot-rows) * 1.2em);
+  white-space: pre;
+  transform: scale(var(--boot-scale));
+}
+
+#boot-splash pre span {
+  display: inline-block;
+  vertical-align: top;
+  width: 0.6em;
+  height: 1.2em;
+}
+
+#boot-splash .boot-edge { color: var(--text-muted); }
+#boot-splash .boot-body { color: var(--stub-ink); }
+#boot-splash.boot-exit {
+  opacity: 0;
+  transform: scale(1.015);
+  pointer-events: none;
+}
+
+#boot-splash.boot-reduced { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  #boot-splash.boot-exit { transform: none; }
+}
