@@ -20,7 +20,9 @@ jobs:
           # action hashes Cargo.lock + rustc/toolchain; target/ keeps host and
           # wasm32-unknown-unknown artifacts in separate Cargo directories.
           shared-key: check
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Only the full check job writes: a faster host-only job must not
+          # win the immutable-cache race with an incomplete target snapshot.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.job == 'check' }}
       - name: Install wasm build tools
         uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2
         with:
@@ -72,7 +74,9 @@ jobs:
           # action hashes Cargo.lock + rustc/toolchain; target/ keeps host and
           # wasm32-unknown-unknown artifacts in separate Cargo directories.
           shared-key: check
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Only the full check job writes: a faster host-only job must not
+          # win the immutable-cache race with an incomplete target snapshot.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.job == 'check' }}
       - run: npm install --global wrangler@4.154.0
       # A fresh checkout has no .wrangler state; exercise the entire SQL chain.
       - run: cargo xtask migrate
@@ -110,7 +114,9 @@ jobs:
           # action hashes Cargo.lock + rustc/toolchain; target/ keeps host and
           # wasm32-unknown-unknown artifacts in separate Cargo directories.
           shared-key: check
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Only the full check job writes: a faster host-only job must not
+          # win the immutable-cache race with an incomplete target snapshot.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.job == 'check' }}
       - name: Install wasm build tools
         uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2
         with:

@@ -755,7 +755,9 @@ project icon schema changes additive and validate values in core.
 - Cargo jobs restore the shared `check` cache (including main's existing cache).
   `rust-cache` hashes Cargo.lock, manifests, Cargo configuration and the pinned
   toolchain; Cargo separates host and wasm32 artifacts inside `target/`. Only
-  main saves caches, so PR runs cannot fill the quota with branch copies.
+  main's `check` job saves caches, so PR runs cannot fill the quota with branch
+  copies and the faster migrations job cannot win an immutable-cache save race
+  with an incomplete host-only snapshot.
 - Install pinned Rust build tools with `taiki-e/install-action` prebuilt binaries
   rather than compiling them with `cargo install` on cache misses.
 - CI puts `.github/scripts/npm` ahead of npm after recording the real executable.
