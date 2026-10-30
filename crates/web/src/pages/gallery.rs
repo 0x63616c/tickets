@@ -36,6 +36,7 @@ pub const COMPONENTS: &[&str] = &[
     "modal",
     "loader",
     "skeletons",
+    "reveal",
     "icons",
     "busy-button",
     "tabs",
@@ -57,7 +58,7 @@ pub fn ComponentPreview() -> impl IntoView {
 #[component]
 fn FoundationGallery() -> impl IntoView {
     view! {<section class="specimen"><div class="specimen-label"><h2>"Interaction foundations"</h2><p>"Isolated previews, keyboard behavior and motion."</p></div><div class="specimen-content">{COMPONENTS.iter().map(|name|view!{<a class="button" rel="external" href=format!("/design/c/{name}")>{*name}</a>}).collect_view()}</div></section>
-    <section class="specimen"><div class="specimen-label"><h2>"Loading & identity"</h2><p>"Delayed feedback. Stable geometry."</p></div><div class="specimen-content"><AsciiSpinner/><AsciiSpinner style=SpinnerStyle::Line/><AsciiSpinner style=SpinnerStyle::Pulse/><BusyButton busy=Signal::derive(||true)>"Save project"</BusyButton><ProjectIcon name="Tickets" icon="ticket"/><ProjectIcon name="Quantum" icon="box" color="#4ea7fc"/><ProjectIcon name="Apps" icon="🚀"/><ProjectIcon name="Website" color="#27a644"/></div></section>}
+    <section class="specimen"><div class="specimen-label"><h2>"Loading & identity"</h2><p>"ascii-reveal · skeleton sweep and text decode."</p></div><div class="specimen-content"><LoadingIndicator/><BusyButton busy=Signal::derive(||true)>"Save project"</BusyButton><ProjectIcon name="Tickets" icon="ticket"/><ProjectIcon name="Quantum" icon="box" color="#4ea7fc"/><ProjectIcon name="Apps" icon="🚀"/><ProjectIcon name="Website" color="#27a644"/></div></section>}
 }
 #[component]
 fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
@@ -73,11 +74,54 @@ fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
         "menu"=>view!{<DropdownMenu label="Ticket actions"><MenuItem on_select=Callback::new(move|_|{}) shortcut="E"><Icon name="ticket"/>"Edit ticket"</MenuItem><MenuItem on_select=Callback::new(move|_|{}) shortcut="⌘ C"><Icon name="link"/>"Copy link"</MenuItem><MenuSeparator/><MenuItem checked=Signal::derive(move||checked.get()) on_select=Callback::new(move|_|checked.update(|v|*v= !*v))>"Show completed"</MenuItem></DropdownMenu>}.into_any(),
         "combobox"=>view!{<Combobox label="Add label" input_id="label-filter" options=Signal::derive(||options(&["Feature","Bug","Infrastructure","Design"])) selected=labels on_toggle=Callback::new(move|v:String|labels.update(|ls|{if ls.contains(&v){ls.retain(|l|*l!=v);}else{ls.push(v);}}))/>}.into_any(),
         "modal"=>view!{<button class="button" on:click=move|_|show.set(true)>"New ticket"</button><Presence show><TicketComposer project_id=1 status=Status::Todo projects=Signal::derive(||["Tickets","Apps","Quantum"].into_iter().enumerate().map(|(i,name)|tickets_core::domain::Project{ open_ticket_count:0,done_ticket_count:0,last_activity_at:None, id:i as i64 + 1, name:name.into(), key_prefix:"TKT".into(), icon:Some(["ticket","grid","box"][i].into()),color:"#5e6ad2".into(),archived:false,github_owner:None,github_repo:None,github_project_number:None,github_project_kind:"users".into(),next_ticket_number:1 }).collect()) labels=Signal::derive(||["Feature","Bug","Design"].into_iter().enumerate().map(|(i,name)|tickets_core::domain::Label{id:i as i64+1,name:name.into(),color:["#8b82d9","#eb5757","#c6a1b9"][i].into()}).collect()) open=show.into() busy=Signal::derive(||false) error=Signal::derive(String::new) on_submit=Callback::new(move|_:TicketDraft|show.set(false)) on_close=Callback::new(move|_|show.set(false))/></Presence>}.into_any(),
-        "loader"=>view!{<div class="sample-controls"><div class="loading-caption"><AsciiSpinner/>"Loading tickets…"</div><AsciiSpinner style=SpinnerStyle::Line/><AsciiSpinner style=SpinnerStyle::Pulse/></div>}.into_any(),
+        "loader"=>view!{<div class="sample-controls"><div class="loading-caption"><LoadingIndicator/>"Loading tickets…"</div></div>}.into_any(),
+        "reveal"=>view!{<RevealPreview/>}.into_any(),
         "skeletons"=>{let layout=match variant.as_str(){"list"=>"list","detail"=>"detail","projects"=>"projects",_=>"board"};view!{<LoadingSkeleton layout/>}.into_any()},
         "icons"=>view!{<div class="sample-controls"><ProjectIcon name="Tickets" icon="ticket" size="large"/><ProjectIcon name="Quantum" icon="box" color="#4ea7fc" size="large"/><ProjectIcon name="Apps" icon="🚀" size="large"/><ProjectIcon name="Website" color="#27a644" size="large"/></div>}.into_any(),
+        "busy-button" if variant=="cycle"=>view!{<BusyPreview/>}.into_any(),
         "busy-button"=>view!{<div class="sample-controls"><BusyButton busy=Signal::derive(||true)>"Create ticket"</BusyButton><BusyButton variant="secondary" busy=Signal::derive(||true)>"Save changes"</BusyButton><Button variant="primary">"Create ticket"</Button></div>}.into_any(),
         "tabs"=>view!{<SegmentedControl label="Description mode" options=vec!["Write","Preview"] value=tabs/>}.into_any(),
         _=>view!{<IconButton label="Copy ticket link" icon="link" on_click=Callback::new(|_|{})/>}.into_any(),
     }
+}
+
+/// Fixture delay only: data always arrives without an artificial delay in real routes.
+#[component]
+fn RevealPreview() -> impl IntoView {
+    let pending = RwSignal::new(true);
+    Effect::new(move |_| {
+        if pending.get() {
+            let timer = set_timeout_with_handle(
+                move || pending.set(false),
+                std::time::Duration::from_millis(1200),
+            )
+            .ok();
+            on_cleanup(move || {
+                if let Some(timer) = timer {
+                    timer.clear();
+                }
+            });
+        }
+    });
+    view! {<div class="reveal-preview"><Show when=move||!pending.get() fallback=||view!{<div role="status" aria-label="Loading preview"><AsciiSkeleton lines=3/></div>}><AsciiReveal><h2>"Tickets are ready"</h2><p>"Review the board, open a ticket, and keep work moving."</p><button class="button button-secondary" on:click=move|_|pending.set(true)>"Replay loading"</button></AsciiReveal></Show></div>}
+}
+
+#[component]
+fn BusyPreview() -> impl IntoView {
+    let busy = RwSignal::new(false);
+    Effect::new(move |_| {
+        if busy.get() {
+            let timer = set_timeout_with_handle(
+                move || busy.set(false),
+                std::time::Duration::from_millis(800),
+            )
+            .ok();
+            on_cleanup(move || {
+                if let Some(timer) = timer {
+                    timer.clear();
+                }
+            });
+        }
+    });
+    view! {<BusyButton busy kind="button" on_click=Callback::new(move |_| busy.set(true))>"Save changes"</BusyButton>}
 }

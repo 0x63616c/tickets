@@ -64,7 +64,7 @@
 .home-empty h2 { font-size: var(--text-md); }
 .home-plot-skeleton { height: 234px; margin: var(--space-4) 0; border-bottom: 1px solid var(--border); }
 .home-loading .home-metric { gap: var(--space-2); min-height: 108px; }
-.home-loading .home-metric .skeleton { max-width: 80%; }
+.home-loading .home-metric .ascii-skeleton { max-width: 80%; }
 @media (hover: hover) and (pointer: fine) {
  .home-metric:hover { background: var(--surface-hover); }
  .home-ticket-link:hover, .home-section-heading > a:hover, .project-chart-label a:hover { color: var(--text); text-decoration: underline; }

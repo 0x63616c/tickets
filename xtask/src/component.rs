@@ -24,6 +24,7 @@ const NAMES: &[&str] = &[
     "modal",
     "loader",
     "skeletons",
+    "reveal",
     "icons",
     "busy-button",
     "tabs",
@@ -173,6 +174,9 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
             "modal" => b.click(".component-stage > button")?,
             "menu" | "combobox" => b.click(".menu-trigger")?,
             "user-menu" => b.click(".account-trigger")?,
+            "reveal" => {
+                b.wait("!!document.querySelector('.reveal-preview h2')")?;
+            }
             "tooltip" => {
                 b.eval("document.querySelector('.icon-button').focus();true")?;
             }
@@ -220,7 +224,7 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
                     "Emulation.setEmulatedMedia",
                     json!({"features":[{"name":"prefers-reduced-motion","value":"reduce"}]}),
                 )?;
-                b.wait("getComputedStyle(document.querySelector('.spinner-frames')).display==='none' && getComputedStyle(document.querySelector('.spinner-static')).display!=='none'")?;
+                b.wait("document.querySelector('.ars') && !document.querySelector('.ars canvas')")?;
                 b.call(
                     "Emulation.setEmulatedMedia",
                     json!({"features":[{"name":"prefers-reduced-motion","value":"no-preference"}]}),
@@ -297,7 +301,7 @@ fn capture_before(b: &mut Browser, base: &str, name: &str, output: &Path) -> sup
         "sidebar" | "user-menu" => "/design/board",
         "menu" | "combobox" => "/design/ticket",
         "icons" => "/design/projects",
-        "loader" | "skeletons" => "/",
+        "loader" | "skeletons" => "/board",
         "busy-button" | "modal" | "tabs" => "/",
         _ => "/design",
     };
@@ -349,8 +353,8 @@ fn capture_before(b: &mut Browser, base: &str, name: &str, output: &Path) -> sup
             ".modal-footer"
         }
         "loader" | "skeletons" => {
-            b.wait("document.querySelector('.board-message')?.textContent.includes('Loading')")?;
-            ".board-message"
+            b.wait("!!document.querySelector('.loading-skeleton') || document.querySelector('.board-message')?.textContent.includes('Loading')===true")?;
+            ".loading-skeleton, .board-message"
         }
         "tooltip" => ".specimen .icon-button",
         _ => ".specimen-content",

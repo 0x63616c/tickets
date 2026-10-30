@@ -128,7 +128,13 @@ fn AccountSettings(fixture: bool) -> impl IntoView {
     Effect::new(move |_| {
         name.set(state.account.get().display_name.unwrap_or_default());
     });
-    view! {<section class="settings-section"><h1>"Account"</h1><p class="settings-description">"Your profile and sign-in details."</p>
+    let reveal_root = NodeRef::<leptos::html::Section>::new();
+    use_ascii_reveal(
+        reveal_root,
+        Signal::derive(move || !state.loaded.get()),
+        true,
+    );
+    view! {<section node_ref=reveal_root class="settings-section"><h1>"Account"</h1><p class="settings-description">"Your profile and sign-in details."</p>
         <form on:submit=move|e|{e.prevent_default();if busy.get_untracked(){return;}busy.set(true);error.set(String::new());message.set(String::new());spawn_local(async move {
             let result=if fixture {Ok(Account {username:"sample-user".into(),display_name:Some(name.get_untracked().trim().into())})} else {api("PATCH","/api/v1/me",json!({"display_name":name.get_untracked()})).await.and_then(|v|serde_json::from_value(v).map_err(|_|"Could not read saved account.".into()))};
             match result {Ok(account)=>{state.account.set(account);if message.is_disposed(){return;}message.set("Changes saved.".into());},Err(e)=>{if error.is_disposed(){return;}error.set(e)}}busy.set(false);
@@ -137,7 +143,7 @@ fn AccountSettings(fixture: bool) -> impl IntoView {
             <p id="display-name-hint" class="field-hint">"Shown in your account menu. Leave blank to use your username."</p>
             <div class="settings-save"><BusyButton busy disabled=Signal::derive(move||!state.loaded.get() || name.get().trim()==state.account.get().display_name.unwrap_or_default())>"Save changes"</BusyButton><span role="status">{message}</span></div>
             <p id="account-error" class="settings-error" role="alert">{error}{move||state.error.get()}</p>
-            <Show when=move||!state.loaded.get() && state.error.get().is_empty()><p class="loading-caption" role="status"><AsciiSpinner label="Loading account"/>"Loading account…"</p></Show>
+            <Show when=move||!state.loaded.get() && state.error.get().is_empty()><p class="loading-caption" role="status"><LoadingIndicator label="Loading account"/>"Loading account…"</p></Show>
             <Show when=move||!state.error.get().is_empty()><button type="button" class="button button-secondary" on:click=move|_|state.load()>"Retry loading account"</button></Show>
         </form>
         <div class="settings-group"><h2>"Sign-in"</h2><dl class="settings-details"><div><dt>"Username"</dt><dd>{move||state.account.get().username}</dd></div><div><dt>"Authentication"</dt><dd>"Passphrase"</dd></div><div><dt>"Session duration"</dt><dd>"7 days"</dd></div></dl><p class="field-hint">"Your sign-in credentials are managed by the deployment owner. Contact them to change your username or passphrase."</p></div>
@@ -146,12 +152,18 @@ fn AccountSettings(fixture: bool) -> impl IntoView {
 #[component]
 fn ProjectSettings(fixture: bool) -> impl IntoView {
     let board = expect_context::<crate::pages::board::BoardState>();
-    view! {<section class="settings-section"><h1>"Projects & GitHub"</h1><p class="settings-description">"Projects and their linked repositories."</p>
+    let reveal_root = NodeRef::<leptos::html::Section>::new();
+    use_ascii_reveal(
+        reveal_root,
+        Signal::derive(move || board.loading.get()),
+        true,
+    );
+    view! {<section node_ref=reveal_root class="settings-section"><h1>"Projects & GitHub"</h1><p class="settings-description">"Projects and their linked repositories."</p>
         <div class="settings-projects">{move||board.projects.get().into_iter().filter(|p|!p.archived).map(|p|{
             let repo=p.github_owner.zip(p.github_repo).map(|(owner,repo)|format!("{owner}/{repo}"));
             view!{<div class="settings-project"><ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/><div><strong>{p.name}</strong><span class="muted mono">{p.key_prefix}</span></div>{repo.map(|repo|view!{<a class="subtle-link" href=format!("https://github.com/{repo}") target="_blank" rel="noreferrer">{repo.clone()}<Icon name="external"/></a>}.into_any()).unwrap_or_else(||view!{<span class="muted">"No repository linked"</span>}.into_any())}</div>}
         }).collect_view()}</div>
-        <Show when=move||board.projects.get().iter().all(|p|p.archived)><p class="muted">{move||if board.loading.get(){"Loading projects…"}else{"No active projects."}}</p></Show>
+        <Show when=move||board.loading.get()><LoadingSkeleton layout="projects"/></Show><Show when=move||!board.loading.get() && board.projects.get().iter().all(|p|p.archived)><p class="muted">"No active projects."</p></Show>
         <p class="settings-error" role="alert">{move||board.error.get()}</p>
         <a class="button button-secondary" href=if fixture{"/design/projects"}else{"/projects"}>"Manage projects"<Icon name="arrow"/></a>
     </section>}

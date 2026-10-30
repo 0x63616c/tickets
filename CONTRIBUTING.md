@@ -277,7 +277,7 @@
 ## Login navigation conventions
 
 - The Worker runs before assets. Only fonts, favicon, Trunk hashed JS/CSS/Wasm
-  and the exact hashed DOM-bridge snippet path bypass session lookup; missing public assets return 404. Asset SPA fallback
+  and the exact hashed DOM-bridge/ascii-reveal core snippet paths bypass session lookup; missing public assets return 404. Asset SPA fallback
   stays disabled: the Worker serves `index.html` only after the navigation gate.
   Missing cookies cost zero D1 queries; a well-formed cookie costs one session SELECT.
 - `/login` mounts outside AppShell. Shared core `navigation::safe_next` validates
@@ -547,3 +547,24 @@ project icon schema changes additive and validate values in core.
 - `cargo xtask tokens-shot` checks fixture-only token states and captures desktop/mobile
   PNGs. Set `TICKETS_SCREENSHOT_DIR` to keep ticket-specific evidence separate
   from the default `docs/screenshots/TIK-41/` baseline.
+
+## Loading feedback (TIK-47)
+
+- Run `npm ci --prefix crates/web` before compiling the web crate, including
+  direct Cargo wasm checks and Trunk builds. `cargo xtask build`, `dev`, `ci`
+  and checks that call the build helper do this automatically. CI installs Node 22
+  before those commands, including the merge-to-main deploy build.
+- Keep `ascii-reveal` exactly pinned to `0.3.0` in `crates/web/package.json` and
+  commit its npm lockfile. Import `/node_modules/ascii-reveal/dist/core.js` through
+  wasm-bindgen; never port, copy or fork its animation code. `node_modules` is ignored.
+- Use `AsciiSkeleton`/`LoadingIndicator` while pending and `AsciiReveal` or
+  `use_ascii_reveal` at the data-ready boundary. BusyButton owns both phases for
+  submit controls. Destroy controllers and stop skeletons on cleanup; honor OS
+  reduced motion and the in-app override. Keep refresh data visible.
+- `/design/c/skeletons?variant=board|list|detail|projects` and `/design/c/reveal`
+  are fixture-only. `cargo xtask component-shot reveal` captures the latter.
+  `CHROME_BIN=<headless-chromium> cargo xtask loading-check` holds fixture API
+  responses on real routes, asserts moving sweeps, decode, cleanup and reduced
+  motion, and captures six small before/after PNGs across both runs. Set
+  `TICKETS_BEFORE_ASSETS=<main-dist>` for the before run. Evidence and reproduction
+  notes live in `docs/screenshots/TIK-47/`.

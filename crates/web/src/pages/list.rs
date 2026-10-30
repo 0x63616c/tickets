@@ -210,6 +210,12 @@ pub fn ApiList() -> impl IntoView {
         }
     });
     on_cleanup(move || handle.remove());
+    let reveal_root = NodeRef::<leptos::html::Div>::new();
+    use_ascii_reveal(
+        reveal_root,
+        Signal::derive(move || state.loading.get()),
+        true,
+    );
     view! {
         <h1 class="sr-only">"Ticket list"</h1><header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><span class="breadcrumb-current">{move||{let id=param(location, "project");state.projects.get().into_iter().find(|p|p.id.to_string()==id).map(|p|view!{<ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/>{p.name}}.into_any()).unwrap_or_else(||"All projects".into_any())}}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-primary" disabled=move||state.loading.get() || state.busy.get() || state.project.get()==0 on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
         <div class="view-tabs list-tabs"><a href="/board" class="view-tab"><Icon name="board"/>"Board"</a><span class="view-tab selected"><Icon name="list"/>"List"</span><Show when=move||!param(location, "project").is_empty()><crate::pages::projects::ProjectLinks/></Show></div>
@@ -223,12 +229,12 @@ pub fn ApiList() -> impl IntoView {
         <button class="button button-ghost" on:click=move|_|location.navigate.run("/list".into())>"Clear filters"</button></div>
         <Show when=move||state.loading.get()><LoadingSkeleton layout="list"/></Show>
         <Show when=move||!state.error.get().is_empty()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.loading.get() || state.busy.get() on:click=move|_|state.refresh()>"Reload list"</button></div></Show>
-        <div class="ticket-list" aria-label="Tickets grouped by status" aria-busy=move||state.busy.get().to_string()>{Status::ALL.into_iter().map(|status|view!{
+        <div node_ref=reveal_root class="ticket-list" aria-label="Tickets grouped by status" aria-busy=move||state.busy.get().to_string()>{Status::ALL.into_iter().map(|status|view!{
             <Show when=move||rows(state, location).iter().any(|t|t.ui_status()==status)><section class="list-group" aria-label=status.name()><div class="list-group-heading"><StatusIcon status/><h2>{status.name()}</h2><span class="count">{move||rows(state, location).iter().filter(|t|t.ui_status()==status).count()}</span><button class="list-add" disabled=move||state.busy.get() || state.loading.get() aria-label=format!("Add ticket to {}",status.name()) on:click=move|_|state.composer.set(Some(status))><Icon name="plus"/></button></div>
             <For each=move||{rows(state, location).into_iter().filter(|t|t.ui_status()==status).collect::<Vec<_>>()} key=|t|(t.id,format!("{t:?}")) children=move|ticket|view!{<ListRow ticket selected/>}/></section></Show>
         }).collect_view()}</div>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && rows(state, location).is_empty()><div class="empty-project"><div class="empty-state"><Icon name="filter"/><h2>"No tickets match this view"</h2><p>"Try another filter or add a ticket."</p><button class="button" on:click=move|_|location.navigate.run("/list".into())>"Clear filters"</button><button class="button button-primary" disabled=move||state.project.get()==0 on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"</button></div></div></Show>
-        <div class="view-footer"><span>{move||crate::count::count_label(rows(state, location).len(), "ticket")}</span><span>"J / K: navigate · Enter: open · C: create"</span></div>
+        <div class="view-footer"><span hidden=move||state.loading.get()>{move||crate::count::count_label(rows(state, location).len(), "ticket")}</span><span>"J / K: navigate · Enter: open · C: create"</span></div>
         {let shown=present_value(state.composer.into());move||shown.get().map(|status|view!{<BoardComposer status/>})}
     }
 }
