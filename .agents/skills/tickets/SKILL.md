@@ -155,6 +155,26 @@ curl -sS -X PATCH "$TICKETS_URL/api/v1/tickets/1" -H "Authorization: Bearer $TIC
   -H 'Content-Type: application/json' -d '{"project_id":2,"assignee":null}'
 ```
 
+## Ranked command-palette search
+
+Use `GET /api/v1/search` for ranked key/title/body results instead of the
+ID-ordered list. `q` accepts `status:todo` and `p:EX` filters and up to 8 words /
+200 characters. Exact keys rank first, then literal ordered-character fuzzy
+matches with open-status, update-age and recently-viewed boosts. `recent` accepts
+up to 20 newest-first numeric IDs; omit it for agent requests without view history.
+An empty query suggests recent and open in-progress/assigned tickets. `limit` is
+1–50, default 30. The compact `{data:[...]}` response has no pagination cursor.
+Invalid filters/parameters return 400. This does not change `/tickets?q=` FTS.
+
+```sh
+# expect {"status":200,"body":{"data":[{"id":1,"key":"DST-1"}]}}
+curl -sS -G "$TICKETS_URL/api/v1/search" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  --data-urlencode 'q=DST-1 p:DST'
+# expect {"status":400}
+curl -sS -G "$TICKETS_URL/api/v1/search" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  --data-urlencode 'q=status:unknown'
+```
+
 ## Comments
 
 Bodies are CommonMark + GFM Markdown. Responses include raw `body` and sanitized

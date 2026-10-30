@@ -48,7 +48,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
     }
 }
 
-fn fixture_account(account: crate::pages::settings::AccountState) {
+pub(super) fn fixture_account(account: crate::pages::settings::AccountState) {
     account.account.set(crate::pages::settings::Account {
         username: "sample-user".into(),
         display_name: Some("Sample User".into()),

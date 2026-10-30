@@ -73,7 +73,7 @@ pub fn check(root: &Path, password: &str) -> Result {
     b.click(".search-trigger")?;
     b.wait("!!document.querySelector('.command-results .menu-item')")?;
     pair(&mut b, &output, phase, "command-palette")?;
-    b.text(".command-search input", "No matching ticket")?;
+    b.text(".command-search input", "zzzz-no-match-zzzz")?;
     pair(&mut b, &output, phase, "command-empty")?;
     b.click("[aria-label='Close dialog']")?;
     b.go(&format!("{URL}/list?project=1"))?;
@@ -142,16 +142,13 @@ fn interactions(b: &mut Browser) -> Result {
     b.key("Escape", 27, 0)?;
     b.wait("!document.querySelector('dialog') && document.activeElement.matches('.topbar .button-primary')")?;
     b.click(".search-trigger")?;
-    b.text(".command-search input", "No matching ticket")?;
-    b.wait(
-        "document.querySelector('.command-empty')?.textContent==='No tickets match your search.'",
-    )?;
+    b.text(".command-search input", "zzzz-no-match-zzzz")?;
+    b.wait("document.querySelector('.command-empty')?.textContent.includes('No results')")?;
     b.key("Escape", 27, 0)?;
     b.wait("document.activeElement.matches('.search-trigger')")?;
     b.click(".search-trigger")?;
     b.text(".command-search input", "Move tickets")?;
-    b.key("ArrowDown", 40, 0)?;
-    b.wait("document.activeElement.matches('.command-results .menu-item') && getComputedStyle(document.activeElement).outlineWidth==='2px'")?;
+    b.wait("document.querySelector('.command-option[aria-selected=true]')?.textContent.includes('TKT-9') && document.activeElement.matches('.command-search input')")?;
     b.key("Enter", 13, 0)?;
     b.wait("location.pathname==='/t/TKT-9' && !!document.querySelector('.comment')")?;
     b.wait("document.querySelector('.comment-form button[type=submit]').getBoundingClientRect().bottom<=900 && !!document.querySelector('.property .select-trigger > .icon')")?;

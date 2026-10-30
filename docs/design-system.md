@@ -349,3 +349,20 @@ sample-data specimen. Shared controls and static Skeletons reserve loading space
 refresh retains same-scope data. SVG charts have a labelled data-table disclosure
 with exact cohort links; unavailable weeks remain gaps. Counts use tabular figures
 and status tokens. See [Home metric contract](design/home-analytics.md).
+## Command palette (TIK-44)
+
+Search and commands share a 640px dialog with a fixed search field and keyboard
+footer. Rows are 36px (44px on narrow screens); keys use Geist Mono and titles
+truncate. Recently viewed and in-progress/assigned tickets precede commands in the
+empty query. Typed results are relevance ordered, with exact ticket keys first.
+Project and status filters use `p:QUA` and `status:todo`. No result, loading and
+retry states live inside the same surface.
+
+Input focus stays put while arrows update `aria-activedescendant`. Enter opens
+and Cmd/Ctrl+Enter or Actions opens the highlighted ticket's commands. Each ticket
+also has a touch-accessible action button. Results use a combobox/grid pattern;
+the scroll region is omitted from the tab order. Nested
+status, priority and project choices show the saved value. Escape returns a level,
+then restores opener focus on close. This frequently invoked surface uses an
+opacity-only transition; shared modal containment and reduced-motion preferences
+still apply. `/design/c/palette` is a fixture-only preview of this same component.
