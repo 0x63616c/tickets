@@ -16,6 +16,8 @@ mod github_pr_check;
 #[cfg(not(target_arch = "wasm32"))]
 mod home;
 #[cfg(not(target_arch = "wasm32"))]
+mod home_loading;
+#[cfg(not(target_arch = "wasm32"))]
 mod import_check;
 #[cfg(not(target_arch = "wasm32"))]
 mod import_github;
@@ -119,6 +121,8 @@ fn main() -> Result {
         Some("loading-check") => loading::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("home-shot") => home::shots(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("home-loading-check") => api_smoke::home_loading(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("tokens-shot") => tokens::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
