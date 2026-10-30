@@ -74,6 +74,8 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
         fixture_account(account);
     }
     let shortcuts = RwSignal::new(false);
+    let editor = RwSignal::new(None::<tickets_core::domain::Project>);
+    let archive = RwSignal::new(None::<tickets_core::domain::Project>);
     let count_revision = RwSignal::new(0_u64);
     Effect::new(move |_| {
         board.tickets.track();
@@ -168,12 +170,19 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
             <button class="nav-item search-trigger" on:click=move|_|{state.dialog.set(DialogKind::Command);if let Some(cb)=on_navigate{cb.run(());}}><Icon name="search"/><span>"Search tickets"</span><Shortcut>"⌘ K"</Shortcut></button>
             <SidebarSection title="Projects" storage="tickets.sidebar.projects" id="sidebar-projects">
                 <A href=projects attr:class="nav-item" on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="project"/><span>"All projects"</span></A>
-                {move||board.projects.get().into_iter().filter(|p|!p.archived).map(|p|{let id=p.id;let name=p.name.clone();let active=Signal::derive(move||if fixture {state.current_project.get()==name && ["/design/board","/design/empty"].contains(&location.pathname.get().as_str())}else{board.project.get()==id && location.pathname.get()=="/board"});view!{
-                    <a href=if fixture && id!=1 {"/design/empty"}else{board_path} class="nav-item project-nav" class:active=move||active.get() aria-current=move||active.get().then_some("page") aria-label=format!("{}, {} open tickets",p.name,p.open_ticket_count)
+                {move||board.projects.get().into_iter().filter(|p|!p.archived).map(|p|{let id=p.id;let edit=p.clone();let arch=p.clone();let repo=crate::pages::projects::repository(&p);let name=p.name.clone();let active=Signal::derive(move||if fixture {state.current_project.get()==name && ["/design/board","/design/empty"].contains(&location.pathname.get().as_str())}else{board.project.get()==id && location.pathname.get()=="/board"});view!{
+                    <div class="sidebar-project-row" data-project-id=id><a href=if fixture {if id!=1 {"/design/empty".to_string()}else{board_path.to_string()}}else{format!("/board?project={id}")} class="nav-item project-nav" class:active=move||active.get() aria-current=move||active.get().then_some("page") aria-label=format!("{}, {} open tickets",p.name,p.open_ticket_count)
                         on:click=move|ev|{if fixture{state.current_project.set(p.name.clone());}else if !board.select_project(id){ev.prevent_default();return;}
                         if let Some(cb)=on_navigate{cb.run(());}}>
                         <ProjectIcon name=p.name.clone() icon=p.icon.clone().unwrap_or_default() color=p.color.clone()/><span>{p.name.clone()}</span><span class="nav-count" title="Open tickets">{p.open_ticket_count}</span>
                     </a>
+                    <DropdownMenu class="project-dropdown" trigger_class="icon-button project-more-trigger" label=format!("More actions for {}",edit.name) trigger_content=Box::new(||view!{<Icon name="more"/>}.into_any())>
+                        <MenuItem on_select=Callback::new(move|_|{let edit=edit.clone();request_animation_frame(move||editor.set(Some(edit)));})><Icon name="edit"/>"Edit project…"</MenuItem>
+                        <MenuItem on_select=Callback::new(move|_|{wasm_bindgen_futures::spawn_local(async move{let url=format!("{}/board?project={id}",window().location().origin().unwrap_or_default());let result=wasm_bindgen_futures::JsFuture::from(window().navigator().clipboard().write_text(&url)).await;state.toast.set(if result.is_ok(){"Project link copied."}else{"Could not copy. Allow clipboard access and try again."}.into());});})><Icon name="copy"/>"Copy link"</MenuItem>
+                        {repo.map(|repo|view!{<MenuItem on_select=Callback::new(move|_|{let _=window().open_with_url_and_target_and_features(&format!("https://github.com/{repo}"),"_blank","noopener,noreferrer");})><Icon name="external"/>"Open on GitHub"</MenuItem>})}
+                        <MenuSeparator/>
+                        <MenuItem on_select=Callback::new(move|_|{let arch=arch.clone();request_animation_frame(move||archive.set(Some(arch)));})><Icon name="archive"/>"Archive project"</MenuItem>
+                    </DropdownMenu></div>
                 }}).collect_view()}
                 <a class="nav-item quiet" href=if fixture {"/design/projects"}else{"/projects?new=true"} on:click=move|e|{if fixture{e.prevent_default();state.dialog.set(DialogKind::Project);}}><Icon name="plus"/><span>"New project"</span></a>
             </SidebarSection>
@@ -190,6 +199,8 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
         </DropdownMenu></div>
         </div>
     </aside>
+    {let shown=present_value(editor.into());move||shown.get().map(|project: tickets_core::domain::Project|{let id=project.id;view!{<crate::pages::projects::ProjectEditor project=Some(project) archive_control=false restore_project=id open=Signal::derive(move||editor.get().is_some()) on_close=Callback::new(move|_|editor.set(None))/>}})}
+    {let shown=present_value(archive.into());move||shown.get().map(|project|view!{<ArchiveProject project fixture open=Signal::derive(move||archive.get().is_some()) on_close=Callback::new(move|_|archive.set(None))/>})}
     <Presence show=shortcuts><Modal title="Keyboard shortcuts" on_close=Callback::new(move|_|shortcuts.set(false))><div class="modal-body shortcut-list">{[("Search tickets","⌘ / Ctrl K"),("New ticket","C"),("Home","G then H"),("Board","G then B"),("List","G then L"),("Next / previous list ticket","J / K"),("Open focused ticket","Enter"),("Close menu or dialog","Esc")].into_iter().map(|(name,key)|view!{<div><span>{name}</span><Shortcut>{key}</Shortcut></div>}).collect_view()}</div></Modal></Presence>}
 }
 
@@ -255,5 +266,47 @@ pub fn TopBar(
 pub fn ProjectHeader(#[prop(default = "board")] view: &'static str) -> impl IntoView {
     view! {
         <div class="view-tabs"><nav aria-label="Ticket view"><A href="/design/board" attr:class=if view == "board" { "view-tab selected" } else { "view-tab" }><Icon name="board"/>"Board"</A><A href="/design/list" attr:class=if view == "list" { "view-tab selected" } else { "view-tab" }><Icon name="list"/>"List"</A></nav><a class="subtle-link" href="https://github.com/0x63616c/tickets" target="_blank" rel="noreferrer"><Icon name="link"/>"0x63616c/tickets"<Icon name="external"/></a></div>
+    }
+}
+
+#[component]
+fn ArchiveProject(
+    project: tickets_core::domain::Project,
+    fixture: bool,
+    open: Signal<bool>,
+    on_close: Callback<()>,
+) -> impl IntoView {
+    let board = expect_context::<crate::pages::board::BoardState>();
+    let busy = RwSignal::new(false);
+    let error = RwSignal::new(String::new());
+    let id = project.id;
+    on_cleanup(move || request_animation_frame(move || focus_project_action(id)));
+    view! {<Modal title="Archive project" open on_close locked=Signal::derive(move||busy.get())>
+    <form on:submit=move|e|{e.prevent_default();if busy.get_untracked(){return;}busy.set(true);wasm_bindgen_futures::spawn_local(async move{
+        let result=if fixture{Ok(serde_json::Value::Null)}else{crate::ui::api("PATCH",&format!("/api/v1/projects/{id}"),serde_json::json!({"archived":true})).await};
+        busy.set(false);match result{Ok(_)=>{board.projects.update(|ps|{if let Some(p)=ps.iter_mut().find(|p|p.id==id){p.archived=true;}});on_close.run(());},Err(e)=>error.set(e)}
+    });}>
+    <div class="modal-body"><p>{format!("Archive {}?",project.name)}</p><p class="muted">"It will leave the sidebar. Tickets are kept. Restore it from All projects."</p><Show when=move||!error.get().is_empty()><p role="alert">{error}</p></Show></div>
+    <div class="modal-footer"><button type="button" class="button button-ghost" disabled=busy on:click=move|_|on_close.run(())>"Cancel"</button><BusyButton busy>"Archive project"</BusyButton></div>
+    </form></Modal>}
+}
+
+// Edits can replace rows and archiving removes them. Resolve the surviving
+// control after the dialog leaves the top layer, rather than retaining a node.
+pub(crate) fn focus_project_action(id: i64) {
+    let control = document()
+        .query_selector(&format!(
+            ".sidebar-project-row[data-project-id='{id}'] .project-more-trigger"
+        ))
+        .ok()
+        .flatten()
+        .or_else(|| {
+            document()
+                .query_selector("#sidebar-projects > a")
+                .ok()
+                .flatten()
+        });
+    if let Some(control) = control.and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok()) {
+        let _ = control.focus();
     }
 }
