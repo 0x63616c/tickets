@@ -39,7 +39,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
             <Show when=move||mobile_open.get()><button class="sidebar-dismiss" aria-label="Close sidebar" tabindex="-1" on:click=move|_|close_sidebar.run(())/></Show>
             <Sidebar on_navigate=Callback::new(move |_| mobile_open.set(false))/>
             <div class="app-main">
-                <div class="mobile-bar"><button node_ref=toggle class="icon-button" aria-label="Toggle sidebar" aria-controls="workspace-sidebar" aria-expanded=move||mobile_open.get().to_string() on:click=move|_|{ mobile_open.update(|v| *v = !*v); if mobile_open.get_untracked() { request_animation_frame(move||{if let Ok(Some(first))=document().query_selector(".sidebar button") && let Some(first)=first.dyn_ref::<web_sys::HtmlElement>() {let _=first.focus();}}); } }><Icon name="list"/></button><strong>"Tickets"</strong></div>
+                <div class="mobile-bar"><button node_ref=toggle class="icon-button" aria-label="Toggle sidebar" aria-controls="workspace-sidebar" aria-expanded=move||mobile_open.get().to_string() on:click=move|_|{ mobile_open.update(|v| *v = !*v); if mobile_open.get_untracked() { request_animation_frame(move||{if let Ok(Some(first))=document().query_selector(".sidebar button") && let Some(first)=first.dyn_ref::<web_sys::HtmlElement>() {let _=first.focus();}}); } }><Icon name="list"/></button><strong class="mobile-brand"><Icon name="logo"/>"Tickets"</strong></div>
                 <main id="main" tabindex="-1">{children()}</main>
             </div>
         </div>
@@ -162,7 +162,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
     });
     on_cleanup(move || handle.remove());
     view! {<aside class="sidebar" id="workspace-sidebar" aria-label="Workspace">
-        <div class="workspace user-menu"><DropdownMenu class="account-dropdown" trigger_class="button button-ghost account-trigger" label="Tickets" icon="ticket" disclosure=true>
+        <div class="workspace user-menu"><DropdownMenu class="account-dropdown" trigger_class="button button-ghost account-trigger" label="Tickets" icon="logo" disclosure=true>
             <div class="account-menu-heading"><strong>{move||account.account.get().label()}</strong><span>"Tickets account"</span></div><MenuSeparator/>
             <MenuItem on_select=Callback::new(move|_|go.run(settings.into()))><Icon name="settings"/>"Settings"</MenuItem>
             <MenuItem on_select=Callback::new(move|_|shortcuts.set(true)) shortcut="?"><Icon name="help"/>"Keyboard shortcuts"</MenuItem><MenuSeparator/>
