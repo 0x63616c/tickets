@@ -52,6 +52,7 @@ pub fn shots(root: &Path) -> super::Result {
     b.go(&format!("{}/board?project=1", server.url))?;
     b.wait("document.querySelectorAll('.api-ticket').length===4")?;
     b.eval("document.fonts.ready.then(()=>true)")?;
+    b.wait("!document.querySelector('[data-ar-t]')")?;
     if before.is_none() {
         b.wait("document.querySelectorAll('#ticket-14 .card-label-dot').length===4 && document.querySelector('#ticket-14 .card-label-names').textContent==='feat, render, astra' && !document.querySelector('#ticket-14 .label-chip')")?;
         b.wait("getComputedStyle(document.querySelector('#ticket-14 .card-title')).webkitLineClamp==='2' && document.querySelector('#ticket-14 .card-title').title.includes('stop recompiling')")?;
@@ -79,6 +80,7 @@ pub fn shots(root: &Path) -> super::Result {
     b.go(&format!("{}/list?project=1", server.url))?;
     b.wait("document.querySelectorAll('.api-list-row').length===4")?;
     b.eval("document.fonts.ready.then(()=>true)")?;
+    b.wait("!document.querySelector('[data-ar-t]')")?;
     b.screenshot(&output.join(format!("{phase}-list-mobile.png")))?;
     b.viewport(1440, 900)?;
     b.screenshot(&output.join(format!("{phase}-list-desktop.png")))?;
