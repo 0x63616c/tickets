@@ -61,6 +61,8 @@ jobs:
       - run: CHROME_BIN=google-chrome cargo xtask palette-check
       - run: CHROME_BIN=google-chrome cargo xtask project-repos-check
       - run: CHROME_BIN=google-chrome cargo xtask loading-check
+      # Earlier Worker/browser checks built these same commit assets.
+      - run: TICKETS_SKIP_BUILD=1 CHROME_BIN=google-chrome cargo xtask home-loading-check
       - run: CHROME_BIN=google-chrome cargo xtask component-shot all
       - run: CHROME_BIN=google-chrome cargo xtask home-shot
       - name: Upload Chromium startup logs

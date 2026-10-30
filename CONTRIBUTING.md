@@ -779,6 +779,22 @@ project icon schema changes additive and validate values in core.
   crops; `--before-assets <base-dist>` captures the previous Settings appearance.
   See docs/design/claim-next.md for the lease contract and research.
 
+## Home loading continuity
+
+`CHROME_BIN=<headless-chromium> cargo xtask home-loading-check` starts an isolated
+local Worker/D1, seeds sample projects/tickets and records four seconds of a
+cold Home navigation with real live subscriptions. It captures frames at a
+50ms target interval (actual capture throughput varies), writes a contact sheet
+and timestamped lifecycle/request trace under `docs/screenshots/TIK-65/`, and
+asserts one initial loader unmount/reveal with no replay on catch-up or manual
+refresh. `TICKETS_BEFORE_ASSETS` selects baseline assets and records without
+asserting the fixed behavior. Home's initial gate covers analytics and projects;
+subsequent requests retain the previous content and use the toolbar indicator.
+
+For a sequence of browser checks after building the current web and Worker assets,
+`TICKETS_SKIP_BUILD=1` reuses those artifacts in the isolated Worker harness. It
+requires both builds to exist; rebuild after source changes before using it.
+
 ## CI build caches
 
 - Cargo jobs restore the shared `check` cache (including main's existing cache).
