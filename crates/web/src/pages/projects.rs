@@ -24,7 +24,7 @@ pub(crate) fn repository(p: &Project) -> Option<String> {
 
 #[component]
 fn RepositoryLinks(repo: String) -> impl IntoView {
-    view! { <div class="repository-links"><a class="subtle-link" href=format!("https://github.com/{repo}") target="_blank" rel="noreferrer">{repo.clone()}<Icon name="external"/></a><div class="repository-shortcuts"><a class="subtle-link" href=format!("https://github.com/{repo}/pulls") target="_blank" rel="noreferrer">"Open PRs"</a><a class="subtle-link" href=format!("https://github.com/{repo}/actions") target="_blank" rel="noreferrer">"Actions / CI"</a></div></div> }
+    view! { <div class="repository-links"><a class="subtle-link" href=format!("https://github.com/{repo}") target="_blank" rel="noreferrer"><Icon name="github"/>{repo.clone()}<Icon name="external"/></a><div class="repository-shortcuts"><a class="subtle-link" href=format!("https://github.com/{repo}/pulls") target="_blank" rel="noreferrer"><Icon name="github"/>"Open PRs"</a><a class="subtle-link" href=format!("https://github.com/{repo}/actions") target="_blank" rel="noreferrer"><Icon name="github"/>"Actions / CI"</a></div></div> }
 }
 
 #[component]
@@ -33,7 +33,7 @@ pub fn ProjectLinks() -> impl IntoView {
     view! { {move || board.projects.get().iter().find(|p| p.id==board.project.get()).map(|p| {
         let repo=repository(p);
         let project=github_link(p);
-        view! { <div class="project-links">{repo.map(|repo|view!{<a class="subtle-link" href=format!("https://github.com/{repo}") target="_blank" rel="noreferrer">{repo.clone()}<Icon name="external"/></a>})}{project.map(|link|view!{<a class="subtle-link" href=link.url() target="_blank" rel="noreferrer">{format!("GitHub Project {}",link.number)}<Icon name="external"/></a>})}</div> }
+        view! { <div class="project-links">{repo.map(|repo|view!{<a class="subtle-link" href=format!("https://github.com/{repo}") target="_blank" rel="noreferrer"><Icon name="github"/>{repo.clone()}<Icon name="external"/></a>})}{project.map(|link|view!{<a class="subtle-link" href=link.url() target="_blank" rel="noreferrer"><Icon name="github"/>{format!("GitHub Project {}",link.number)}<Icon name="external"/></a>})}</div> }
     })} }
 }
 
@@ -80,7 +80,7 @@ pub fn ApiProjects() -> impl IntoView {
                     view! { <div class="project-row api-project-row">
                         <div><a class="project-title" href="/board" on:click=move|e|{if !board.select_project(id){e.prevent_default();}}><ProjectIcon name=p.name.clone() icon=p.icon.clone().unwrap_or_default() color=p.color.clone()/><div><strong>{p.name}</strong><p class="mono">{p.key_prefix}{if p.archived {" · Archived"}else{""}}</p></div></a></div>
                         <span class="muted project-counts"><span>{format!("{} open",p.open_ticket_count)}</span><span>{format!("{} done",p.done_ticket_count)}</span></span>
-                        <span class="muted project-repository">{repo.map(|repo|view!{<RepositoryLinks repo/>}.into_any()).unwrap_or_else(||view!{<span>"Not linked"</span>}.into_any())}{project.map(|link|view!{<a class="subtle-link github-project-link" href=link.url() target="_blank" rel="noreferrer">{format!("GitHub Project {}",link.number)}<Icon name="external"/></a>})}</span>
+                        <span class="muted project-repository">{repo.map(|repo|view!{<RepositoryLinks repo/>}.into_any()).unwrap_or_else(||view!{<span>"Not linked"</span>}.into_any())}{project.map(|link|view!{<a class="subtle-link github-project-link" href=link.url() target="_blank" rel="noreferrer"><Icon name="github"/>{format!("GitHub Project {}",link.number)}<Icon name="external"/></a>})}</span>
                         <span class="muted project-activity">{activity.map(|at|view!{<time datetime=at.clone() title=at.clone()>{at.chars().take(10).collect::<String>()}</time>}.into_any()).unwrap_or_else(||view!{<span>"No activity"</span>}.into_any())}</span>
                         <button class="icon-button project-row-action" aria-label=format!("Edit project {}",edit.name) on:click=move|_|editor.set(Some(Some(edit.clone())))><Icon name="more"/></button>
                     </div> }

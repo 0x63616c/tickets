@@ -399,7 +399,7 @@ fn MissionRows(rows: Vec<Row>) -> impl IntoView {
 fn MissionRow(row: Row) -> impl IntoView {
     let link = (!row.url.is_empty()).then(|| row.url.clone());
     let key = (!row.key.is_empty()).then(|| row.key.clone());
-    view! {<div class="mission-row"><div class="mission-row-main"><a href=link class="mission-row-title">{row.title}</a><span class="mission-detail">{row.detail}</span></div><div class="mission-row-meta">
+    view! {<div class="mission-row"><div class="mission-row-main"><a href=link class="mission-row-title">{crate::ui::is_github_url(&row.url).then(||view!{<Icon name="github"/>})}<span>{row.title}</span></a><span class="mission-detail">{row.detail}</span></div><div class="mission-row-meta">
         {key.map(|key|view!{<a class="mission-key" href=format!("/t/{key}")>{key.clone()}</a>})}
         {(!row.badge.is_empty()).then(||view!{<span class=format!("mission-ci mission-ci-{}",row.badge)>{format!("CI {}",row.badge)}</span>})}
         {row.auto_merge.then(||view!{<span>"Auto-merge"</span>})}

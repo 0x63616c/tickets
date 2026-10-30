@@ -22,6 +22,14 @@ pub(crate) fn invalidate_reads() {
     READS.with(|reads| reads.borrow_mut().clear());
 }
 
+/// GitHub branding belongs only on HTTP(S) links to the exact GitHub host.
+pub(crate) fn is_github_url(value: &str) -> bool {
+    web_sys::Url::new(value).is_ok_and(|url| {
+        matches!(url.protocol().as_str(), "https:" | "http:")
+            && url.hostname().eq_ignore_ascii_case("github.com")
+    })
+}
+
 pub(crate) async fn api(method: &str, path: &str, body: Value) -> Result<Value, String> {
     use futures_util::FutureExt;
     let cached = method == "GET" && cacheable(path);
