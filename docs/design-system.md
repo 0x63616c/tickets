@@ -315,8 +315,9 @@ new rendered listbox. Add full-page captures when a page's layout changes.
 TIK-40 adds `/design/settings/{account,api-tokens,projects,appearance}` and isolated
 `/design/c/sidebar` and `/design/c/user-menu` fixtures. All use Sample User and
 example repository metadata. Settings uses a compact sub-navigation with the
-Design system link in its footer. Theme and reduced motion overrides persist
-per browser; dark remains the default. Density remains the pinned compact scale.
+Design system link in its footer. Tickets is dark only. Reduced motion overrides
+persist per browser; the retired theme preference is removed on startup. Density
+remains the pinned compact scale.
 
 ### Ticket composer (TIK-39)
 

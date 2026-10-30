@@ -1,8 +1,9 @@
 # Tickets design contract
 
 Calum's taste overrides Impeccable defaults. Preserve the existing dense,
-Linear-style dark interface. Near-pure-black surfaces are intentional; do not
-lift them to generic charcoal. Inter is approved: do not flag or replace it.
+Linear-style dark-only interface. Ignore system colour preferences; there is no
+theme setting. Near-pure-black surfaces are intentional; do not lift them to
+generic charcoal. Inter is approved: do not flag or replace it.
 Label chips use backgrounds softly tinted in each label's own colour, with a
 related border and lighter text. Preserve the 240px sidebar and shared shell.
 
@@ -107,8 +108,8 @@ CSS variables in persisted API data. The lint is a source guard, not Rust datafl
 analysis: review constructed strings, JavaScript DOM geometry and API colour
 boundaries too.
 
-To add a token, choose a semantic name, define its value in `tokens.css`, add any
-needed light-theme override, document the role here or in `docs/design-system.md`,
+To add a token, choose a semantic name, define its dark value in `tokens.css`,
+document the role here or in `docs/design-system.md`,
 and use `var(--name)` at the call site. Run `npm ci --prefix crates/web`, then
 `cargo xtask check design-tokens` (or `npm run lint:css --prefix crates/web` for
 CSS only). Do not use Stylelint disable comments. Fixing existing debt requires

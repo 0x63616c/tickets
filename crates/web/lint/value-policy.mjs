@@ -1,5 +1,5 @@
 // Shared by the Stylelint rule and inline Rust style checks. No autofix: choosing
-// a semantic token can change themes even when today's computed values match.
+// a semantic token can change independently even when today's computed values match.
 const spacing = /^(?:(?:scroll-)?(?:margin|padding)(?:-.+)?|(?:row-|column-)?gap|inset(?:-.+)?|top|right|bottom|left|border-spacing|letter-spacing|word-spacing)$/;
 const radius = /^border-(?:radius|(?:top|bottom)-(?:left|right)-radius|(?:start|end)-(?:start|end)-radius)$/;
 const colors = /^(?:color|.*-color|fill|stroke|background|background-image|border(?:-(?:top|right|bottom|left|block|inline|block-start|block-end|inline-start|inline-end))?|outline|text-decoration|column-rule)$/;

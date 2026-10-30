@@ -71,7 +71,8 @@ API/geometry uses remain reviewable. New static styles belong in CSS.
 
 The first inventory was **399 findings (354 CSS, 45 Rust)**. Four exact-equivalent
 substitutions (skip-link offsets/padding and chart text size) leave **395**
-allowlisted findings (350 CSS, 45 Rust), preserving both themes and current UI.
+allowlisted findings (350 CSS, 45 Rust), preserving the then-current UI. TIK-64
+removes light appearance; Tickets now uses only the dark token values.
 Broad cleanup is intentionally deferred while other UI tickets edit these files.
 `cargo xtask check design-tokens --report` prints observed counts for inspection;
 it never rewrites the baseline. Do not copy a larger report into the allowlist.
@@ -238,6 +239,14 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   project isolation. Screenshots are written to `docs/screenshots/kanban/` at
   1440×900 and 390×900. `board-before` captures the previous real `/` route on a
   running local Worker at port 8787 before changing frontend assets.
+
+### Board topbar creation
+
+The board topbar shows connection state only; create tickets with a column's
+labelled + button. The C shortcut defaults to Todo. Other views keep their
+New ticket action. `cargo xtask component-shot board-topbar` captures fixture-only
+44px board chrome and full-page desktop/mobile evidence; `--before-assets`
+uses baseline assets. `board-check` verifies all six column creation defaults.
 
 ## List view conventions
 
@@ -495,6 +504,10 @@ Windows line endings; apply repository formatting checks to our own files.
   profile/process failures from slow startup before changing launch policy.
 
 
+Browser readiness predicates may retry CDP document/context replacement errors
+across hard navigations, within the existing timeout. Browser actions and JavaScript
+exceptions must still fail immediately; never replay writes to recover navigation.
+
 ## Pull request ingestion conventions
 
 - PR ingestion uses an owner allowlist in
@@ -537,7 +550,8 @@ project icon schema changes additive and validate values in core.
   `api-tokens`, `projects`, `appearance`. `/settings/tokens` redirects to
   `/settings/api-tokens`. Keep the token lifecycle UI for TIK-41 to redesign.
 - Project counts use `open_ticket_count` from the API (exclude done/canceled).
-  Section disclosure, theme (dark default), and reduced motion preferences use
+  Tickets is dark only; ignore OS colour preferences and retire the old
+  `tickets.theme` key on startup. Section disclosure and reduced motion use
   browser localStorage; unavailable storage must not block navigation.
 - `cargo xtask settings-check` verifies account persistence, token lifecycle and
   redirects, shortcuts, preferences and mobile navigation in isolated local D1.

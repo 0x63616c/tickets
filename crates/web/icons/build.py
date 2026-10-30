@@ -29,13 +29,12 @@ open('icon-512.png','wb').write(pngb(tile32(False),512))
 open('icon-maskable-512.png','wb').write(pngb(full(80),512))
 ims=[Image.open(io.BytesIO(pngb(tile16(),16))).convert('RGBA'),Image.open(io.BytesIO(pngb(tile32(),32))).convert('RGBA'),Image.open(io.BytesIO(pngb(tile32(),48))).convert('RGBA')]
 ims[2].save('favicon.ico',sizes=[(16,16),(32,32),(48,48)],append_images=ims[:2])
-# preview: 16 hinted vs 16 unhinted zoomed, on dark+light
-pv=Image.new('RGB',(560,200),'#1E1E1E')
-for i,(bg) in enumerate(['#000000','#F2F2F2']):
-    for j,svg in enumerate([tile16(),tile32()]):
-        im=Image.open(io.BytesIO(pngb(svg,16))).convert('RGBA')
-        tile=Image.new('RGBA',(16,16),bg); tile.alpha_composite(im)
-        pv.paste(tile.resize((128,128),Image.NEAREST),(10+i*280+j*140,10))
-        pv.paste(tile,(10+i*280+j*140,160))
+# preview: 16 hinted vs 16 unhinted zoomed, on the dark background
+pv=Image.new('RGB',(280,200),BG)
+for j,svg in enumerate([tile16(),tile32()]):
+    im=Image.open(io.BytesIO(pngb(svg,16))).convert('RGBA')
+    tile=Image.new('RGBA',(16,16),BG); tile.alpha_composite(im)
+    pv.paste(tile.resize((128,128),Image.NEAREST),(10+j*140,10))
+    pv.paste(tile,(10+j*140,160))
 pv.save('preview16.png')
 print(G16)
