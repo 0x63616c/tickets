@@ -22,8 +22,10 @@ pub(crate) const TICKET_SELECT: &str = "tickets.*,
  (SELECT json_group_array(blocker_id) FROM
    (SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=tickets.id ORDER BY blocker_id)) AS blocked_by,
  (SELECT json_group_array(json(pr)) FROM
-   (SELECT json_object('repo',repo,'number',number,'url',url,'title',title,'state',state,'closes',json(CASE closes WHEN 1 THEN 'true' ELSE 'false' END),'head_sha',head_sha,'updated_at',updated_at) AS pr
-    FROM ticket_pull_requests WHERE ticket_id=tickets.id ORDER BY repo,number)) AS pull_requests";
+   (SELECT json_object('repo',pr.repo,'number',pr.number,'url',pr.url,'title',pr.title,'state',pr.state,'closes',json(CASE pr.closes WHEN 1 THEN 'true' ELSE 'false' END),'head_sha',pr.head_sha,'updated_at',pr.updated_at,'tickets_check',checks.tickets_check,'ci_status',checks.ci_status,'tickets_check_run_id',checks.check_run_id,'checks_updated_at',checks.updated_at) AS pr
+    FROM ticket_pull_requests pr LEFT JOIN github_pull_request_checks checks
+      ON checks.repo=pr.repo AND checks.number=pr.number AND checks.head_sha=pr.head_sha
+    WHERE pr.ticket_id=tickets.id ORDER BY pr.repo,pr.number)) AS pull_requests";
 
 fn selection(entity: &str) -> &str {
     if entity == "tickets" {

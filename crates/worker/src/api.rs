@@ -177,6 +177,13 @@ async fn dispatch<S: Store>(
     if parts.len() < 3 || parts[..2] != ["api", "v1"] {
         return Err(Error::NotFound.into());
     }
+    if method == "GET" && parts == ["api", "v1", "github", "app"] {
+        return Ok(Reply {
+            status: 200,
+            change: None,
+            body: crate::github_app_events::overview(r.0).await?,
+        });
+    }
     if method == "GET" && parts == ["api", "v1", "analytics", "home"] {
         return Ok(Reply {
             status: 200,

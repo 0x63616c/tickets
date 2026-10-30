@@ -158,3 +158,24 @@ pub fn SegmentedControl(
         use web_sys::wasm_bindgen::JsCast;if let Some(target)=e.target().and_then(|n|n.dyn_into::<web_sys::Element>().ok()).and_then(|n|n.parent_element()).and_then(|n|n.query_selector_all("button").ok()).and_then(|n|n.item(next as u32)).and_then(|n|n.dyn_into::<web_sys::HtmlElement>().ok()){let _=target.focus();}
     }>{option}</button>}).collect_view()}</div>}
 }
+
+/// Text carries the state alongside the existing icon family; color is supplemental.
+#[component]
+pub fn PrCheckStatus(
+    #[prop(optional_no_strip)] conclusion: Option<String>,
+    #[prop(default = "CI")] label: &'static str,
+) -> impl IntoView {
+    let (tone, icon, state) = match conclusion.as_deref() {
+        Some("success") => ("passed", "check", "Passed"),
+        Some("failure" | "timed_out" | "action_required" | "startup_failure") => {
+            ("failed", "close", "Failed")
+        }
+        Some("cancelled") => ("unknown", "more", "Canceled"),
+        Some("neutral") => ("unknown", "more", "Neutral"),
+        Some("skipped") => ("unknown", "more", "Skipped"),
+        Some("stale") => ("unknown", "more", "Stale"),
+        Some("queued" | "in_progress" | "pending") => ("pending", "clock", "Pending"),
+        _ => ("unknown", "more", "Not reported"),
+    };
+    view! {<span class=format!("pr-check-status {tone}")><span aria-hidden="true"><Icon name=icon/></span>{format!("{label}: {state}")}</span>}
+}

@@ -294,9 +294,51 @@ included in response bodies or application logs.
 Keep the store key available: changing it without re-encrypting the row makes
 the saved credentials unreadable. Remove the setup state after registration to
 disable the callback; credential loading only needs the store key. There is no
-registration overwrite/reset API. Phase 2 will populate installation/repository
-tables and use the saved credentials for webhook verification and tokens.
-The existing `/api/v1/github/webhook` integration is unchanged in Phase 1.
+registration overwrite/reset API.
+
+### GitHub App events and installation status
+
+The App replaces per-repository hooks. Set the manifest `hook_attributes.url` to
+`https://tickets.worldwidewebb.co/api/v1/github/app/webhook`, grant **Checks: write**,
+**Pull requests: read**, and **Metadata: read**, and subscribe to `pull_request`,
+`check_suite`, and `check_run` (installation events are automatic). Install via the
+callback page's link or `https://github.com/apps/<app-slug>/installations/new`.
+Keep `GITHUB_PR_OWNERS` configured as a comma-separated owner allowlist. After
+verifying the App, remove the old per-repository hooks; the legacy
+`/api/v1/github/webhook` and its `GITHUB_WEBHOOK_SECRET` continue to work unchanged
+until then. Duplicate status deliveries are replay-safe.
+
+`POST /api/v1/github/app/webhook` bypasses bearer/session auth and authenticates
+raw bytes with the registered App's webhook secret using constant-time
+HMAC-SHA256 (`X-Hub-Signature-256: sha256=<hex>`). Missing registration or
+unreadable credentials returns 503; invalid signatures 401; bodies over 1 MiB
+413; malformed JSON 400; non-POST 405. `ping` returns 204. Installation lifecycle
+and repository-selection events persist the account and installed repositories.
+Unsupported events (including push) return 202.
+
+PR events share the legacy endpoint's allowlist, link parser, atomic status sync,
+and replay rules. Opened/reopened/synchronize/edited/ready_for_review also post a
+completed **Tickets** check on the PR head: success for existing linked tickets,
+neutral for unknown keys or no key. Output includes ticket links, titles, current
+statuses and Closes/Refs intent. Check-post failures log a fixed non-secret
+message and preserve the successful status-sync response. Check suite requests
+and rerequests recompute checks (fetching PR details as needed); check run
+rerequests are handled only for this App's **Tickets** run. Standalone recompute
+failures return 502 so GitHub can retry. Other apps' completed suites record the
+latest observed CI conclusion for that head (this is not an aggregate across all
+CI providers). Older suite timestamps cannot overwrite newer conclusions.
+
+Worker authentication signs short-lived RS256 App JWTs via WebCrypto, accepting
+PKCS#1 or PKCS#8 PEM, and exchanges them for installation tokens. Tokens/keys
+never appear in logs or responses. `GITHUB_API_BASE_URL` optionally overrides
+`https://api.github.com` for local mock API tests; leave it unset in production.
+Redirects are never followed with credentials.
+
+`GET /api/v1/github/app` requires normal bearer/session authentication and returns
+`{registered, app_slug, installations:[{account_login, repository_selection,
+repos:["owner/repo"]}]}`. `app_slug` is null before registration; repos and
+installations are ordered. This read never decrypts credentials or calls GitHub,
+and exposes no secrets.
 
 ## GitHub webhook and imported tickets
 
@@ -345,12 +387,20 @@ Ticket responses (including `GET /api/v1/tickets/{key}` for the box job CLI) con
 `repo`, `number`, `url`, `title`, `state` (`open`, `draft`, `merged`, `closed`),
 `closes` (boolean), `head_sha` and `updated_at`. Order is repository then number.
 
+Linked ticket `pull_requests` entries include nullable `tickets_check` (the Tickets
+check conclusion) and `ci_status` (latest other-app CI suite conclusion). Both
+are scoped to the current `head_sha`; a new head has null values until reported.
+Historical heads never supply current results. `tickets_check_run_id` and
+`checks_updated_at` are also nullable and scoped to that head. Conclusions include
+`success`, `failure`, `neutral`, `cancelled`, `timed_out`, or `skipped`. Null means unreported.
+
 Open PRs move backlog/todo/in_progress tickets to in_review; drafts move
 backlog/todo to in_progress. Neither moves in_review backwards or changes done
 or canceled. A merged closing link marks done unless canceled. An unmerged close
 returns in_review/in_progress to todo only when no other open/draft PR remains.
 Reference merges leave status unchanged. GitHub/system comments record link and
-status changes. No requests are made back to GitHub.
+status changes. The legacy endpoint makes no requests back to GitHub; the App
+endpoint also posts the Tickets check described above.
 
 A persisted per-PR snapshot prevents stale events from restoring removed links.
 Newer GitHub timestamps win; equal timestamps prefer merged, closed, open, draft
