@@ -202,7 +202,6 @@
   "crates/web/style/palette.css:css:padding:8px 48px 8px 16px": 1,
   "crates/web/style/palette.css:css:right:8px": 1,
   "crates/web/style/palette.css:css:top:8px": 1,
-  "crates/web/style/settings.css:css:color:color-mix(in srgb,var(--c) 70%,black)": 1,
   "crates/web/style/settings.css:css:gap:2px": 2,
   "crates/web/style/settings.css:css:margin-left:32px": 1
 }

@@ -135,9 +135,15 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.documentElement.dataset.motion==='reduce'")?;
     b.go("http://127.0.0.1:8795/settings/appearance")?;
     b.wait("document.documentElement.dataset.motion==='reduce' && document.querySelector('[aria-label=Motion]')?.textContent.includes('Reduce motion')")?;
-    b.choose("[aria-label=Theme]", "light")?;
-    b.wait("document.documentElement.dataset.theme==='light'")?;
-    b.choose("[aria-label=Theme]", "dark")?;
+    b.wait("!document.querySelector('[aria-label=Theme]') && getComputedStyle(document.documentElement).colorScheme==='dark'")?;
+    // Retired preferences must be removed on startup, whatever their old value.
+    for legacy in ["light", "system", "dark", "unknown"] {
+        b.eval(&format!(
+            "localStorage.setItem('tickets.theme', '{legacy}');true"
+        ))?;
+        b.go("http://127.0.0.1:8795/settings/appearance")?;
+        b.wait("!!document.querySelector('[aria-label=Motion]') && localStorage.getItem('tickets.theme')===null && getComputedStyle(document.documentElement).colorScheme==='dark'")?;
+    }
     b.go("http://127.0.0.1:8795/home")?;
     b.wait("!!document.querySelector('.home-empty')")?;
     b.eval("document.activeElement.blur();true")?;

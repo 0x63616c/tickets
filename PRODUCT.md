@@ -10,4 +10,5 @@ web
 
 ## Stack and constraints
 Rust, Leptos CSR, Cloudflare Workers and D1 are locked. Preserve existing app
-behavior and the shared shell. Visual authority lives in DESIGN.md.
+behavior and the shared shell. Tickets is dark only, regardless of OS or stored
+theme preferences. Visual authority lives in DESIGN.md.
