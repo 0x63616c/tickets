@@ -319,7 +319,7 @@ pub fn DropdownMenu(
     #[prop(default = "button button-ghost menu-trigger")] trigger_class: &'static str,
     #[prop(default = "plus")] icon: &'static str,
     #[prop(default = false)] disclosure: bool,
-    label: &'static str,
+    #[prop(into)] label: String,
     children: Children,
     #[prop(optional)] trigger_content: Option<Children>,
     #[prop(optional)] on_input_enter: Option<Callback<()>>,
@@ -330,7 +330,7 @@ pub fn DropdownMenu(
     provide_context(MenuClose(Callback::new(move |_| popup.close(true))));
     let search = RwSignal::new(String::new());
     let stamp = RwSignal::new(0.);
-    view! {<div class=class><button type="button" class=trigger_class node_ref=popup.trigger aria-label=label aria-haspopup="menu" aria-expanded=move||popup.open.get().to_string() aria-controls=aria_id on:click=move|_|{popup.open.update(|v|*v= !*v);if popup.open.get_untracked(){popup.focus(None);}} on:keydown=move|e:web_sys::KeyboardEvent|{if ["Enter"," "].contains(&e.key().as_str()){e.prevent_default();popup.open.update(|v|*v= !*v);if popup.open.get_untracked(){popup.focus(None);}}else if ["ArrowDown","ArrowUp"].contains(&e.key().as_str()){e.prevent_default();popup.open.set(true);popup.focus(Some(e.key()=="ArrowUp"));}}>{match trigger_content {Some(content)=>content().into_any(),None=>view!{<><Icon name=icon/><span>{label}</span></>}.into_any()}}{disclosure.then(||view!{<Icon name="down"/>})}</button>
+    view! {<div class=class><button type="button" class=trigger_class node_ref=popup.trigger aria-label=label.clone() aria-haspopup="menu" aria-expanded=move||popup.open.get().to_string() aria-controls=aria_id on:click=move|_|{popup.open.update(|v|*v= !*v);if popup.open.get_untracked(){popup.focus(None);}} on:keydown=move|e:web_sys::KeyboardEvent|{if ["Enter"," "].contains(&e.key().as_str()){e.prevent_default();popup.open.update(|v|*v= !*v);if popup.open.get_untracked(){popup.focus(None);}}else if ["ArrowDown","ArrowUp"].contains(&e.key().as_str()){e.prevent_default();popup.open.set(true);popup.focus(Some(e.key()=="ArrowUp"));}}>{match trigger_content {Some(content)=>content().into_any(),None=>view!{<><Icon name=icon/><span>{label.clone()}</span></>}.into_any()}}{disclosure.then(||view!{<Icon name="down"/>})}</button>
     <div class="popup menu" node_ref=popup.panel id=panel_id role="menu" aria-label=label popover="manual" hidden=move||!popup.presence.mounted.get() inert=move||!popup.open.get() data-state=move||popup.presence.state() on:keydown=move|e:web_sys::KeyboardEvent|{if e.key()=="Enter" && e.target().is_some_and(|t|t.dyn_ref::<web_sys::HtmlInputElement>().is_some()) && let Some(cb)=on_input_enter {e.prevent_default();cb.run(());}else{popup_key(e,popup,search,stamp);}}>{children()}</div></div>}
 }
 #[component]

@@ -248,6 +248,16 @@ New ticket action. `cargo xtask component-shot board-topbar` captures fixture-on
 44px board chrome and full-page desktop/mobile evidence; `--before-assets`
 uses baseline assets. `board-check` verifies all six column creation defaults.
 
+### Sidebar project actions
+
+Project rows reserve their count slot for the shared more-menu trigger on hover,
+keyboard focus, and touch. Keep the trigger beside the navigation link, never
+nested inside it. Reuse `ProjectEditor` for sidebar and Projects page edits;
+GitHub repository URLs work independently of optional GitHub Project metadata.
+`/board?project=<id>` is the shareable project URL. Archiving requires confirmation
+and retains tickets; restore from All projects. `component-shot sidebar` verifies
+fixture menu/edit/Escape behavior; `projects-check` covers persistence and archive.
+
 ## List view conventions
 
 - `/list` shares API ticket loading and creation with the board; `/design/list`
