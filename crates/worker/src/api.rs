@@ -153,6 +153,47 @@ async fn dispatch<S: Store>(
         return Err(Error::NotFound.into());
     }
     let entity = parts[2];
+    if method == "GET" && parts.as_slice() == ["api", "v1", "search"] {
+        let mut seen = std::collections::HashSet::new();
+        let mut query = tickets_core::search::SearchQuery::default();
+        let mut recent = vec![];
+        let mut limit = 30;
+        for (key, value) in q {
+            if !seen.insert(key) {
+                return Err(bad("Duplicate search parameter"));
+            }
+            match key.as_str() {
+                "q" => query = tickets_core::search::SearchQuery::parse(value).map_err(bad)?,
+                "limit" => {
+                    limit = id(value)?;
+                    if limit > 50 {
+                        return Err(bad("limit must be 1 through 50"));
+                    }
+                }
+                "recent" if value.is_empty() => {}
+                "recent" => {
+                    if value.len() > 420 {
+                        return Err(bad("Use at most 20 recent ticket IDs"));
+                    }
+                    for value in value.split(',') {
+                        let value = id(value)?;
+                        if !recent.contains(&value) {
+                            recent.push(value);
+                        }
+                        if recent.len() > 20 {
+                            return Err(bad("Use at most 20 recent ticket IDs"));
+                        }
+                    }
+                }
+                _ => return Err(bad("Unknown search parameter")),
+            }
+        }
+        return Ok(Reply {
+            status: 200,
+            change: None,
+            body: crate::search::search(r.0, &query, &recent, limit).await?,
+        });
+    }
     if !["projects", "tickets", "labels", "comments"].contains(&entity) {
         return Err(Error::NotFound.into());
     }

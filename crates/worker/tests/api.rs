@@ -1076,3 +1076,106 @@ fn account_name_migration_and_shared_queries() {
         assert!(rows[0]["display_name"].is_null());
     });
 }
+
+#[test]
+fn palette_ranking_filters_and_query_budget() {
+    use tickets_worker::auth_queries::BEARER;
+    block_on(async {
+        let db = Sqlite::new();
+        db.0.execute_batch("INSERT INTO users(id,username) VALUES(1,'owner');
+            INSERT INTO api_tokens(user_id,token_hash,name) VALUES(1,'fixture-hash','fixture');
+            INSERT INTO projects(id,name,key_prefix,color) VALUES(1,'Quantum','QUA','#4ea7fc'),(2,'Tickets','TIK','#5e6ad2');
+            INSERT INTO tickets(id,project_id,number,title,body,status,updated_at,assignee) VALUES
+            (1,1,78,'Voxel mesh cache','incremental renderer','done','2020-01-01T00:00:00.000Z',NULL),
+            (2,2,1,'Follow up QUA-78','links','todo','2026-10-29T00:00:00.000Z',NULL),
+            (3,1,79,'Command palette','keyboard navigation','todo','2026-10-29T00:00:00.000Z',NULL),
+            (4,1,80,'Focus recovery','command palette','in_progress','2026-10-29T00:00:00.000Z','agent'),
+            (5,2,2,'Command palette','keyboard navigation','done','2020-01-01T00:00:00.000Z',NULL),
+            (6,1,81,'Command palette','keyboard navigation','todo','2020-01-01T00:00:00.000Z',NULL),
+            (7,1,82,'Command palette','keyboard navigation','todo','2026-10-29T00:00:00.000Z',NULL),
+            (8,2,3,'Literal 50%_ escape','nothing','todo','2026-10-29T00:00:00.000Z','agent');").unwrap();
+        let store = CountingStore {
+            db,
+            queries: std::cell::Cell::new(0),
+        };
+        let search = async |q: &str, recent: &str| {
+            store
+                .request(
+                    BEARER,
+                    "GET",
+                    "/api/v1/search",
+                    &[("q".into(), q.into()), ("recent".into(), recent.into())],
+                    Value::Null,
+                    (200, 2),
+                )
+                .await["data"]
+                .as_array()
+                .unwrap()
+                .clone()
+        };
+        assert_eq!(
+            search("qua-78", "2").await[0]["id"],
+            1,
+            "Exact closed key must beat a recent open title mention"
+        );
+        let found = search("cmd palete", "").await;
+        assert!(
+            found.iter().any(|t| t["id"] == 3),
+            "Subsequence title match"
+        );
+        assert!(found.iter().any(|t| t["id"] == 4), "Subsequence body match");
+        assert_ne!(found[0]["id"], 4, "Title relevance beats body");
+        let found = search("Command palette", "3").await;
+        assert_eq!(found[0]["id"], 3, "Viewed boost breaks relevance ties");
+        let pos = |id| found.iter().position(|t| t["id"] == id).unwrap();
+        assert!(pos(7) < pos(6), "Updated recency matters");
+        assert!(pos(6) < pos(5), "Open beats closed at equal recency");
+        let filtered = search("status:todo p:qua palette", "").await;
+        assert!(
+            filtered
+                .iter()
+                .all(|t| t["status"] == "todo" && t["project_id"] == 1)
+        );
+        assert_eq!(search("50%_", "").await.len(), 1, "Wildcards are literal");
+        assert!(search("no-such-result", "").await.is_empty());
+        let suggestions = search("", "1").await;
+        assert_eq!(suggestions[0]["id"], 1);
+        assert!(suggestions.iter().any(|t| t["id"] == 4));
+        assert!(suggestions.iter().any(|t| t["id"] == 8));
+        assert!(!suggestions.iter().any(|t| t["id"] == 5));
+        // Busy workspaces must still surface an old, completed recent ticket.
+        for n in 4..45 {
+            store.db.0.execute("INSERT INTO tickets(project_id,number,title,status,assignee) VALUES(2,?, 'Assigned work','todo','agent')",[n]).unwrap();
+        }
+        assert_eq!(search("", "1").await[0]["id"], 1);
+        for query in [
+            vec![("q".into(), "status:unknown".into())],
+            vec![("limit".into(), "51".into())],
+            vec![("recent".into(), "1,-2".into())],
+            vec![("q".into(), "a".into()), ("q".into(), "b".into())],
+            vec![("cursor".into(), "1".into())],
+        ] {
+            assert_eq!(
+                handle(&store, "GET", "/api/v1/search", &query, Value::Null)
+                    .await
+                    .status,
+                400
+            );
+        }
+        let limited = handle(
+            &store,
+            "GET",
+            "/api/v1/search",
+            &[("q".into(), "palette".into()), ("limit".into(), "1".into())],
+            Value::Null,
+        )
+        .await;
+        assert_eq!(limited.body["data"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            handle(&store, "POST", "/api/v1/search", &[], json!({}))
+                .await
+                .status,
+            404
+        );
+    });
+}

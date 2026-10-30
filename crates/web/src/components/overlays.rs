@@ -1,7 +1,7 @@
 use super::*;
 use crate::fixtures::{Priority, Ticket};
 use leptos::{ev, html, prelude::*};
-use leptos_router::{components::A, hooks::use_navigate};
+use leptos_router::hooks::use_navigate;
 use tickets_core::{
     dependency::{DependencyError, DependencyGraph},
     domain::Dependency,
@@ -71,9 +71,21 @@ pub fn Modal(
 pub fn Overlays() -> impl IntoView {
     let state = expect_context::<DesignState>();
     let location = leptos_router::hooks::use_location();
+    super::palette::track_recent_views();
     let handle = window_event_listener(ev::keydown, move |event| {
+        if event.default_prevented() {
+            return;
+        }
         if event.key().eq_ignore_ascii_case("k") && (event.meta_key() || event.ctrl_key()) {
             event.prevent_default();
+            if document()
+                .query_selector(".command-palette[aria-busy=true]")
+                .ok()
+                .flatten()
+                .is_some()
+            {
+                return;
+            }
             if state.dialog.get_untracked() != DialogKind::Command
                 && document()
                     .query_selector("dialog[open]")
@@ -117,7 +129,9 @@ pub fn Overlays() -> impl IntoView {
             Some(state.dialog.get())
         }
     }));
-    view! { {move || match shown.get().unwrap_or(DialogKind::None) {
+    // Keyboard-driven palettes close immediately so another command can open
+    // during the shared modal exit window without retaining stale route context.
+    view! { {move || match if shown.get()==Some(DialogKind::Command) && state.dialog.get()!=DialogKind::Command { DialogKind::None } else { shown.get().unwrap_or(DialogKind::None) } {
         DialogKind::None => ().into_any(),
         DialogKind::Ticket => view! { <CreateTicket/> }.into_any(),
         DialogKind::Project => view! { <CreateProject/> }.into_any(),
@@ -194,69 +208,6 @@ fn AddDependency() -> impl IntoView {
                 }}</div>
             </div>
         </Modal>
-    }
-}
-
-#[component]
-pub fn CommandPalette() -> impl IntoView {
-    let state = expect_context::<DesignState>();
-    let query = RwSignal::new(String::new());
-    let board = expect_context::<crate::pages::board::BoardState>();
-    let location = leptos_router::hooks::use_location();
-    if !location.pathname.get_untracked().starts_with("/design")
-        && board.signed_in.get_untracked()
-        && board.projects.get_untracked().is_empty()
-    {
-        board.refresh();
-    }
-    view! {
-        <Modal open=Signal::derive(move||state.dialog.get()!=DialogKind::None) title="Search and commands" on_close=Callback::new(move |_| state.dialog.set(DialogKind::None))>
-            <div class="command-palette" on:keydown=command_key>
-            <div class="command-search"><Icon name="search"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Search tickets or commands" placeholder="Search tickets…" on:input=move |ev| query.set(event_target_value(&ev))/></div>
-            <Show when=move||!location.pathname.get().starts_with("/design") fallback=move||view!{<div class="command-results"><p class="menu-heading">"Actions"</p><button class="menu-item" on:click=move |_| state.new_ticket(Status::Todo)><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button><button class="menu-item" on:click=move |_| state.dialog.set(DialogKind::Project)><Icon name="project"/>"New project"</button><p class="menu-heading">"Tickets"</p>{move || {
-                let filtered = state.tickets.get().into_iter().filter(|t| format!("TKT-{} {}", t.id, t.title).to_lowercase().contains(&query.get().to_lowercase())).take(6).collect::<Vec<_>>();
-                if filtered.is_empty() { view! { <p class="command-empty">"No tickets match your search."</p> }.into_any() } else { filtered.into_iter().map(|ticket| view! { <A href=format!("/design/ticket?id={}", ticket.id) attr:class="menu-item" on:click=move |_| state.dialog.set(DialogKind::None)><StatusIcon status=ticket.status/><span class="mono muted">{format!("TKT-{}", ticket.id)}</span><span>{ticket.title}</span></A> }).collect_view().into_any() }
-            }}</div>}><div class="command-results"><p class="menu-heading">"Tickets"</p>{move||{
-                let filtered=board.tickets.get().into_iter().filter(|t|format!("{} {}",t.key,t.title).to_lowercase().contains(&query.get().to_lowercase())).take(20).collect::<Vec<_>>();
-                if filtered.is_empty() {view!{<p class="command-empty" role="status">{move||if board.loading.get(){"Loading tickets…"}else{"No tickets match your search."}}</p>}.into_any()} else {filtered.into_iter().map(|t|view!{<A href=format!("/t/{}",t.key) attr:class="menu-item" on:click=move|_|state.dialog.set(DialogKind::None)><StatusIcon status=t.status/><span class="mono muted">{t.key}</span><span class="menu-title" title=t.title.clone()>{t.title.clone()}</span></A>}).collect_view().into_any()}
-            }}</div></Show><div class="command-footer"><span><Shortcut>"↑ ↓"</Shortcut>" to navigate"</span><span><Shortcut>"↵"</Shortcut>" to open"</span><span><Shortcut>"esc"</Shortcut>" to close"</span></div>
-            </div>
-        </Modal>
-    }
-}
-
-fn command_key(event: web_sys::KeyboardEvent) {
-    let key = event.key();
-    if !["ArrowDown", "ArrowUp"].contains(&key.as_str()) {
-        return;
-    }
-    let Ok(items) = document().query_selector_all(".command-results .menu-item") else {
-        return;
-    };
-    let len = items.length();
-    if len == 0 {
-        return;
-    }
-    event.prevent_default();
-    let active = document().active_element();
-    let index = (0..len).find(|i| {
-        items.item(*i).is_some_and(|item| {
-            active
-                .as_ref()
-                .is_some_and(|active| item.is_same_node(Some(active)))
-        })
-    });
-    let next = match (key.as_str(), index) {
-        ("ArrowUp", Some(i)) => (i + len - 1) % len,
-        ("ArrowUp", None) => len - 1,
-        (_, Some(i)) => (i + 1) % len,
-        _ => 0,
-    };
-    if let Some(item) = items
-        .item(next)
-        .and_then(|item| item.dyn_into::<web_sys::HtmlElement>().ok())
-    {
-        let _ = item.focus();
     }
 }
 
