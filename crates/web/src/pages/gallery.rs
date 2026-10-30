@@ -27,6 +27,7 @@ pub fn Gallery() -> impl IntoView {
 }
 
 pub const COMPONENTS: &[&str] = &[
+    "pr-check-status",
     "pickup-rules",
     "history",
     "palette",
@@ -70,6 +71,7 @@ fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
     let show = RwSignal::new(false);
     let tabs = RwSignal::new("Write".to_string());
     match name {
+        "pr-check-status" => view!{<div class="sample-controls"><PrCheckStatus conclusion=Some("success".into())/><PrCheckStatus conclusion=Some("failure".into())/><PrCheckStatus conclusion=Some("neutral".into())/><PrCheckStatus/><PrCheckStatus label="Tickets" conclusion=Some("success".into())/></div>}.into_any(),
         "pickup-rules"=>view!{<super::pickup::PickupSettings fixture=true/>}.into_any(),
         "history"=>view!{<div class="history-preview"><h2>"Activity"</h2><div class="activity-feed">{history_fixture().into_iter().map(|entry|view!{<HistoryEvent entry/>}).collect_view()}</div></div>}.into_any(),
         "palette"=>{let state=expect_context::<DesignState>();state.dialog.set(DialogKind::Command);view!{<CommandPalette/>}.into_any()},

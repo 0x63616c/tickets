@@ -51,3 +51,5 @@ pub mod analytics;
 pub mod history;
 
 pub mod pickup;
+
+pub mod github_app_checks;

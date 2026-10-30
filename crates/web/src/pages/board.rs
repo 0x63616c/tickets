@@ -58,6 +58,10 @@ pub(crate) struct PullRequest {
     pub title: String,
     pub state: String,
     pub closes: bool,
+    #[serde(default)]
+    pub tickets_check: Option<String>,
+    #[serde(default)]
+    pub ci_status: Option<String>,
 }
 fn id(t: &BoardTicket) -> i64 {
     t.id
