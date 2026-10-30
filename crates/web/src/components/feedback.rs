@@ -2,61 +2,6 @@ use super::*;
 use leptos::{html, prelude::*};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-// cli-spinners, MIT, Sindre Sorhus. Exact vendored frames; see THIRD_PARTY.md.
-pub const DOTS: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-pub const LINE: &[&str] = &["-", "\\", "|", "/"];
-pub const PULSE: &[&str] = &["⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈"];
-#[derive(Clone, Copy, Default)]
-pub enum SpinnerStyle {
-    #[default]
-    Dots,
-    Line,
-    Pulse,
-}
-#[component]
-pub fn AsciiSpinner(
-    #[prop(default = "Loading")] label: &'static str,
-    #[prop(optional)] style: SpinnerStyle,
-    #[prop(default = 150)] delay: u64,
-) -> impl IntoView {
-    let visible = RwSignal::new(false);
-    let frame = RwSignal::new(0usize);
-    let (frames, ms) = match style {
-        SpinnerStyle::Dots => (DOTS, 80),
-        SpinnerStyle::Line => (LINE, 130),
-        SpinnerStyle::Pulse => (PULSE, 100),
-    };
-    let timeout = set_timeout_with_handle(
-        move || visible.set(true),
-        std::time::Duration::from_millis(delay),
-    )
-    .ok();
-    let interval = set_interval_with_handle(
-        move || {
-            if document().hidden()
-                || window()
-                    .match_media("(prefers-reduced-motion: reduce)")
-                    .ok()
-                    .flatten()
-                    .is_some_and(|q| q.matches())
-            {
-                return;
-            }
-            frame.update(|n| *n = (*n + 1) % frames.len());
-        },
-        std::time::Duration::from_millis(ms),
-    )
-    .ok();
-    on_cleanup(move || {
-        if let Some(t) = timeout {
-            t.clear();
-        }
-        if let Some(i) = interval {
-            i.clear();
-        }
-    });
-    view! {<span class="ascii-spinner" role="status" aria-live="polite" aria-atomic="true" class:spinner-visible=move||visible.get()><span aria-hidden="true" class="spinner-frames">{move||frames[frame.get()]}</span><span aria-hidden="true" class="spinner-static">{frames[0]}</span><span class="sr-only">{move||visible.get().then_some(label)}</span></span>}
-}
 #[component]
 pub fn BusyButton(
     children: Children,
@@ -69,21 +14,10 @@ pub fn BusyButton(
     #[prop(default = "submit")] kind: &'static str,
     #[prop(optional)] on_click: Option<Callback<()>>,
 ) -> impl IntoView {
-    view! {<button class=format!("button button-{variant} busy-button {class}") type=kind aria-label=aria_label aria-busy=move||busy.get().to_string() disabled=move||busy.get()||disabled.get() on:click=move|_|{if let Some(f)=on_click{f.run(());}}><span class="busy-content" class:busy-hidden=move||busy.get()>{children()}</span><Show when=move||busy.get()><span class="busy-indicator"><AsciiSpinner label=status_label/></span></Show></button>}
+    let content = NodeRef::<html::Span>::new();
+    use_ascii_reveal(content, busy, false);
+    view! {<button class=format!("button button-{variant} busy-button {class}") type=kind aria-label=aria_label aria-busy=move||busy.get().to_string() disabled=move||busy.get()||disabled.get() on:click=move|_|{if let Some(f)=on_click{f.run(());}}><span node_ref=content class="busy-content" class:busy-hidden=move||busy.get()>{children()}</span><Show when=move||busy.get()><span class="busy-indicator"><LoadingIndicator label=status_label/></span></Show></button>}
 }
-#[component]
-pub fn Skeleton(#[prop(default = "line")] shape: &'static str) -> impl IntoView {
-    view! {<span class=format!("skeleton skeleton-{shape}") aria-hidden="true"/>}
-}
-#[component]
-pub fn LoadingSkeleton(#[prop(default = "board")] layout: &'static str) -> impl IntoView {
-    view! {<div class=format!("loading-skeleton loading-{layout}") aria-busy="true"><div class="loading-caption"><AsciiSpinner label="Loading content"/><span>"Loading…"</span></div><div class="skeleton-layout" aria-hidden="true">{match layout {
-        "board"=>(0..4).map(|_|view!{<div class="skeleton-column"><Skeleton shape="heading"/>{(0..3).map(|_|view!{<div class="skeleton-card"><Skeleton shape="meta"/><Skeleton/><Skeleton shape="short"/><Skeleton shape="meta"/></div>}).collect_view()}</div>}).collect_view().into_any(),
-        "detail"=>view!{<div class="skeleton-detail"><div><Skeleton shape="heading"/><Skeleton/><Skeleton/><Skeleton shape="short"/><div class="skeleton-section"><Skeleton shape="heading"/><Skeleton/><Skeleton/></div></div><aside>{(0..6).map(|_|view!{<Skeleton/>}).collect_view()}</aside></div>}.into_any(),
-        _=>(0..7).map(|_|view!{<div class="skeleton-row"><Skeleton shape="square"/><Skeleton shape="meta"/><Skeleton/><Skeleton shape="short"/></div>}).collect_view().into_any(),
-    }}</div></div>}
-}
-
 #[component]
 pub fn ProjectIcon(
     #[prop(into)] name: String,

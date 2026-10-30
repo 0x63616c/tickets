@@ -1,5 +1,8 @@
 # Dual-agent Impeccable critique — TIK-38 foundations
 
+> Historical TIK-38 evidence. TIK-47 replaces these custom loaders and static
+> skeletons with the published ascii-reveal library; see [current evidence](../TIK-47/README.md).
+
 Assessment A reviewed design independently; Assessment B ran the detector and fresh browser inspection. A completed before B findings were read. Target: crates/web/src/components. Scope: shared controls, loading, motion and project identity; page redesigns remain separate tickets.
 
 The foundation belongs to Tickets: dense geometry, near-black surfaces, restrained Inter hierarchy and familiar status shapes preserve the pinned design. Static skeletons, shorter exits and fixed busy-button footprints provide quiet feedback. Glyph, emoji and initial project marks share one identity system.

@@ -8,7 +8,8 @@ two five-row queues. All measurements have exact ticket drill-downs.
 This is the trimmed implementation of the Phase 1 handoff. It deliberately avoids
 activity-volume scores, invented historic completion dates, and cycle statistics
 with unknown starts. It uses existing tokens, shared SelectField, ProjectIcon,
-Skeleton and AsciiSpinner. Charts have no entrance or count-up animation.
+AsciiSkeleton and LoadingIndicator from the published ascii-reveal package.
+Content uses its fast decode preset on arrival; charts have no count-up animation.
 
 ## Metrics
 

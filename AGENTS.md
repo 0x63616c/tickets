@@ -16,6 +16,9 @@ Read `CONTRIBUTING.md` first; everything there applies.
 - Work in a git worktree per issue. Never delete folders you did not create.
 - Merging to `main` deploys to production automatically via CI. Never run `wrangler deploy`, remote migrations or other production changes by hand without Calum's explicit OK.
 - Never commit secrets, API tokens, or personal info. Tokens are stored hashed only.
+- Run `npm ci --prefix crates/web` before direct web/wasm or Trunk builds.
+  `cargo xtask build`, `dev`, and `ci` install the locked dependencies automatically.
+  Loading uses published `ascii-reveal` 0.3.0; keep wrappers thin, never vendor or port it.
 - Before opening a PR run: `cargo fmt --all --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 - UI changes: default to `cargo xtask component-shot <name>` after building;

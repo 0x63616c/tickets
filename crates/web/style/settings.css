@@ -60,7 +60,6 @@
 :root[data-motion=reduce] .nav-section-toggle .icon, :root[data-motion=reduce] .segment-indicator { transition:none; }
 :root[data-motion=reduce] .popup, :root[data-motion=reduce] .toast { animation-name:opacity-in; }
 :root[data-motion=reduce] .popup[data-state=closed], :root[data-motion=reduce] .toast[data-state=closed] { animation-name:opacity-out; }
-:root[data-motion=reduce] .spinner-frames { display:none; }:root[data-motion=reduce] .spinner-static { display:inline; }
 @starting-style { :root[data-motion=reduce] .modal[data-state=open] { transform:none; } }
 @media (prefers-reduced-motion:reduce) { .nav-section-toggle .icon { transition:none; } }
 .component-stage[data-component=sidebar], .component-stage[data-component=user-menu] { min-width:0; width:288px; }

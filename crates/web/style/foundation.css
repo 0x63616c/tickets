@@ -50,9 +50,11 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .segmented-control [aria-pressed="true"] { color: var(--text); }
 .segment-indicator { position: absolute; inset: 2px auto 2px 2px; width: 76px; background: var(--surface-active); border-radius: var(--radius-sm); transition: transform var(--duration-popover) var(--ease-out); }
 .segmented-control[data-keyboard="true"] .segment-indicator { transition: none; }
-.ascii-spinner { display: inline-grid; place-items: center; font-family: var(--font-mono); font-size: var(--text-lg); line-height: 1; width: 1em; height: 1em; flex: 0 0 1em; opacity: 0; }
-.ascii-spinner.spinner-visible { opacity: 1; }
-.spinner-static { display: none; }
+/* ascii-reveal owns glyph generation, sweep and decode; these are palette/geometry only. */
+:root { --ascii-font: var(--font-mono); --ascii-skeleton: var(--text-muted); --ascii-glyph: var(--text-muted); --ascii-accent: var(--text-secondary); --ascii-surface: var(--surface); }
+.ascii-skeleton { display: block; min-width: 0; width: 100%; }
+.loading-indicator { display: inline-block; width: 32px; height: 16px; flex: 0 0 32px; overflow: hidden; }
+.loading-indicator .ars { font-size: var(--text-sm); }
 .busy-button { display: inline-grid; position: relative; }
 .busy-content, .busy-indicator { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
 .busy-hidden { opacity: 0; }
@@ -60,18 +62,16 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .busy-button[aria-busy="true"] { opacity: 1; cursor: progress; }
 .loading-caption { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4); }
 .loading-skeleton { padding: var(--space-6); width: 100%; }
-.skeleton { display: block; background: var(--surface-active); border-radius: var(--radius-sm); width: 100%; height: 12px; }
-.skeleton-heading { width: 40%; height: 16px; margin-bottom: var(--space-4); }
-.skeleton-meta { width: 48px; height: 10px; }
+.skeleton-heading { width: 40%; margin-bottom: var(--space-4); }
+.skeleton-meta { width: 48px; }
 .skeleton-short { width: 60%; }
-.skeleton-square { width: 20px; height: 20px; flex-shrink: 0; }
 .loading-board .skeleton-layout { display: grid; grid-template-columns: repeat(4,minmax(160px,1fr)); gap: var(--space-4); overflow: hidden; }
 .skeleton-card { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-3); display: grid; gap: var(--space-3); margin-bottom: var(--space-2); }
 .skeleton-row { height: 36px; display: flex; align-items: center; gap: var(--space-4); border-bottom: 1px solid var(--border); }
-.skeleton-row .skeleton { flex: 1; }.skeleton-row .skeleton-square { flex: 0 0 20px; }.skeleton-row .skeleton-meta { flex: 0 0 48px; }
-.loading-projects .skeleton-row { height: 64px; }.loading-projects .skeleton-short { flex: 0 1 120px; }
-.skeleton-detail { display: grid; grid-template-columns: 1fr 240px; gap: var(--space-12); padding: var(--space-6); }
-.skeleton-detail .skeleton { margin-bottom: var(--space-4); }.skeleton-section { margin-top: var(--space-12); }
+
+.loading-projects .skeleton-row { height: 64px; }
+.loading-detail { padding: 0; }.loading-detail .loading-caption { margin: var(--space-6) var(--space-6) 0; }
+.skeleton-section { margin-top: var(--space-12); }
 .project-mark { background: color-mix(in srgb, var(--project-color,var(--accent)) 12%, var(--surface)); border-color: color-mix(in srgb, var(--project-color,var(--accent)) 24%, var(--border)); width: 20px; height: 20px; }
 .project-mark .icon { width: 14px; height: 14px; flex-basis: 14px; }.project-mark.large .icon { width: 20px; height: 20px; }
 .project-icon-picker { display: grid; grid-template-columns: minmax(0,1fr) 32px minmax(0,1fr); align-items: end; gap: var(--space-3); }
@@ -80,6 +80,8 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .component-stage:has(.loading-skeleton) { width: 960px; }.component-stage:has(.popup) { width: 360px; }
 .component-stage > .field .select-root { width: 240px; }
 .component-stage .loading-skeleton { padding: 0; }
+.reveal-preview h2 { font-size: var(--text-lg); margin-bottom: var(--space-2); }
+.reveal-preview p { margin-bottom: var(--space-4); }
 /* Snapshots are decorative; the new route remains interactive during the fade. */
 ::view-transition { pointer-events: none; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 140ms; animation-timing-function: var(--ease-out); }
@@ -88,14 +90,13 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 @keyframes feedback-in { from { opacity: 0; translate: 0 4px; } to { opacity: 1; translate: 0 0; } }
 @keyframes feedback-out { to { opacity: 0; translate: 0 4px; } }
 @media (hover:hover) and (pointer:fine) { .select-trigger:hover:not(:disabled) { background-color: var(--surface-hover); }.popup .menu-item:hover:not(:disabled) { background: var(--surface-active); } }
-@media (max-width:760px) { .board-filters .select-root { flex: 1 1 calc(50% - 4px); max-width: calc(50% - 4px); }.skeleton-detail { grid-template-columns: 1fr; padding: 0; }.component-stage { min-width: 0; width: 100%; }.project-icon-picker { grid-template-columns: minmax(0,1fr) 32px; }.project-icon-picker > .field:last-child { grid-column: 1 / -1; } }
+@media (max-width:760px) { .board-filters .select-root { flex: 1 1 calc(50% - 4px); max-width: calc(50% - 4px); }.component-stage { min-width: 0; width: 100%; }.project-icon-picker { grid-template-columns: minmax(0,1fr) 32px; }.project-icon-picker > .field:last-child { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion:reduce) {
   :where(button,a,summary,[role="button"]):active:not(:disabled) { scale: none; }
   .modal[data-state="closed"] { transform: none; }
   .modal { transition-property: opacity; }.segment-indicator { transition: none; }
   .popup { animation-name: opacity-in; }.popup[data-state="closed"] { animation-name: opacity-out; }
   .toast { animation-name: opacity-in; }.toast[data-state="closed"] { animation-name: opacity-out; }
-  .spinner-frames { display: none; }.spinner-static { display: inline; }
   @starting-style { .modal[data-state="open"] { transform: none; } }
 }
 @keyframes opacity-in { from {opacity:0;} to {opacity:1;} }

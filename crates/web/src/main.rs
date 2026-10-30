@@ -34,10 +34,10 @@ fn App() -> impl IntoView {
         .unwrap_or_default()
         .starts_with("/design/c/")
     {
-        return view!{<Router><Routes fallback=||"Unknown component"><Route path=path!("/design/c/:name") view=pages::gallery::ComponentPreview/></Routes></Router>}.into_any();
+        return view!{<components::AsciiStyles/><Router><Routes fallback=||"Unknown component"><Route path=path!("/design/c/:name") view=pages::gallery::ComponentPreview/></Routes></Router>}.into_any();
     }
     view! {
-        <Router><Show when=|| window().location().pathname().unwrap_or_default() == "/login" fallback=|| view! { <components::AppShell>
+        <components::AsciiStyles/><Router><Show when=|| window().location().pathname().unwrap_or_default() == "/login" fallback=|| view! { <components::AppShell>
             <Routes fallback=|| view! { <components::TopBar/><div class="empty-state"><h1>"Page not found"</h1><a class="button button-secondary" href="/">"Back to tickets"</a></div> }>
                 <Route path=path!("/") view=pages::home::HomePage/>
                 <Route path=path!("/board") view=pages::ApiBoard/>
