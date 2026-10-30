@@ -121,8 +121,8 @@
 .sidebar-project-row { position: relative; }
 .sidebar-project-row .project-nav { padding-right: var(--space-10); }
 .sidebar-project-row .nav-count { position: absolute; right: var(--space-2); }
-.project-dropdown { position: absolute; right: var(--space-1); top: 0; }
-.project-more-trigger { width: 28px; height: 28px; opacity: 0; }
+.project-dropdown { position: absolute; right: var(--space-1); top: 0; bottom: 0; display: flex; align-items: center; }
+.project-more-trigger { width: var(--space-5); height: var(--space-5); border-radius: var(--radius-sm); opacity: 0; }
 .sidebar-project-row:focus-within .project-more-trigger,
 .project-more-trigger[aria-expanded="true"] { opacity: 1; }
 .sidebar-project-row:focus-within .nav-count,
@@ -132,8 +132,11 @@
     .sidebar-project-row:hover .nav-count { visibility: hidden; }
 }
 @media (hover: none) {
-    .project-more-trigger { opacity: 1; width: 44px; height: 44px; }
-    .sidebar-project-row .project-nav { height: 44px; padding-right: var(--space-12); }
+    .project-dropdown { right: var(--space-3); }
+    .project-more-trigger { position: relative; opacity: 1; }
+    /* Expand only the hit area, keeping the visible square and row geometry compact. */
+    .project-more-trigger::after { content: ""; position: absolute; inset: calc(-1 * var(--space-3)); }
+    .sidebar-project-row .project-nav { height: calc(var(--space-10) + var(--space-1)); padding-right: var(--space-12); }
     .sidebar-project-row .nav-count { visibility: hidden; }
 }
 

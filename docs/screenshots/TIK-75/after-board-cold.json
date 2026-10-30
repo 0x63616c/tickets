@@ -1,0 +1,740 @@
+[
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 265.29999999701977
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 315.19999999552965
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 365.19999999552965
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 415.29999999701977
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 465.29999999701977
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 515.3999999985099
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 565.5
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 615.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 665.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 715.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 765.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 815.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 865.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 915.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 965.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1015.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1065.2999999970198
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1115.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1165.39999999851
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1215.2999999970198
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1265.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1315.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1365.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1415.2999999970198
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1465.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1515.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1565.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1615.39999999851
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1665.2999999970198
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1715.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1765.2999999970198
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1815.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1865.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1915.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 1966.79999999702
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 2015.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 2065.1999999955297
+  },
+  {
+    "boardY": null,
+    "busy": null,
+    "cards": 0,
+    "content": false,
+    "sameRoot": true,
+    "skeleton": true,
+    "time": 2115.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2172.89999999851
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2215.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2265.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2315.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2365.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2415.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2465.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2515.39999999851
+  },
+  {
+    "boardY": 132,
+    "busy": "true",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2565.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2615.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2665.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2715.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2765.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2815.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2865.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2915.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 2965.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3015.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3065.39999999851
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3121.60000000149
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3165.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3215.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3265.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3315.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3365.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3415.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3465.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3515.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3565.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3615.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3665.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3715.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3765.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3815.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3865.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3915.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 3965.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 4015.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 4067.1999999955297
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 4115.19999999553
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 4165.19999999553
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 4215.29999999702
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 4265.19999999553
+  },
+  {
+    "boardY": 132,
+    "busy": "false",
+    "cards": 6,
+    "content": true,
+    "sameRoot": true,
+    "skeleton": false,
+    "time": 4315.19999999553
+  }
+]
