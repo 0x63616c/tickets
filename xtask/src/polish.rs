@@ -189,13 +189,17 @@ fn interactions(b: &mut Browser) -> Result {
     // Token creation is exercised, but a secret is never captured in an artifact.
     b.go(&format!("{URL}/settings/tokens"))?;
     b.wait("!!document.querySelector('.tokens li')")?;
+    b.click(".token-create")?;
     b.text("#token-label", "Build agent")?;
-    b.click(".settings-footer button")?;
-    b.wait("document.querySelector('.secret code')?.textContent.startsWith('tk_')")?;
-    b.click(".secret .button-ghost")?;
-    b.wait("!document.querySelector('.secret code') && document.querySelectorAll('.tokens li').length===2")?;
+    b.click(".settings-footer button[type=submit]")?;
+    b.wait("document.querySelector('.secret textarea')?.value.startsWith('tk_')")?;
+    b.click(".token-saved input")?;
+    b.click(".token-acknowledge")?;
+    b.wait("!document.querySelector('.secret textarea') && document.querySelectorAll('.tokens li').length===2")?;
     b.click(".tokens li:last-child button")?;
-    b.wait("document.querySelector('.tokens li:last-child').textContent.includes('Revoked')")?;
+    b.wait("!!document.querySelector('.token-revoke')")?;
+    b.click(".modal-footer .button-danger")?;
+    b.wait("document.querySelector('.token-result').textContent.includes('Revoked') && document.querySelectorAll('.tokens li').length===1")?;
     b.call("Network.clearBrowserCookies", json!({}))?;
     b.go(&format!("{URL}/settings/tokens"))?;
     b.wait("location.pathname==='/login' && !document.querySelector('.sidebar')")?;

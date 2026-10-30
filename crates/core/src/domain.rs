@@ -92,6 +92,10 @@ pub struct Project {
     #[serde(default)]
     pub open_ticket_count: u64,
     #[serde(default)]
+    pub done_ticket_count: u64,
+    #[serde(default)]
+    pub last_activity_at: Option<String>,
+    #[serde(default)]
     pub icon: Option<String>,
     pub id: i64,
     pub name: String,

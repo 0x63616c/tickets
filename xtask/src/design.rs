@@ -341,7 +341,7 @@ pub fn check(root: &Path) -> super::Result {
         "**Verified** the saved view.",
     )?;
     browser.click(".comment-form button[type='submit']")?;
-    browser.wait("document.querySelector('.comment strong')?.textContent === 'You' && document.querySelector('.comment .markdown strong')?.textContent === 'Verified'")?;
+    browser.wait("document.querySelector('.comment strong')?.textContent === 'Sample User' && document.querySelector('.comment .markdown strong')?.textContent === 'Verified'")?;
     browser.go(&format!("{base}/design/ticket"))?;
     browser.click(".dependencies .button")?;
     browser.text("#dependency-search", "TKT-6")?;
@@ -374,10 +374,11 @@ pub fn check(root: &Path) -> super::Result {
     browser.screenshot(&output.join("12-login.png"))?;
     let worker_api = browser.eval("fetch('/api/health').then(r => r.headers.get('content-type')?.includes('application/json')).catch(() => false)")? == true;
     browser.go(&format!("{base}/settings/tokens"))?;
-    browser.wait("!!document.querySelector('#token-label')")?;
     if worker_api {
-        browser.wait("document.querySelector('.auth-page [role=status]')?.textContent.includes('Please sign in')")?;
+        browser.wait("location.pathname==='/login' && !!document.querySelector('#username')")?;
         println!("PASS: the local Worker requires authentication for API tokens.");
+    } else {
+        browser.wait("!!document.querySelector('.token-inventory')")?;
     }
     browser.screenshot(&output.join("13-token-access.png"))?;
     browser.go(&format!("{base}/design"))?;

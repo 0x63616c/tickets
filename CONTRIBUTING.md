@@ -229,6 +229,13 @@
   Project color tints its initial badge; show its key prefix in muted mono when no description exists. Keep row actions at the right edge, revealed on hover/focus (always visible on touch). The header contains the sole project count. Archive hides sidebar entries only;
   Show archived permits editing/restoring them. Tickets remain accessible.
 - Project dialogs use compact swatches from the shared color tokens. Use one GitHub Project field for a URL or owner/number; show owner type only for short input and the prefix-change hint only while editing.
+- Projects show repository links from `github_owner` + `github_repo`, independently
+  of `github_project_number`. Counts come from the project API across all tickets;
+  done excludes canceled, and last activity is the latest ticket update (all statuses).
+  `CHROME_BIN=<headless-chromium> cargo xtask project-repos-check` verifies immutable
+  repo-only and linked-PR fixtures and captures desktop/mobile evidence under
+  `docs/screenshots/TIK-42/`; `TICKETS_BEFORE_ASSETS` captures the same fixtures
+  against base assets.
 - GitHub linking makes no network requests. Core parses owner/number or an HTTPS
   `github.com/users|orgs/<owner>/projects/<number>` URL; persist the owner type in
   `github_project_kind` (default `users`). Repository is a name under that owner.
@@ -486,3 +493,17 @@ project icon schema changes additive and validate values in core.
 - Shared Cargo artifacts can retain another worktree's compiled-in directory.
   Resolve xtask's workspace from its runtime working directory and inherit the
   caller's `CARGO_TARGET_DIR` (source `.job.env`); do not override it in subprocesses.
+## API token UI conventions
+
+- `/settings/api-tokens` leads with active token metadata. Token IDs distinguish
+  duplicate names; Show revoked preserves access to history. Last used means the
+  last successful authentication, not agent health. Tokens have full workspace
+  access and no expiration; do not expose unsupported scope/expiry controls.
+- Creation keeps the returned secret in memory in a locked shared Modal until
+  the user explicitly acknowledges saving it. Never put it in storage or a toast.
+  Copy failure permits manual selection. A browser unload warns while creating
+  or displaying the secret. Revoke requires the token's name and ID in a confirmation.
+- `CHROME_BIN=<headless-chromium> cargo xtask tokens-shot` captures fixture-only
+  Settings pages and cropped 2× component states at desktop/mobile sizes in
+  `docs/screenshots/TIK-41/`. The fixture secret is deliberately invalid. Use
+  `settings-check` for the real local token lifecycle and `polish-check` for regression.
