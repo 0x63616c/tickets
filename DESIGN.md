@@ -57,8 +57,10 @@ trigger's origin and flip above it near the viewport bottom. Exits are shorter.
 Presence retains content through exit; rapid reopen cancels pending removal.
 Animate transform and opacity only. Pressables scale to .97; hover rules require
 `(hover:hover) and (pointer:fine)`. Keyboard-driven frequent actions are immediate.
-Reduced motion removes movement and spinner cycling while retaining short opacity
-and color feedback. Skeletons are static, without an endless shimmer.
+Loading uses the published ascii-reveal package: a scan skeleton sweep while
+waiting, then a fast decode reveal (about 300–500ms) as data arrives. Reduced motion
+removes both effects: static skeletons and immediate content. Other interactions
+retain their short opacity and color feedback.
 
 Shared Select/DropdownMenu/Combobox replace browser selects. Keep the compact
 32px controls, clear focus rings, named options and saved-state authority. Use

@@ -243,9 +243,10 @@ All are exported from `crate::components`.
 | `Combobox { label, input_id?, options, selected: Signal<Vec<String>>, on_toggle, on_create?, busy }` | Searchable multi-select. Search stays editable; arrows enter options. Enter toggles an exact match in selection-only mode. With `on_create`, Enter submits the trimmed name to the caller’s create-or-attach flow (an already attached label stays attached); option selection always toggles. Opening focuses search; Arrow Up from the first option returns there. Selection is authoritative and async errors remain on the owning page. |
 | `Tooltip { text, children }` | 500ms initial pointer delay, immediate keyboard display, 700ms skip-delay window after a tooltip. Escape/blur/leave dismiss. Never use as the only accessible label. |
 | `SegmentedControl { label, options, value: RwSignal<String>, instant?: Signal<bool> }` | Equal-width mutually exclusive buttons with `aria-pressed`, roving tabindex, Left/Right/Home/End and a transform-only sliding indicator. Keyboard changes skip motion; `instant` also suppresses movement for external shortcuts. Markdown Write/Preview uses it. |
-| `AsciiSpinner { label, style, delay }` | Default Dots (80ms), Line (130ms), Pulse/dots11 (100ms), delay 150ms. One visually hidden polite status label; animated glyphs are hidden from AT. Reduced motion uses the first glyph; hidden documents stop cycling. Exact MIT cli-spinners frames and notice in THIRD_PARTY.md. |
-| `BusyButton { busy, disabled, variant, kind, class?, aria_label?, status_label?, on_click?, children }` | Async submit default; disables repeat input and sets aria-busy. The original content keeps its grid footprint; the spinner overlays it. Keep children constant while busy. |
-| `Skeleton { shape }`, `LoadingSkeleton { layout }` | Static line/short/meta/heading/square shapes and board/list/detail/projects layouts. Only use on first load; reconciliation keeps saved content visible. |
+| `LoadingIndicator { label }` | Compact library scan skeleton; one polite status label and decorative glyphs hidden from AT. |
+| `BusyButton { busy, disabled, variant, kind, class?, aria_label?, status_label?, on_click?, children }` | Async submit default; disables repeat input and sets aria-busy. The original content keeps its grid footprint; the library skeleton overlays it; the label decodes after completion. Keep children constant while busy. |
+| `AsciiSkeleton { variant, lines, rows?, class? }`, `LoadingSkeleton { layout }` | Package-generated markup and sweep, with board/list/detail/projects layout composition. First loads reserve space; reconciliation keeps saved content visible. |
+| `AsciiReveal { children, class? }`, `use_ascii_reveal(root, pending, on_mount)` | Package decode preset, fast duration, 1.25× speed, top-left origin, no lazy delay. Mount or pending-to-ready reveals; destroys controllers on rerun/unmount. |
 | `ProjectIcon { name, icon, color, size }` | Decorative SVG/emoji or initial fallback next to the project name. `size="large"` is 32px; default 20px. Never display unvalidated markup. |
 | `ProjectIconPicker { value, color, name }` | Shared glyph selector, live tile preview and optional emoji input for the existing editor. |
 
@@ -275,16 +276,24 @@ rendering during that callback. Snapshot overlays do not intercept input; skippe
 snapshots do not reject the navigation. Isolated preview links use a document
 navigation so they mount without the application shell.
 
-Timing and reduced-motion behavior live in tokens.css and foundation.css. No GSAP,
-React, Radix runtime, endless skeleton pulse, decode effect or animation dependency
-is added. CSS transitions make the segmented indicator interruptible.
+Loading is **ascii-reveal by Quan Hoang, MIT License**, installed from the exact
+[npm 0.3.0 package](https://www.npmjs.com/package/ascii-reveal/v/0.3.0).
+[Source](https://github.com/quanhoangindex/ascii-reveal) · [Demo](https://quanhoangindex.github.io/ascii-reveal/).
+The framework-agnostic core is imported directly by wasm-bindgen; there is no
+React runtime, vendored implementation or custom glyph animation. Full notice:
+[THIRD_PARTY.md](../THIRD_PARTY.md). Library colors/fonts reference Tickets tokens.
+OS reduced motion and the in-app override stop sweeps and skip decode entirely,
+including mid-animation. Controllers and skeleton stop functions are disposed on
+cleanup. Real data never waits on a fixture timer. CSS transitions still make the
+segmented indicator interruptible.
 
 ### Component review and PNGs
 
 `/design/c/<name>?variant=...` is isolated from auth and API transport, with sample
 data only. `/design` links every specimen. Names: `select`, `menu`, `combobox`,
-`modal`, `loader`, `skeletons`, `icons`, `busy-button`, `tabs`, `tooltip`.
-Skeleton variants: `board` (default), `list`, `detail`, `projects`.
+`modal`, `loader`, `skeletons`, `reveal`, `icons`, `busy-button`, `tabs`, `tooltip`.
+Skeleton layouts: `board` (default), `list`, `detail`, `projects`. `reveal` holds
+a sample response for 1.2 seconds, then decodes it; Replay loading repeats the cycle.
 
 ```sh
 cargo xtask build
@@ -347,7 +356,7 @@ by `settings-check`; no real secret is included in its published screenshots.
 
 `/` and `/home` use a compact metric strip, status-stacked project counts,
 weekly created/completed bars, and review/blocked queues. `/design/home` is the
-sample-data specimen. Shared controls and static Skeletons reserve loading space;
+sample-data specimen. Shared controls and ascii-reveal skeletons reserve loading space;
 refresh retains same-scope data. SVG charts have a labelled data-table disclosure
 with exact cohort links; unavailable weeks remain gaps. Counts use tabular figures
 and status tokens. See [Home metric contract](design/home-analytics.md).

@@ -17,6 +17,8 @@ struct CommentRecord {
     body: String,
     author: String,
     created_at: String,
+    #[serde(skip)]
+    reveal: bool,
 }
 #[derive(Clone, Copy)]
 struct DetailState {
@@ -68,7 +70,7 @@ impl DetailState {
         )
         .map_err(|e| e.to_string())?;
         self.id.set(ticket.id);
-        let comments =
+        let mut comments =
             all::<CommentRecord>(&format!("tickets/{}/comments", self.id.get_untracked())).await?;
         if background
             && (crate::live::editing()
@@ -85,7 +87,13 @@ impl DetailState {
         });
         self.board.project.set(ticket.project_id);
         self.board.apply_change_event(ticket.clone(), false);
+        let reveal_comments = self.ticket.get_untracked().is_some();
         self.ticket.set(Some(ticket));
+        // Capture this before the async write clears `busy` and Leptos mounts
+        // keyed comments. Initial comments share the page's mount reveal.
+        for comment in &mut comments {
+            comment.reveal = reveal_comments;
+        }
         self.comments.set(comments);
         self.revision.update(|r| *r += 1);
         if restore_label_focus {
@@ -203,11 +211,15 @@ fn DetailPage(selector: String) -> impl IntoView {
         }
     });
     on_cleanup(move || handle.remove());
+    let reveal_root = NodeRef::<leptos::html::Div>::new();
+    // This root mounts only after the first load. Live reconciliation keeps it
+    // mounted; reveal changed keyed comments without replaying the ticket.
+    use_ascii_reveal(reveal_root, Signal::derive(|| false), true);
     view! {
         <header class="topbar"><div class="breadcrumbs"><a href="/projects"><Icon name="project"/>"Projects"</a><span class="breadcrumb-slash">"/"</span><a href="/board">{move||state.ticket.get().and_then(|t|board.projects.get().into_iter().find(|p|p.id==t.project_id)).map(|p|view!{<ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/>{p.name}})}</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key).unwrap_or_default()}</span></div><div class="topbar-actions"><crate::live::LiveIndicator/><span class="toolbar-divider"/><button class="button button-ghost" disabled=move||state.busy.get() || state.ticket.get().is_none() on:click=move|_|edit.set(true)>"Edit ticket"</button><button class="button button-primary" disabled=move||board.loading.get() || board.project.get()==0 on:click=move|_|board.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"<Shortcut>"C"</Shortcut></button></div></header>
         <Show when=move||state.loading.get() && state.ticket.get().is_none()><LoadingSkeleton layout="detail"/></Show>
         <Show when=move||!state.error.get().is_empty() && !edit.get() && !dependency.get()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.busy.get() on:click=move|_|{state.busy.set(true);state.spawn(async move{state.error.set(String::new());if let Err(e)=state.load(false).await{state.error.set(e);}state.busy.set(false);});}>"Reload ticket"</button></div></Show>
-        <Show when=move||state.ticket.get().is_some()><div class="detail-layout" aria-busy=move||state.busy.get().to_string()>
+        <Show when=move||state.ticket.get().is_some()><div node_ref=reveal_root class="detail-layout" aria-busy=move||state.busy.get().to_string()>
             <article class="ticket-detail"><div class="detail-overline"><a href="/board" class="back-link"><Icon name="board"/>"Board"</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key)}</span></div>
             <h1>{move||state.ticket.get().map(|t|t.title)}</h1>
             {move||state.ticket.get().and_then(|t|{let identity=t.external_id?.strip_prefix("github:")?.to_owned();let(repo,number)=identity.rsplit_once(':')?;Some((format!("Imported from GitHub {repo}#{number}"),t.external_url?))}).map(|(label,url)|view!{<p class="muted github-import"><a class="subtle-link" href=url target="_blank" rel="noopener">{label}<Icon name="external"/></a></p>})}
@@ -394,7 +406,10 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     } else {
         comment.body.clone()
     };
-    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||editable><button class="button button-ghost comment-action" disabled=move||state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><BusyButton kind="button" variant="ghost" class="comment-action" busy=Signal::derive(move||deleting.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{deleting.set(true);state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{});})>"Delete"</BusyButton></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone() project=state.ticket.get().and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
+    let comment_root = NodeRef::<leptos::html::Div>::new();
+    // Unchanged comments retain their keyed nodes and never replay.
+    use_ascii_reveal(comment_root, Signal::derive(|| false), comment.reveal);
+    view! {<div node_ref=comment_root class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||editable><button class="button button-ghost comment-action" disabled=move||state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><BusyButton kind="button" status_label="Deleting comment" variant="ghost" class="comment-action" busy=Signal::derive(move||deleting.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{deleting.set(true);state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{});})>"Delete"</BusyButton></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone() project=state.ticket.get().and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
 }
 #[component]
 fn CommentEditor(
@@ -404,7 +419,7 @@ fn CommentEditor(
 ) -> impl IntoView {
     let state = expect_context::<DetailState>();
     let body = RwSignal::new(initial);
-    view! {<form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="comment-form" class:has-draft=move||id.is_some() || !body.get().is_empty() on:submit=move|e|{e.prevent_default();let path=id.map(|id|format!("/api/v1/comments/{id}")).unwrap_or_else(||format!("/api/v1/tickets/{}/comments",state.id.get_untracked()));state.write(if id.is_some(){"PATCH"}else{"POST"},path,json!({"body":body.get_untracked()}),move||{body.set(String::new());if let Some(close)=close{close.run(());}});}><MarkdownEditor body label="Write a comment"/><div><span>"Markdown supported"</span>{close.map(|close|view!{<button class="button button-ghost" type="button" disabled=move||state.busy.get() on:click=move|_|close.run(())>"Cancel"</button>})}<BusyButton busy=state.busy variant="secondary" disabled=Signal::derive(move||body.get().trim().is_empty())>{if id.is_some(){"Save comment"}else{"Comment"}}<Icon name="arrow"/></BusyButton></div></form>}
+    view! {<form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="comment-form" class:has-draft=move||id.is_some() || !body.get().is_empty() on:submit=move|e|{e.prevent_default();let path=id.map(|id|format!("/api/v1/comments/{id}")).unwrap_or_else(||format!("/api/v1/tickets/{}/comments",state.id.get_untracked()));state.write(if id.is_some(){"PATCH"}else{"POST"},path,json!({"body":body.get_untracked()}),move||{body.set(String::new());if let Some(close)=close{close.run(());}});}><MarkdownEditor body label="Write a comment"/><div><span>"Markdown supported"</span>{close.map(|close|view!{<button class="button button-ghost" type="button" disabled=move||state.busy.get() on:click=move|_|close.run(())>"Cancel"</button>})}<BusyButton busy=state.busy status_label="Saving comment" variant="secondary" disabled=Signal::derive(move||body.get().trim().is_empty())>{if id.is_some(){"Save comment"}else{"Comment"}}<Icon name="arrow"/></BusyButton></div></form>}
 }
 #[component]
 pub(crate) fn MarkdownEditor(body: RwSignal<String>, label: &'static str) -> impl IntoView {
