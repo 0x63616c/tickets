@@ -52,3 +52,8 @@ END;
 CREATE INDEX comment_events_subject ON comment_events(subject_id,id DESC);
 CREATE TRIGGER history_sequence_no_update BEFORE UPDATE ON history_sequence BEGIN SELECT RAISE(ABORT,'history sequence is append-only'); END;
 CREATE TRIGGER history_sequence_no_delete BEFORE DELETE ON history_sequence BEGIN SELECT RAISE(ABORT,'history sequence is append-only'); END;
+-- Older PR triggers omit the new column. Classify only unclaimed machine rows;
+-- a token named GitHub still records a bot with its own durable identity.
+CREATE TRIGGER comments_classify_github AFTER INSERT ON comments
+ WHEN NEW.author='GitHub' AND NEW.author_id IS NULL AND NEW.author_kind='system'
+ BEGIN UPDATE comments SET author_kind='github' WHERE id=NEW.id; END;

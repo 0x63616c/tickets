@@ -219,3 +219,59 @@ fn authentication_resolves_labels_without_extra_queries() {
         assert_eq!(rows[0]["actor_label"], "fixture");
     });
 }
+
+#[test]
+fn legacy_machine_authors_and_same_named_bot_remain_distinct() {
+    block_on(async {
+        let db = Sqlite::new();
+        let mut bot = Actor::api_token(1);
+        bot.label = "GitHub".into();
+        for (path, body) in [
+            (
+                "projects",
+                json!({"name":"Example","key_prefix":"EX","color":"#789abc"}),
+            ),
+            ("tickets", json!({"project_id":1,"title":"Machine authors"})),
+        ] {
+            assert_eq!(
+                handle_as(&db, &bot, "POST", &format!("/api/v1/{path}"), &[], body)
+                    .await
+                    .status,
+                201
+            );
+        }
+        // Match the INSERT shape retained by migration 0008's PR/status triggers.
+        db.0.execute("INSERT INTO comments(ticket_id,author,body) VALUES(1,'GitHub','Linked PR'),(1,'system','Status changed')",[]).unwrap();
+        let created = handle_as(
+            &db,
+            &bot,
+            "POST",
+            "/api/v1/tickets/1/comments",
+            &[],
+            json!({"body":"Bot progress"}),
+        )
+        .await;
+        assert_eq!(created.status, 201);
+        assert_eq!(created.body["author_kind"], "bot");
+        assert_eq!(created.body["can_edit"], true);
+        let list = handle_as(
+            &db,
+            &bot,
+            "GET",
+            "/api/v1/tickets/1/comments",
+            &[],
+            Value::Null,
+        )
+        .await;
+        assert_eq!(list.body["data"][0]["author_kind"], "github");
+        assert_eq!(list.body["data"][0]["can_edit"], false);
+        assert_eq!(list.body["data"][1]["author_kind"], "system");
+        assert_eq!(list.body["data"][1]["can_edit"], false);
+        assert_eq!(
+            handle_as(&db, &bot, "DELETE", "/api/v1/comments/1", &[], Value::Null)
+                .await
+                .status,
+            403
+        );
+    });
+}
