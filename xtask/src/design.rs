@@ -507,8 +507,9 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.wait("location.pathname==='/t/TKT-1'")?;
     b.go("http://127.0.0.1:8795/board")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
-    b.click(".canceled-toggle input")?;
-    b.wait("location.search.includes('canceled=true') && document.querySelectorAll('.ticket-card').length===7")?;
+    check_columns(&mut b)?;
+    toggle_board_column(&mut b, "Canceled")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===7")?;
     b.wait("document.querySelectorAll('.board-column').length===6 && document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1' && !document.querySelector('.blocked-note')")?;
     b.wait("document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='Todo'")?;
     b.click("#ticket-2 .blocked-indicator")?;
@@ -612,8 +613,8 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.wait(
         "document.querySelectorAll('.ticket-card').length===8 && !document.querySelector('dialog')",
     )?;
-    b.click(".canceled-toggle input")?;
-    b.wait("!location.search.includes('canceled') && document.querySelectorAll('.board-column').length===5 && document.querySelector('.board').scrollWidth>document.querySelector('.board').clientWidth && document.querySelector('.sidebar').getBoundingClientRect().width===240 && document.documentElement.scrollWidth<=innerWidth")?;
+    toggle_board_column(&mut b, "Canceled")?;
+    b.wait("document.querySelectorAll('.board-column').length===5 && document.querySelector('.board').scrollWidth>document.querySelector('.board').clientWidth && document.querySelector('.sidebar').getBoundingClientRect().width===240 && document.documentElement.scrollWidth<=innerWidth")?;
     b.wait("document.querySelector('.view-footer').textContent.includes('7 tickets') && document.querySelector('.toast').textContent.includes('Ticket created')")?;
     b.key("k", 75, 4)?;
     b.wait("!!document.querySelector('dialog[aria-label=\"Search and commands\"]')")?;
@@ -637,7 +638,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===95 && !document.body.innerText.includes('Created from the board')")?;
     b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
-    b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===4 && !document.querySelector('.add-card').disabled && document.body.innerText.includes('No tickets yet')")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===5 && !document.querySelector('.add-card').disabled && document.body.innerText.includes('No tickets yet')")?;
     check_composer(&mut b)?;
     for route in ["list?project=1", "t/TKT-1", "home"] {
         b.go(&format!("http://127.0.0.1:8795/{route}"))?;
@@ -652,8 +653,94 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("location.pathname==='/login' && !document.querySelector('.sidebar, .ticket-card')")?;
     println!(
-        "PASS: local API seed; populated review column + URL canceled toggle; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
+        "PASS: local API seed; empty review column; project column preferences + reload; checkbox menu keyboard navigation; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
     );
+    Ok(())
+}
+
+fn toggle_board_column(b: &mut Browser, status: &str) -> super::Result {
+    b.click("button[aria-label=Columns]")?;
+    b.wait("document.querySelector('button[aria-label=Columns]').getAttribute('aria-expanded')==='true' && document.activeElement.getAttribute('role')==='menuitemcheckbox'")?;
+    b.click(&format!(
+        ".columns-menu [role=menuitemcheckbox]:has(.status-{})",
+        match status {
+            "Backlog" => "backlog",
+            "Todo" => "todo",
+            "In progress" => "progress",
+            "In review" => "review",
+            "Done" => "done",
+            _ => "canceled",
+        }
+    ))?;
+    b.key("Escape", 27, 0)?;
+    b.wait("document.activeElement.getAttribute('aria-label')==='Columns'")?;
+    Ok(())
+}
+
+fn check_columns(b: &mut Browser) -> super::Result {
+    // Main's project/canceled deep links compose with saved column preferences.
+    b.go("http://127.0.0.1:8795/board?project=2&canceled=true")?;
+    b.wait("document.querySelector('.breadcrumb-current').textContent.includes('Quantum') && document.querySelectorAll('.board-column').length===6 && !!document.querySelector('#ticket-8') && !document.querySelector('#ticket-1')")?;
+    toggle_board_column(b, "Canceled")?;
+    b.wait("location.search==='?project=2&canceled=true' && document.querySelectorAll('.board-column').length===5 && !document.querySelector('.board-column[aria-label=Canceled]')")?;
+    b.go("http://127.0.0.1:8795/board?project=1")?;
+    b.wait("document.querySelector('.breadcrumb-current').textContent.includes('Tickets') && !!document.querySelector('#ticket-1') && !document.querySelector('#ticket-8')")?;
+    b.go("http://127.0.0.1:8795/board")?;
+    b.wait("document.querySelectorAll('.board-column').length===5 && !document.querySelector('.board-column[aria-label=Canceled]')")?;
+    // Empty In review remains a visible destination after moving its last card.
+    b.eval(r#"fetch('/api/v1/tickets/4',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'todo'})}).then(r=>r.ok)"#)?;
+    b.go("http://127.0.0.1:8795/board")?;
+    b.wait("document.querySelector('.board-column[aria-label=\"In review\"] .count')?.textContent==='0'")?;
+    b.eval(r#"fetch('/api/v1/tickets/4',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'in_review'})}).then(r=>r.ok)"#)?;
+    b.go("http://127.0.0.1:8795/board")?;
+    b.wait("!!document.querySelector('#ticket-4')")?;
+    // Keyboard opening, arrow navigation, Space/Enter, staying open, Escape focus.
+    b.eval("document.querySelector('button[aria-label=Columns]').focus();true")?;
+    b.key("ArrowDown", 40, 0)?;
+    b.wait("document.activeElement.getAttribute('role')==='menuitemcheckbox' && document.activeElement.textContent.includes('Backlog')")?;
+    b.key(" ", 32, 0)?;
+    b.wait("!document.querySelector('.board-column[aria-label=Backlog]') && document.activeElement.getAttribute('aria-checked')==='false'")?;
+    b.key("ArrowDown", 40, 0)?;
+    b.key("Enter", 13, 0)?;
+    b.wait("!document.querySelector('.board-column[aria-label=Todo]') && document.querySelectorAll('.board-column').length===3")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("document.activeElement.getAttribute('aria-label')==='Columns'")?;
+    b.go("http://127.0.0.1:8795/board")?;
+    b.wait("document.querySelectorAll('.board-column').length===3 && !document.querySelector('.board-column[aria-label=Backlog], .board-column[aria-label=Todo]')")?;
+    // Project preferences never leak to another board, including an empty project.
+    b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
+    b.wait("document.querySelectorAll('.board-column').length===5 && !!document.querySelector('button[aria-label=Columns]')")?;
+    b.eval("document.querySelectorAll('.project-nav')[0].click();true")?;
+    b.wait("document.querySelectorAll('.board-column').length===3")?;
+    b.eval("document.querySelector('#ticket-3').focus();true")?;
+    b.key(" ", 32, 0)?;
+    b.wait("document.querySelector('button[aria-label=Columns]').disabled")?;
+    b.key("ArrowLeft", 37, 0)?;
+    b.wait("document.querySelector('#ticket-3').closest('section').getAttribute('aria-label')==='In progress'")?;
+    b.key("Escape", 27, 0)?;
+    toggle_board_column(b, "In progress")?;
+    toggle_board_column(b, "In review")?;
+    b.click("button[aria-label=Columns]")?;
+    b.wait("document.querySelector('.columns-menu [role=menuitemcheckbox][aria-checked=true]')?.disabled===true && document.querySelectorAll('.board-column').length===1 && document.activeElement.getAttribute('role')==='menuitemcheckbox'")?;
+    b.key("Escape", 27, 0)?;
+    for status in ["Backlog", "Todo", "In progress", "In review"] {
+        toggle_board_column(b, status)?;
+    }
+    b.wait("document.querySelectorAll('.board-column').length===5")?;
+    // A hidden status is skipped, and re-enabling it restores workflow order.
+    toggle_board_column(b, "Todo")?;
+    for expected in ["In progress", "Todo"] {
+        b.eval("document.querySelector('#ticket-1').focus();true")?;
+        b.key(" ", 32, 0)?;
+        b.wait("document.querySelector('button[aria-label=Columns]').disabled")?;
+        b.key("ArrowRight", 39, 0)?;
+        b.wait(&format!("document.querySelector('#ticket-1').closest('section').getAttribute('aria-label')==={}",serde_json::to_string(expected)?))?;
+        b.key("Escape", 27, 0)?;
+        b.wait("document.querySelector('#ticket-1').closest('section').getAttribute('aria-label')==='Backlog'")?;
+        if expected == "In progress" {
+            toggle_board_column(b, "Todo")?;
+        }
+    }
     Ok(())
 }
 
@@ -1052,6 +1139,12 @@ fn check_composer(b: &mut Browser) -> Result<()> {
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("!!document.querySelector('[aria-label=\"Add ticket to Backlog\"]') && !document.querySelector('[aria-label=\"Add ticket to Backlog\"]').disabled")?;
     b.wait("!document.querySelector('.topbar button') && !document.querySelector('.topbar .toolbar-divider') && document.querySelector('.topbar').getBoundingClientRect().height===44")?;
+    if b.eval("!document.querySelector('.board-column[aria-label=Canceled]')")?
+        .as_bool()
+        == Some(true)
+    {
+        toggle_board_column(b, "Canceled")?;
+    }
     for (label, value) in [
         ("Backlog", "backlog"),
         ("Todo", "todo"),

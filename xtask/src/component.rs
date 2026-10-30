@@ -20,6 +20,7 @@ const NAMES: &[&str] = &[
     "pickup-rules",
     "history",
     "board-topbar",
+    "board-columns",
     "palette",
     "sidebar",
     "user-menu",
@@ -165,6 +166,10 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
         }
         if name == "pickup-rules" {
             super::pickup::shots(root, &assets, &output, before.is_some())?;
+            continue;
+        }
+        if name == "board-columns" {
+            capture_board_columns(&mut b, &server.url, &output, before.is_some())?;
             continue;
         }
         if name == "board-topbar" {
@@ -734,5 +739,58 @@ fn capture_board_topbar(b: &mut Browser, base: &str, output: &Path, before: bool
         "Emulation.setDeviceMetricsOverride",
         json!({"width":1200,"height":900,"deviceScaleFactor":2,"mobile":false}),
     )?;
+    Ok(())
+}
+
+/// Matching, fixture-only TIK-50 evidence, including the former toolbar.
+fn capture_board_columns(
+    b: &mut Browser,
+    base: &str,
+    output: &Path,
+    before: bool,
+) -> super::Result {
+    let phase = if before { "before" } else { "after" };
+    b.go(&format!("{base}/design/board"))?;
+    b.wait("document.querySelectorAll('.board-column').length>=4")?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    b.wait("!document.querySelector('[data-ar-t]')")?;
+    for width in [1440, 390] {
+        b.call(
+            "Emulation.setDeviceMetricsOverride",
+            json!({"width":width,"height":900,"deviceScaleFactor":2,"mobile":false}),
+        )?;
+        b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+        crop(
+            b,
+            ".view-toolbar",
+            &output.join(format!("{phase}-toolbar-{width}.png")),
+        )?;
+        b.viewport(width, 900)?;
+        b.screenshot(&output.join(format!("{phase}-board-{width}.png")))?;
+        b.call(
+            "Emulation.setDeviceMetricsOverride",
+            json!({"width":width,"height":900,"deviceScaleFactor":2,"mobile":false}),
+        )?;
+        if !before {
+            b.click("button[aria-label=Columns]")?;
+            b.wait("document.querySelector('button[aria-label=Columns]').getAttribute('aria-expanded')==='true' && document.querySelector('.columns-menu .popup').dataset.state==='open'")?;
+            crop(
+                b,
+                ".columns-menu .popup",
+                &output.join(format!("{phase}-popover-{width}.png")),
+            )?;
+            b.viewport(width, 900)?;
+            b.screenshot(&output.join(format!("{phase}-board-popover-{width}.png")))?;
+            b.key("Escape", 27, 0)?;
+            b.wait("document.activeElement.getAttribute('aria-label')==='Columns'")?;
+        } else {
+            // The old toolbar had no Columns popover; record that absence.
+            crop(
+                b,
+                ".view-toolbar",
+                &output.join(format!("{phase}-popover-{width}.png")),
+            )?;
+        }
+    }
     Ok(())
 }
