@@ -8,6 +8,12 @@
   <script>
     // Retire the old preference before the app starts; unavailable storage is harmless.
     try { localStorage.removeItem("tickets.theme"); } catch (_) {}
+    try {
+      const font = localStorage.getItem("tickets.font");
+      if (["geist", "geist-mono", "inter", "system"].includes(font)) {
+        document.documentElement.dataset.font = font;
+      }
+    } catch (_) {}
   </script>
   <link data-trunk rel="copy-file" href="icons/favicon.svg">
   <link data-trunk rel="copy-file" href="icons/favicon-32.png">
@@ -25,10 +31,12 @@
   <meta name="theme-color" content="#000000">
   <link data-trunk rel="rust" data-wasm-opt="z">
   <link data-trunk rel="copy-dir" href="fonts">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/Geist.woff2">
   <link data-trunk rel="css" href="style/tokens.css">
   <link data-trunk rel="css" href="style.css">
   <link data-trunk rel="css" href="style/foundation.css">
   <link data-trunk rel="css" href="style/settings.css">
+  <link data-trunk rel="css" href="style/appearance.css">
   <link data-trunk rel="css" href="style/home.css">
   <link data-trunk rel="css" href="style/mission.css">
   <link data-trunk rel="css" href="style/palette.css">
