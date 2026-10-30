@@ -84,7 +84,10 @@ pub async fn installation<S: Store>(db: &S, event: &str, payload: &Value) -> Res
 
 pub async fn overview<S: Store>(db: &S) -> Result<Value> {
     let rows: Vec<Value> = db
-        .query("SELECT slug FROM github_app WHERE id=1", vec![])
+        .query(
+            "SELECT slug,name,html_url FROM github_app WHERE id=1",
+            vec![],
+        )
         .await?;
     let mut installations:Vec<Value>=db.query("SELECT account_login,repository_selection,(SELECT json_group_array(repo_full_name) FROM (SELECT repo_full_name FROM github_app_installation_repos r WHERE r.installation_id=i.installation_id ORDER BY repo_full_name)) AS repos FROM github_app_installations i ORDER BY account_login,installation_id",vec![]).await?;
     for installation in &mut installations {
@@ -93,7 +96,7 @@ pub async fn overview<S: Store>(db: &S) -> Result<Value> {
                 .map_err(|_| Error::Storage("Invalid repositories".into()))?;
     }
     Ok(
-        json!({"registered":!rows.is_empty(),"app_slug":rows.first().map(|v|&v["slug"]),"installations":installations}),
+        json!({"registered":!rows.is_empty(),"app_slug":rows.first().map(|v|&v["slug"]),"app_name":rows.first().map(|v|&v["name"]),"html_url":rows.first().map(|v|&v["html_url"]),"installations":installations}),
     )
 }
 

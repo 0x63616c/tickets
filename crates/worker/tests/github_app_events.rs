@@ -11,7 +11,7 @@ fn overview_exposes_only_public_metadata_and_sorted_repositories() {
         let db = Sqlite::new();
         assert_eq!(
             events::overview(&db).await.unwrap(),
-            json!({"registered":false,"app_slug":null,"installations":[]})
+            json!({"registered":false,"app_slug":null,"app_name":null,"html_url":null,"installations":[]})
         );
         db.0.execute_batch("INSERT INTO github_app VALUES(1,42,'fixture','Fixture','owner','client','https://github.com/apps/fixture','not-for-output','2026-10-30T00:00:00Z');").unwrap();
         let installation =
@@ -21,7 +21,7 @@ fn overview_exposes_only_public_metadata_and_sorted_repositories() {
         assert_eq!(reply.status, 200);
         assert_eq!(
             reply.body,
-            json!({"registered":true,"app_slug":"fixture","installations":[{"account_login":"example","repository_selection":"all","repos":["example/a","example/z"]}]})
+            json!({"registered":true,"app_slug":"fixture","app_name":"Fixture","html_url":"https://github.com/apps/fixture","installations":[{"account_login":"example","repository_selection":"all","repos":["example/a","example/z"]}]})
         );
     });
 }

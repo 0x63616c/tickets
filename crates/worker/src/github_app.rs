@@ -172,3 +172,58 @@ pub async fn manifest_callback(req: Request, env: &Env) -> Result<Response> {
     }
     Ok(response)
 }
+
+/// Signed-in entrypoint; fetch dispatches here only after its session gate.
+pub async fn register_page(req: Request, env: &Env) -> Result<Response> {
+    let render = async {
+        if req.method() != Method::Get {
+            return Err(CallbackError::MethodNotAllowed);
+        }
+        let setup_state = env
+            .secret("GITHUB_APP_SETUP_STATE")
+            .ok()
+            .map(|s| s.to_string())
+            .filter(|s| !s.is_empty())
+            .ok_or(CallbackError::Unavailable)?;
+        env.secret("GITHUB_APP_STORE_KEY")
+            .ok()
+            .and_then(|s| app::store_key(&s.to_string()))
+            .ok_or(CallbackError::Unavailable)?;
+        let url = req.url().map_err(|_| CallbackError::Unavailable)?;
+        if !matches!(url.scheme(), "http" | "https") {
+            return Err(CallbackError::Unavailable);
+        }
+        let db = env.d1("DB").map_err(|_| CallbackError::Internal)?;
+        let stored = storage::load(&db).await?;
+        let name = url.query_pairs().find(|(key, _)| key == "name");
+        Ok(app::register_html(
+            &url.origin().ascii_serialization(),
+            &setup_state,
+            name.as_ref().map(|(_, value)| value.as_ref()),
+            stored.as_ref().map(|stored| &stored.app),
+        ))
+    };
+    // Never expose runtime errors or secret values in a response or log.
+    let (html, status) = match render.await {
+        Ok(html) => (html, 200),
+        Err(CallbackError::Unavailable) => (app::registration_unavailable_html(), 503),
+        Err(error) => (app::error_html(&error), error.status()),
+    };
+    let mut response = Response::from_html(html)?.with_status(status);
+    for (name, value) in [
+        ("Cache-Control", "no-store"),
+        ("Referrer-Policy", "no-referrer"),
+        ("X-Content-Type-Options", "nosniff"),
+        ("X-Frame-Options", "DENY"),
+    ] {
+        response.headers_mut().set(name, value)?;
+    }
+    response.headers_mut().set(
+        "Content-Security-Policy",
+        &app::register_content_security_policy(),
+    )?;
+    if status == 405 {
+        response.headers_mut().set("Allow", "GET")?;
+    }
+    Ok(response)
+}
