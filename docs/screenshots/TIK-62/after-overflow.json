@@ -1,0 +1,392 @@
+[
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 985,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 985,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1104,
+        "decode": 23,
+        "skeleton": 158
+      },
+      "samples": 1285,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 985,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 985,
+          "clientWidth": 1040,
+          "height": 985,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 23483.39999999851
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/board",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 2216,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 2216,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1105,
+        "decode": 9,
+        "skeleton": 159
+      },
+      "samples": 1273,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 2216,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 2216,
+          "clientWidth": 1040,
+          "height": 2216,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 23691.5
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/list",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 800,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1104,
+        "decode": 23,
+        "skeleton": 145
+      },
+      "samples": 1272,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 800,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 1040,
+          "height": 800,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 23144.69999999553
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/t/TKT-1",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 800,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1110,
+        "decode": 24,
+        "skeleton": 163
+      },
+      "samples": 1297,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 800,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 1040,
+          "height": 800,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 23428.89999999851
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/projects",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 870,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 870,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1104,
+        "decode": 25,
+        "skeleton": 139
+      },
+      "samples": 1268,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 870,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 870,
+          "clientWidth": 1040,
+          "height": 870,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 23245.5
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/",
+    "width": 1280
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 1098,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 1054,
+        "width": 390
+      },
+      "phases": {
+        "content": 1106,
+        "decode": 24,
+        "skeleton": 161
+      },
+      "samples": 1291,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 1098,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 1054,
+          "clientWidth": 390,
+          "height": 1054,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 23392.39999999851
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/board",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 2425,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 2381,
+        "width": 390
+      },
+      "phases": {
+        "content": 1100,
+        "decode": 17,
+        "skeleton": 162
+      },
+      "samples": 1279,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 2425,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 2381,
+          "clientWidth": 390,
+          "height": 2381,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 23710.39999999851
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/list",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 844,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 390
+      },
+      "phases": {
+        "content": 1117,
+        "decode": 24,
+        "skeleton": 147
+      },
+      "samples": 1288,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 844,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 390,
+          "height": 800,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 23200.69999999553
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/t/TKT-1",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 844,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 390
+      },
+      "phases": {
+        "content": 1097,
+        "decode": 26,
+        "skeleton": 161
+      },
+      "samples": 1284,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 844,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 390,
+          "height": 800,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 23325.59999999404
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/projects",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 1672,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 1628,
+        "width": 390
+      },
+      "phases": {
+        "content": 1108,
+        "decode": 28,
+        "skeleton": 141
+      },
+      "samples": 1277,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 1672,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 1628,
+          "clientWidth": 390,
+          "height": 1628,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 23208.10000000149
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/",
+    "width": 390
+  }
+]

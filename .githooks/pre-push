@@ -1,0 +1,63 @@
+#!/bin/sh
+# Quantum-style clippy on the crates this push changes. Skip: git push --no-verify
+set -eu
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+if [ -f .job.env ]; then . ./.job.env; fi
+zero=0000000000000000000000000000000000000000
+files=$(mktemp)
+trap 'rm -f "$files"' 0
+trap 'exit 1' HUP INT TERM
+
+while read -r _lref lsha _rref rsha; do
+  [ -n "${lsha:-}" ] || continue
+  [ "$lsha" != "$zero" ] || continue
+  if [ "$rsha" = "$zero" ] || ! git cat-file -e "$rsha^{commit}" 2>/dev/null; then
+    base=$(git merge-base "$lsha" origin/main 2>/dev/null || true)
+    [ -n "$base" ] || base=$(git rev-list --max-parents=0 "$lsha" | tail -n 1)
+  else
+    base=$rsha
+  fi
+  git diff --name-only "$base" "$lsha" >>"$files"
+done
+
+all=0
+packages=""
+while IFS= read -r file; do
+  case "$file" in
+    Cargo.toml|Cargo.lock|clippy.toml|rust-toolchain.toml|.cargo/*) all=1 ;;
+    crates/*/*.rs|crates/*/Cargo.toml|xtask/*.rs|xtask/Cargo.toml)
+      case "$file" in
+        crates/*) dir=$(printf '%s\n' "$file" | cut -d/ -f1-2) ;;
+        *) dir=xtask ;;
+      esac
+      [ -f "$dir/Cargo.toml" ] || continue
+      name=$(sed -n 's/^name *= *"\(.*\)"/\1/p' "$dir/Cargo.toml" | head -n 1)
+      [ -n "$name" ] && packages="$packages $name"
+      ;;
+    *.rs) all=1 ;;
+  esac
+done <"$files"
+
+set --
+if [ "$all" = 1 ]; then
+  set -- --workspace
+else
+  # Package names cannot contain whitespace or shell metacharacters.
+  for package in $(printf '%s\n' $packages | sort -u); do
+    set -- "$@" -p "$package"
+  done
+fi
+if [ "$#" = 0 ]; then
+  echo 'pre-push: no Rust crates changed; skipping clippy.'
+  exit 0
+fi
+if ! command -v cargo >/dev/null 2>&1; then
+  echo 'pre-push: Cargo is missing; install the pinned Rust toolchain.' >&2
+  exit 1
+fi
+echo "pre-push: cargo clippy $* --all-targets --locked -- -D warnings"
+if ! cargo clippy "$@" --all-targets --locked -- -D warnings; then
+  echo 'pre-push: clippy failed. Fix the warnings above before pushing.' >&2
+  exit 1
+fi
