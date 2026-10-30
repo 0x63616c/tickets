@@ -9,7 +9,7 @@ export function position_popup(trigger, panel) {
   panel.style.maxWidth = `${innerWidth - edge * 2}px`;
   panel.style.minWidth = `${Math.min(r.width, innerWidth - edge * 2)}px`;
   const below = innerHeight - r.bottom - gap - edge, above = r.top - gap - edge;
-  const up = below < Math.min(panel.scrollHeight, 280) && above > below;
+  const up = trigger.classList.contains('account-trigger') || (below < Math.min(panel.scrollHeight, 280) && above > below);
   panel.dataset.side = up ? 'top' : 'bottom';
   panel.style.maxHeight = `${Math.max(48, Math.min(320, up ? above : below))}px`;
   const p = panel.getBoundingClientRect();

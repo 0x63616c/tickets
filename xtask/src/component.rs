@@ -259,6 +259,9 @@ fn sidebar_shots(
     b.wait("!!document.querySelector('.sidebar .account-trigger')")?;
     b.eval("document.fonts.ready.then(()=>true)")?;
     b.wait("document.querySelector('.sidebar').getBoundingClientRect().width===240 && document.querySelector('.sidebar').getBoundingClientRect().height===620")?;
+    if !before {
+        b.wait("document.querySelector('.workspace').textContent==='Tickets' && !document.querySelector('.workspace button') && !document.body.textContent.includes('Tickets account') && document.querySelector('.account-name').textContent==='Sample User' && document.querySelector('.account-trigger .avatar').textContent==='S'")?;
+    }
     if name == "user-menu" {
         b.click(".account-trigger")?;
         b.wait(
