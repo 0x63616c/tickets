@@ -427,3 +427,12 @@ curl -sS "$TICKETS_URL/api/v1/github/app" -H "Authorization: Bearer $TICKETS_TOK
 # expect {"status":404,"body":{"error":{"code":"not_found"}}}
 curl -sS "$TICKETS_URL/api/v1/github/app/credentials" -H "Authorization: Bearer $TICKETS_TOKEN"
 ```
+
+## Efficient repeated reads
+
+List/search/Home analytics responses carry weak `ETag` and
+`X-Workspace-Version` headers. Reuse `If-None-Match` for the same complete URL;
+a 304 has no body. Responses remain authenticated and private.
+`GET /api/v1/version` returns `{version: integer}` for cheap reconnect checks.
+The eight UTC weeks in `/api/v1/analytics/home` are the shared cached weekly
+shape for Analytics clients; preserve coverage/null semantics. See docs/API.md.

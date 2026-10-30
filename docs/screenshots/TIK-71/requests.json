@@ -1,0 +1,23 @@
+{
+  "errors": [],
+  "reads": [
+    "/tickets-web-cbfb1c52d13b5162_bg.wasm",
+    "/api/v1/me",
+    "/api/v1/analytics/home",
+    "/api/v1/projects",
+    "/api/v1/version",
+    "/api/v1/tickets",
+    "/api/v1/labels",
+    "/api/v1/projects",
+    "/api/v1/tickets/1",
+    "/api/v1/tickets/TKT-1",
+    "/api/v1/tickets/1/comments",
+    "/api/v1/tickets/1/history",
+    "/api/v1/tickets/1",
+    "/api/v1/tickets/1/comments",
+    "/api/v1/tickets/1/history",
+    "/api/v1/projects",
+    "/api/v1/tickets/1",
+    "/api/v1/analytics/home"
+  ]
+}

@@ -166,8 +166,11 @@ impl<S: Store> ApiRepository<'_, S> {
         let mut values: Vec<_> = obj.values().cloned().collect();
         let mut expressions = vec!["?".to_owned(); fields.len()];
         if entity == "tickets" {
-            self.get("projects", obj["project_id"].as_i64().unwrap())
-                .await?;
+            self.one(
+                "SELECT id FROM projects WHERE id=?",
+                vec![obj["project_id"].clone()],
+            )
+            .await?;
             fields.push("number".into());
             expressions.push("(SELECT next_ticket_number FROM projects WHERE id=?)".into());
             values.push(obj["project_id"].clone());
@@ -206,7 +209,8 @@ impl<S: Store> ApiRepository<'_, S> {
         tickets_core::api::validate(entity, input).map_err(Error::Validation)?;
         let obj = input.as_object().unwrap();
         if let Some(p) = obj.get("project_id") {
-            self.get("projects", p.as_i64().unwrap()).await?;
+            self.one("SELECT id FROM projects WHERE id=?", vec![p.clone()])
+                .await?;
         }
         let mut set = vec![];
         let mut values = vec![];

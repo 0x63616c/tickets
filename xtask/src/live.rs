@@ -131,12 +131,12 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     b.wait("document.querySelector('.ticket-card [role=combobox]')?.value==='Done'")?;
     b.eval("if(window.__liveSockets.length!==window.__socketCount)throw Error('catch-up reconnected');true")?;
     b.eval("new Promise(resolve=>setTimeout(resolve,800))")?;
-    // One board refresh plus the sidebar's authoritative open-count refresh.
-    // Assert the paths too, so an unrelated fourth request cannot pass unnoticed.
+    // Recovery downloads each collection once; sidebar shares projects.
     b.eval(
-        "if(JSON.stringify(window.__readPaths.sort())!==JSON.stringify(['/api/v1/labels','/api/v1/projects','/api/v1/projects','/api/v1/tickets']))throw Error('event burst did not coalesce: '+JSON.stringify(window.__readPaths));true",
+        "if(JSON.stringify(window.__readPaths.sort())!==JSON.stringify(['/api/v1/labels','/api/v1/projects','/api/v1/tickets']))throw Error('event burst did not coalesce: '+JSON.stringify(window.__readPaths));true",
     )?;
     b.screenshot(&output.join("visibility-catchup-desktop.png"))?;
+    b.eval("window.__dropLive=false;true")?;
     b.eval("var card=document.querySelector('.ticket-card');card.focus();card.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true}));window.dispatchEvent(new Event('focus'));true")?;
     api(
         reqwest::Method::PATCH,
@@ -146,21 +146,19 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     b.eval("new Promise(resolve=>setTimeout(resolve,800))")?;
     b.eval("if(document.body.innerText.includes('Deferred drag catch-up verified'))throw Error('drag was reconciled');document.querySelector('.ticket-card').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));true")?;
     b.wait("document.body.innerText.includes('Deferred drag catch-up verified')")?;
-    // Notifications stay suppressed; only the visible-tab 60s timer can recover this write.
+    // Healthy focus must not reload. A missed notification is recovered by
+    // reopening the socket, rather than a periodic full-collection poll.
+    b.eval("window.__priorReads=window.__reads;window.dispatchEvent(new Event('focus'));true")?;
+    b.eval("new Promise(resolve=>setTimeout(resolve,800))")?;
+    b.eval("if(window.__reads!==window.__priorReads)throw Error('healthy focus refetched');true")?;
+    b.eval("window.__dropLive=true;true")?;
     api(
         reqwest::Method::PATCH,
         &format!("tickets/{ticket}"),
-        json!({"title":"Periodic catch-up verified"}),
+        json!({"title":"Reconnect catch-up verified"}),
     )?;
-    let deadline = std::time::Instant::now() + Duration::from_secs(70);
-    while b.eval("document.body.innerText.includes('Periodic catch-up verified')")? != true {
-        if std::time::Instant::now() > deadline {
-            return Err("periodic catch-up timed out".into());
-        }
-        std::thread::sleep(Duration::from_millis(200));
-    }
-    b.eval("if(window.__liveSockets.length!==window.__socketCount)throw Error('timer reconnected');true")?;
-    b.screenshot(&output.join("periodic-catchup-desktop.png"))?;
+    b.eval("window.__dropLive=false;for(const socket of window.__liveSockets)socket.close();true")?;
+    b.wait("document.body.innerText.includes('Reconnect catch-up verified')")?;
     b.call(
         "Target.closeTarget",
         json!({"targetId":hidden_tab["targetId"]}),
@@ -252,7 +250,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     b.wait("[...document.querySelectorAll('.home-metric strong')].slice(0,2).map(e=>e.textContent).join(',')==='1,1'")?;
     b.eval("if(window.homeReads.some(p=>p.startsWith('/api/v1/tickets')))throw Error('Home downloaded tickets');if(window.homeReads.filter(p=>p==='/api/v1/analytics/home').length<2)throw Error('Home did not refresh aggregate');true")?;
     println!(
-        "live-check: upgrade auth, two-client broadcast, two-window move, list/detail reconciliation reconnect, hidden/visible intervals, event coalescing, focus/online/visibility, edit/drag deferral and aggregate-only Home refresh verified"
+        "live-check: upgrade auth, two-client broadcast, two-window move, list/detail reconciliation reconnect, hidden/visible recovery, event coalescing, healthy focus without polling, edit/drag deferral and aggregate-only Home refresh verified"
     );
     Ok(())
 }

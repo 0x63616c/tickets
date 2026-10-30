@@ -8,6 +8,7 @@ pub struct ReadCache {
     key: String,
     etag: String,
     version: String,
+    conditional: bool,
 }
 impl ReadCache {
     pub async fn lookup(req: &Request, db: &D1Database) -> Result<Option<Self>> {
@@ -45,19 +46,23 @@ impl ReadCache {
         let mut url = req.url()?;
         url.set_path(&format!("/__private_read_cache/{digest}"));
         url.set_query(None);
+        let conditional = req.headers().get("If-None-Match")?.is_some_and(|value| {
+            value.split(',').any(|tag| {
+                tag.trim().trim_start_matches("W/") == etag.trim_start_matches("W/")
+                    || tag.trim() == "*"
+            })
+        });
         Ok(Some(Self {
             key: url.to_string(),
+            conditional,
             etag,
             version: rows[0]["version"].to_string(),
         }))
     }
-    pub async fn response(&self, req: &Request) -> Result<Option<Response>> {
+    pub async fn response(&self) -> Result<Option<Response>> {
         match Cache::default().get(self.key.as_str(), false).await {
             Ok(Some(response)) => {
-                if req.headers().get("If-None-Match")?.is_some_and(|v| {
-                    v.split(',')
-                        .any(|tag| tag.trim() == self.etag || tag.trim() == "*")
-                }) {
+                if self.conditional {
                     return Ok(Some(self.private(Response::empty()?.with_status(304))?));
                 }
                 Ok(Some(self.private(response)?))
@@ -89,7 +94,12 @@ impl ReadCache {
             }
         }
         if response.status_code() == 200 {
-            self.private(response)
+            // A cold/expired cache still honors the validator after validation.
+            if self.conditional {
+                self.private(Response::empty()?.with_status(304))
+            } else {
+                self.private(response)
+            }
         } else {
             Ok(response)
         }

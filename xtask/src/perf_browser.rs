@@ -27,29 +27,37 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     let mut b = Browser::start_named(root, "perf-browser")?;
     b.viewport(1280, 800)?;
     b.call("Page.addScriptToEvaluateOnNewDocument",json!({"source":r#"
-        window.perfReads=[];window.perfErrors=[];
+        window.perfReads=[];window.perfErrors=[];window.perfSockets=[];
+        const Socket=WebSocket;window.WebSocket=class extends Socket{constructor(...args){super(...args);window.perfSockets.push(this)}};
         addEventListener('error',e=>window.perfErrors.push(e.message));
         addEventListener('unhandledrejection',e=>window.perfErrors.push(String(e.reason)));
-        const fetch=window.fetch;window.fetch=(...args)=>{
+        const perfNativeFetch=window.fetch;window.fetch=(...args)=>{
             const request=args[0];const url=new URL(request instanceof Request?request.url:String(request),location.href);
             if((request.method||args[1]?.method||'GET')==='GET')window.perfReads.push(url.pathname);
-            return fetch(...args);
+            return perfNativeFetch(...args).then(response=>{if(url.pathname==='/api/v1/version')window.versionChecked=true;return response});
         };
     "#}))?;
     b.go("http://127.0.0.1:8795/login")?;
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
-    b.wait("!!document.querySelector('.home-metric strong') && !!document.querySelector('.connection.connected')")?;
+    if let Err(error) =
+        b.wait("!!document.querySelector('.home-metric strong') && window.versionChecked===true")
+    {
+        eprintln!("Perf startup: {}",b.eval("({reads:window.perfReads,errors:window.perfErrors,sockets:window.perfSockets?.map(s=>({url:s.url,state:s.readyState})),checked:window.versionChecked})")?);
+        return Err(error);
+    }
     b.eval("if(perfReads.filter(p=>p==='/api/v1/projects').length!==1)throw Error('Home duplicated projects: '+JSON.stringify(perfReads));true")?;
     let output = root.join("docs/screenshots/TIK-71");
     fs::create_dir_all(&output)?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    b.wait("!document.querySelector('[data-ar-t], .ar-overlay canvas')")?;
     b.screenshot(&output.join("after-home.png"))?;
     b.click(".sidebar a[href='/board']")?;
     b.wait("document.querySelectorAll('.ticket-card').length===1")?;
     b.eval("window.collectionReads=perfReads.filter(p=>p==='/api/v1/tickets').length;if(collectionReads!==1)throw Error('initial collection fetched more than once');true")?;
     b.click(".sidebar a[href='/list']")?;
-    b.wait("!!document.querySelector('.list-row')")?;
+    b.wait("!!document.querySelector('.api-list-row')")?;
     b.click(".sidebar a[href='/board']")?;
     b.wait("document.querySelectorAll('.ticket-card').length===1")?;
     b.eval("if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('navigation reloaded collection');window.dispatchEvent(new Event('focus'));true")?;
@@ -62,7 +70,8 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     b.eval("if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('live update reloaded collection');true")?;
     b.click(".card-title")?;
     b.wait("!!document.querySelector('.ticket-detail') || !!document.querySelector('.ticket-detail-page') || !!document.querySelector('.activity')")?;
-    b.eval("if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('detail reloaded collection');true")?;
+    b.eval("new Promise(resolve=>setTimeout(resolve,500))")?;
+    b.eval("if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('detail reloaded collection');if(perfReads.filter(p=>p==='/api/v1/tickets/1/comments').length!==1)throw Error('detail replayed an old live revision');true")?;
     b.click(".sidebar a[href='/board']")?;
     b.wait("document.querySelectorAll('.ticket-card').length===1")?;
     let _hidden = b.call("Target.createTarget", json!({"url":"about:blank"}))?;
@@ -75,9 +84,11 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     b.call("Page.bringToFront", json!({}))?;
     b.wait("document.querySelector('.card-title')?.textContent==='Foreground catch-up fixture'")?;
     b.eval("if(perfErrors.length)throw Error(JSON.stringify(perfErrors));if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('foregrounding reloaded collection');true")?;
-    b.viewport(390, 844)?;
     b.click(".sidebar a[href='/']")?;
     b.wait("!!document.querySelector('.home-metric strong')")?;
+    b.viewport(390, 844)?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    b.wait("!document.querySelector('[data-ar-t], .ar-overlay canvas')")?;
     b.screenshot(&output.join("after-home-mobile.png"))?;
     fs::write(
         output.join("requests.json"),

@@ -79,7 +79,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.viewport(1440, 900)?;
     // Hold a live catch-up response until its DetailPage has been disposed.
     // This makes navigation during an in-flight read deterministic.
-    b.eval("window.detailFetch=window.fetch;window.fetch=async(input,init)=>{const response=await window.detailFetch(input,init);const url=input instanceof Request?input.url:String(input);if(url.includes('/tickets/2/comments?')){window.detailHeld=true;await new Promise(resolve=>window.releaseDetail=resolve);}return response;};window.dispatchEvent(new Event('focus'));true")?;
+    b.eval("window.detailFetch=window.fetch;window.fetch=async(input,init)=>{const response=await window.detailFetch(input,init);const url=input instanceof Request?input.url:String(input);if(url.includes('/tickets/2/comments?')){window.detailHeld=true;await new Promise(resolve=>window.releaseDetail=resolve);}return response;};window.dispatchEvent(new Event('online'));true")?;
     b.wait("window.detailHeld===true")?;
     b.click(".dependency-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Prepare release'")?;

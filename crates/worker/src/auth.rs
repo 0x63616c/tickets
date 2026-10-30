@@ -257,7 +257,7 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
             let mut actor=authenticated[0]["token_id"].as_i64().map(tickets_core::history::Actor::api_token).unwrap_or_else(||tickets_core::history::Actor::user(user_id));
             if let Some(label)=authenticated[0]["actor_label"].as_str(){actor.label=label.to_owned();}
             let cache = crate::read_cache::ReadCache::lookup(&req, &db).await?;
-            if let Some(cache) = &cache && let Some(response) = cache.response(&req).await? { return Ok(response); }
+            if let Some(cache) = &cache && let Some(response) = cache.response().await? { return Ok(response); }
             let response=crate::api::handle_as(&db,&actor,req.method().as_ref(),&path,&query,body).await;
             if let Some(change) = response.change {
                 // Best effort after D1 commit: notification cannot roll back or fail a write.

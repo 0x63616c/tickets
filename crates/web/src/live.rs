@@ -102,7 +102,11 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                     crate::ui::invalidate_reads();
                     if recover.get_untracked() {
                         recover.set(false);
-                        if !["/", "/home"].contains(&path.get_untracked().as_str()) {
+                        if ["/", "/home"].contains(&path.get_untracked().as_str()) {
+                            // Home does not need tickets, but a future Board/List must
+                            // not reuse a collection from before the disconnect.
+                            board.invalidate_tickets();
+                        } else {
                             board.catch_up();
                         }
                         board.catchup_revision.update(|r| *r += 1);

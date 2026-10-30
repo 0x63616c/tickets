@@ -157,6 +157,9 @@ impl BoardState {
             self.fetch(false);
         }
     }
+    pub(crate) fn invalidate_tickets(self) {
+        self.loaded.set(false);
+    }
     pub(crate) fn catch_up(self) {
         crate::ui::invalidate_reads();
         self.fetch(true);

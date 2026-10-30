@@ -91,10 +91,13 @@ pub fn check(root: &Path, b: &mut Browser) -> super::Result {
             b.eval("window.held=true;window.heldRequests=0;true")?;
             if name == "board-refresh" {
                 b.click("a[href='/list']")?;
+                // Navigation reuses the shared collection; exercise explicit
+                // recovery while it is mounted instead of requiring a reload.
+                b.eval("window.dispatchEvent(new Event('online'));true")?;
                 b.wait("window.heldRequests>0")?;
                 b.click("a[href='/board']")?;
             } else {
-                b.eval("window.dispatchEvent(new Event('focus'));true")?;
+                b.eval("window.dispatchEvent(new Event('online'));true")?;
             }
             b.wait("window.heldRequests>0")?;
         }

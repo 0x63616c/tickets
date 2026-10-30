@@ -65,7 +65,7 @@ fn execute(
     Ok(serde_json::from_slice(&output.stdout)?)
 }
 fn read(sql: &str, queries: &mut String, cache: bool) {
-    queries.push_str("SELECT user_id FROM sessions WHERE token_hash='fixture' AND expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now');\n");
+    queries.push_str("SELECT user_id,coalesce(nullif(trim(users.display_name),''),users.username) AS actor_label FROM sessions JOIN users ON users.id=sessions.user_id WHERE token_hash='fixture' AND expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now');\n");
     if cache {
         queries.push_str("SELECT version FROM workspace_version WHERE id=1;\n");
     }
@@ -139,14 +139,18 @@ pub fn check(root: &Path) -> super::Result {
         .filter(|p| p.extension().is_some_and(|e| e == "sql"))
         .collect();
     migrations.sort();
+    let efficiency = migrations
+        .iter()
+        .find(|p| {
+            p.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .ends_with("_read_efficiency.sql")
+        })
+        .ok_or("missing read efficiency migration")?;
     let mut setup = String::from("PRAGMA foreign_keys=ON;\n");
     for path in &migrations {
-        if !path
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .starts_with("0017")
-        {
+        if path != efficiency {
             setup.push_str(&fs::read_to_string(path)?);
             setup.push('\n');
         }
@@ -164,7 +168,13 @@ pub fn check(root: &Path) -> super::Result {
         "export default { async fetch(request, env) { if(request.method==='GET') return new Response('ready'); try { const statements=await request.json(); const results=await env.DB.batch(statements.map(sql=>env.DB.prepare(sql))); return Response.json(results); } catch(error) {return new Response(String(error),{status:500});} } }; ",
     )?;
     let log = fs::File::create(dir.join("worker.log"))?;
-    let server = Command::new("wrangler")
+    let mut server_command = Command::new("wrangler");
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        server_command.process_group(0);
+    }
+    let server = server_command
         .current_dir(root)
         .args([
             "dev",
@@ -187,6 +197,10 @@ pub fn check(root: &Path) -> super::Result {
     struct Server(std::process::Child);
     impl Drop for Server {
         fn drop(&mut self) {
+            #[cfg(unix)]
+            let _ = Command::new("kill")
+                .args(["-TERM", "--", &format!("-{}", self.0.id())])
+                .output();
             let _ = self.0.kill();
             let _ = self.0.wait();
         }
@@ -205,8 +219,9 @@ pub fn check(root: &Path) -> super::Result {
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
     let mut before = String::new();
-    // Home; initial room-open invalidation; Board; List; detail; return Home;
-    // five minute ticks, plus three separate live ticket updates.
+    // Home initial + room open; Board/List/detail each mount + room reopen;
+    // return Home + room reopen; five Home minute ticks and three live updates.
+    // Collections: 3 mounts + 3 room reopens. Home: 4 arrivals + 5 ticks + 3 events.
     for _ in 0..12 {
         read(&analytics, &mut before, false);
         read(&old_projects, &mut before, false);
@@ -220,14 +235,15 @@ pub fn check(root: &Path) -> super::Result {
         false,
     );
     let before_result = execute(root, &dir, &before, "before")?;
-    execute(
-        root,
-        &dir,
-        &fs::read_to_string(root.join("migrations/0017_read_efficiency.sql"))?,
-        "optimize",
-    )?;
+    execute(root, &dir, &fs::read_to_string(efficiency)?, "optimize")?;
     let mut after = String::new();
     // One Home snapshot + shared projects; Board collection once; List reuses it.
+    // Initial snapshot-to-socket handshake: session auth plus one version row.
+    read(
+        "SELECT version FROM workspace_version WHERE id=1",
+        &mut after,
+        false,
+    );
     read(&analytics, &mut after, true);
     collection(&new_ticket, &new_projects, &mut after, true);
     read(
@@ -264,6 +280,11 @@ pub fn check(root: &Path) -> super::Result {
         json!({"rows_read":entries.iter().map(|x|x["meta"]["rows_read"].as_u64().expect("wrangler must expose rows_read")).sum::<u64>(),"statements":entries.len(),"d1_duration_ms":entries.iter().filter_map(|x|x["meta"]["duration"].as_f64()).sum::<f64>()})
     };
     let report = json!({"fixture_tickets":240,"before":summarize(&before_result),"after":summarize(&after_result),"note":"Deterministic request-schedule replay; not browser elapsed time or Worker CPU. Three live updates; five idle minute ticks elided after. Includes cold analytics after each update.","plans":plans});
+    let before_rows = report["before"]["rows_read"].as_f64().unwrap();
+    let after_rows = report["after"]["rows_read"].as_f64().unwrap();
+    if after_rows / before_rows * 2_670_730. >= 1_000_000. {
+        return Err("session replay exceeds projected 1M rows/day budget".into());
+    }
     fs::write(
         dir.join("report.json"),
         serde_json::to_string_pretty(&report)?,

@@ -294,8 +294,11 @@ fn DetailPage(selector: String) -> impl IntoView {
     let properties_expanded = RwSignal::new(false);
     let edit = RwSignal::new(false);
     let pending_live = RwSignal::new(false);
+    let observed_live = StoredValue::new(board.catchup_revision.get_untracked());
     Effect::new(move |_| {
-        if board.catchup_revision.get() > 0 {
+        let revision = board.catchup_revision.get();
+        if revision != observed_live.get_value() {
+            observed_live.set_value(revision);
             pending_live.set(true);
         }
     });
