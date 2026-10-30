@@ -82,14 +82,7 @@ fn capture(
                                 json!({"type":"mouseMoved","x":0,"y":0}),
                             )?;
                             b.call("Input.dispatchMouseEvent",json!({"type":"mouseReleased","x":0,"y":0,"button":"left","clickCount":1}))?;
-                            b.call(
-                                "Input.dispatchKeyEvent",
-                                json!({"type":"keyDown","key":"Tab","code":"Tab"}),
-                            )?;
-                            b.call(
-                                "Input.dispatchKeyEvent",
-                                json!({"type":"keyUp","key":"Tab","code":"Tab"}),
-                            )?;
+                            b.key("Tab", 9, 0)?;
                             b.eval("document.querySelector('.button-primary').focus();true")?;
                             b.wait("document.querySelector('.button-primary').matches(':focus-visible')")?;
                         }
