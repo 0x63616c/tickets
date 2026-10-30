@@ -19,7 +19,6 @@ jobs:
           # Reuse main's existing check cache across all Cargo consumers. The
           # action hashes Cargo.lock + rustc/toolchain; target/ keeps host and
           # wasm32-unknown-unknown artifacts in separate Cargo directories.
-          lookup-only: true # TIK-73 cold measurement; removed before review
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install wasm build tools
@@ -72,7 +71,6 @@ jobs:
           # Reuse main's existing check cache across all Cargo consumers. The
           # action hashes Cargo.lock + rustc/toolchain; target/ keeps host and
           # wasm32-unknown-unknown artifacts in separate Cargo directories.
-          lookup-only: true # TIK-73 cold measurement; removed before review
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: npm install --global wrangler@4.154.0
@@ -111,7 +109,6 @@ jobs:
           # Reuse main's existing check cache across all Cargo consumers. The
           # action hashes Cargo.lock + rustc/toolchain; target/ keeps host and
           # wasm32-unknown-unknown artifacts in separate Cargo directories.
-          lookup-only: true # TIK-73 cold measurement; removed before review
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install wasm build tools
