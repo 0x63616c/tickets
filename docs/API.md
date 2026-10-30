@@ -7,7 +7,8 @@ environment. Cookie mutations also require an `Origin` matching the request URL.
 Invalid bearer credentials never fall back to cookies. Health at `/api/health`
 and login at `POST /api/v1/login` are public; see `docs/adr/0003-auth.md` for authentication.
 
-Responses contain JSON. Creation returns 201; reads, patches, deletes and external
+Domain responses contain JSON. The GitHub App manifest callback below returns HTML.
+Creation returns 201; reads, patches, deletes and external
 upserts return 200. Deletes return `{"ok":true}`. Errors have the form
 `{"error":{"code":"validation","message":"..."}}`:
 
@@ -228,6 +229,51 @@ a 350 ms debounce and one board/list fetch at a time. Reads retain the displayed
 content and wait for local edits, comment drafts and board moves. Each catch-up
 uses the existing paginated REST endpoints (projects, tickets, labels, plus ticket
 and comments on detail); no new D1 query, replay log or Durable Object alarm is used.
+
+## GitHub App registration (Phase 1)
+
+`GET /api/v1/github/app/manifest-callback?code=<CODE>&state=<STATE>` is a
+browser callback outside the session/bearer auth gate. It requires the secret
+setup state; it is not a general agent API endpoint.
+
+1. Configure Worker secrets `GITHUB_APP_SETUP_STATE` (an unguessable random
+   value) and `GITHUB_APP_STORE_KEY` (standard base64 of 32 random bytes).
+   CI deploys them from production environment secrets
+   `TICKETS_GITHUB_APP_SETUP_STATE` and `TICKETS_GITHUB_APP_STORE_KEY`.
+2. In the owner's browser, POST the `manifest` form field containing the GitHub
+   App manifest JSON to `https://github.com/settings/apps/new?state=<STATE>`.
+   Set the manifest's `redirect_url` to
+   `https://tickets.worldwidewebb.co/api/v1/github/app/manifest-callback`.
+   Use the configured state and keep the manifest's permissions/events scoped to
+   the intended app. See [GitHub's manifest flow](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest).
+3. GitHub redirects with a one-use code, valid for one hour. The Worker checks
+   configuration, compares state in constant time, validates the code, and checks
+   for an existing registration before making an unauthenticated
+   `POST https://api.github.com/app-manifests/{code}/conversions`
+   (`Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`,
+   `User-Agent: tickets-worldwidewebb`). It requires a 201 response.
+4. The Worker stores public metadata and encrypts `{pem, webhook_secret,
+   client_secret}` with AES-256-GCM. `secrets_ciphertext` is standard base64 of
+   a fresh 12-byte IV followed by ciphertext and its 16-byte authentication tag.
+   The 200 page confirms registration and links to the app and **Install on all
+   repositories**. Choose **All repositories** on GitHub's installation screen.
+
+The code must contain 1–128 ASCII letters, digits, `_` or `-`. Missing/empty
+secrets or an invalid store key return 503; incorrect/missing state returns 403;
+incorrect/missing code returns 400; an existing app returns 409 without calling
+GitHub. Other methods return 405. GitHub transport/conversion/response failures
+return 502 with a fixed message and, when available, only the upstream HTTP
+status. Storage/encryption failures return a generic 500. Every callback page
+uses `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and a CSP allowing
+only the page's hashed inline style. Codes, states and credentials are never
+included in response bodies or application logs.
+
+Keep the store key available: changing it without re-encrypting the row makes
+the saved credentials unreadable. Remove the setup state after registration to
+disable the callback; credential loading only needs the store key. There is no
+registration overwrite/reset API. Phase 2 will populate installation/repository
+tables and use the saved credentials for webhook verification and tokens.
+The existing `/api/v1/github/webhook` integration is unchanged in Phase 1.
 
 ## GitHub webhook and imported tickets
 
