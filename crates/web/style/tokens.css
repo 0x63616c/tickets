@@ -1,6 +1,7 @@
 /* Shared visual contract for #7–#10 and #16. Linear reference values pushed to near-pure black (#32), dark only. */
 @font-face { font-family: 'Inter Variable'; src: url('/fonts/InterVariable.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
 @font-face { font-family: 'Geist Mono'; src: url('/fonts/GeistMono.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('/fonts/Geist.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
 :root {
   color-scheme: dark;
   --bg: #000000;
@@ -46,7 +47,8 @@
   --label-design: #c6a1b9;
   /* Tinted chips: fill and border are the hue at low alpha, text a lighter tint. */
   --tint-fill: 14%; --tint-border: 26%; --tint-text: 55%;
-  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-ui: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans: var(--font-ui);
   --font-mono: 'Geist Mono', ui-monospace, monospace;
   --text-xs: 11px; --text-sm: 12px; --text-base: 13px; --text-md: 14px;
   --text-lg: 16px; --text-xl: 20px; --text-title: 24px;
@@ -73,3 +75,8 @@
 @media (prefers-reduced-motion: reduce) {
   :root { --duration-move: 0ms; }
 }
+
+/* One selected UI stack; code/mono metadata retains --font-mono. */
+:root[data-font="geist-mono"] { --font-ui: var(--font-mono); }
+:root[data-font="inter"] { --font-ui: 'Inter Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+:root[data-font="system"] { --font-ui: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }

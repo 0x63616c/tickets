@@ -831,6 +831,14 @@ cache, invalidation and validation. Cached list requests add one version lookup
 (one auth + one version read on a hit; three calls on a miss). Existing mutation
 budgets and the shared dispatch statement budgets are unchanged.
 
+## Font preference verification
+
+After building, `CHROME_BIN=<headless-chromium> cargo xtask font-check` checks all
+four Appearance fonts, reload persistence, HTML boot with app modules blocked,
+invalid-value fallback, code font invariance and mobile fit using fixture routes.
+It saves dark Settings/Board evidence in `docs/screenshots/TIK-83`; set
+`TICKETS_BEFORE_ASSETS` to a main build for baseline captures.
+
 ## Board/List loading exclusivity (TIK-75)
 
 - Board and List use one initial loading boundary for filters, content, empty
