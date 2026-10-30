@@ -41,6 +41,7 @@ pub mod live;
 
 pub mod navigation;
 
+pub mod github_app;
 pub mod github_mirror;
 
 pub mod pull_request;
