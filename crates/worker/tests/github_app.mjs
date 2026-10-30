@@ -331,3 +331,41 @@ test('app PRs share status sync; JWT verifies; checks and CI persist per head; f
     assert.ok(tokenRequest);
   } finally {db.db.close();globalThis.fetch=async()=>{throw new Error('Network disabled');};}
 });
+
+test('credentials export enforces bearer auth and returns only stored encrypted credentials', async () => {
+  const db = new D1Database();
+  try {
+    db.db.exec("INSERT INTO users(id,username) VALUES(1,'fixture')");
+    const bearer = `tk_${'a'.repeat(64)}`;
+    const session = 'b'.repeat(64);
+    const hash = value => createHash('sha256').update(value).digest('hex');
+    db.db.prepare("INSERT INTO api_tokens(user_id,name,token_hash) VALUES(1,'fixture',?)").run(hash(bearer));
+    db.db.prepare("INSERT INTO sessions(user_id,token_hash,expires_at) VALUES(1,?,strftime('%Y-%m-%dT%H:%M:%fZ','now','+1 day'))").run(hash(session));
+    // No store key is supplied: exporting must never decrypt the stored blob.
+    const worker = new Worker({}, { DB: db });
+    const url = 'https://fixture.invalid/api/v1/github/app/credentials';
+    const request = async (headers, status) => {
+      const result = await worker.fetch(new Request(url, { headers }));
+      assert.equal(result.status, status);
+      assert.equal(result.headers.get('Cache-Control'), 'no-store');
+      return result.json();
+    };
+    const tokenHeaders = { Authorization: `Bearer ${bearer}` };
+    const sessionHeaders = { Cookie: `tickets_session=${session}` };
+    await request({}, 401);
+    assert.equal((await request(tokenHeaders, 404)).error.code, 'not_found');
+    assert.equal((await request(sessionHeaders, 403)).error.code, 'forbidden');
+    const expected = {
+      app_id: 42, slug: 'fixture-app', name: 'Fixture App', owner_login: 'fixture-owner',
+      client_id: 'fixture-id', html_url: 'https://github.com/apps/fixture-app',
+      secrets_ciphertext: Buffer.alloc(44, 7).toString('base64'),
+    };
+    db.db.prepare('INSERT INTO github_app(id,app_id,slug,name,owner_login,client_id,html_url,secrets_ciphertext) VALUES(1,?,?,?,?,?,?,?)')
+      .run(...Object.values(expected));
+    assert.deepEqual(await request(tokenHeaders, 200), expected);
+    assert.equal((await request(sessionHeaders, 403)).error.code, 'forbidden');
+    await request({ ...sessionHeaders, Authorization: 'Bearer invalid' }, 401);
+    db.db.exec('UPDATE api_tokens SET revoked_at=created_at');
+    await request(tokenHeaders, 401);
+  } finally { db.db.close(); }
+});

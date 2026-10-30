@@ -273,6 +273,30 @@ the saved credentials unreadable. Remove the setup state after registration to
 disable the callback; credential loading only needs the store key. There is no
 registration overwrite/reset API.
 
+### Encrypted credentials export
+
+`GET /api/v1/github/app/credentials` requires normal API-token bearer
+authentication. Browser sessions receive 403 (`forbidden`); missing or invalid
+authentication receives 401. Tokens have full workspace access with no separate
+admin role. If no `github_app` row exists, it returns 404 (`not_found`).
+Responses use `Cache-Control: no-store`.
+
+A 200 response contains exactly these fields:
+
+```json
+{"app_id":123,"slug":"example-app","name":"Example App","owner_login":"example-owner","client_id":"example-client-id","html_url":"https://github.com/apps/example-app","secrets_ciphertext":"<stored base64 blob>"}
+```
+
+Use this endpoint for one-time retrieval onto the operator box after manifest
+registration. The Worker returns the stored encrypted blob unchanged and never
+decrypts it for export. On the box, decode standard base64, take the first 12
+bytes as the IV and the last 16 bytes as the 128-bit authentication tag, and
+decrypt the intervening ciphertext using AES-256-GCM with the locally held
+`GITHUB_APP_STORE_KEY` (standard base64 of 32 bytes). The plaintext is JSON with
+string fields `{"pem":"...","webhook_secret":"...","client_secret":"..."}`.
+Keep the response and decrypted credentials out of logs. Retrieval does not
+consume or delete the stored registration; the endpoint remains repeatable.
+
 ### GitHub App events and installation status
 
 The App replaces per-repository hooks. Set the manifest `hook_attributes.url` to
