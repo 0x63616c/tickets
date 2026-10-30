@@ -135,8 +135,8 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   returned HTML is sanitized, including raw HTML and forced-disabled task checkboxes.
 - Domain lists use ascending ID cursors (`data`, `next_cursor`, default limit 50,
   maximum 100). Full-text search treats q as a literal FTS5 phrase. API mutations
-  reject unknown fields; PATCH null clears nullable fields. Comments use the
-  single-user author `owner`. Errors use `error.code` and `error.message`.
+  reject unknown fields; PATCH null clears nullable fields. Comments snapshot authenticated user/token names; ownership uses durable
+  user/token IDs, never display names. Deleted comments return empty-body stubs. Errors use `error.code` and `error.message`.
 - After successful domain writes return internal change metadata for the Worker
   to notify project rooms; notification failure must never fail the write. Validate
   domain documents in core, keep transport in the authenticated Worker adapter,

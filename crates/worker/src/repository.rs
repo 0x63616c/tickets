@@ -271,9 +271,10 @@ impl<S: Store> Repository<S> {
         validate_name(author)
             .and_then(|()| validate_name(body))
             .map_err(Error::Validation)?;
-        self.one(
-            "INSERT INTO comments(ticket_id,author,body) VALUES(?,?,?) RETURNING *",
-            vec![ticket.into(), author.into(), body.into()],
+        self.mutate_one(
+            Scope::ticket(ticket),
+            "INSERT INTO comments(ticket_id,author,body,author_kind) VALUES(?,?,?,CASE WHEN ?='GitHub' THEN 'github' ELSE 'system' END) RETURNING *",
+            vec![ticket.into(), author.into(), body.into(), author.into()],
         )
         .await
     }

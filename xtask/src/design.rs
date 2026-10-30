@@ -776,13 +776,25 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
 
 /// Issue #9: browser-level component safety and persistent editing against local D1.
 fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
-    let output = root.join("docs/screenshots/TIK-60");
+    let output = root.join("docs/screenshots/TIK-72");
     fs::create_dir_all(&output)?;
-    b.go("http://127.0.0.1:8795/ticket?id=2")?;
-    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Group the ticket list by status' && !!document.querySelector('[role=listbox][aria-label=Project] [role=option]')")?;
+    // Disposable thread fixture: real session/token identities, edit and tombstone.
+    b.eval(r#"(async()=>{
+        const call=async(path,body,method='POST',token)=>{const r=await fetch('/api/v1/'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!r.ok)throw Error('Comment fixture failed');return r.json()};
+        await call('me',{display_name:'Sample User'},'PATCH');
+        const edited=await call('tickets/1/comments',{body:'Ready for review. **Keyboard support** is complete.'});
+        await call('comments/'+edited.id,{body:'Ready for review. **Keyboard support** and focus states are complete.'},'PATCH');
+        const deleted=await call('tickets/1/comments',{body:'Superseded progress note.'});
+        await call('comments/'+deleted.id,undefined,'DELETE');
+        const bot=await call('tokens',{name:'Build agent'});
+        await call('tickets/1/comments',{body:'Checks passed. The implementation is ready for handoff.'},'POST',bot.token);
+        return true;
+    })()"#)?;
+    b.go("http://127.0.0.1:8795/ticket?id=1")?;
+    b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Remember filters when switching views' && !!document.querySelector('[role=listbox][aria-label=Project] [role=option]')")?;
     // Same fixture and saved changes for both real asset versions.
-    b.eval("(async()=>{const t=await fetch('/api/v1/tickets/2').then(r=>r.json());for(const patch of [{priority:1,status:'in_progress'}, {priority:t.priority,status:t.status}]) {const r=await fetch('/api/v1/tickets/2',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});if(!r.ok)throw Error('history fixture failed');}return true})()")?;
-    b.go("http://127.0.0.1:8795/ticket?id=2")?;
+    b.eval("(async()=>{const t=await fetch('/api/v1/tickets/1').then(r=>r.json());for(const patch of [{priority:1,status:'in_progress'}, {priority:t.priority,status:t.status}]) {const r=await fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});if(!r.ok)throw Error('history fixture failed');}return true})()")?;
+    b.go("http://127.0.0.1:8795/ticket?id=1")?;
     b.wait("!!document.querySelector('.activity') && document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
     b.eval("document.fonts.ready.then(()=>true)")?;
     let before = env::var_os("TICKETS_BEFORE_ASSETS").is_some();
@@ -862,19 +874,36 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
         b.wait("document.querySelector('.detail-layout').getAttribute('aria-busy')==='false' && !!document.querySelector('.comment')")?;
         b.wait("!document.querySelector('.comment script,.comment [onerror],.comment [onclick],.comment a[href^=\"javascript:\"]') && !window.xss")?;
         click_text(b, ".comment button", "Delete")?;
-        b.wait("!document.querySelector('.comment') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+        b.wait("document.querySelector('.comment-confirm')?.contains(document.activeElement)")?;
+        b.key("Escape", 27, 0)?;
+        b.wait("!document.querySelector('.comment-confirm') && document.activeElement?.classList.contains('comment-action-delete')")?;
+        click_text(b, ".comment button", "Delete")?;
+        b.wait("!!document.querySelector('.comment-confirm')")?;
+        click_text(b, ".comment-confirm button", "Cancel")?;
+        b.wait("!document.querySelector('.comment-confirm')")?;
+        click_text(b, ".comment button", "Delete")?;
+        b.wait("!!document.querySelector('.comment-confirm')")?;
+        click_text(b, ".comment button", "Confirm delete")?;
+        b.wait("!document.querySelector('.comment:not(.comment-deleted)') && !!document.querySelector('.comment-deleted') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
         click_text(b, ".comment-form button", "Write")?;
     }
     // New/edited comment bodies decode without replaying the ticket heading.
     b.wait("!document.querySelector('[data-ar-t]')")?;
     b.eval("window.commentDecoded=false;window.headingDecoded=false;window.commentObserver=new MutationObserver(()=>{if(document.querySelector('.comment .markdown [data-ar-t]'))window.commentDecoded=true;if(document.querySelector('.ticket-detail h1[data-ar-t],.ticket-detail h1 [data-ar-t]'))window.headingDecoded=true;});window.commentObserver.observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['data-ar-t']});true")?;
     b.text("textarea[aria-label='Write a comment']","The status menu should work everywhere the ticket appears. **Keyboard focus** stays visible.")?;
-    click_text(b, ".comment-form button", "Comment")?;
+    b.eval("window.commentPostFetch=window.fetch;window.fetch=(i,o)=>{const u=typeof i==='string'?i:i.url;const m=i instanceof Request?i.method:o?.method;if(m==='POST' && u.endsWith('/comments'))return new Promise(resolve=>{window.releaseComment=()=>resolve(window.commentPostFetch(i,o));});return window.commentPostFetch(i,o);};true")?;
+    b.key("Enter", 13, 4)?;
+    b.wait("!!document.querySelector('.comment-pending') && document.querySelector('.comment-form button[type=submit]').disabled")?;
+    b.eval("window.releaseComment();window.fetch=window.commentPostFetch;true")?;
     b.wait("!!document.querySelector('.comment strong') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.wait(
         "window.commentDecoded && !window.headingDecoded && !document.querySelector('[data-ar-t]')",
     )?;
     b.eval("window.commentDecoded=false;true")?;
+    click_text(b, ".comment button", "Edit")?;
+    b.wait("document.activeElement===document.querySelector('.comment textarea')")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("!document.querySelector('.comment textarea') && document.activeElement?.classList.contains('comment-action-edit')")?;
     click_text(b, ".comment button", "Edit")?;
     b.text(
         ".comment textarea",
@@ -882,8 +911,14 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     )?;
     click_text(b, ".comment button", "Preview")?;
     b.wait("document.querySelector('.comment .markdown-preview strong')?.textContent==='keyboard focus'")?;
-    click_text(b, ".comment button", "Save comment")?;
-    b.wait("document.querySelector('.comment .markdown')?.textContent.includes('Reviewed:') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
+    click_text(b, ".comment button", "Write")?;
+    b.click(".comment textarea")?;
+    b.key("Enter", 13, 2)?;
+    b.wait("!!document.querySelector('.comment-edited[title^=Edited]')")?;
+    b.click(".comment-edited")?;
+    b.wait("document.querySelector('.comment-edited')?.textContent.includes('UTC')")?;
+    b.click(".comment-edited")?;
+    b.wait("document.querySelector('.comment:not(.comment-deleted) .markdown')?.textContent.includes('Reviewed:') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.wait(
         "window.commentDecoded && !window.headingDecoded && !document.querySelector('[data-ar-t]')",
     )?;
@@ -891,7 +926,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     select_value(b, "Project", "2")?;
     b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.go("http://127.0.0.1:8795/ticket?id=2")?;
-    b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('[aria-label=Priority]')?.value==='Urgent' && document.querySelector('input[aria-label=Assignee]')?.value==='fixture-agent' && document.querySelector('.comment .markdown')?.textContent.includes('Reviewed:')")?;
+    b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('[aria-label=Priority]')?.value==='Urgent' && document.querySelector('input[aria-label=Assignee]')?.value==='fixture-agent' && document.querySelector('.comment:not(.comment-deleted) .markdown')?.textContent.includes('Reviewed:')")?;
     select_value(b, "Project", "1")?;
     b.wait("document.querySelector('.detail-overline .mono')?.textContent==='TKT-8' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.wait("document.querySelector('.toast')?.textContent.includes('Saved')")?;
