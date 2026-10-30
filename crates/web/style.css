@@ -571,7 +571,7 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
   .api-list-row .row-blocked .icon { flex-shrink: 0; }
   .properties > .properties-heading { display: none; }
   .properties-toggle { display: flex; justify-content: space-between; width: 100%; padding: 0; }
-  .properties:not([data-expanded="true"]) > :not(.properties-toggle) { display: none; }
+  .properties[data-expanded="false"] > :not(.properties-toggle) { display: none; }
   .properties[data-expanded="true"] .properties-toggle { margin-bottom: var(--space-3); }
   .live-indicator { display: none; }
 }

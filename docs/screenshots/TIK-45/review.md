@@ -47,7 +47,7 @@ rather than inferred from the screenshots.
 Assessment B ran the mechanical detector once over the changed frontend Rust
 files: exit 0, zero findings (`[]`). Rust/Leptos parsing coverage is unverified.
 It independently inspected the final PNGs and found no blocking visual issue.
-There was no browser overlay injection or agent-owned server; the root's isolated
+There was no browser overlay injection or agent-owned server; the isolated
 Chromium checks supply runtime evidence.
 
 Questions skipped: the ticket already defines the authorized implementation and
