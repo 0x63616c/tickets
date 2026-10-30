@@ -304,7 +304,7 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 - Scope detail async tasks to the keyed ticket page and cancel them on cleanup.
   Editor callbacks must not access child signals after an authoritative reload
   remounts those children. Browser checks print panic-hook console errors and fail
-  on exceptions; first-run-check holds live-read/save responses across dependency
+  on exceptions; first-run-check holds authoritative read/save responses across dependency
   navigation to exercise disposal without retries.
 - Save ticket title/description explicitly with Edit ticket. Property selects save
   immediately; assignee saves on change/Enter (blank clears it). Saved state
@@ -861,3 +861,10 @@ It saves dark Settings/Board evidence in `docs/screenshots/TIK-83`; set
 - PNG sequences go to ignored `target/TIK-75/`; held/settled PNGs, sample JSON
   and `transitions.txt` go to `docs/screenshots/TIK-75/`. Copy review evidence to
   the ticket's external screenshot directory before opening the PR.
+
+Concurrent issue worktrees share Cargo artifacts. If another job replaces the
+common xtask executable, force a fresh `RUSTC_WRAPPER= cargo build -p xtask` and
+copy that executable into this worktree's ignored `target/` before a long series
+of browser checks. Run the private copy from the workspace root; do not set a
+separate `CARGO_TARGET_DIR`. Verify the copy contains the issue's new task/check
+before relying on its results.

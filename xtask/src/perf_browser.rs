@@ -51,7 +51,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     let output = root.join("docs/screenshots/TIK-71");
     fs::create_dir_all(&output)?;
     b.eval("document.fonts.ready.then(()=>true)")?;
-    b.wait("Math.round(document.querySelector('.sidebar').getBoundingClientRect().width)===240 && getComputedStyle(document.body).backgroundColor==='rgb(0, 0, 0)'")?;
+    b.wait("Math.round(document.querySelector('.sidebar').getBoundingClientRect().width)===240 && getComputedStyle(document.documentElement).backgroundColor==='rgb(0, 0, 0)'")?;
     b.wait("!document.querySelector('[data-ar-t], .ar-overlay canvas')")?;
     b.screenshot(&output.join("after-home.png"))?;
     b.click(".sidebar a[href='/board']")?;

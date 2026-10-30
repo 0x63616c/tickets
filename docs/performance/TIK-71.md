@@ -10,7 +10,7 @@ average CPU 12.7 ms/request (p50 4.76 ms, p99 74.9 ms).
 |---|---:|---:|
 | D1 rows read per modeled session | 90,270 | 26,600 |
 | SQL statements (including auth/version and three after-side updates) | 110 | 49 |
-| Local D1 statement duration, ms/session | 20.0 | 9.0 |
+| Local D1 statement duration, ms/session | 23.0 | 12.0 |
 
 **70.53% fewer rows.** Overall proportional projection: 786,988
 rows/day. A more conservative projection holds all queries outside the three
@@ -93,6 +93,16 @@ must be included in post-deployment observation.
    The remaining ActivityTime minute timer only formats relative timestamps;
    it performs no network calls. There is no separate SSE loader.
 
+The public REST routes can also be called by agents/curl. The one-shot importer
+verification (`xtask/import_github.rs`) paginates `/tickets?project=...`; it is not
+a background poller. `TICKET_SELECT` is also reused by point get/key lookup,
+mutation-response enrichment, comment/history/dependency resource resolution,
+and pickup/claim candidate CTEs; those indexed point/candidate paths are distinct
+from the cursor-based full-list scan in the baseline. Project get uses the same
+count selection; write-time project existence validation now avoids it entirely.
+Baseline analytics does not tag the caller identity, so the source audit proves
+amplification mechanisms, not an exact allocation of production runs per client.
+
 ## Query plans and correctness
 
 `EXPLAIN QUERY PLAN` confirms `tickets_project_status_activity` is a covering
@@ -102,7 +112,7 @@ dependency lookups use forward/reverse indexes; PR/check lookups use composite
 indexes. Sparse ordered label/dependency/PR aggregates deliberately remain indexed
 correlated probes, avoiding row multiplication or aggregating the entire workspace
 for a small page. `ticket_key` keeps indexed prefix/number lookup. A reverse label
-index supports label-first queries. Migration 0017 is additive; triggers include
+index supports label-first queries. Migration 0018 is additive (0017 is reserved by the open TIK-77 Mission Control PR); triggers include
 older writers, comments, label membership, dependencies and PR/check updates.
 
 Tests cover old-writer invalidation, indexed plans, existing query budgets,
@@ -117,3 +127,9 @@ The polish pass fixed hidden-tab queue flushing, failed-cache eviction, explicit
 Reload/Retry behavior, visible reconciliation errors, and reconnect invalidation
 of an unused ticket collection. The performance change preserves layout, tokens and visual hierarchy. The merged upstream TIK-83 changes the default font. The browser transport bypasses disk caching while retaining app/edge caches; a two-window test covers hard navigation. Detail captures its initial live revision to avoid a redundant mount-time reload.
 Questions skipped: fixed implementation scope and existing approved design.
+
+Local verification completed: `cargo xtask ci`, CSS lint, `perf-check`, API cache
+smoke, `perf-browser-check`, first-run, Home loading, Board/List loading, the
+48-example skill check, and fixture sidebar capture. Live behavior assertions
+cover two windows, no hidden-tab reads, edit/drag deferral and reconnect recovery.
+A verified private xtask copy avoids cross-worktree executable replacement.

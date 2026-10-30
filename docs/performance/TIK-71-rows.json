@@ -1,11 +1,11 @@
 {
   "after": {
-    "d1_duration_ms": 9.0,
+    "d1_duration_ms": 12.0,
     "rows_read": 26600,
     "statements": 49
   },
   "before": {
-    "d1_duration_ms": 20.0,
+    "d1_duration_ms": 23.0,
     "rows_read": 90270,
     "statements": 110
   },
@@ -16,7 +16,7 @@
       "meta": {
         "changed_db": false,
         "changes": 0,
-        "duration": 0,
+        "duration": 1,
         "last_row_id": 0,
         "rows_read": 0,
         "rows_written": 0,
@@ -24,7 +24,7 @@
         "served_by_primary": true,
         "size_after": 438272,
         "timings": {
-          "sql_duration_ms": 0
+          "sql_duration_ms": 1
         },
         "total_attempts": 1
       },
