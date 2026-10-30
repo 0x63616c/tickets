@@ -187,6 +187,29 @@ async fn dispatch<S: Store>(
     if let ("PUT", ["api", "v1", "mission", "reports", source]) = (method, parts.as_slice()) {
         return Ok(crate::mission::put(r.0, source, &body.to_string()).await);
     }
+    if method == "GET" && parts == ["api", "v1", "github", "app", "credentials"] {
+        // The auth gate derives this actor from a validated bearer token or session.
+        if r.1.kind != tickets_core::history::ActorKind::ApiToken {
+            return Err(Failure(403, "forbidden", "API token required".into()));
+        }
+        let stored = crate::github_app_registration::load(r.0)
+            .await
+            .map_err(|_| Error::Storage("GitHub App load failed".into()))?
+            .ok_or(Error::NotFound)?;
+        return Ok(Reply {
+            status: 200,
+            change: None,
+            body: json!({
+                "app_id": stored.app.app_id,
+                "slug": stored.app.slug,
+                "name": stored.app.name,
+                "owner_login": stored.app.owner_login,
+                "client_id": stored.app.client_id,
+                "html_url": stored.app.html_url,
+                "secrets_ciphertext": stored.secrets_ciphertext,
+            }),
+        });
+    }
     if method == "GET" && parts == ["api", "v1", "github", "app"] {
         return Ok(Reply {
             status: 200,

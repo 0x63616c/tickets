@@ -20,6 +20,10 @@ the operations needed for the requested task. The walkthrough assumes an empty
 instance (projects 1/2, tickets 1/2, label 2/comment 1; label 1 is the seeded
 waiting-on-calum label). HTTP expectations and JSON subsets in comments are checked by `cargo xtask skill-check` against local D1.
 
+For GitHub App setup, the owner visits `/github/app/register` in a signed-in
+browser (`?name=alt` uses the fallback app name); the Worker supplies the manifest
+and setup state. See the API reference’s GitHub App registration section.
+
 ## Access and project selection
 
 `GET /api/v1/me` also returns `username` and nullable `display_name`.
@@ -394,12 +398,20 @@ curl -sS -X POST "$TICKETS_URL/api/v1/next/claim" -H "Authorization: Bearer $TIC
 
 ## GitHub App and linked PR checks
 
-`GET /api/v1/github/app` returns `{registered, app_slug, installations}` with each
-installation's `account_login`, `repository_selection`, and ordered `repos` names.
+`GET /api/v1/github/app` returns `{registered, app_slug, app_name, html_url,
+installations}` with each installation's `account_login`, `repository_selection`,
+and ordered `repos` names.
 It requires bearer/session authentication, exposes no secrets, and makes no GitHub
-requests. Register/install through the browser manifest flow in docs/API.md; the
-App replaces per-repository hooks while the legacy webhook remains supported.
+requests. Register/install from Settings → Account → GitHub in the owner's browser:
+**Connect GitHub** navigates to `/github/app/register`, which POSTs the manifest
+with server-side state; **Install on GitHub** follows registration. GitHub returns
+to Settings after install, showing the account and repository selection. See
+docs/API.md; the App replaces per-repository hooks while the legacy webhook
+remains supported.
 `GITHUB_PR_OWNERS` controls ingestion for both webhook endpoints.
+`GET /api/v1/github/app/credentials` is bearer-only encrypted export for one-time
+retrieval onto the operator box; decrypt locally with `GITHUB_APP_STORE_KEY` as
+documented in docs/API.md. Sessions receive 403; an unregistered App returns 404.
 
 Ticket reads' `pull_requests` include nullable `tickets_check` and `ci_status`
 conclusions for the current PR head SHA. `tickets_check` is success when linked
@@ -412,6 +424,8 @@ and `[KEY-N]` title links as before. Nullable `tickets_check_run_id` and
 ```sh
 # expect {"status":200,"body":{"registered":false,"app_slug":null,"installations":[]}}
 curl -sS "$TICKETS_URL/api/v1/github/app" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":404,"body":{"error":{"code":"not_found"}}}
+curl -sS "$TICKETS_URL/api/v1/github/app/credentials" -H "Authorization: Bearer $TICKETS_TOKEN"
 ```
 
 ## Mission Control

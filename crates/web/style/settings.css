@@ -166,3 +166,9 @@
 
 #pickup-scope-hint:empty, #pickup-labels-error:empty { display:none; }
 .pickup-editor .settings-error { overflow-wrap:anywhere; }
+
+.settings-github .github-description { color:var(--text-muted); margin-top:var(--space-2); }
+.github-actions { display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-4); margin-top:var(--space-4); }
+.github-connected { margin-top:var(--space-4); font-weight:var(--weight-medium); }
+.github-installation { margin-top:var(--space-2); }
+@media (max-width:480px) { .settings-github .button, .github-actions .subtle-link { min-height:44px; }.github-actions .subtle-link { display:inline-flex; align-items:center; } }

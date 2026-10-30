@@ -7,7 +7,8 @@ environment. Cookie mutations also require an `Origin` matching the request URL.
 Invalid bearer credentials never fall back to cookies. Health at `/api/health`
 and login at `POST /api/v1/login` are public; see `docs/adr/0003-auth.md` for authentication.
 
-Domain responses contain JSON. The GitHub App manifest callback below returns HTML.
+Domain responses contain JSON. The GitHub App registration page and manifest callback
+below return HTML.
 Creation returns 201; reads, patches, deletes and external
 upserts return 200. Deletes return `{"ok":true}`. Errors have the form
 `{"error":{"code":"validation","message":"..."}}`:
@@ -263,12 +264,22 @@ setup state; it is not a general agent API endpoint.
    value) and `GITHUB_APP_STORE_KEY` (standard base64 of 32 random bytes).
    CI deploys them from production environment secrets
    `TICKETS_GITHUB_APP_SETUP_STATE` and `TICKETS_GITHUB_APP_STORE_KEY`.
-2. In the owner's browser, POST the `manifest` form field containing the GitHub
-   App manifest JSON to `https://github.com/settings/apps/new?state=<STATE>`.
-   Set the manifest's `redirect_url` to
-   `https://tickets.worldwidewebb.co/api/v1/github/app/manifest-callback`.
-   Use the configured state and keep the manifest's permissions/events scoped to
-   the intended app. See [GitHub's manifest flow](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest).
+2. In the owner's signed-in browser, open **Settings → Account → GitHub** and
+   click **Connect GitHub**. This navigates outside the SPA to
+   `GET /github/app/register`. This Worker-rendered page automatically POSTs the
+   manifest and configured setup state to `https://github.com/settings/apps/new`; a **Continue to GitHub** button
+   also works without JavaScript. The manifest uses the request's HTTP(S) origin
+   for its URLs (including local development). `?name=alt` selects **Tickets WWW**
+   instead of **Tickets by World Wide Webb**; other names are ignored.
+   Signed-out visitors redirect to `/login?next=%2Fgithub%2Fapp%2Fregister`.
+   Missing/empty configuration or an invalid store key returns a 503
+   **Registration unavailable** page. An existing registration returns 200 with
+   its GitHub app link and no form; non-GET requests return 405 with `Allow: GET`
+   after the session check. Responses use `Cache-Control: no-store`,
+   `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`,
+   `X-Frame-Options: DENY`, and a CSP authorizing only the hashed inline style
+   and auto-submit script, with `form-action https://github.com` and
+   `frame-ancestors 'none'`. See [GitHub's manifest flow](https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest).
 3. GitHub redirects with a one-use code, valid for one hour. The Worker checks
    configuration, compares state in constant time, validates the code, and checks
    for an existing registration before making an unauthenticated
@@ -278,8 +289,11 @@ setup state; it is not a general agent API endpoint.
 4. The Worker stores public metadata and encrypts `{pem, webhook_secret,
    client_secret}` with AES-256-GCM. `secrets_ciphertext` is standard base64 of
    a fresh 12-byte IV followed by ciphertext and its 16-byte authentication tag.
-   The 200 page confirms registration and links to the app and **Install on all
-   repositories**. Choose **All repositories** on GitHub's installation screen.
+   The 200 page confirms registration and links to the app and **Install the
+   app**, plus a link back to `/settings`. GitHub returns to
+   `/settings` after installation via the manifest `setup_url`. Settings shows
+   **Install on GitHub** until an installation is received, then **Connected**,
+   the account, repository selection and **Manage on GitHub**.
 
 The code must contain 1–128 ASCII letters, digits, `_` or `-`. Missing/empty
 secrets or an invalid store key return 503; incorrect/missing state returns 403;
@@ -295,6 +309,30 @@ Keep the store key available: changing it without re-encrypting the row makes
 the saved credentials unreadable. Remove the setup state after registration to
 disable the callback; credential loading only needs the store key. There is no
 registration overwrite/reset API.
+
+### Encrypted credentials export
+
+`GET /api/v1/github/app/credentials` requires normal API-token bearer
+authentication. Browser sessions receive 403 (`forbidden`); missing or invalid
+authentication receives 401. Tokens have full workspace access with no separate
+admin role. If no `github_app` row exists, it returns 404 (`not_found`).
+Responses use `Cache-Control: no-store`.
+
+A 200 response contains exactly these fields:
+
+```json
+{"app_id":123,"slug":"example-app","name":"Example App","owner_login":"example-owner","client_id":"example-client-id","html_url":"https://github.com/apps/example-app","secrets_ciphertext":"<stored base64 blob>"}
+```
+
+Use this endpoint for one-time retrieval onto the operator box after manifest
+registration. The Worker returns the stored encrypted blob unchanged and never
+decrypts it for export. On the box, decode standard base64, take the first 12
+bytes as the IV and the last 16 bytes as the 128-bit authentication tag, and
+decrypt the intervening ciphertext using AES-256-GCM with the locally held
+`GITHUB_APP_STORE_KEY` (standard base64 of 32 bytes). The plaintext is JSON with
+string fields `{"pem":"...","webhook_secret":"...","client_secret":"..."}`.
+Keep the response and decrypted credentials out of logs. Retrieval does not
+consume or delete the stored registration; the endpoint remains repeatable.
 
 ### GitHub App events and installation status
 
@@ -335,10 +373,10 @@ never appear in logs or responses. `GITHUB_API_BASE_URL` optionally overrides
 Redirects are never followed with credentials.
 
 `GET /api/v1/github/app` requires normal bearer/session authentication and returns
-`{registered, app_slug, installations:[{account_login, repository_selection,
-repos:["owner/repo"]}]}`. `app_slug` is null before registration; repos and
-installations are ordered. This read never decrypts credentials or calls GitHub,
-and exposes no secrets.
+`{registered, app_slug, app_name, html_url, installations:[{account_login,
+repository_selection, repos:["owner/repo"]}]}`. `app_slug`, `app_name` and `html_url`
+are null before registration; repos and installations are ordered. This read
+never decrypts credentials or calls GitHub, and exposes no secrets.
 
 ## GitHub webhook and imported tickets
 
