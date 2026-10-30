@@ -77,6 +77,7 @@ pub fn shots(root: &Path) -> super::Result {
             &output.join(format!("{phase}-{name}.png")),
         )?;
     }
+    b.viewport(1440, 900)?;
     if before.is_none() {
         let point=b.eval("(()=>{const r=document.querySelector('#ticket-54 .blocked-indicator').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
         b.call(
@@ -93,6 +94,8 @@ pub fn shots(root: &Path) -> super::Result {
     }
     b.viewport(390, 900)?;
     b.screenshot(&output.join(format!("{phase}-board-mobile.png")))?;
+    b.eval("document.querySelector('#ticket-53').scrollIntoView({inline:'start',block:'nearest'});true")?;
+    b.screenshot(&output.join(format!("{phase}-blocked-board-mobile.png")))?;
     b.go(&format!("{}/list?project=1", server.url))?;
     b.wait("document.querySelectorAll('.api-list-row').length===5")?;
     b.eval("document.fonts.ready.then(()=>true)")?;
