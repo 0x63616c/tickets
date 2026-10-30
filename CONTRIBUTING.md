@@ -289,7 +289,8 @@
 
 ## Login navigation conventions
 
-- The Worker runs before assets. Only fonts, favicon, Trunk hashed JS/CSS/Wasm
+- The Worker runs before assets. Only fonts, favicon and app icons (exact paths in
+  `is_public_asset`, incl. `/site.webmanifest`), Trunk hashed JS/CSS/Wasm
   and the exact hashed DOM-bridge/ascii-reveal core snippet paths bypass session lookup; missing public assets return 404. Asset SPA fallback
   stays disabled: the Worker serves `index.html` only after the navigation gate.
   Missing cookies cost zero D1 queries; a well-formed cookie costs one session SELECT.
@@ -556,6 +557,10 @@ project icon schema changes additive and validate values in core.
   fixture-only states, 2× dialog crops, mobile and a full-page dark view. Pass
   `--before-assets <base crates/web/dist> --output docs/screenshots/TIK-44` for the
   previous real component, or omit `--before-assets` for the current implementation.
+
+- `cargo xtask tokens-shot` checks fixture-only token states and captures desktop/mobile
+  PNGs. Set `TICKETS_SCREENSHOT_DIR` to keep ticket-specific evidence separate
+  from the default `docs/screenshots/TIK-41/` baseline.
 
 ## Loading feedback (TIK-47)
 
