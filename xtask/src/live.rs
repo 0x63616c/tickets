@@ -112,7 +112,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     }
     a.screenshot(&output.join("demo-02-window-a.png"))?;
     b.screenshot(&output.join("demo-02-window-b.png"))?;
-    b.eval("window.__reads=0;const nativeFetch=window.fetch;window.fetch=(...args)=>{window.__reads++;return nativeFetch(...args)};window.__dropLive=true;true")?;
+    b.eval("window.__reads=0;window.__readPaths=[];const nativeFetch=window.fetch;window.fetch=(...args)=>{window.__reads++;window.__readPaths.push(new URL(args[0] instanceof Request?args[0].url:String(args[0]),location.href).pathname);return nativeFetch(...args)};window.__dropLive=true;true")?;
     let hidden_tab = b.call("Target.createTarget", json!({"url":"about:blank"}))?;
     b.wait("document.hidden")?;
     a.choose(".ticket-card [role=combobox]", "Done")?;
@@ -131,8 +131,10 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     b.wait("document.querySelector('.ticket-card [role=combobox]')?.value==='Done'")?;
     b.eval("if(window.__liveSockets.length!==window.__socketCount)throw Error('catch-up reconnected');true")?;
     b.eval("new Promise(resolve=>setTimeout(resolve,800))")?;
+    // One board refresh plus the sidebar's authoritative open-count refresh.
+    // Assert the paths too, so an unrelated fourth request cannot pass unnoticed.
     b.eval(
-        "if(window.__reads!==3)throw Error('event burst did not coalesce: '+window.__reads);true",
+        "if(JSON.stringify(window.__readPaths.sort())!==JSON.stringify(['/api/v1/labels','/api/v1/projects','/api/v1/projects','/api/v1/tickets']))throw Error('event burst did not coalesce: '+JSON.stringify(window.__readPaths));true",
     )?;
     b.screenshot(&output.join("visibility-catchup-desktop.png"))?;
     b.eval("var card=document.querySelector('.ticket-card');card.focus();card.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true}));window.dispatchEvent(new Event('focus'));true")?;

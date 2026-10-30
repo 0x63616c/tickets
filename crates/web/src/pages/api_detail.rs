@@ -155,6 +155,7 @@ fn DetailPage(selector: String) -> impl IntoView {
         }
         state.loading.set(false);
     });
+    let properties_expanded = RwSignal::new(false);
     let edit = RwSignal::new(false);
     let pending_live = RwSignal::new(false);
     Effect::new(move |_| {
@@ -210,9 +211,9 @@ fn DetailPage(selector: String) -> impl IntoView {
             <article class="ticket-detail"><div class="detail-overline"><a href="/" class="back-link"><Icon name="board"/>"Board"</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key)}</span></div>
             <h1>{move||state.ticket.get().map(|t|t.title)}</h1>
             {move||state.ticket.get().and_then(|t|{let identity=t.external_id?.strip_prefix("github:")?.to_owned();let(repo,number)=identity.rsplit_once(':')?;Some((format!("Imported from GitHub {repo}#{number}"),t.external_url?))}).map(|(label,url)|view!{<p class="muted github-import"><a class="subtle-link" href=url target="_blank" rel="noopener">{label}<Icon name="external"/></a></p>})}
-            <aside class="properties" aria-label="Ticket properties"><h2>"Properties"</h2>
+            <aside class="properties" aria-label="Ticket properties" data-expanded=move||properties_expanded.get().to_string()><PropertiesHeading expanded=properties_expanded/><div id="ticket-properties-body">
             <For each=move||vec![state.revision.get()] key=|r|*r children=move|_|view!{<Properties/>}/>
-            </aside><div class="detail-description">{move||state.ticket.get().map(|t|view!{<Markdown source=t.body/>})}</div>
+            </div></aside><div class="detail-description">{move||state.ticket.get().map(|t|view!{<Markdown source=display_body(&t) project=t.key.rsplit_once('-').map(|(p,_)|p.to_owned())/>})}</div>
             <section class="dependencies" aria-label="Dependencies"><div class="section-heading"><h2>"Dependencies"</h2><button class="button button-ghost" disabled=move||state.busy.get() on:click=move|_|dependency.set(true)><Icon name="plus"/>"Add dependency"</button></div>
             {move||state.ticket.get().map(|t|{let empty=t.blocks.is_empty() && t.blocked_by.is_empty();view!{ {empty.then(||view!{<p class="muted dependency-empty">"No dependencies"</p>})}
                 {t.blocked_by.into_iter().map(|related|view!{<DependencyRow related incoming=true/>}).collect_view()}{t.blocks.into_iter().map(|related|view!{<DependencyRow related incoming=false/>}).collect_view()}
@@ -223,7 +224,7 @@ fn DetailPage(selector: String) -> impl IntoView {
                     <div class="pr-link-row"><a class="subtle-link" href=pr.url target="_blank" rel="noopener noreferrer"><Icon name="link"/><span>{format!("{}#{} · {}",pr.repo,pr.number,pr.title)}</span><Icon name="external"/></a><span class="muted">{format!("{} · {}",match pr.state.as_str(){"open"=>"Open","draft"=>"Draft","merged"=>"Merged","closed"=>"Closed",state=>state},if pr.closes{"Closes ticket"}else{"Reference"})}</span></div>
                 }).collect_view()}</section>
             })}
-            <section class="activity" aria-label="Comments and activity"><div class="section-heading"><h2>"Activity"</h2></div><For each=move||state.comments.get() key=|c|(c.id,c.body.clone()) children=|comment|view!{<ApiComment comment/>}/><CommentEditor/></section>
+            <section class="activity" aria-label="Comments and activity"><div class="section-heading"><h2>"Activity"</h2></div>{move||state.ticket.get().filter(|t|t.external_id.as_deref().is_some_and(|id|id.starts_with("github:"))).map(|t|view!{<div class="import-activity"><Icon name="link"/><span>"Imported from GitHub"</span>{t.external_url.map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener noreferrer">"Source issue"<Icon name="external"/></a>})}</div>})}<For each=move||state.comments.get() key=|c|(c.id,c.body.clone()) children=|comment|view!{<ApiComment comment/>}/><CommentEditor/></section>
             </article></div></Show>
         <Presence show=edit><EditTicket close=Callback::new(move|_|edit.set(false))/></Presence>
         <Presence show=dependency><DependencyEditor close=Callback::new(move|_|dependency.set(false))/></Presence>
@@ -235,13 +236,14 @@ fn Properties() -> impl IntoView {
     let state = expect_context::<DetailState>();
     let board = expect_context::<BoardState>();
     let t = state.ticket.get_untracked();
-    t.map(|t|{let assignee=RwSignal::new(t.assignee.unwrap_or_default());view!{
-        <div class="property"><span>"Status"</span><div><StatusIcon status=t.status/><SelectField label="Status" value=Signal::derive(move||t.status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|state.patch(json!({"status":Status::from_name(&next)}))) disabled=Signal::derive(move||state.busy.get())/></div></div>
+    t.map(|t|{let assignee=RwSignal::new(t.assignee.clone().unwrap_or_default());let status=t.ui_status();view!{
+        <div class="property"><span>"Status"</span><div><StatusIcon status/><SelectField label="Status" value=Signal::derive(move||status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|state.patch(json!({"status":Status::from_name(&next)}))) disabled=Signal::derive(move||state.busy.get())/></div></div>
+        {move||state.ticket.get().map(|ticket|{let keys=ticket.blocked_by.iter().filter_map(|id|board.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|t.key).collect::<Vec<_>>();(!keys.is_empty()).then(||view!{<div class="property"><span>"Dependency"</span><div class="row-blocked" title=format!("Blocked by {}",keys.join(", "))><Icon name="blocked"/>"Blocked"</div></div>})})}
         <div class="property"><span>"Priority"</span><div><PriorityIcon priority=t.priority/><SelectField label="Priority" value=Signal::derive(move||t.priority.name().to_string()) options=Signal::derive(move||options(&Priority::ALL.map(Priority::name))) on_change=Callback::new(move|next:String|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==next){state.patch(json!({"priority":p}));}}) disabled=Signal::derive(move||state.busy.get())/></div></div>
         <form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="property assignee-editor" on:submit=move|e|{e.prevent_default();let name=assignee.get_untracked().trim().to_string();state.patch(json!({"assignee":if name.is_empty(){None}else{Some(name)}}));}><span>"Assignee"</span><div>{move||{let a=assignee.get();view!{<Avatar label=if a.is_empty(){"No assignee".into()}else{a.clone()} initials={a.chars().take(1).collect::<String>()}/>}}}<input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Assignee" disabled=move||state.busy.get() prop:value=move||assignee.get() on:input=move|e|assignee.set(event_target_value(&e)) on:change=move|e|{let _=event_target::<web_sys::HtmlInputElement>(&e).form().map(|f|f.request_submit());}/></div></form>
         <div class="property-section"><h2>"Labels"</h2><div class="property-labels">{t.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</div><LabelPicker/></div>
         <div class="property-section"><h2>"Project"</h2><div class="property"><div><SelectField label="Project" value=Signal::derive(move||t.project_id.to_string()) options=Signal::derive(move||board.projects.get().into_iter().map(SelectOption::project).collect()) on_change=Callback::new(move|next:String|{if let Ok(id)=next.parse::<i64>(){state.patch(json!({"project_id":id}));}}) disabled=Signal::derive(move||state.busy.get())/></div></div></div>
-        {t.external_url.clone().map(|url|view!{<div class="property-section"><h2>"Links"</h2><a class="subtle-link" href=url target="_blank" rel="noopener noreferrer"><Icon name="link"/>{if url.contains("github.com"){"GitHub issue"}else{"External link"}}<Icon name="external"/></a></div>})}<div class="property-section property-dates"><span>{format!("Created {}",short_date(&t.created_at))}</span><span>{format!("Updated {}",short_date(&t.updated_at))}</span></div>
+        {t.external_url.clone().map(|url|view!{<div class="property-section"><h2>"Links"</h2><a class="subtle-link" href=url target="_blank" rel="noopener noreferrer"><Icon name="link"/>{if url.contains("github.com"){"GitHub issue"}else{"External link"}}<Icon name="external"/></a></div>})}<div class="property-section property-dates"><span>"Created "<time datetime=t.created_at.clone() title=t.created_at.clone()>{date_time(&t.created_at)}</time></span><span>"Updated "<time datetime=t.updated_at.clone() title=t.updated_at.clone()>{date_time(&t.updated_at)}</time></span></div>
     }})
 }
 fn focus_label_trigger() {
@@ -326,7 +328,7 @@ fn LabelPicker() -> impl IntoView {
         });
     });
     view! {<Combobox label="Add label" input_id="label-filter"
-    options=Signal::derive(move||state.board.labels.get().into_iter().map(|l|SelectOption{color:l.color,..SelectOption::new(l.id,l.name)}).collect())
+    options=Signal::derive(move||state.board.labels.get().into_iter().filter(|l|visible_label(&l.name)).map(|l|SelectOption{color:l.color,..SelectOption::new(l.id,l.name)}).collect())
     selected=Signal::derive(move||state.ticket.get().map(|t|t.labels.into_iter().map(|l|l.id.to_string()).collect()).unwrap_or_default())
     busy=state.busy on_toggle=Callback::new(move|id:String|{if let Ok(id)=id.parse(){choose.run(Some(id));}})
     on_create=Callback::new(move|name:String|{query.set(name);choose.run(None);})/>}
@@ -342,7 +344,7 @@ fn DependencyRow(related: i64, incoming: bool) -> impl IntoView {
         (state.id.get_untracked(), related)
     };
     view! {<div class="dependency-row"><span class="dependency-kind"><Icon name=if incoming{"blocked"}else{"arrow"}/>{if incoming{"Blocked by"}else{"Blocks"}}</span>
-    {move||board.tickets.get().into_iter().find(|t|t.id==related).map(|t|view!{<StatusIcon status=t.status/><span class="mono muted">{t.key.clone()}</span><a class="dependency-title" href=format!("/t/{}",t.key)>{t.title}</a>{matches!(t.status,Status::Done|Status::Canceled).then(||view!{<span class="resolved">"Resolved"</span>})}})}
+    {move||board.tickets.get().into_iter().find(|t|t.id==related).map(|t|view!{<StatusIcon status=t.ui_status()/><span class="mono muted">{t.key.clone()}</span><a class="dependency-title" href=format!("/t/{}",t.key)>{t.title}</a>{matches!(t.status,Status::Done|Status::Canceled).then(||view!{<span class="resolved">"Resolved"</span>})}})}
     <BusyButton class="icon-button" variant="ghost" kind="button" aria_label=format!("Remove dependency {related}") busy=Signal::derive(move||removing.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{removing.set(true);state.write("DELETE",format!("/api/v1/tickets/{from}/dependencies/{to}"),Value::Null,||{});})><Icon name="close"/></BusyButton></div>}
 }
 #[component]
@@ -353,7 +355,7 @@ fn DependencyEditor(close: Callback<()>) -> impl IntoView {
     let direction = RwSignal::new("Is blocked by".to_string());
     let query = RwSignal::new(String::new());
     view! {<Modal title="Add dependency" locked=Signal::derive(move||state.busy.get()) on_close=close><div class="modal-body"><div class="dependency-direction"><Select label="Direction" options=vec!["Is blocked by","Blocks"] value=direction/></div><p class="muted">{move||if direction.get()=="Blocks"{"This ticket must be completed before the selected ticket."}else{"The selected ticket must be completed before this ticket."}}</p><TextInput id="dependency-search" label="Search tickets" value=query/>
-    <p role="alert">{move||state.error.get()}</p><div class="dependency-options">{move||board.tickets.get().into_iter().filter(|t|t.id!=state.id.get_untracked() && format!("{} {}",t.key,t.title).to_lowercase().contains(&query.get().to_lowercase())).map(|t|{let related=t.id;view!{<BusyButton class="menu-item" variant="ghost" kind="button" busy=Signal::derive(move||pending.get()==Some(related) && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{pending.set(Some(related));let(from,to)=if direction.get_untracked()=="Blocks"{(state.id.get_untracked(),related)}else{(related,state.id.get_untracked())};state.write("POST",format!("/api/v1/tickets/{from}/dependencies/{to}"),Value::Null,move||close.run(()));})><StatusIcon status=t.status/><span class="mono muted">{t.key}</span>{t.title}</BusyButton>}}).collect_view()}</div></div></Modal>}
+    <p role="alert">{move||state.error.get()}</p><div class="dependency-options">{move||board.tickets.get().into_iter().filter(|t|t.id!=state.id.get_untracked() && format!("{} {}",t.key,t.title).to_lowercase().contains(&query.get().to_lowercase())).map(|t|{let related=t.id;view!{<BusyButton class="menu-item" variant="ghost" kind="button" busy=Signal::derive(move||pending.get()==Some(related) && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{pending.set(Some(related));let(from,to)=if direction.get_untracked()=="Blocks"{(state.id.get_untracked(),related)}else{(related,state.id.get_untracked())};state.write("POST",format!("/api/v1/tickets/{from}/dependencies/{to}"),Value::Null,move||close.run(()));})><StatusIcon status=t.ui_status()/><span class="mono muted">{t.key}</span>{t.title}</BusyButton>}}).collect_view()}</div></div></Modal>}
 }
 #[component]
 fn EditTicket(close: Callback<()>) -> impl IntoView {
@@ -392,7 +394,7 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     } else {
         comment.body.clone()
     };
-    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||editable><button class="button button-ghost comment-action" disabled=move||state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><BusyButton kind="button" variant="ghost" class="comment-action" busy=Signal::derive(move||deleting.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{deleting.set(true);state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{});})>"Delete"</BusyButton></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone()/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
+    view! {<div class="comment"><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong><time>{short_date(&comment.created_at)}</time><Show when=move||editable><button class="button button-ghost comment-action" disabled=move||state.busy.get() on:click=move|_|editing.set(true)>"Edit"</button><BusyButton kind="button" variant="ghost" class="comment-action" busy=Signal::derive(move||deleting.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{deleting.set(true);state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{});})>"Delete"</BusyButton></Show></div><Show when=move||editing.get() fallback={let body=display_body.clone();move||view!{<Markdown source=body.clone() project=state.ticket.get().and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))/>}}><CommentEditor id=id initial=comment.body.clone() close=Callback::new(move|_|editing.set(false))/></Show></div></div>}
 }
 #[component]
 fn CommentEditor(
@@ -408,7 +410,7 @@ fn CommentEditor(
 pub(crate) fn MarkdownEditor(body: RwSignal<String>, label: &'static str) -> impl IntoView {
     let mode = RwSignal::new("Write".to_string());
     let preview = Signal::derive(move || mode.get() == "Preview");
-    view! {<div class="markdown-editor"><SegmentedControl label="Editor mode" options=vec!["Write","Preview"] value=mode/><Show when=move||preview.get() fallback=move||view!{<label class="field"><span>{label}</span><textarea autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=label placeholder=if label=="Write a comment"{"Leave a comment…"}else{"Add details…"} rows="4" prop:value=move||body.get() on:input=move|e|body.set(event_target_value(&e))/></label>}><div class="markdown-preview">{move||view!{<Markdown source=body.get()/>}}</div></Show></div>}
+    view! {<div class="markdown-editor"><SegmentedControl label="Editor mode" options=vec!["Write","Preview"] value=mode/><Show when=move||preview.get() fallback=move||view!{<label class="field"><span>{label}</span><textarea autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label=label placeholder=if label=="Write a comment"{"Leave a comment…"}else{"Add details…"} rows="4" prop:value=move||body.get() on:input=move|e|body.set(event_target_value(&e))/></label>}><div class="markdown-preview">{move||view!{<Markdown source=body.get() project={use_context::<DetailState>().and_then(|state|state.ticket.get()).and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))}/>}}</div></Show></div>}
 }
 
 /// `2026-10-28T…` → `Oct 28`; falls back to the raw value.
@@ -425,4 +427,43 @@ fn short_date(iso: &str) -> String {
         (Some(m), Some(d)) => format!("{} {d}", MONTHS[m - 1]),
         _ => iso.to_owned(),
     }
+}
+
+/// Redundant import metadata is hidden only when the matching model label exists.
+fn display_body(ticket: &BoardTicket) -> String {
+    let mut fenced = false;
+    ticket
+        .body
+        .lines()
+        .filter(|line| {
+            if line.trim_start().starts_with("```") || line.trim_start().starts_with("~~~") {
+                fenced = !fenced;
+                return true;
+            }
+            if fenced {
+                return true;
+            }
+            let plain = line.trim().replace('*', "");
+            !plain.strip_prefix("Model:").is_some_and(|value| {
+                ticket.labels.iter().any(|label| {
+                    label
+                        .name
+                        .eq_ignore_ascii_case(&format!("model:{}", value.trim()))
+                })
+            })
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+fn date_time(iso: &str) -> String {
+    iso.get(11..16)
+        .map(|time| format!("{} at {time} UTC", short_date(iso)))
+        .unwrap_or_else(|| iso.to_owned())
+}
+
+#[component]
+fn PropertiesHeading(expanded: RwSignal<bool>) -> impl IntoView {
+    view! {<h2 class="properties-heading">"Properties"</h2><button class="button button-ghost properties-toggle" type="button" aria-controls="ticket-properties-body" aria-expanded=move||expanded.get().to_string() on:click=move|_|{
+        expanded.update(|v| *v = !*v);
+    }>"Properties"<Icon name="chevron"/></button>}
 }

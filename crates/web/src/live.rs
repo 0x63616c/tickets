@@ -192,7 +192,27 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
 #[component]
 pub(crate) fn LiveIndicator() -> impl IntoView {
     let board = expect_context::<BoardState>();
-    view! { {move || view! { <crate::components::ConnectionIndicator state=board.connection.get()/> }} }
+    let shown = RwSignal::new(None::<ConnectionState>);
+    Effect::new(move |_| {
+        let connection = board.connection.get();
+        let (abort, registration) = AbortHandle::new_pair();
+        on_cleanup(move || abort.abort());
+        if matches!(connection, ConnectionState::Connected) || !window().navigator().on_line() {
+            shown.set(Some(connection));
+        } else {
+            spawn_local(async move {
+                let _ = Abortable::new(
+                    async move {
+                        TimeoutFuture::new(2_000).await;
+                        shown.set(Some(connection));
+                    },
+                    registration,
+                )
+                .await;
+            });
+        }
+    });
+    view! { <span class="live-indicator">{move || shown.get().map(|state|view! { <crate::components::ConnectionIndicator state/> })}</span> }
 }
 
 // Preserve native inputs, Markdown drafts and modal editors during reconciliation.

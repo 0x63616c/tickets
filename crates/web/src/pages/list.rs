@@ -37,10 +37,13 @@ fn rows(state: BoardState, location: ListLocation) -> Vec<BoardTicket> {
         .get()
         .into_iter()
         .filter(|t| {
-            (param(location, "project").is_empty()
-                || param(location, "project") == t.project_id.to_string())
+            (t.status != Status::Canceled
+                || param(location, "canceled") == "true"
+                || param(location, "status") == "Canceled")
+                && (param(location, "project").is_empty()
+                    || param(location, "project") == t.project_id.to_string())
                 && (param(location, "status").is_empty()
-                    || param(location, "status") == t.status.name())
+                    || param(location, "status") == t.ui_status().name())
                 && (param(location, "label").is_empty()
                     || t.labels
                         .iter()
@@ -172,7 +175,7 @@ pub fn ApiList() -> impl IntoView {
             visible.extend(
                 rows(state, location)
                     .into_iter()
-                    .filter(|t| t.status == status),
+                    .filter(|t| t.ui_status() == status),
             );
         }
         let active = document()
@@ -212,16 +215,17 @@ pub fn ApiList() -> impl IntoView {
         <div class="view-tabs list-tabs"><a href="/" class="view-tab"><Icon name="board"/>"Board"</a><span class="view-tab selected"><Icon name="list"/>"List"</span><Show when=move||!param(location, "project").is_empty()><crate::pages::projects::ProjectLinks/></Show></div>
         <div class="view-toolbar board-filters list-filters"><div class="filter-input"><Icon name="filter"/><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Filter tickets" placeholder="Filter tickets…" prop:value=move||param(location, "q") on:input=move|e|set_param(location, "q",event_target_value(&e))/></div>
         <SelectField label="All projects" value=Signal::derive(move||param(location,"project")) options=Signal::derive(move||std::iter::once(SelectOption::new("","All projects")).chain(state.projects.get().into_iter().map(SelectOption::project)).collect()) on_change=Callback::new(move|v:String|set_param(location,"project",v))/>
-        <Filter name="label" label="All labels" options=Signal::derive(move||state.labels.get().into_iter().map(|l|(l.id.to_string(),l.name)).collect())/>
+        <Filter name="label" label="All labels" options=Signal::derive(move||state.labels.get().into_iter().filter(|l|visible_label(&l.name)).map(|l|(l.id.to_string(),l.name)).collect())/>
         <Filter name="assignee" label="All assignees" options=Signal::derive(move||{let mut names:Vec<_>=state.tickets.get().into_iter().filter_map(|t|t.assignee).collect();names.sort();names.dedup();let mut options=vec![("__unassigned".into(),"Unassigned".into())];options.extend(names.into_iter().map(|n|(n.clone(),n)));options})/>
         <Filter name="status" label="All statuses" options=Signal::derive(||Status::ALL.into_iter().map(|s|(s.name().into(),s.name().into())).collect())/>
         <SelectField label="Sort tickets" value=Signal::derive(move||{let s=param(location,"sort");if s.is_empty(){"priority".into()}else{s}}) options=Signal::derive(move||vec![SelectOption::new("priority","Sort: Priority"),SelectOption::new("updated","Sort: Updated"),SelectOption::new("created","Sort: Created")]) on_change=Callback::new(move|next:String|set_param(location,"sort",next))/>
+        <label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" type="checkbox" prop:checked=move||param(location,"canceled")=="true" on:change=move|e|set_param(location,"canceled",if event_target_checked(&e){"true".into()}else{String::new()})/>"Show canceled"</label>
         <button class="button button-ghost" on:click=move|_|location.navigate.run("/list".into())>"Clear filters"</button></div>
         <Show when=move||state.loading.get()><LoadingSkeleton layout="list"/></Show>
         <Show when=move||!state.error.get().is_empty()><div class="board-message" role="alert">{move||state.error.get()}<button class="button" disabled=move||state.loading.get() || state.busy.get() on:click=move|_|state.refresh()>"Reload list"</button></div></Show>
         <div class="ticket-list" aria-label="Tickets grouped by status" aria-busy=move||state.busy.get().to_string()>{Status::ALL.into_iter().map(|status|view!{
-            <Show when=move||rows(state, location).iter().any(|t|t.status==status)><section class="list-group" aria-label=status.name()><div class="list-group-heading"><StatusIcon status/><h2>{status.name()}</h2><span class="count">{move||rows(state, location).iter().filter(|t|t.status==status).count()}</span><button class="list-add" disabled=move||state.busy.get() || state.loading.get() aria-label=format!("Add ticket to {}",status.name()) on:click=move|_|state.composer.set(Some(status))><Icon name="plus"/></button></div>
-            <For each=move||{rows(state, location).into_iter().filter(|t|t.status==status).collect::<Vec<_>>()} key=|t|(t.id,format!("{t:?}")) children=move|ticket|view!{<ListRow ticket selected/>}/></section></Show>
+            <Show when=move||rows(state, location).iter().any(|t|t.ui_status()==status)><section class="list-group" aria-label=status.name()><div class="list-group-heading"><StatusIcon status/><h2>{status.name()}</h2><span class="count">{move||rows(state, location).iter().filter(|t|t.ui_status()==status).count()}</span><button class="list-add" disabled=move||state.busy.get() || state.loading.get() aria-label=format!("Add ticket to {}",status.name()) on:click=move|_|state.composer.set(Some(status))><Icon name="plus"/></button></div>
+            <For each=move||{rows(state, location).into_iter().filter(|t|t.ui_status()==status).collect::<Vec<_>>()} key=|t|(t.id,format!("{t:?}")) children=move|ticket|view!{<ListRow ticket selected/>}/></section></Show>
         }).collect_view()}</div>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && rows(state, location).is_empty()><div class="empty-project"><div class="empty-state"><Icon name="filter"/><h2>"No tickets match this view"</h2><p>"Try another filter or add a ticket."</p><button class="button" on:click=move|_|location.navigate.run("/list".into())>"Clear filters"</button><button class="button button-primary" disabled=move||state.project.get()==0 on:click=move|_|state.composer.set(Some(Status::Todo))><Icon name="plus"/>"New ticket"</button></div></div></Show>
         <div class="view-footer"><span>{move||crate::count::count_label(rows(state, location).len(), "ticket")}</span><span>"J / K: navigate · Enter: open · C: create"</span></div>
@@ -232,17 +236,24 @@ pub fn ApiList() -> impl IntoView {
 fn ListRow(ticket: BoardTicket, selected: Callback<i64>) -> impl IntoView {
     let state = expect_context::<BoardState>();
     let id = ticket.id;
-    let status = ticket.status;
+    let status = ticket.ui_status();
     let priority = ticket.priority;
     let blockers = ticket.blocked_by.clone();
+    let label_titles = ticket
+        .labels
+        .iter()
+        .filter(|l| visible_label(&l.name))
+        .map(|l| l.name.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
     view! {<article class="ticket-row api-list-row" data-motion-key=format!("ticket-{id}") id=format!("list-ticket-{id}") tabindex="0" aria-label=format!("{}: {}",ticket.key,ticket.title)>
         <span class="inline-property"><PriorityIcon priority/><SelectField label=format!("Priority for {}",ticket.key) value=Signal::derive(move||priority.name().to_string()) options=Signal::derive(move||options(&Priority::ALL.map(Priority::name))) on_change=Callback::new(move|next:String|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==next){edit(state,id,"priority",json!(p));}}) disabled=Signal::derive(move||state.busy.get())/></span>
-        <span class="mono ticket-id">{ticket.key.clone()}</span><span class="inline-property"><StatusIcon status/><SelectField label=format!("Status for {}",ticket.key) value=Signal::derive(move||status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|edit(state,id,"status",json!(Status::from_name(&next)))) disabled=Signal::derive(move||state.busy.get())/></span>
+        <span class="mono ticket-id" title=ticket.key.clone()>{ticket.key.clone()}</span><span class="inline-property"><StatusIcon status/><SelectField label=format!("Status for {}",ticket.key) value=Signal::derive(move||status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|edit(state,id,"status",json!(Status::from_name(&next)))) disabled=Signal::derive(move||state.busy.get())/></span>
         <button class="row-title" title=ticket.title.clone() on:click=move|_|selected.run(id)>{ticket.title.clone()}</button>
-        {move||{let keys=blockers.iter().filter_map(|id|state.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|t.key).collect::<Vec<_>>();(!keys.is_empty()).then(||view!{<span class="row-blocked" title=format!("Blocked by {}",keys.join(", "))><Icon name="blocked"/>"Blocked"</span>})}}
-        <span class="row-labels">{ticket.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</span>
+        <span class="row-blocked-slot">{move||{let keys=blockers.iter().filter_map(|id|state.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|t.key).collect::<Vec<_>>();(!keys.is_empty()).then(||view!{<span class="row-blocked" title=format!("Blocked by {}",keys.join(", "))><Icon name="blocked"/>"Blocked"</span>})}}</span>
+        <span class="row-labels" title=label_titles>{ticket.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</span>
         <span class="row-comments">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<Icon name="comment"/>{n}})}</span>
-        <span class="row-project">{move||state.projects.get().into_iter().find(|p|p.id==ticket.project_id).map(|p|view!{<ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/>{p.name}})}</span><time class="row-date" datetime=ticket.updated_at.clone()>{display_date(&ticket.updated_at)}</time>
+        <span class="row-project">{move||state.projects.get().into_iter().find(|p|p.id==ticket.project_id).map(|p|view!{<span title=p.name.clone()><ProjectIcon name=p.name.clone() icon=p.icon.unwrap_or_default() color=p.color/><span class="row-project-name">{p.name.clone()}</span></span>})}</span><time class="row-date" title=ticket.updated_at.clone() datetime=ticket.updated_at.clone()>{display_date(&ticket.updated_at)}</time>
     </article>}
 }
 

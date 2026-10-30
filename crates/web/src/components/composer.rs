@@ -129,7 +129,7 @@ pub fn TicketComposer(
                         <label class="field"><span>"Status"</span><SelectField label="New ticket status" value=status options=Signal::derive(||Status::ALL.into_iter().map(SelectOption::status).collect()) on_change=Callback::new(move|v|status.set(v))/></label>
                         <label class="field"><span>"Priority"</span><SelectField label="New ticket priority" value=priority options=Signal::derive(||crate::fixtures::Priority::ALL.into_iter().map(SelectOption::priority).collect()) on_change=Callback::new(move|v|priority.set(v))/></label>
                     </div>
-                    <div class="composer-labels"><Combobox label="Labels" input_id="composer-label-filter" options=Signal::derive(move||labels.get().into_iter().map(|l|SelectOption{color:l.color,..SelectOption::new(l.id,l.name)}).collect()) selected on_toggle=Callback::new(move|v:String|selected.update(|s|{if s.contains(&v){s.retain(|l|l!=&v);}else{s.push(v);}}))/>
+                    <div class="composer-labels"><Combobox label="Labels" input_id="composer-label-filter" options=Signal::derive(move||labels.get().into_iter().filter(|l|super::controls::visible_label(&l.name)).map(|l|SelectOption{color:l.color,..SelectOption::new(l.id,l.name)}).collect()) selected on_toggle=Callback::new(move|v:String|selected.update(|s|{if s.contains(&v){s.retain(|l|l!=&v);}else{s.push(v);}}))/>
                         {move||labels.get().into_iter().filter(|l|selected.get().contains(&l.id.to_string())).map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}
                     </div>
                 </fieldset>
