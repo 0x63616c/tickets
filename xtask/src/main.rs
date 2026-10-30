@@ -3,6 +3,8 @@ mod auth;
 mod auth_verify;
 mod autofill;
 #[cfg(not(target_arch = "wasm32"))]
+mod board_loading;
+#[cfg(not(target_arch = "wasm32"))]
 mod cards;
 #[cfg(not(target_arch = "wasm32"))]
 mod cleanup;
@@ -164,6 +166,8 @@ fn main() -> Result {
         Some("design-check") => design::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("board-before") => design::board_before(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("board-loading-check") => api_smoke::board_loading(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("board-check") => api_smoke::board(root),
         #[cfg(not(target_arch = "wasm32"))]

@@ -830,3 +830,19 @@ catch-up and one Home project request. It uses the isolated API smoke lifecycle
 cache, invalidation and validation. Cached list requests add one version lookup
 (one auth + one version read on a hit; three calls on a miss). Existing mutation
 budgets and the shared dispatch statement budgets are unchanged.
+
+## Board/List loading exclusivity (TIK-75)
+
+- Board and List use one initial loading boundary for filters, content, empty
+  states and footer. Shared project metadata alone does not mean tickets loaded.
+  Once tickets have loaded, refresh/catch-up keeps the existing view mounted.
+- `CHROME_BIN=<headless-chromium> cargo xtask board-loading-check` uses the
+  isolated local Worker/D1 board fixture, holds ticket responses and samples
+  skeleton/content visibility every 50ms for four seconds. It covers cold/slow
+  Board, Home navigation (including empty project and mobile), List, explicit
+  refresh and live focus catch-up. Refresh must preserve card counts and board
+  position. Before mode (`TICKETS_BEFORE_ASSETS=<base-dist>`) records violations;
+  after mode fails on overlap or lost refresh continuity.
+- PNG sequences go to ignored `target/TIK-75/`; held/settled PNGs, sample JSON
+  and `transitions.txt` go to `docs/screenshots/TIK-75/`. Copy review evidence to
+  the ticket's external screenshot directory before opening the PR.
