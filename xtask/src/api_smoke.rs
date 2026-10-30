@@ -136,6 +136,10 @@ pub fn board(root: &Path) -> Result<()> {
     run_inner(root, false, true)
 }
 #[cfg(not(target_arch = "wasm32"))]
+pub fn board_loading(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "board-loading")
+}
+#[cfg(not(target_arch = "wasm32"))]
 pub fn list(root: &Path) -> Result<()> {
     // Child browser selects the list verification after the shared API seed.
     run_inner_mode(root, false, true, "list")

@@ -788,3 +788,19 @@ project icon schema changes additive and validate values in core.
   match a successful install and node_modules exists. Repeated installs rewrite
   the JS imported by wasm-bindgen and cause a release Wasm rebuild for every
   browser check. Other npm commands pass through; local xtask behavior is unchanged.
+
+## Board/List loading exclusivity (TIK-75)
+
+- Board and List use one initial loading boundary for filters, content, empty
+  states and footer. Shared project metadata alone does not mean tickets loaded.
+  Once tickets have loaded, refresh/catch-up keeps the existing view mounted.
+- `CHROME_BIN=<headless-chromium> cargo xtask board-loading-check` uses the
+  isolated local Worker/D1 board fixture, holds ticket responses and samples
+  skeleton/content visibility every 50ms for four seconds. It covers cold/slow
+  Board, Home navigation (including empty project and mobile), List, explicit
+  refresh and live focus catch-up. Refresh must preserve card counts and board
+  position. Before mode (`TICKETS_BEFORE_ASSETS=<base-dist>`) records violations;
+  after mode fails on overlap or lost refresh continuity.
+- PNG sequences go to ignored `target/TIK-75/`; held/settled PNGs, sample JSON
+  and `transitions.txt` go to `docs/screenshots/TIK-75/`. Copy review evidence to
+  the ticket's external screenshot directory before opening the PR.
