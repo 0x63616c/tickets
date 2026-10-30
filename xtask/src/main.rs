@@ -3,6 +3,8 @@ mod auth;
 mod auth_verify;
 mod autofill;
 #[cfg(not(target_arch = "wasm32"))]
+mod board_loading;
+#[cfg(not(target_arch = "wasm32"))]
 mod cards;
 #[cfg(not(target_arch = "wasm32"))]
 mod cleanup;
@@ -13,6 +15,8 @@ mod design_tokens;
 mod github_pr_check;
 #[cfg(not(target_arch = "wasm32"))]
 mod home;
+#[cfg(not(target_arch = "wasm32"))]
+mod home_loading;
 #[cfg(not(target_arch = "wasm32"))]
 mod import_check;
 #[cfg(not(target_arch = "wasm32"))]
@@ -118,6 +122,8 @@ fn main() -> Result {
         #[cfg(not(target_arch = "wasm32"))]
         Some("home-shot") => home::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
+        Some("home-loading-check") => api_smoke::home_loading(root),
+        #[cfg(not(target_arch = "wasm32"))]
         Some("tokens-shot") => tokens::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-shot") => settings::shots(root),
@@ -152,6 +158,8 @@ fn main() -> Result {
         Some("design-check") => design::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("board-before") => design::board_before(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("board-loading-check") => api_smoke::board_loading(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("board-check") => api_smoke::board(root),
         #[cfg(not(target_arch = "wasm32"))]

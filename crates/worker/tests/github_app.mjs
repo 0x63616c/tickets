@@ -152,7 +152,8 @@ test('compiled manifest callback validates, exchanges and encrypts without netwo
     const html = await response(worker, query, 200);
     assert.ok(html.includes('&lt;Fixture &amp; App&gt;'));
     assert.ok(html.includes('href="https://github.com/apps/fixture-app/installations/new"'));
-    assert.ok(html.includes('Install on all repositories'));
+    assert.ok(html.includes('Install the app'));
+    assert.ok(html.includes('href="/settings"'));
     assert.ok(html.includes('href="https://github.com/apps/fixture-app"'));
     const saved = db.db.prepare('SELECT * FROM github_app').get();
     assert.equal(saved.app_id, 42);
@@ -179,6 +180,99 @@ test('compiled manifest callback validates, exchanges and encrypts without netwo
   }
 });
 
+test('signed-in registration page supplies manifest and fails closed without assets or network', async () => {
+  const db = new D1Database();
+  const token = 'ab'.repeat(32);
+  db.db.prepare("INSERT INTO users(id,username) VALUES(1,'fixture-owner')").run();
+  db.db.prepare("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,1,'2999-01-01T00:00:00.000Z')")
+    .run(createHash('sha256').update(token).digest('hex'));
+  const env = { DB: db };
+  const worker = new Worker({}, env);
+  const route = '/github/app/register';
+  const request = (suffix = '', method = 'GET', signedIn = true, origin = 'https://fixture.invalid') =>
+    worker.fetch(new Request(`${origin}${route}${suffix}`, {
+      method, headers: signedIn ? { Cookie: `tickets_session=${token}` } : {},
+    }));
+  try {
+    const anonymous = await request('', 'GET', false);
+    assert.equal(anonymous.status, 302);
+    assert.equal(anonymous.headers.get('Location'), '/login?next=%2Fgithub%2Fapp%2Fregister');
+    const bearer = await worker.fetch(new Request(`https://fixture.invalid${route}`, {
+      headers: { Authorization: `Bearer tk_${token}` },
+    }));
+    assert.equal(bearer.status, 302);
+    for (const method of ['POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS']) {
+      const result = await request('', method);
+      assert.equal(result.status, 405);
+      assert.equal(result.headers.get('Allow'), 'GET');
+    }
+    for (const config of [
+      {}, { GITHUB_APP_SETUP_STATE: 'fixture-state' },
+      { GITHUB_APP_STORE_KEY: Buffer.alloc(32, 7).toString('base64') },
+      { GITHUB_APP_SETUP_STATE: '', GITHUB_APP_STORE_KEY: '' },
+      { GITHUB_APP_SETUP_STATE: 'fixture-state', GITHUB_APP_STORE_KEY: 'invalid' },
+    ]) {
+      delete env.GITHUB_APP_SETUP_STATE;
+      delete env.GITHUB_APP_STORE_KEY;
+      Object.assign(env, config);
+      const result = await request();
+      assert.equal(result.status, 503);
+      const html = await result.text();
+      assert.ok(html.includes('Registration unavailable'));
+      assert.ok(!html.includes('<form'));
+    }
+    env.GITHUB_APP_SETUP_STATE = 'fixture&state=+ /é';
+    env.GITHUB_APP_STORE_KEY = Buffer.alloc(32, 7).toString('base64');
+    const unsupportedOrigin = await request('', 'GET', true, 'ftp://fixture.invalid');
+    assert.equal(unsupportedOrigin.status, 503);
+    assert.ok(!(await unsupportedOrigin.text()).includes('<form'));
+    for (const [suffix, name, origin] of [
+      ['', 'Tickets by World Wide Webb', 'https://fixture.invalid'],
+      ['?name=alt', 'Tickets WWW', 'http://localhost:8787'],
+      ['?name=%3Cscript%3Eevil', 'Tickets by World Wide Webb', 'https://fixture.invalid'],
+    ]) {
+      const result = await request(suffix, 'GET', true, origin);
+      assert.equal(result.status, 200);
+      for (const [header, value] of Object.entries({
+        'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY',
+      })) assert.equal(result.headers.get(header), value);
+      const html = await result.text();
+      const csp = result.headers.get('Content-Security-Policy');
+      for (const tag of ['style', 'script']) {
+        const content = html.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))[1];
+        const hash = createHash('sha256').update(content).digest('base64');
+        assert.ok(csp.includes(`${tag}-src 'sha256-${hash}'`));
+      }
+      assert.ok(csp.includes('form-action https://github.com;'));
+      assert.ok(csp.includes("default-src 'none'"));
+      assert.ok(csp.includes("frame-ancestors 'none'"));
+      assert.ok(!csp.includes('unsafe-inline'));
+      const action = html.match(/action="([^"]+)"/)[1];
+      assert.equal(new URL(action).searchParams.get('state'), env.GITHUB_APP_SETUP_STATE);
+      const manifest = JSON.parse(html.match(/name="manifest" value="([^"]+)"/)[1]
+        .replaceAll('&quot;', '"').replaceAll('&#39;', "'")
+        .replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&'));
+      assert.equal(manifest.name, name);
+      assert.equal(manifest.url, origin);
+      assert.equal(manifest.redirect_url, `${origin}/api/v1/github/app/manifest-callback`);
+      assert.ok(!html.includes('evil'));
+      assert.ok(!html.includes(env.GITHUB_APP_STORE_KEY));
+    }
+    db.db.prepare(`INSERT INTO github_app(id,app_id,slug,name,owner_login,client_id,html_url,secrets_ciphertext)
+      VALUES(1,42,'fixture-app','Fixture App','fixture-owner','fixture-id',?,'fixture-ciphertext')`).run(fixture.html_url);
+    const result = await request();
+    assert.equal(result.status, 200);
+    const html = await result.text();
+    assert.ok(html.includes('already registered'));
+    assert.ok(html.includes(`href="${fixture.html_url}"`));
+    for (const forbidden of ['<form', '<script', 'fixture&state', 'fixture-ciphertext']) {
+      assert.ok(!html.includes(forbidden));
+    }
+  } finally {
+    db.db.close();
+  }
+});
 
 const rsaPem = readFileSync(new URL('crates/core/tests/fixtures/github-app-test-rsa.pem', root), 'utf8');
 const pkcs8Pem = readFileSync(new URL('crates/core/tests/fixtures/github-app-test-pkcs8.pem', root), 'utf8');
@@ -246,7 +340,7 @@ test('app signatures, bounded body, installation lifecycle, and unchanged legacy
     db.db.prepare("INSERT INTO api_tokens(user_id,name,token_hash) VALUES(1,'fixture',?)").run(createHash('sha256').update(bearer).digest('hex'));
     const overview=await worker.fetch(new Request('https://fixture.invalid/api/v1/github/app', {headers:{Authorization:`Bearer ${bearer}`}}));
     assert.equal(overview.status,200);
-    assert.deepEqual(await overview.json(),{registered:true,app_slug:'fixture-app',installations:[{account_login:'fixture-owner',repository_selection:'all',repos:[]}]});
+    assert.deepEqual(await overview.json(),{registered:true,app_slug:'fixture-app',app_name:fixture.name,html_url:fixture.html_url,installations:[{account_login:'fixture-owner',repository_selection:'all',repos:[]}]});
     assert.equal(overview.headers.get('Cache-Control'),'no-store');
     await signed(worker,'installation',{action:'deleted',installation:install},204);
     assert.equal(db.db.prepare('SELECT count(*) n FROM github_app_installations').get().n,0);
@@ -330,4 +424,42 @@ test('app PRs share status sync; JWT verifies; checks and CI persist per head; f
     await signed(worker,'pull_request',prPayload('reopened',{updated_at:'2026-10-30T12:00:06Z'}),204);
     assert.ok(tokenRequest);
   } finally {db.db.close();globalThis.fetch=async()=>{throw new Error('Network disabled');};}
+});
+
+test('credentials export enforces bearer auth and returns only stored encrypted credentials', async () => {
+  const db = new D1Database();
+  try {
+    db.db.exec("INSERT INTO users(id,username) VALUES(1,'fixture')");
+    const bearer = `tk_${'a'.repeat(64)}`;
+    const session = 'b'.repeat(64);
+    const hash = value => createHash('sha256').update(value).digest('hex');
+    db.db.prepare("INSERT INTO api_tokens(user_id,name,token_hash) VALUES(1,'fixture',?)").run(hash(bearer));
+    db.db.prepare("INSERT INTO sessions(user_id,token_hash,expires_at) VALUES(1,?,strftime('%Y-%m-%dT%H:%M:%fZ','now','+1 day'))").run(hash(session));
+    // No store key is supplied: exporting must never decrypt the stored blob.
+    const worker = new Worker({}, { DB: db });
+    const url = 'https://fixture.invalid/api/v1/github/app/credentials';
+    const request = async (headers, status) => {
+      const result = await worker.fetch(new Request(url, { headers }));
+      assert.equal(result.status, status);
+      assert.equal(result.headers.get('Cache-Control'), 'no-store');
+      return result.json();
+    };
+    const tokenHeaders = { Authorization: `Bearer ${bearer}` };
+    const sessionHeaders = { Cookie: `tickets_session=${session}` };
+    await request({}, 401);
+    assert.equal((await request(tokenHeaders, 404)).error.code, 'not_found');
+    assert.equal((await request(sessionHeaders, 403)).error.code, 'forbidden');
+    const expected = {
+      app_id: 42, slug: 'fixture-app', name: 'Fixture App', owner_login: 'fixture-owner',
+      client_id: 'fixture-id', html_url: 'https://github.com/apps/fixture-app',
+      secrets_ciphertext: Buffer.alloc(44, 7).toString('base64'),
+    };
+    db.db.prepare('INSERT INTO github_app(id,app_id,slug,name,owner_login,client_id,html_url,secrets_ciphertext) VALUES(1,?,?,?,?,?,?,?)')
+      .run(...Object.values(expected));
+    assert.deepEqual(await request(tokenHeaders, 200), expected);
+    assert.equal((await request(sessionHeaders, 403)).error.code, 'forbidden');
+    await request({ ...sessionHeaders, Authorization: 'Bearer invalid' }, 401);
+    db.db.exec('UPDATE api_tokens SET revoked_at=created_at');
+    await request(tokenHeaders, 401);
+  } finally { db.db.close(); }
 });

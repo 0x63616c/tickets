@@ -45,15 +45,25 @@ pub fn HomePage() -> impl IntoView {
     let board = expect_context::<BoardState>();
     let location = use_location();
     let fixture = location.pathname.get_untracked().starts_with("/design");
-    let base = if fixture { "/design/home" } else { "/home" };
+    // Keep query-only navigation on the current alias so the router retains Home.
+    let base = if fixture {
+        "/design/home"
+    } else if location.pathname.get_untracked() == "/" {
+        "/"
+    } else {
+        "/home"
+    };
     let query = use_query_map();
     let scope = Signal::derive(move || query.get().get("project").unwrap_or_default());
     let metric = Signal::derive(move || query.get().get("metric").unwrap_or_default());
     let response = RwSignal::new(None::<Home>);
     let error = RwSignal::new(String::new());
-    let busy = RwSignal::new(false);
+    let busy = RwSignal::new(true);
+    // The page reveal belongs to initial settlement, never to refresh activity.
+    let settled = RwSignal::new(false);
+    let rendered_scope = RwSignal::new(String::new());
+    let rendered_metric = RwSignal::new(String::new());
     let revision = RwSignal::new(0_u64);
-    let previous = StoredValue::new(String::new());
     Effect::new(move |_| {
         let search = query.get().to_query_string();
         revision.track();
@@ -63,12 +73,14 @@ pub fn HomePage() -> impl IntoView {
                 serde_json::from_str(include_str!("../../../../docs/fixtures/home.json"))
                     .expect("Home fixture"),
             ));
+            rendered_scope.set(scope.get_untracked());
+            rendered_metric.set(metric.get_untracked());
+            busy.set(false);
+            settled.set(true);
             return;
         }
-        if previous.get_value() != search {
-            response.set(None);
-            previous.set_value(search.clone());
-        }
+        let request_scope = scope.get_untracked();
+        let request_metric = metric.get_untracked();
         busy.set(true);
         error.set(String::new());
         let (abort, registration) = AbortHandle::new_pair();
@@ -76,38 +88,41 @@ pub fn HomePage() -> impl IntoView {
         wasm_bindgen_futures::spawn_local(async move {
             let _ = Abortable::new(
                 async move {
-                    let result = api(
-                        "GET",
-                        &format!("/api/v1/analytics/home{search}"),
-                        Value::Null,
-                    )
-                    .await
-                    .and_then(|v| {
-                        serde_json::from_value::<Home>(v)
-                            .map_err(|_| "Couldn’t read Home data.".into())
-                    });
+                    // One gate for all Home data, including its project selector/sidebar.
+                    // Home never downloads the board's ticket collection.
+                    let url = format!("/api/v1/analytics/home{search}");
+                    let (analytics, projects) = futures_util::join!(
+                        api("GET", &url, Value::Null),
+                        all::<Project>("projects")
+                    );
+                    let result = analytics
+                        .and_then(|v| {
+                            serde_json::from_value::<Home>(v)
+                                .map_err(|_| "Couldn’t read Home data.".into())
+                        })
+                        .and_then(|home| projects.map(|projects| (home, projects)));
                     match result {
-                        Ok(data) => {
-                            response.set(Some(data));
+                        Ok((data, projects)) => {
+                            if board.project.get_untracked() == 0 {
+                                board.project.set(
+                                    projects
+                                        .iter()
+                                        .find(|p| !p.archived)
+                                        .map(|p| p.id)
+                                        .unwrap_or(0),
+                                );
+                            }
+                            board.projects.set(projects);
+                            board.loading.set(false);
                             board.signed_in.set(true);
+                            rendered_scope.set(request_scope);
+                            rendered_metric.set(request_metric);
+                            response.set(Some(data));
                         }
                         Err(e) => error.set(e),
                     }
                     busy.set(false);
-                    // Sidebar/project registry only: Home never downloads the ticket collection.
-                    if let Ok(projects) = all::<Project>("projects").await {
-                        if board.project.get_untracked() == 0 {
-                            board.project.set(
-                                projects
-                                    .iter()
-                                    .find(|p| !p.archived)
-                                    .map(|p| p.id)
-                                    .unwrap_or(0),
-                            );
-                        }
-                        board.projects.set(projects);
-                        board.loading.set(false);
-                    }
+                    settled.set(true);
                 },
                 registration,
             )
@@ -134,7 +149,7 @@ pub fn HomePage() -> impl IntoView {
         }
     });
     let reveal_root = NodeRef::<leptos::html::Div>::new();
-    use_ascii_reveal(reveal_root, Signal::derive(move || busy.get()), true);
+    use_ascii_reveal(reveal_root, Signal::derive(move || !settled.get()), true);
     view! {
         <header class="topbar"><h1 class="home-title">"Home"</h1><div class="topbar-actions"><button class="button button-primary" disabled=move||!fixture && board.projects.get().is_empty() on:click=move|_|create.run(())><Icon name="plus"/>"New ticket"</button></div></header>
         <div node_ref=reveal_root class="home-page" aria-busy=move||busy.get().to_string()>
@@ -143,7 +158,7 @@ pub fn HomePage() -> impl IntoView {
                 items.extend(board.projects.get().into_iter().filter(|p|!p.archived).map(|p|SelectOption::new(p.id.to_string(),p.name)));items
             }) on_change=change_scope/><span class="home-period">"8 weeks · UTC"</span><span class="home-freshness">{move||response.get().map(|h|format!("Updated {} UTC",h.as_of.get(11..16).unwrap_or("")))}</span><Show when=move||busy.get()><LoadingIndicator label="Refreshing Home"/></Show><IconButton label="Refresh Home" icon="refresh" on_click=Callback::new(move|_|revision.update(|r|*r+=1)) disabled=Signal::derive(move||busy.get())/></div>
             <Show when=move||!error.get().is_empty()><div class="home-error" role="alert"><span>{move||if response.get().is_some(){format!("Couldn’t refresh. Showing the last update. {}",error.get())}else{error.get()}}</span><button class="button button-secondary" on:click=move|_|revision.update(|r|*r+=1)>"Retry"</button></div></Show>
-            {move||response.get().map(|home|view!{<HomeContent home scope=scope.get() metric=metric.get() base/>}.into_any()).unwrap_or_else(||if busy.get() || error.get().is_empty() {view!{<HomeSkeleton/>}.into_any()}else{().into_any()})}
+            {move||response.get().map(|home|view!{<HomeContent home scope=rendered_scope.get() metric=rendered_metric.get() base/>}.into_any()).unwrap_or_else(||if busy.get() || error.get().is_empty() {view!{<HomeSkeleton/>}.into_any()}else{().into_any()})}
         </div>
         {let shown=present_value(board.composer.into());move||shown.get().map(|status|view!{<BoardComposer status/>})}
     }

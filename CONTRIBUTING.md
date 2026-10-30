@@ -618,9 +618,16 @@ project icon schema changes additive and validate values in core.
   Tickets is dark only; ignore OS colour preferences and retire the old
   `tickets.theme` key on startup. Section disclosure and reduced motion use
   browser localStorage; unavailable storage must not block navigation.
-- `cargo xtask settings-check` verifies account persistence, token lifecycle and
-  redirects, shortcuts, preferences and mobile navigation in isolated local D1.
-  It shares port 8795 and must run sequentially with other Worker checks.
+- The Account page includes GitHub App status from `/api/v1/github/app`. Connect
+  GitHub uses a full-page link to the session-gated `/github/app/register`; keep
+  setup state out of the SPA. Installation returns to `/settings`.
+- `cargo xtask settings-check` verifies GitHub registration/installation states,
+  captures TIK-70 fixture screenshots, and verifies account persistence, token
+  lifecycle and redirects, shortcuts, preferences and mobile navigation in
+  isolated local D1.
+  It shares port 8795 and must run sequentially with other Worker checks. Set
+  `TICKETS_GITHUB_BEFORE_ASSETS` to previous built assets to also capture the
+  TIK-70 before images without replacing the current Worker assets.
 - `cargo xtask settings-shot` captures fixture-only Settings sections and full
   pages in `docs/screenshots/TIK-40`; `TICKETS_BEFORE_ASSETS` selects the actual
   prior settings route. `component-shot sidebar` and `component-shot user-menu`
@@ -779,6 +786,22 @@ project icon schema changes additive and validate values in core.
   crops; `--before-assets <base-dist>` captures the previous Settings appearance.
   See docs/design/claim-next.md for the lease contract and research.
 
+## Home loading continuity
+
+`CHROME_BIN=<headless-chromium> cargo xtask home-loading-check` starts an isolated
+local Worker/D1, seeds sample projects/tickets and records four seconds of a
+cold Home navigation with real live subscriptions. It captures frames at a
+50ms target interval (actual capture throughput varies), writes a contact sheet
+and timestamped lifecycle/request trace under `docs/screenshots/TIK-65/`, and
+asserts one initial loader unmount/reveal with no replay on catch-up or manual
+refresh. `TICKETS_BEFORE_ASSETS` selects baseline assets and records without
+asserting the fixed behavior. Home's initial gate covers analytics and projects;
+subsequent requests retain the previous content and use the toolbar indicator.
+
+For a sequence of browser checks after building the current web and Worker assets,
+`TICKETS_SKIP_BUILD=1` reuses those artifacts in the isolated Worker harness. It
+requires both builds to exist; rebuild after source changes before using it.
+
 ## CI build caches
 
 - Cargo jobs restore the shared `check` cache (including main's existing cache).
@@ -795,3 +818,19 @@ project icon schema changes additive and validate values in core.
   match a successful install and node_modules exists. Repeated installs rewrite
   the JS imported by wasm-bindgen and cause a release Wasm rebuild for every
   browser check. Other npm commands pass through; local xtask behavior is unchanged.
+
+## Board/List loading exclusivity (TIK-75)
+
+- Board and List use one initial loading boundary for filters, content, empty
+  states and footer. Shared project metadata alone does not mean tickets loaded.
+  Once tickets have loaded, refresh/catch-up keeps the existing view mounted.
+- `CHROME_BIN=<headless-chromium> cargo xtask board-loading-check` uses the
+  isolated local Worker/D1 board fixture, holds ticket responses and samples
+  skeleton/content visibility every 50ms for four seconds. It covers cold/slow
+  Board, Home navigation (including empty project and mobile), List, explicit
+  refresh and live focus catch-up. Refresh must preserve card counts and board
+  position. Before mode (`TICKETS_BEFORE_ASSETS=<base-dist>`) records violations;
+  after mode fails on overlap or lost refresh continuity.
+- PNG sequences go to ignored `target/TIK-75/`; held/settled PNGs, sample JSON
+  and `transitions.txt` go to `docs/screenshots/TIK-75/`. Copy review evidence to
+  the ticket's external screenshot directory before opening the PR.

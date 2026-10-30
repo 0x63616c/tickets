@@ -484,6 +484,9 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
         return true;
     })()"#)?;
     b.eval("document.querySelector('[role=alert]')?.textContent || true")?;
+    if mode == "board-loading" {
+        return super::board_loading::check(root, &mut b);
+    }
     if mode == "detail" {
         return detail_check(root, &mut b);
     }
