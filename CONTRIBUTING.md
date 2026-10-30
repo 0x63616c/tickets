@@ -553,6 +553,10 @@ project icon schema changes additive and validate values in core.
   `--before-assets <base crates/web/dist> --output docs/screenshots/TIK-44` for the
   previous real component, or omit `--before-assets` for the current implementation.
 
+- `cargo xtask tokens-shot` checks fixture-only token states and captures desktop/mobile
+  PNGs. Set `TICKETS_SCREENSHOT_DIR` to keep ticket-specific evidence separate
+  from the default `docs/screenshots/TIK-41/` baseline.
+
 ## Loading feedback (TIK-47)
 
 - Run `npm ci --prefix crates/web` before compiling the web crate, including

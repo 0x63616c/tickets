@@ -117,7 +117,6 @@ pub fn Tokens(#[prop(default = false)] fixture: bool) -> impl IntoView {
         <section node_ref=reveal_root class="token-inventory">
             <div class="token-heading"><h1>"API tokens"</h1><Show when=move||items.get().iter().any(|t|history.get() || t.revoked_at.is_none())><button class="button button-primary token-create" disabled=move||!loaded.get() on:click=open_create><Icon name="plus"/>"Create token"</button></Show></div>
             <p class="settings-description">"Connect agents and scripts to your workspace. Give each one its own token."</p>
-            <p class="token-access"><Icon name="lock"/><span>"Full workspace access · No expiration"</span></p>
             <div class="token-list-heading"><h2>{move||format!("{} ({})",if history.get(){"All tokens"}else{"Active tokens"},items.get().iter().filter(|t|history.get() || t.revoked_at.is_none()).count())}</h2><label class="token-history"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" type="checkbox" prop:checked=move||history.get() on:change=move|e|history.set(event_target_checked(&e))/>"Show revoked"</label></div>
             <p class="settings-error" role="alert">{error}</p>
             <Show when=move||!error.get().is_empty()><button class="button" on:click=move|_|refresh.run(())>"Retry loading tokens"</button></Show>
