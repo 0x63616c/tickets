@@ -243,6 +243,11 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
         _=> {
             let url=req.url()?;
             let query=url.query_pairs().map(|(k,v)|(k.into_owned(),v.into_owned())).collect::<Vec<_>>();
+            if req.method() == Method::Put && path.starts_with("/api/v1/mission/reports/") {
+                let source=path.trim_start_matches("/api/v1/mission/reports/");
+                let response=crate::mission::receive(&mut req,&db,source).await?;
+                return reply(response.body,response.status);
+            }
             let body=if changing {
                 match req.text().await {
                     Ok(text) if text.is_empty()=>Value::Null,

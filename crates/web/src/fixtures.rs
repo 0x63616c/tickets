@@ -249,3 +249,29 @@ pub fn tickets() -> Vec<Ticket> {
 }
 
 pub const DESCRIPTION: &str = "Drag a ticket to another column to change its status. Update the board immediately and keep other open views in sync.\n\n### Acceptance criteria\n- [x] Group tickets by status, with priority and labels visible\n- [x] Offer a **status menu** as an alternative to dragging\n- [ ] Keep keyboard focus on the ticket after a move\n- [ ] Restore the previous status if saving fails\n\nIf a move fails, show `Couldn’t move ticket` with a **Retry** action. Keep the ticket visible in its original column.";
+
+/// Mission snapshots use relative timestamps so the 48-hour ready queue stays useful.
+pub fn mission() -> tickets_core::mission::Mission {
+    use serde_json::json;
+    let now = js_sys::Date::now();
+    let stamp = |minutes: f64| {
+        String::from(
+            js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(now - minutes * 60_000.))
+                .to_iso_string(),
+        )
+    };
+    serde_json::from_value(json!({
+        "generated_at":stamp(0.),
+        "reports":[{"source":"box","received_at":stamp(2.),"stale":false,"report":{
+            "jobs":[{"repo":"tickets","ticket":"TIK-77","branch":"TIK-77-mission-control","kind":"run","state":"running","age":"41m","detail":"Building Mission Control v1"},{"repo":"quantum","ticket":"QUA-120","branch":"QUA-120-rendering","state":"running","age":"12m","detail":"Checking rendering performance"}],
+            "needs_calum":[{"title":"Approve GitHub App installation","detail":"Repository access is ready for review","ticket_key":"TIK-70"}],
+            "pull_requests":[{"repo":"example/tickets","number":97,"title":"Mission Control status ingest","url":"https://github.com/example/tickets/pull/97","state":"open","ci":"pass","created_at":stamp(41.),"ticket_key":"TIK-77","auto_merge":true},{"repo":"example/quantum","number":42,"title":"Improve renderer startup","url":"https://github.com/example/quantum/pull/42","state":"open","ci":"pending","created_at":stamp(90.),"ticket_key":"QUA-120"},{"repo":"example/apps","number":31,"title":"Panel keyboard shortcuts","url":"https://github.com/example/apps/pull/31","state":"open","ci":"fail","created_at":stamp(140.),"ticket_key":"APP-18"}],
+            "merges":[{"repo":"example/tickets","number":96,"title":"Ticket activity and history","url":"https://github.com/example/tickets/pull/96","merged_at":stamp(130.),"ticket_key":"TIK-60"}],
+            "builds":[{"app":"World Wide Webb Panel","kind":"testflight","build_number":"130","status":"success","url":"https://github.com/example/apps/actions/runs/1","finished_at":stamp(55.),"title":"Panel 130 ready in TestFlight"},{"app":"Tickets","kind":"deploy","status":"success","url":"https://github.com/example/tickets/actions/runs/2","finished_at":stamp(120.),"title":"Tickets deploy is live"}],
+            "blocked":[{"repo":"apps","pr":31,"reason":"Keyboard shortcut checks failed","url":"https://github.com/example/apps/pull/31","since":stamp(80.)}]
+        }},{"source":"build-host","received_at":stamp(18.),"stale":true,"report":{}}],
+        "waiting_on_calum":[{"id":1,"key":"TIK-79","title":"Approve build notifications","project":"Tickets","status":"todo","updated_at":stamp(40.),"labels":[{"id":1,"name":"waiting-on-calum"}]}],
+        "in_review":[],
+        "recently_done":[{"id":2,"key":"TIK-60","title":"Ticket activity and history","project":"Tickets","status":"done","updated_at":stamp(130.),"labels":[]}]
+    })).expect("Mission fixtures")
+}

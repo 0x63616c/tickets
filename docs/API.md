@@ -572,3 +572,5 @@ or failing to renew a lease; confirm ownership before side effects. Do not blind
 retry a timed-out claim request: it may have committed. Reconcile by reading
 In Progress tickets and their `claimed_by`/`claim_id` first. External operations
 should be idempotent; inspect existing branches and PRs before creating them.
+
+[Mission Control: report ingest, aggregated read and dashboard](mission-control.md).

@@ -32,6 +32,8 @@ mod login;
 #[cfg(not(target_arch = "wasm32"))]
 mod mirror_check;
 #[cfg(not(target_arch = "wasm32"))]
+mod mission;
+#[cfg(not(target_arch = "wasm32"))]
 mod pickup;
 #[cfg(not(target_arch = "wasm32"))]
 mod screenshots;
@@ -180,6 +182,7 @@ fn main() -> Result {
         Some("projects-check") => api_smoke::projects(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("project-repos-check") => project_repos::check(root),
+        Some("mission-check") => api_smoke::mission(root),
         Some("first-run-check") => api_smoke::first_run(root),
         Some("build") => build(root),
         Some("dev") => {

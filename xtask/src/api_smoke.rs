@@ -162,6 +162,10 @@ pub fn settings(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "settings")
 }
 
+pub fn mission(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "mission")
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn home_loading(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "home-loading")
@@ -429,7 +433,9 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     }
     if board {
         #[cfg(not(target_arch = "wasm32"))]
-        return if _view == "login" {
+        return if _view == "mission" {
+            super::mission::check(root, &password)
+        } else if _view == "login" {
             super::login::check(root, &password, &c.dir)
         } else if _view == "contrast" {
             super::contrast::check(root, &password)
@@ -465,6 +471,49 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     if _view == "pickup" {
         return pickup_check(&c, &config, &state);
     }
+    c.call(
+        "PUT",
+        "/api/v1/mission/reports/box",
+        json!({"jobs":[]}),
+        "none",
+        401,
+    )?;
+    c.call("PUT", "/api/v1/mission/reports/box", json!({}), "csrf", 403)?;
+    c.call(
+        "PUT",
+        "/api/v1/mission/reports/box",
+        json!({"jobs":[{"state":"running","ticket":"SMK-1"}]}),
+        "bearer",
+        200,
+    )?;
+    c.call(
+        "PUT",
+        "/api/v1/mission/reports/Bad",
+        json!({}),
+        "bearer",
+        422,
+    )?;
+    c.call(
+        "PUT",
+        "/api/v1/mission/reports/box",
+        json!({"jobs":{}}),
+        "bearer",
+        422,
+    )?;
+    c.raw(
+        "PUT",
+        "/api/v1/mission/reports/box",
+        Some(format!("{{\"large\":\"{}\"}}", "x".repeat(512 * 1024))),
+        "bearer",
+        413,
+    )?;
+    let mission = c.call("GET", "/api/v1/mission", Value::Null, "cookie", 200)?;
+    assert_eq!(mission["reports"][0]["source"], "box");
+    assert_eq!(mission["reports"][0]["stale"], false);
+    assert_eq!(
+        mission["reports"][0]["report"]["jobs"][0]["state"],
+        "running"
+    );
     c.call("GET", "/api/v1/projects", Value::Null, "invalid", 401)?;
     c.call(
         "POST",
