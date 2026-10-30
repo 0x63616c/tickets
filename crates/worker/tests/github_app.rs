@@ -183,3 +183,45 @@ fn installation_schema_enforces_identity_cascades_and_timestamps() {
     .unwrap();
     assert_eq!(rows[0]["count"], json!(0));
 }
+
+#[test]
+fn credentials_export_requires_token_and_returns_stored_ciphertext() {
+    block_on(async {
+        use tickets_core::history::Actor;
+        let store = CountingStore {
+            db: Sqlite::new(),
+            reads: Cell::new(0),
+        };
+        let path = "/api/v1/github/app/credentials";
+        let token = Actor::api_token(1);
+        assert!(registration::load(&store.db).await.unwrap().is_none());
+        let missing =
+            tickets_worker::api::handle_as(&store, &token, "GET", path, &[], Value::Null).await;
+        assert_eq!(missing.status, 404);
+        assert_eq!(missing.body["error"]["code"], "not_found");
+        let ciphertext = pack_ciphertext(&[1; 12], &[2; 32]).unwrap();
+        registration::register(&store.db, &metadata(), &ciphertext)
+            .await
+            .unwrap();
+        for actor in [Actor::user(1), Actor::system(), Actor::webhook()] {
+            let reads = store.reads.get();
+            let denied =
+                tickets_worker::api::handle_as(&store, &actor, "GET", path, &[], Value::Null).await;
+            assert_eq!(denied.status, 403);
+            assert_eq!(denied.body["error"]["code"], "forbidden");
+            assert_eq!(store.reads.get(), reads);
+        }
+        let reply =
+            tickets_worker::api::handle_as(&store, &token, "GET", path, &[], Value::Null).await;
+        assert_eq!(reply.status, 200);
+        assert!(reply.change.is_none());
+        assert_eq!(
+            reply.body,
+            json!({
+                "app_id":42, "slug":"fixture-app", "name":"Fixture's App",
+                "owner_login":"fixture-owner", "client_id":"fixture-client-id",
+                "html_url":"https://github.com/apps/fixture-app", "secrets_ciphertext":ciphertext
+            })
+        );
+    });
+}

@@ -167,6 +167,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.key("Escape", 27, 0)?;
     b.wait("document.activeElement.getAttribute('aria-label')==='Toggle sidebar'")?;
     super::pickup::check(&mut b)?;
+    github_check(root, &mut b)?;
     b.sign_out()?;
     b.wait("location.pathname==='/login'")?;
     println!(
@@ -186,5 +187,147 @@ pub(crate) fn visible_page(b: &mut Browser, path: &Path) -> super::Result {
         path,
         STANDARD.decode(png["data"].as_str().ok_or("missing PNG")?)?,
     )?;
+    Ok(())
+}
+
+fn github_check(root: &Path, b: &mut Browser) -> super::Result {
+    let output = root.join("docs/screenshots/TIK-70");
+    fs::create_dir_all(&output)?;
+    // Capture the real previous Settings surface from explicitly supplied base assets.
+    if let Some(assets) = std::env::var_os("TICKETS_GITHUB_BEFORE_ASSETS") {
+        let server = FixtureServer::start(Path::new(&assets))?;
+        let mut before = Browser::start_named(root, "github-before")?;
+        before.call(
+            "Emulation.setEmulatedMedia",
+            serde_json::json!({"features":[{"name":"prefers-reduced-motion","value":"reduce"}]}),
+        )?;
+        for (name, width, height) in [("desktop", 1440, 900), ("mobile", 390, 844)] {
+            before.viewport(width, height)?;
+            before.go(&format!("{}/design/settings/account", server.url))?;
+            before.wait("!!document.querySelector('.settings-section') && !document.querySelector('#display-name')?.disabled")?;
+            before.wait("!document.querySelector('.settings-github')")?;
+            before.eval("document.fonts.ready.then(()=>true)")?;
+            github_page(
+                &mut before,
+                &output.join(format!("before-settings-{name}.png")),
+            )?;
+            github_crop(
+                &mut before,
+                ".settings-section",
+                &output.join(format!("before-section-{name}.png")),
+            )?;
+        }
+    }
+    b.viewport(1440, 900)?;
+    b.go("http://127.0.0.1:8795/settings/appearance")?;
+    b.wait("!!document.querySelector('[aria-label=Motion]')")?;
+    b.eval("window.githubFetch=window.fetch;window.githubReply={registered:false,app_slug:null,app_name:null,html_url:null,installations:[]};window.fetch=(url,options)=>(url.url || String(url)).endsWith('/github/app') ? new Promise(resolve=>{window.githubResolve=()=>resolve(new Response(JSON.stringify(window.githubReply),{status:window.githubStatus || 200,headers:{'Content-Type':'application/json'}}));if(!window.githubHold)window.githubResolve();}) : window.githubFetch(url,options);window.githubHold=true;true")?;
+    b.click(".settings-nav a[href='/settings/account']")?;
+    b.wait("document.querySelector('.settings-github')?.textContent.includes('Loading GitHub connection') && !document.querySelector('.settings-github a')")?;
+    b.eval("window.githubHold=false;window.githubResolve();true")?;
+    b.wait("document.querySelector('.settings-github a.button')?.textContent==='Connect GitHub'")?;
+    b.wait("document.querySelector('.settings-github a.button').getAttribute('href')==='/github/app/register' && document.querySelector('.settings-github a.button').rel==='external'")?;
+    b.wait("document.querySelector('.settings-github a[href=\"/github/app/register?name=alt\"]')?.rel==='external'")?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    github_page(b, &output.join("after-settings-not-registered-desktop.png"))?;
+    github_crop(
+        b,
+        ".settings-github",
+        &output.join("after-section-not-registered-desktop.png"),
+    )?;
+    // Prove the link unloads the SPA and reaches the session-gated Worker page.
+    b.eval("window.githubSpaMarker=true;true")?;
+    b.click(".settings-github a.button")?;
+    b.wait("location.pathname==='/github/app/register' && !window.githubSpaMarker && !!document.querySelector('main')")?;
+    b.go("http://127.0.0.1:8795/settings/appearance")?;
+    b.wait("!!document.querySelector('[aria-label=Motion]')")?;
+    b.eval("window.githubFetch=window.fetch;window.githubReply={registered:true,app_slug:'tickets-fixture',app_name:'Tickets Fixture',html_url:'https://github.com/apps/tickets-fixture',installations:[]};window.fetch=(url,options)=>(url.url || String(url)).endsWith('/github/app') ? Promise.resolve(new Response(JSON.stringify(window.githubReply),{status:window.githubStatus || 200,headers:{'Content-Type':'application/json'}})) : window.githubFetch(url,options);true")?;
+    b.click(".settings-nav a[href='/settings/account']")?;
+    b.wait("document.querySelector('.settings-github a.button')?.textContent.includes('Install on GitHub') && document.querySelector('.settings-github a.button').href==='https://github.com/apps/tickets-fixture/installations/new'")?;
+    b.wait("document.querySelector('.settings-github .subtle-link')?.href==='https://github.com/apps/tickets-fixture'")?;
+    for selection in ["all", "selected"] {
+        b.click(".settings-nav a[href='/settings/appearance']")?;
+        b.wait("!!document.querySelector('[aria-label=Motion]')")?;
+        b.eval(&format!("window.githubReply.installations=[{{account_login:'fixture-org',repository_selection:'{selection}',repos:[]}}];true"))?;
+        b.click(".settings-nav a[href='/settings/account']")?;
+        b.wait("document.querySelector('.settings-github')?.textContent.includes('Connected') && document.querySelector('.settings-github').textContent.includes('fixture-org')")?;
+        b.wait(&format!(
+            "document.querySelector('.settings-github').textContent.includes('{} repositories')",
+            if selection == "all" {
+                "All"
+            } else {
+                "Selected"
+            }
+        ))?;
+        b.wait("document.querySelector('.settings-github a.button').textContent.includes('Manage on GitHub') && document.querySelector('.settings-github a.button').href==='https://github.com/apps/tickets-fixture/installations/new'")?;
+    }
+    for (name, width, height) in [("desktop", 1440, 900), ("mobile", 390, 844)] {
+        b.viewport(width, height)?;
+        b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+        b.eval("document.fonts.ready.then(()=>true)")?;
+        github_page(
+            b,
+            &output.join(format!("after-settings-installed-{name}.png")),
+        )?;
+        b.eval("document.querySelector('.settings-github').scrollIntoView({block:'center'});true")?;
+        github_crop(
+            b,
+            ".settings-github",
+            &output.join(format!("after-section-installed-{name}.png")),
+        )?;
+    }
+    b.click(".settings-nav a[href='/settings/appearance']")?;
+    b.wait("!!document.querySelector('[aria-label=Motion]')")?;
+    b.eval("window.githubStatus=503;window.githubReply={error:{message:'Fixture GitHub unavailable'}};true")?;
+    b.click(".settings-nav a[href='/settings/account']")?;
+    b.wait("document.querySelector('.settings-github [role=alert]')?.textContent.includes('Fixture GitHub unavailable') && !document.querySelector('.settings-github a.button')")?;
+    b.eval("window.githubStatus=200;window.githubReply={registered:false,app_slug:null,app_name:null,html_url:null,installations:[]};true")?;
+    b.click(".settings-github button")?;
+    b.wait("document.querySelector('.settings-github a.button')?.textContent==='Connect GitHub'")?;
+    b.eval("document.querySelector('.settings-github').scrollIntoView({block:'center'});true")?;
+    github_crop(
+        b,
+        ".settings-github",
+        &output.join("after-section-not-registered-mobile.png"),
+    )?;
+    b.eval("window.scrollTo(0,0);window.fetch=window.githubFetch;true")?;
+    github_page(b, &output.join("after-settings-not-registered-mobile.png"))?;
+    println!(
+        "PASS GitHub settings: loading, errors/retry, full-page manifest navigation, install link, installed all/selected, desktop/mobile screenshots"
+    );
+    Ok(())
+}
+
+fn github_page(b: &mut Browser, path: &Path) -> super::Result {
+    let size = b.eval(
+        "({width:innerWidth,height:innerHeight,full:document.documentElement.scrollHeight})",
+    )?;
+    b.viewport(
+        size["width"].as_u64().unwrap() as u32,
+        size["full"].as_u64().unwrap() as u32,
+    )?;
+    b.eval("window.scrollTo(0,0);true")?;
+    visible_page(b, path)?;
+    b.viewport(
+        size["width"].as_u64().unwrap() as u32,
+        size["height"].as_u64().unwrap() as u32,
+    )?;
+    Ok(())
+}
+
+fn github_crop(b: &mut Browser, selector: &str, path: &Path) -> super::Result {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    let selector = serde_json::to_string(selector)?;
+    b.eval(&format!(
+        "document.querySelector({selector}).scrollIntoView({{block:'center'}});true"
+    ))?;
+    b.eval("document.fonts.ready.then(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true)))))")?;
+    let clip = b.eval(&format!("(()=>{{const r=document.querySelector({selector}).getBoundingClientRect();return {{x:Math.max(0,r.x+scrollX-8),y:Math.max(0,r.y+scrollY-8),width:r.width+16,height:r.height+16,scale:2}}}})()"))?;
+    let png = b.call("Page.captureScreenshot", serde_json::json!({"format":"png","fromSurface":true,"captureBeyondViewport":true,"clip":clip}))?;
+    fs::write(
+        path,
+        STANDARD.decode(png["data"].as_str().ok_or("missing GitHub crop")?)?,
+    )?;
+    println!("Screenshot: {}", path.display());
     Ok(())
 }
