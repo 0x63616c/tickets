@@ -7,6 +7,8 @@ pub use feedback::*;
 pub use motion::*;
 pub use popup::*;
 mod controls;
+mod ticket_hit;
+pub(crate) use ticket_hit::*;
 mod icons;
 mod overlays;
 mod palette;

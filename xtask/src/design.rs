@@ -443,9 +443,22 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     }
     b.go("http://127.0.0.1:8795/board")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
+    // A completed/canceled drag must never turn its trailing click into navigation.
+    b.eval("(()=>{const c=document.querySelector('#ticket-1');c.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));c.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer:new DataTransfer()}));c.dispatchEvent(new DragEvent('dragend',{bubbles:true}));c.click();return true})()")?;
+    b.wait("location.pathname==='/board' && document.querySelector('.board').getAttribute('aria-busy')!=='true'")?;
+    // The body, not only the title link, opens the ticket; Enter does too.
+    b.click("#ticket-1 .ticket-id")?;
+    b.wait("location.pathname==='/t/TKT-1' && !!document.querySelector('.ticket-detail')")?;
+    b.go("http://127.0.0.1:8795/board")?;
+    b.wait("!!document.querySelector('#ticket-1')")?;
+    b.eval("document.querySelector('#ticket-1').focus();true")?;
+    b.key("Enter", 13, 0)?;
+    b.wait("location.pathname==='/t/TKT-1'")?;
+    b.go("http://127.0.0.1:8795/board")?;
+    b.wait("document.querySelectorAll('.ticket-card').length===6")?;
     b.click(".canceled-toggle input")?;
     b.wait("location.search.includes('canceled=true') && document.querySelectorAll('.ticket-card').length===7")?;
-    b.wait("document.querySelectorAll('.board-column').length===6 && document.body.innerText.includes('Blocked by TKT-1') && !!document.querySelector('.card-meta .avatar[title=agent]') && !document.querySelector('#ticket-1 .card-meta').textContent.includes('Unassigned')")?;
+    b.wait("document.querySelectorAll('.board-column').length===6 && document.body.innerText.includes('Blocked by TKT-1')")?;
     b.eval("document.querySelector('#ticket-1').focus()")?;
     b.key("ArrowRight", 39, 0)?;
     b.wait("document.activeElement.id==='ticket-2'")?;
@@ -479,9 +492,11 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.wait("document.body.innerText.includes('Order saved') && document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
-    // Native status select supplies the touch / keyboard alternative.
+    b.wait("location.pathname==='/board'")?;
+    // Shared status select supplies the touch / keyboard alternative.
     b.choose("#ticket-7 [role=combobox]", "Todo")?;
     b.wait("document.querySelector('#ticket-7')?.closest('section').getAttribute('aria-label')==='Todo' && document.body.innerText.includes('Order saved')")?;
+    b.wait("location.pathname==='/board'")?;
     b.choose(r#"[aria-label="Filter by label"]"#, "1")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
     b.choose(r#"[aria-label="Filter by assignee"]"#, "agent")?;
@@ -582,8 +597,13 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("location.pathname==='/t/TKT-1' && document.querySelector('.ticket-detail h1')?.textContent.includes('Remember filters')")?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
     b.wait("!!document.querySelector('#list-ticket-1')")?;
+    b.click("#list-ticket-1 .ticket-id")?;
+    b.wait("location.pathname==='/t/TKT-1' && !!document.querySelector('.ticket-detail')")?;
+    b.go("http://127.0.0.1:8795/list?project=1")?;
+    b.wait("!!document.querySelector('#list-ticket-1')")?;
     b.choose(r#"[aria-label="Status for TKT-1"]"#, "Todo")?;
     b.wait("document.querySelector('#list-ticket-1')?.closest('section').getAttribute('aria-label')==='Todo' && document.querySelector('.ticket-list').getAttribute('aria-busy')==='false'")?;
+    b.wait("location.pathname==='/list'")?;
     b.choose(r#"[aria-label="Priority for TKT-1"]"#, "Urgent")?;
     b.wait("document.querySelector('[aria-label=\"Priority for TKT-1\"]').value==='Urgent' && document.querySelector('.ticket-list').getAttribute('aria-busy')==='false'")?;
     b.go("http://127.0.0.1:8795/list?project=1&status=Todo&sort=priority")?;

@@ -246,10 +246,10 @@ fn ListRow(ticket: BoardTicket, selected: Callback<i64>) -> impl IntoView {
         .map(|l| l.name.clone())
         .collect::<Vec<_>>()
         .join(", ");
-    view! {<article class="ticket-row api-list-row" data-motion-key=format!("ticket-{id}") id=format!("list-ticket-{id}") tabindex="0" aria-label=format!("{}: {}",ticket.key,ticket.title)>
+    view! {<article class="ticket-row api-list-row" data-motion-key=format!("ticket-{id}") id=format!("list-ticket-{id}") tabindex="0" aria-label=format!("{}: {}",ticket.key,ticket.title) on:click=move|e|{if !ticket_interactive_target(e.target()){selected.run(id);}}>
         <span class="inline-property"><PriorityIcon priority/><SelectField label=format!("Priority for {}",ticket.key) value=Signal::derive(move||priority.name().to_string()) options=Signal::derive(move||options(&Priority::ALL.map(Priority::name))) on_change=Callback::new(move|next:String|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==next){edit(state,id,"priority",json!(p));}}) disabled=Signal::derive(move||state.busy.get())/></span>
         <span class="mono ticket-id" title=ticket.key.clone()>{ticket.key.clone()}</span><span class="inline-property"><StatusIcon status/><SelectField label=format!("Status for {}",ticket.key) value=Signal::derive(move||status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|edit(state,id,"status",json!(Status::from_name(&next)))) disabled=Signal::derive(move||state.busy.get())/></span>
-        <button class="row-title" title=ticket.title.clone() on:click=move|_|selected.run(id)>{ticket.title.clone()}</button>
+        <a class="row-title" href=format!("/t/{}",ticket.key) title=ticket.title.clone()>{ticket.title.clone()}</a>
         <span class="row-blocked-slot">{move||{let keys=blockers.iter().filter_map(|id|state.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|t.key).collect::<Vec<_>>();(!keys.is_empty()).then(||view!{<span class="row-blocked" title=format!("Blocked by {}",keys.join(", "))><Icon name="blocked"/>"Blocked"</span>})}}</span>
         <span class="row-labels" title=label_titles>{ticket.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</span>
         <span class="row-comments">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<Icon name="comment"/>{n}})}</span>

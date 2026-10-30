@@ -3,6 +3,8 @@ mod auth;
 mod auth_verify;
 mod autofill;
 #[cfg(not(target_arch = "wasm32"))]
+mod cards;
+#[cfg(not(target_arch = "wasm32"))]
 mod cleanup;
 #[cfg(not(target_arch = "wasm32"))]
 mod component;
@@ -104,6 +106,8 @@ fn main() -> Result {
         Some("settings-shot") => settings::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-check") => api_smoke::settings(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("card-shots") => cards::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("component-shot") => component::run(root,&args[1..]),
         #[cfg(not(target_arch = "wasm32"))]
