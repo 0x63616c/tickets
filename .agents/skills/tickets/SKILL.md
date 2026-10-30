@@ -200,7 +200,7 @@ Complete Comment example (all three single-comment response methods):
 {"id":1,"ticket_id":1,"author":"Build agent","author_kind":"bot","body":"Reviewed.","body_html":"<p>Reviewed.</p>\n","created_at":"2026-10-30T10:00:00.000Z","updated_at":"2026-10-30T10:01:00.000Z","edited_at":"2026-10-30T10:01:00.000Z","deleted_at":null,"deleted":false,"can_edit":true}
 ```
 
-`can_edit` is caller-specific; identity IDs stay private. DELETE retains an
+`can_edit` is caller-specific; comment responses omit ownership IDs. DELETE retains an
 empty-body stub in GET/list (`deleted:true`, `deleted_at` set, `can_edit:false`).
 Counts exclude deleted comments. Mutating a deleted own comment returns 404;
 legacy comments without durable identity are read-only. History records

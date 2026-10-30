@@ -783,11 +783,13 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
         const call=async(path,body,method='POST',token)=>{const r=await fetch('/api/v1/'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});if(!r.ok)throw Error('Comment fixture failed');return r.json()};
         await call('me',{display_name:'Sample User'},'PATCH');
         const edited=await call('tickets/1/comments',{body:'Ready for review. **Keyboard support** is complete.'});
+        if(edited.author!=='Sample User'||edited.author_kind!=='user'||!edited.can_edit)throw Error('Stale Worker: comment identity missing');
         await call('comments/'+edited.id,{body:'Ready for review. **Keyboard support** and focus states are complete.'},'PATCH');
         const deleted=await call('tickets/1/comments',{body:'Superseded progress note.'});
         await call('comments/'+deleted.id,undefined,'DELETE');
         const bot=await call('tokens',{name:'Build agent'});
-        await call('tickets/1/comments',{body:'Checks passed. The implementation is ready for handoff.'},'POST',bot.token);
+        const handoff=await call('tickets/1/comments',{body:'Checks passed. The implementation is ready for handoff.'},'POST',bot.token);
+        if(handoff.author!=='Build agent'||handoff.author_kind!=='bot')throw Error('Stale Worker: bot identity missing');
         return true;
     })()"#)?;
     b.go("http://127.0.0.1:8795/ticket?id=1")?;
@@ -796,6 +798,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("(async()=>{const t=await fetch('/api/v1/tickets/1').then(r=>r.json());for(const patch of [{priority:1,status:'in_progress'}, {priority:t.priority,status:t.status}]) {const r=await fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});if(!r.ok)throw Error('history fixture failed');}return true})()")?;
     b.go("http://127.0.0.1:8795/ticket?id=1")?;
     b.wait("!!document.querySelector('.activity') && document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
+    b.wait("getComputedStyle(document.querySelector('.sidebar')).width==='240px' && getComputedStyle(document.querySelector('.ticket-detail')).fontFamily.includes('Inter')")?;
     b.eval("document.fonts.ready.then(()=>true)")?;
     let before = env::var_os("TICKETS_BEFORE_ASSETS").is_some();
     let prefix = if before { "before" } else { "after" };
@@ -894,11 +897,19 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("window.commentPostFetch=window.fetch;window.fetch=(i,o)=>{const u=typeof i==='string'?i:i.url;const m=i instanceof Request?i.method:o?.method;if(m==='POST' && u.endsWith('/comments'))return new Promise(resolve=>{window.releaseComment=()=>resolve(window.commentPostFetch(i,o));});return window.commentPostFetch(i,o);};true")?;
     b.key("Enter", 13, 4)?;
     b.wait("!!document.querySelector('.comment-pending') && document.querySelector('.comment-form button[type=submit]').disabled")?;
+    // The longer soft-delete timeline puts a newly prepended row offscreen.
+    // Bring the pending row into view before its saved replacement mounts;
+    // ascii-reveal intentionally skips text outside the viewport.
+    b.eval("document.querySelector('.comment-pending').scrollIntoView({block:'center'});new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))")?;
     b.eval("window.releaseComment();window.fetch=window.commentPostFetch;true")?;
     b.wait("!!document.querySelector('.comment strong') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
-    b.wait(
+    b.eval("document.querySelector('.comment:not(.comment-deleted)')?.scrollIntoView({block:'center'});true")?;
+    if let Err(error) = b.wait(
         "window.commentDecoded && !window.headingDecoded && !document.querySelector('[data-ar-t]')",
-    )?;
+    ) {
+        let flags=b.eval("({commentDecoded:window.commentDecoded,headingDecoded:window.headingDecoded,remaining:document.querySelectorAll('[data-ar-t]').length})")?;
+        return Err(format!("{error}; reveal diagnostics: {flags}").into());
+    }
     b.eval("window.commentDecoded=false;true")?;
     click_text(b, ".comment button", "Edit")?;
     b.wait("document.activeElement===document.querySelector('.comment textarea')")?;
@@ -919,9 +930,12 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("document.querySelector('.comment-edited')?.textContent.includes('UTC')")?;
     b.click(".comment-edited")?;
     b.wait("document.querySelector('.comment:not(.comment-deleted) .markdown')?.textContent.includes('Reviewed:') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
-    b.wait(
+    if let Err(error) = b.wait(
         "window.commentDecoded && !window.headingDecoded && !document.querySelector('[data-ar-t]')",
-    )?;
+    ) {
+        let flags=b.eval("({commentDecoded:window.commentDecoded,headingDecoded:window.headingDecoded,remaining:document.querySelectorAll('[data-ar-t]').length})")?;
+        return Err(format!("{error}; reveal diagnostics: {flags}").into());
+    }
     b.eval("window.commentObserver.disconnect();true")?;
     select_value(b, "Project", "2")?;
     b.wait("document.querySelector('.detail-overline .mono')?.textContent==='QUA-96' && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
@@ -959,7 +973,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     select_value(b, "Status", "Done")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.includes('Verification rejection') && document.querySelector('[aria-label=Status]').value==='In progress'")?;
     b.eval("window.fetch=window.savedFetch;true")?;
-    b.wait("fetch('/api/v1/tickets/2/history?limit=100').then(r=>r.json()).then(p=>['created','title','description','status','priority','assignee','label_added','label_removed','blocks_added','project'].every(f=>p.data.some(e=>e.field===f)) && p.data.some(e=>e.actor_kind==='user') && p.data.filter(e=>e.actor_kind==='user').every(e=>e.actor_label==='Owner') && !p.data.some(e=>e.field==='status' && e.new_value==='done'))")?;
+    b.wait("fetch('/api/v1/tickets/2/history?limit=100').then(r=>r.json()).then(p=>['created','title','description','status','priority','assignee','label_added','label_removed','blocks_added','project'].every(f=>p.data.some(e=>e.field===f)) && p.data.some(e=>e.actor_kind==='user') && p.data.filter(e=>e.actor_kind==='user').every(e=>['fixture','Sample User'].includes(e.actor_label)) && p.data.some(e=>e.actor_label==='Sample User') && !p.data.some(e=>e.field==='status' && e.new_value==='done'))")?;
     b.eval(r#"(async()=>{const t=await fetch('/api/v1/tickets/2').then(r=>r.json());for(const body of ["<script>window.historyXss=1</script><img src=x onerror='window.historyXss=1'>",t.body]) {const r=await fetch('/api/v1/tickets/2',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({body})});if(!r.ok)throw Error('history XSS seed');}return true})()"#)?;
     b.go("http://127.0.0.1:8795/ticket?id=2")?;
     b.wait("!!document.querySelector('.history-diff summary') && document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
@@ -1011,7 +1025,12 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     Ok(())
 }
 fn click_text(b: &mut Browser, selector: &str, text: &str) -> Result<()> {
-    b.eval(&format!("(()=>{{const e=[...document.querySelectorAll({})].find(e=>e.textContent.trim()==={});if(!e)throw Error('Missing button');e.click();return true;}})()",serde_json::to_string(selector)?,serde_json::to_string(text)?))?;
+    b.wait(&format!(
+        "[...document.querySelectorAll({})].some(e=>e.textContent.trim()==={} && !e.disabled)",
+        serde_json::to_string(selector)?,
+        serde_json::to_string(text)?
+    ))?;
+    b.eval(&format!("(()=>{{const e=[...document.querySelectorAll({})].find(e=>e.textContent.trim()==={} && !e.disabled);if(!e)throw Error('Missing button');e.click();return true;}})()",serde_json::to_string(selector)?,serde_json::to_string(text)?))?;
     Ok(())
 }
 pub(crate) fn select_value(b: &mut Browser, label: &str, value: &str) -> Result<()> {

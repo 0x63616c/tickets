@@ -181,7 +181,11 @@ fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
     run_inner_mode(root, skill, board, "board")
 }
 fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<()> {
-    super::build(root)?;
+    if std::env::var("TICKETS_SKIP_BUILD").as_deref() != Ok("1") {
+        super::build(root)?;
+    } else {
+        println!("Using prebuilt local web/Worker assets (TICKETS_SKIP_BUILD=1)");
+    }
     let mut random = [0u8; 24];
     getrandom::getrandom(&mut random).map_err(|_| "randomness unavailable")?;
     let password = tickets_core::auth::hex(&random);

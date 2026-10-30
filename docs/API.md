@@ -190,7 +190,7 @@ creation; renaming never transfers ownership. `github` and `system` remain for
 imported/machine activity. Legacy authors with no durable identity remain read-only.
 `can_edit` is caller-specific and applies to both PATCH and DELETE. Only the same
 user or same token may mutate a comment, otherwise 403 `error.code:"forbidden"`.
-There is no owner override, including for bot comments. Identity IDs are private.
+There is no owner override, including for bot comments. Comment responses omit internal ownership IDs.
 
 DELETE soft-deletes and preserves storage/history. GET and lists retain a stub
 with `body:""`, `body_html:""`, `deleted:true`, `deleted_at` set, and

@@ -154,6 +154,14 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   separate local network namespaces. Browser policies must permit loopback access;
   isolate any test-only policy override to the child process, never shared settings.
 
+For a browser/runtime-only retry after a successful local build, set
+`TICKETS_SKIP_BUILD=1` on api-smoke/skill-check/browser checks. This still creates
+fresh isolated local D1 state; it only reuses web/Worker outputs. Verify those
+outputs belong to the current worktree (shared Cargo artifacts can be replaced
+by another job); use `RUSTC_WRAPPER=` and touch the Worker crate root to force a
+fresh compile if identity fixture assertions detect an old Worker. CI leaves
+this option unset and builds normally.
+
 ## Authentication conventions
 - All `/api/*` handlers must pass through the Worker auth gate, except health, login, and the independently HMAC-authenticated GitHub webhook. Invalid Authorization headers must not fall back to a cookie.
 - Cookie-auth mutations require a matching Origin; bearer-auth mutations do not.
@@ -177,7 +185,8 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
 - Keep tool logic in Rust `xtask`. `cargo xtask design-check` checks a local
   running UI through Chromium and captures 1440×900 dark screenshots. See
   `docs/design-system.md` for browser, server, and output overrides.
-- UI screenshots must show actual rendered routes with fonts loaded. Include
+- UI screenshots must show actual rendered routes with fonts loaded. CDP crop
+  coordinates include `window.scrollX/Y`; add those offsets to viewport rectangles. Include
   the previous real UI as the before image; the scaffold exception no longer
   applies. Font OFL notices live alongside the bundled fonts, not as a repo license.
 
