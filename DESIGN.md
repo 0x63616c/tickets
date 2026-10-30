@@ -26,6 +26,7 @@ semantic tokens and controls rather than introducing a parallel palette.
 | Backlog / Todo / In progress | `#8a8f98` / `#d0d6e0` / `#f0bf00` |
 | In review / Done / Canceled | `#27a644` / `#5e6ad2` / `#8a8f98` |
 | Urgent / high / medium / low priority | `#eb5757` / `#d0d6e0` / `#8a8f98` / `#8a8f98` |
+| Blocked dependency | `#f07856` |
 | Success / warning / danger | `#27a644` / `#f0bf00` / `#eb5757` |
 | Feature / bug / infra / design label | `#8b82d9` / `#eb5757` / `#4ea7fc` / `#c6a1b9` |
 
