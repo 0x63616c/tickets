@@ -25,7 +25,7 @@ pub fn shots(root: &Path) -> super::Result {
             format!("/design/settings/{section}")
         };
         b.go(&format!("{}{route}", server.url))?;
-        b.wait("!!document.querySelector('.settings-panel, .settings-section')")?;
+        b.wait("!!document.querySelector('.settings-panel, .settings-section, .token-inventory')")?;
         b.eval("document.fonts.ready.then(()=>true)")?;
         visible_page(
             &mut b,
@@ -58,7 +58,7 @@ pub fn shots(root: &Path) -> super::Result {
             "/design/settings/account"
         }
     ))?;
-    b.wait("!!document.querySelector('.settings-panel, .settings-section')")?;
+    b.wait("!!document.querySelector('.settings-panel, .settings-section, .token-inventory')")?;
     visible_page(
         &mut b,
         &output.join(format!("{prefix}-settings-mobile.png")),
@@ -94,14 +94,40 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.click("[aria-controls=sidebar-projects]")?;
     b.go("http://127.0.0.1:8795/settings/tokens")?;
     b.wait("location.pathname==='/settings/api-tokens' && !document.querySelector('#token-label')?.disabled")?;
+    b.click(".token-create")?;
     b.text("#token-label", "Settings check")?;
-    b.click(".settings-footer button")?;
+    b.eval("window.tokenFetch=window.fetch;window.fetch=(url,options)=>(url.url || String(url)).endsWith('/tokens') && (options?.method || url.method)==='POST' ? Promise.resolve(new Response(JSON.stringify({error:{message:'Fixture create failed'}}),{status:503,headers:{'Content-Type':'application/json'}})) : window.tokenFetch(url,options);true")?;
+    b.click(".settings-footer button[type=submit]")?;
+    b.wait("document.querySelector('#token-create-error').textContent.includes('Fixture create failed') && document.querySelector('#token-label').value==='Settings check' && !document.querySelector('.secret')")?;
+    b.eval("window.fetch=window.tokenFetch;true")?;
+    b.click(".settings-footer button[type=submit]")?;
     b.wait(
         "!!document.querySelector('.secret') && document.querySelectorAll('.tokens li').length===1",
     )?;
-    b.click(".secret .button-ghost")?;
+    // Clipboard rejection must preserve the secret and permit manual acknowledgement.
+    b.eval("window.tokenCopy=navigator.clipboard.writeText.bind(navigator.clipboard);navigator.clipboard.writeText=()=>Promise.reject(Error('Fixture clipboard denied'));true")?;
+    b.click(".secret button")?;
+    b.wait("document.querySelector('#token-copy-status').textContent.includes('copy it manually') && !!document.querySelector('.secret textarea')")?;
+    b.eval("navigator.clipboard.writeText=window.tokenCopy;true")?;
+    b.key("Escape", 27, 0)?;
+    b.wait("!!document.querySelector('.secret') && document.querySelector('.token-acknowledge').disabled")?;
+    b.click(".token-saved input")?;
+    b.click(".token-acknowledge")?;
     b.wait("!document.querySelector('.secret')")?;
     b.click(".tokens button")?;
+    b.wait("document.querySelector('dialog')?.textContent.includes('Settings check')")?;
+    b.key("Escape", 27, 0)?;
+    b.wait(
+        "!document.querySelector('dialog') && document.activeElement.matches('.tokens button')",
+    )?;
+    b.click(".tokens button")?;
+    b.eval("window.fetch=(url,options)=>(options?.method || url.method)==='DELETE' ? Promise.resolve(new Response(JSON.stringify({error:{message:'Fixture revoke failed'}}),{status:503,headers:{'Content-Type':'application/json'}})) : window.tokenFetch(url,options);true")?;
+    b.click(".modal-footer .button-danger")?;
+    b.wait("document.querySelector('.token-revoke').textContent.includes('Fixture revoke failed') && document.querySelectorAll('.tokens li').length===1")?;
+    b.eval("window.fetch=window.tokenFetch;true")?;
+    b.click(".modal-footer .button-danger")?;
+    b.wait("document.querySelector('.token-result').textContent.includes('Revoked Settings check') && !document.querySelector('.tokens li')")?;
+    b.click(".token-history input")?;
     b.wait("document.querySelector('.tokens').textContent.includes('Revoked')")?;
     b.go("http://127.0.0.1:8795/settings/appearance")?;
     b.wait("!!document.querySelector('[aria-label=Motion]')")?;
@@ -140,7 +166,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     Ok(())
 }
 
-fn visible_page(b: &mut Browser, path: &Path) -> super::Result {
+pub(crate) fn visible_page(b: &mut Browser, path: &Path) -> super::Result {
     use base64::{Engine, engine::general_purpose::STANDARD};
     b.eval("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))")?;
     let png = b.call(

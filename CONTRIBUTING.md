@@ -475,3 +475,18 @@ project icon schema changes additive and validate values in core.
   keyboard selection/preview, discard protection, reduced motion and mobile fit.
   `board-check` verifies all six starting statuses against local D1, context defaults,
   Tab/submit shortcuts, busy locking and partial label failure without duplicates.
+
+## API token UI conventions
+
+- `/settings/api-tokens` leads with active token metadata. Token IDs distinguish
+  duplicate names; Show revoked preserves access to history. Last used means the
+  last successful authentication, not agent health. Tokens have full workspace
+  access and no expiration; do not expose unsupported scope/expiry controls.
+- Creation keeps the returned secret in memory in a locked shared Modal until
+  the user explicitly acknowledges saving it. Never put it in storage or a toast.
+  Copy failure permits manual selection. A browser unload warns while creating
+  or displaying the secret. Revoke requires the token's name and ID in a confirmation.
+- `CHROME_BIN=<headless-chromium> cargo xtask tokens-shot` captures fixture-only
+  Settings pages and cropped 2× component states at desktop/mobile sizes in
+  `docs/screenshots/TIK-41/`. The fixture secret is deliberately invalid. Use
+  `settings-check` for the real local token lifecycle and `polish-check` for regression.
