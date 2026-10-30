@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# xtask browser checks each call npm ci. Rewriting identical imported JS makes
+# Cargo rebuild the release Wasm every time. Reuse only this exact CI install;
+# all other npm commands retain their normal behavior.
+set -euo pipefail
+
+if [[ "$#" != 3 || "$1" != ci || "$2" != --prefix || "$3" != crates/web ]]; then
+  exec "${TICKETS_REAL_NPM:?}" "$@"
+fi
+
+stamp="${RUNNER_TEMP:?}/tickets-web-npm-ci.sha256"
+fingerprint=$(sha256sum crates/web/package.json crates/web/package-lock.json)
+if [[ -d crates/web/node_modules && -f "$stamp" && "$(cat "$stamp")" == "$fingerprint" ]]; then
+  echo 'Reusing web node_modules: package.json and package-lock.json unchanged.'
+  exit 0
+fi
+
+# Never retain a successful stamp after a failed install.
+rm -f "$stamp"
+"${TICKETS_REAL_NPM:?}" "$@"
+printf '%s\n' "$fingerprint" > "$stamp"
