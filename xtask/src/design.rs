@@ -323,7 +323,7 @@ pub fn check(root: &Path) -> super::Result {
     )?;
     browser.screenshot(&output.join("07-command-palette.png"))?;
     browser.key("ArrowDown", 40, 0)?;
-    browser.wait("document.activeElement?.classList.contains('menu-item')")?;
+    browser.wait("document.activeElement?.getAttribute('role')==='combobox' && !!document.querySelector('.command-option[aria-selected=true]')")?;
     browser.key("Escape", 27, 0)?;
     browser.wait("!document.querySelector('dialog')")?;
     browser.key("c", 67, 0)?;
@@ -341,7 +341,7 @@ pub fn check(root: &Path) -> super::Result {
         "**Verified** the saved view.",
     )?;
     browser.click(".comment-form button[type='submit']")?;
-    browser.wait("document.querySelector('.comment strong')?.textContent === 'You' && document.querySelector('.comment .markdown strong')?.textContent === 'Verified'")?;
+    browser.wait("document.querySelector('.comment strong')?.textContent === 'Sample User' && document.querySelector('.comment .markdown strong')?.textContent === 'Verified'")?;
     browser.go(&format!("{base}/design/ticket"))?;
     browser.click(".dependencies .button")?;
     browser.text("#dependency-search", "TKT-6")?;

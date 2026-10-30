@@ -35,6 +35,7 @@ pub mod markdown;
 pub mod api;
 pub mod auth;
 pub mod github;
+pub mod search;
 
 pub mod live;
 

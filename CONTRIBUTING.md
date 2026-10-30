@@ -468,3 +468,22 @@ project icon schema changes additive and validate values in core.
   keyboard selection/preview, discard protection, reduced motion and mobile fit.
   `board-check` verifies all six starting statuses against local D1, context defaults,
   Tab/submit shortcuts, busy locking and partial label failure without duplicates.
+
+## Command palette (TIK-44)
+
+- Cmd/Ctrl+K uses `/api/v1/search`, independent of loaded board pages. Exact keys
+  rank first; ordered-character fuzzy title/body matching combines relevance with
+  open status, update age and up to 20 locally viewed numeric IDs. Recent IDs are
+  stored in `tickets.recently-viewed`; unavailable storage is harmless. Search is
+  debounced and obsolete responses are canceled. Domain list `q` remains literal FTS.
+- `status:todo` and `p:QUA` combine with words. Search input retains keyboard focus;
+  arrows change the active descendant, Enter opens, Cmd/Ctrl+Enter opens ticket
+  actions. Escape/empty Backspace returns from action/value levels; Escape at the
+  root closes and restores the opener. Changes use existing PATCH routes and retain
+  the action level on errors. Project moves preserve GitHub provenance.
+- `CHROME_BIN=<headless-chromium> cargo xtask palette-check` exercises search,
+  actions, clipboard, mutation retry and stale responses against isolated local D1.
+  It shares port 8795 with the other Worker checks. `component-shot palette` captures
+  fixture-only states, 2× dialog crops, mobile and a full-page dark view. Pass
+  `--before-assets <base crates/web/dist> --output docs/screenshots/TIK-44` for the
+  previous real component, or omit `--before-assets` for the current implementation.

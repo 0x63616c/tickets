@@ -33,6 +33,8 @@ mod design;
 #[cfg(not(target_arch = "wasm32"))]
 mod first_run;
 #[cfg(not(target_arch = "wasm32"))]
+mod palette;
+#[cfg(not(target_arch = "wasm32"))]
 mod polish;
 #[cfg(not(target_arch = "wasm32"))]
 mod projects;
@@ -124,6 +126,8 @@ fn main() -> Result {
         Some("detail-check") => api_smoke::detail(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("polish-check") => api_smoke::polish(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("palette-check") => api_smoke::palette(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("contrast-check") => api_smoke::contrast(root),
         #[cfg(not(target_arch = "wasm32"))]
