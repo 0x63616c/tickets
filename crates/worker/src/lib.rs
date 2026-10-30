@@ -188,3 +188,38 @@ mod tests {
 pub mod analytics;
 
 pub mod mutation;
+
+pub mod pickup;
+
+#[cfg(target_arch = "wasm32")]
+#[event(scheduled)]
+pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+    let result = async {
+        let db = env.d1("DB")?;
+        let rows = pickup::sweep(&db)
+            .await
+            .map_err(|e| worker::Error::RustError(e.to_string()))?;
+        if !rows.is_empty() {
+            let mut projects = rows
+                .iter()
+                .filter_map(|v| v["project_id"].as_i64())
+                .collect::<Vec<_>>();
+            projects.sort_unstable();
+            projects.dedup();
+            let change = api::CommittedChange {
+                entity: "tickets".into(),
+                id: 0,
+                action: "update".into(),
+                projects,
+            };
+            if live::notify(&env, &db, change).await.is_err() {
+                console_error!("Claim expiry notification failed");
+            }
+        }
+        Ok::<(), worker::Error>(())
+    }
+    .await;
+    if result.is_err() {
+        console_error!("Claim expiry sweep failed");
+    }
+}

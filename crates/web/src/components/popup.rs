@@ -275,6 +275,7 @@ pub fn SelectField(
     #[prop(into)] value: Signal<String>,
     on_change: Callback<String>,
     #[prop(default=Signal::derive(||false),into)] disabled: Signal<bool>,
+    #[prop(optional, into)] described_by: Option<String>,
 ) -> impl IntoView {
     let popup = Popup::new();
     let panel_id = id("select");
@@ -284,7 +285,7 @@ pub fn SelectField(
     let fallback = label.clone();
     let list_label = label.clone();
     view! { <span class="select-root">
-        <button type="button" node_ref=popup.trigger class="select-trigger" role="combobox" aria-label=label aria-haspopup="listbox" aria-controls=aria_id aria-expanded=move||popup.open.get().to_string() disabled=disabled prop:value=move||value.get()
+        <button type="button" node_ref=popup.trigger class="select-trigger" role="combobox" aria-label=label aria-describedby=described_by aria-haspopup="listbox" aria-controls=aria_id aria-expanded=move||popup.open.get().to_string() disabled=disabled prop:value=move||value.get()
             on:click=move|e|{e.stop_propagation();popup.open.update(|v|*v= !*v);if popup.open.get_untracked(){popup.focus(None);}}
             on:keydown=move|e:web_sys::KeyboardEvent|{if ["Enter"," "].contains(&e.key().as_str()){e.prevent_default();e.stop_propagation();popup.open.update(|v|*v= !*v);if popup.open.get_untracked(){popup.focus(None);}}else if ["ArrowDown","ArrowUp","Home","End"].contains(&e.key().as_str()){e.prevent_default();e.stop_propagation();popup.open.set(true);popup.focus(match e.key().as_str(){"Home"=>Some(false),"End"|"ArrowUp"=>Some(true),_=>None});}else if e.key().chars().count()==1 && e.key()!=" " && !e.ctrl_key() && !e.meta_key(){e.prevent_default();e.stop_propagation();popup.open.set(true);let key=e.key().to_lowercase();request_animation_frame(move||{if popup.open.try_get_untracked()!=Some(true){return;}
                 if let Some(panel)=popup.panel.get_untracked() && let Ok(items)=panel.query_selector_all("[role=option]:not(:disabled)"){for i in 0..items.length(){if let Some(node)=items.item(i).and_then(|n|n.dyn_into::<web_sys::HtmlElement>().ok()) && node.text_content().unwrap_or_default().trim().to_lowercase().starts_with(&key){let _=node.focus();break;}}}});}}>

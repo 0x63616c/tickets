@@ -62,7 +62,12 @@ fn reply(value: Value, status: u16) -> Result<Response> {
     } else {
         value
     };
-    let mut r = Response::from_json(&value)?.with_status(status);
+    let mut r = if status == 204 {
+        Response::empty()?
+    } else {
+        Response::from_json(&value)?
+    }
+    .with_status(status);
     r.headers_mut().set("Cache-Control", "no-store")?;
     Ok(r)
 }

@@ -103,7 +103,11 @@ impl Client {
         if status != expected {
             return Err(format!("{m} {path}: expected {expected}, got {status}: {body}").into());
         }
-        let value: Value = serde_json::from_str(body)?;
+        let value: Value = if status == 204 && body.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_str(body)?
+        };
         if expected >= 400
             && (!value["error"]["code"].is_string() || !value["error"]["message"].is_string())
         {
@@ -119,6 +123,10 @@ pub fn import_check(root: &Path) -> Result<()> {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn mirror_check(root: &Path) -> Result<()> {
     run_inner_mode(root, false, false, "mirror")
+}
+#[cfg(not(target_arch = "wasm32"))]
+pub fn pickup(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, false, "pickup")
 }
 pub fn run(root: &Path, skill: bool) -> Result<()> {
     run_inner(root, skill, false)
@@ -266,6 +274,7 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
                 "127.0.0.1",
                 "--port",
                 &port.to_string(),
+                "--test-scheduled",
                 "--inspector-port",
                 "0",
                 "--config",
@@ -373,6 +382,10 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
             token["token"].as_str().ok_or("missing token")?
         ),
     )?;
+    #[cfg(not(target_arch = "wasm32"))]
+    if _view == "pickup" {
+        return pickup_check(&c, &config, &state);
+    }
     c.call("GET", "/api/v1/projects", Value::Null, "invalid", 401)?;
     c.call(
         "POST",
@@ -436,17 +449,17 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         201,
     )?;
     c.call("GET", "/api/v1/labels", Value::Null, "bearer", 200)?;
-    c.call("GET", "/api/v1/labels/1", Value::Null, "bearer", 200)?;
+    c.call("GET", "/api/v1/labels/2", Value::Null, "bearer", 200)?;
     c.call(
         "PATCH",
-        "/api/v1/labels/1",
+        "/api/v1/labels/2",
         json!({"name":"updated"}),
         "bearer",
         200,
     )?;
     c.call(
         "POST",
-        "/api/v1/tickets/1/labels/1",
+        "/api/v1/tickets/1/labels/2",
         Value::Null,
         "bearer",
         200,
@@ -482,7 +495,7 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     for filter in [
         "project=1",
         "status=todo",
-        "label=1",
+        "label=2",
         "assignee=agent",
         "blocked=true",
         "q=needle",
@@ -542,12 +555,12 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     )?;
     c.call(
         "DELETE",
-        "/api/v1/tickets/1/labels/1",
+        "/api/v1/tickets/1/labels/2",
         Value::Null,
         "bearer",
         200,
     )?;
-    c.call("DELETE", "/api/v1/labels/1", Value::Null, "bearer", 200)?;
+    c.call("DELETE", "/api/v1/labels/2", Value::Null, "bearer", 200)?;
     c.call("DELETE", "/api/v1/tickets/1", Value::Null, "bearer", 200)?;
     c.call("GET", "/api/v1/tickets/1", Value::Null, "bearer", 404)?;
     c.call(
@@ -577,6 +590,121 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     println!(
         "PASS: authenticated project/ticket/label/dependency/comment routes, filters, pagination, conflicts, sanitized Markdown, idempotent external upsert; local state: {}",
         c.dir.display()
+    );
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn pickup_check(c: &Client, config: &Path, state: &Path) -> Result<()> {
+    c.call("GET", "/api/v1/next", Value::Null, "", 401)?;
+    c.call("POST", "/api/v1/next/claim", json!({}), "csrf", 403)?;
+    c.call("GET", "/api/v1/next", Value::Null, "bearer", 204)?;
+    c.call(
+        "POST",
+        "/api/v1/projects",
+        json!({"name":"Pickup","key_prefix":"PICK","color":"#5e6ad2"}),
+        "bearer",
+        201,
+    )?;
+    for title in ["First", "Second"] {
+        c.call(
+            "POST",
+            "/api/v1/tickets",
+            json!({"project_id":1,"title":title,"status":"todo"}),
+            "bearer",
+            201,
+        )?;
+    }
+    let preview = c.call("GET", "/api/v1/next?project=1", Value::Null, "bearer", 200)?;
+    if preview["ticket"]["id"] != 1 || !preview["ticket"]["claimed_by"].is_null() {
+        return Err("preview mutated or chose wrong ticket".into());
+    }
+    let header = fs::read_to_string(c.dir.join("bearer.local"))?;
+    let token = header
+        .strip_prefix("Authorization: Bearer ")
+        .ok_or("missing local bearer")?
+        .trim()
+        .to_string();
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+    let threads: Vec<_> = (0..2)
+        .map(|_| {
+            let token = token.clone();
+            let barrier = barrier.clone();
+            let port = c.port;
+            std::thread::spawn(move || -> std::result::Result<Value, String> {
+                barrier.wait();
+                let response = reqwest::blocking::Client::new()
+                    .post(format!("http://127.0.0.1:{port}/api/v1/next/claim"))
+                    .bearer_auth(token)
+                    .json(&json!({"project":1}))
+                    .send()
+                    .map_err(|_| "claim request failed")?;
+                if response.status() != 200 {
+                    return Err("concurrent local claim failed".into());
+                }
+                response.json().map_err(|_| "invalid claim JSON".into())
+            })
+        })
+        .collect();
+    let mut claims = vec![];
+    for thread in threads {
+        claims.push(thread.join().map_err(|_| "claim thread failed")??);
+    }
+    if claims[0]["ticket"]["id"] == claims[1]["ticket"]["id"] {
+        return Err("two D1 claims returned same ticket".into());
+    }
+    c.call("POST", "/api/v1/next/claim", Value::Null, "bearer", 204)?;
+    let first = &claims[0]["ticket"];
+    let id = first["id"].as_i64().ok_or("missing claim ticket")?;
+    let heartbeat = format!("/api/v1/tickets/{id}/claim/heartbeat");
+    let release = format!("/api/v1/tickets/{id}/claim/release");
+    let body = json!({"claim_id":first["claim_id"]});
+    c.call("POST", &heartbeat, body.clone(), "cookie", 409)?;
+    c.call("POST", &heartbeat, body.clone(), "bearer", 200)?;
+    c.call("POST", &release, body.clone(), "bearer", 200)?;
+    c.call("POST", &heartbeat, body, "bearer", 409)?;
+    c.call("POST", "/api/v1/next/claim", Value::Null, "bearer", 200)?;
+    // Move the isolated fixture clock only. Never touches remote D1.
+    let output=Command::new("wrangler").args(["d1","execute","DB","--local","--config"]).arg(config).arg("--persist-to").arg(state).args(["--command","UPDATE tickets SET claim_expires_at='2000-01-01T00:00:00.000Z' WHERE claimed_by IS NOT NULL"]).output()?;
+    if !output.status.success() {
+        return Err("local fixture expiry failed".into());
+    }
+    let response = reqwest::blocking::get(format!(
+        "http://127.0.0.1:{}/__scheduled?cron=*+*+*+*+*",
+        c.port
+    ))?;
+    if !response.status().is_success() {
+        return Err("local cron failed".into());
+    }
+    for id in [1, 2] {
+        let ticket = c.call(
+            "GET",
+            &format!("/api/v1/tickets/{id}"),
+            Value::Null,
+            "bearer",
+            200,
+        )?;
+        if ticket["status"] != "todo" || !ticket["claimed_by"].is_null() {
+            return Err("cron failed to reclaim lease".into());
+        }
+        let history = c.call(
+            "GET",
+            &format!("/api/v1/tickets/{id}/history"),
+            Value::Null,
+            "bearer",
+            200,
+        )?;
+        if !history["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|h| h["field"] == "expiry")
+        {
+            return Err("cron omitted history".into());
+        }
+    }
+    println!(
+        "PASS pickup D1: authentication, CSRF, empty 204, preview, concurrent HTTP claims, owner fencing, heartbeat, release, cron and history"
     );
     Ok(())
 }

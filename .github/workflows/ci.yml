@@ -25,6 +25,8 @@ jobs:
       - run: cargo xtask ci
         env:
           LINT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
+      - run: cargo xtask pickup-check
+      - run: CHROME_BIN=google-chrome cargo xtask settings-check
       - run: cargo xtask skill-check
       - run: cargo xtask import-check
       - run: CHROME_BIN=google-chrome cargo xtask mirror-check

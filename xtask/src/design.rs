@@ -474,7 +474,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
         const titles=['Remember filters when switching views','Group the ticket list by status','Move tickets between board columns','Review imported labels','Set up the Rust workspace','Retire the old importer'];
         for(let i=0;i<6;i++){
             await api('tickets',{project_id:1,title:titles[i],status:statuses[i],priority:2,assignee:i%2?'agent':null,sort_order:1024});
-            await api('tickets/'+(i+1)+'/labels/1',{});
+            await api('tickets/'+(i+1)+'/labels/2',{});
         }
         await api('tickets',{project_id:1,title:'Add a keyboard shortcut reference',status:'todo',priority:4,sort_order:2048});
         await api('tickets/1/dependencies/2',{});
@@ -546,7 +546,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.choose("#ticket-7 [role=combobox]", "Todo")?;
     b.wait("document.querySelector('#ticket-7')?.closest('section').getAttribute('aria-label')==='Todo' && document.body.innerText.includes('Order saved')")?;
     b.wait("location.pathname==='/board'")?;
-    b.choose(r#"[aria-label="Filter by label"]"#, "1")?;
+    b.choose(r#"[aria-label="Filter by label"]"#, "2")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
     b.choose(r#"[aria-label="Filter by assignee"]"#, "agent")?;
     b.wait("document.querySelectorAll('.ticket-card').length===3")?;
@@ -666,11 +666,11 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     b.wait("document.querySelector('[aria-label=\"Priority for TKT-1\"]').value==='Urgent' && document.querySelector('.ticket-list').getAttribute('aria-busy')==='false'")?;
     b.go("http://127.0.0.1:8795/list?project=1&status=Todo&sort=priority")?;
     b.wait("document.querySelectorAll('.api-list-row').length===3 && document.querySelector('.api-list-row').id==='list-ticket-1'")?;
-    b.choose(r#"[aria-label="All labels"]"#, "1")?;
-    b.wait("location.search.includes('label=1') && document.querySelectorAll('.api-list-row').length===2")?;
+    b.choose(r#"[aria-label="All labels"]"#, "2")?;
+    b.wait("location.search.includes('label=2') && document.querySelectorAll('.api-list-row').length===2")?;
     b.choose(r#"[aria-label="All assignees"]"#, "agent")?;
     b.wait("location.search.includes('assignee=agent') && document.querySelectorAll('.api-list-row').length===1")?;
-    b.go("http://127.0.0.1:8795/list?project=1&status=Todo&sort=priority&label=1&assignee=agent")?;
+    b.go("http://127.0.0.1:8795/list?project=1&status=Todo&sort=priority&label=2&assignee=agent")?;
     b.wait("document.querySelectorAll('.api-list-row').length===1 && !!document.querySelector('#list-ticket-2')")?;
     for sort in ["updated", "created"] {
         b.go(&format!("http://127.0.0.1:8795/list?project=1&sort={sort}"))?;
@@ -711,7 +711,7 @@ fn list_check(root: &Path, b: &mut Browser) -> super::Result {
     // Regression: real chip widths, overflow names, resize stability and a label
     // wider than the whole track. This state is isolated local test data.
     b.eval(r#"(async()=>{
-        await fetch('/api/v1/tickets/2/labels/1',{method:'DELETE'});
+        await fetch('/api/v1/tickets/2/labels/2',{method:'DELETE'});
         for(const [name,ticket] of [['area:ui',1],['model:sol',1],['model:astra',1],['A label deliberately longer than the entire labels column',2]]) {
             const response=await fetch('/api/v1/labels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,color:'#5e6ad2'})});
             if(!response.ok) throw new Error('Cannot seed list label');
@@ -804,10 +804,10 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("document.querySelector('.assignee-editor').requestSubmit()")?;
     b.wait("document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.click(".label-menu .menu-trigger")?;
-    b.click(".label-menu .menu-item")?;
+    b.click(".label-menu .menu-item[data-value='2']")?;
     b.wait("!document.querySelector('.property-labels .label-chip') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     b.click(".label-menu .menu-trigger")?;
-    b.click(".label-menu .menu-item")?;
+    b.click(".label-menu .menu-item[data-value='2']")?;
     b.wait("!!document.querySelector('.property-labels .label-chip') && document.querySelector('.detail-layout').getAttribute('aria-busy')==='false'")?;
     // Existing 1 -> 2; 2 -> 1 must report the real API's cycle rejection inline.
     click_text(b, "button", "Add dependency")?;

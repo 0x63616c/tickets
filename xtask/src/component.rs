@@ -15,6 +15,7 @@ use std::{
     time::Duration,
 };
 const NAMES: &[&str] = &[
+    "pickup-rules",
     "history",
     "board-topbar",
     "palette",
@@ -156,6 +157,10 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
     } else {
         vec![name]
     } {
+        if name == "pickup-rules" {
+            super::pickup::shots(root, &assets, &output, before.is_some())?;
+            continue;
+        }
         if name == "board-topbar" {
             capture_board_topbar(&mut b, &server.url, &output, before.is_some())?;
             continue;

@@ -97,12 +97,14 @@ pub fn Settings() -> impl IntoView {
                 <A href=format!("{base}/account") attr:class="nav-item"><Icon name="user"/>"Account"</A>
                 <A href=format!("{base}/api-tokens") attr:class="nav-item"><Icon name="code"/>"API tokens"</A>
                 <A href=format!("{base}/projects") attr:class="nav-item"><Icon name="project"/>"Projects & GitHub"</A>
+                <A href=format!("{base}/pickup-rules") attr:class="nav-item"><Icon name="list"/>"Pickup rules"</A>
                 <A href=format!("{base}/appearance") attr:class="nav-item"><Icon name="appearance"/>"Appearance"</A>
                 <div class="settings-nav-footer"><a href="/design" rel="external" class="nav-item quiet"><Icon name="grid"/>"Design system"<Icon name="arrow"/></a></div>
             </nav>
             <div class="settings-content">{move||match section.get().as_str() {
                 "api-tokens"=>view!{<div class="auth-page settings-tokens"><crate::ui::Tokens fixture/></div>}.into_any(),
                 "projects"=>view!{<ProjectSettings fixture/>}.into_any(),
+                "pickup-rules"=>view!{<super::pickup::PickupSettings fixture/>}.into_any(),
                 "appearance"=>view!{<Appearance/>}.into_any(),
                 _=>view!{<AccountSettings fixture/>}.into_any(),
             }}</div>

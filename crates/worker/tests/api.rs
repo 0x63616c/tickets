@@ -652,8 +652,8 @@ fn constant_query_budget_with_full_enrichment() {
             INSERT INTO labels(name,color) VALUES('first','#123456'),('second','#abcdef');
             WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<102)
             INSERT INTO tickets(project_id,number,title,body) SELECT 1,x,'Ticket '||x,'**bold** <script>bad</script>' FROM n;
+            INSERT INTO ticket_labels SELECT id,3 FROM tickets;
             INSERT INTO ticket_labels SELECT id,2 FROM tickets;
-            INSERT INTO ticket_labels SELECT id,1 FROM tickets;
             INSERT INTO ticket_dependencies SELECT id,id+1 FROM tickets WHERE id<102;
             INSERT INTO ticket_dependencies SELECT id,id+2 FROM tickets WHERE id<101;").unwrap();
         let store = CountingStore {
@@ -678,7 +678,7 @@ fn constant_query_budget_with_full_enrichment() {
                 assert_eq!(ticket["key"], format!("BGT-{id}"));
                 assert_eq!(
                     ticket["labels"],
-                    json!([{"id":1,"name":"first","color":"#123456"},{"id":2,"name":"second","color":"#abcdef"}])
+                    json!([{"id":2,"name":"first","color":"#123456"},{"id":3,"name":"second","color":"#abcdef"}])
                 );
                 assert_eq!(ticket["blocks"], json!([id + 1, id + 2]));
                 let blocked_by: Vec<_> = (id.saturating_sub(2).max(1)..id).collect();

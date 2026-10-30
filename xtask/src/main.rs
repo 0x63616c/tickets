@@ -26,6 +26,8 @@ mod login;
 #[cfg(not(target_arch = "wasm32"))]
 mod mirror_check;
 #[cfg(not(target_arch = "wasm32"))]
+mod pickup;
+#[cfg(not(target_arch = "wasm32"))]
 mod screenshots;
 #[cfg(not(target_arch = "wasm32"))]
 mod settings;
@@ -137,6 +139,8 @@ fn main() -> Result {
         Some("login-check") => api_smoke::login(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("login-before") => login::before(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("pickup-check") => api_smoke::pickup(root),
         Some("api-smoke") => api_smoke::run(root, false),
         Some("skill-check") => api_smoke::run(root, true),
         #[cfg(not(target_arch = "wasm32"))]

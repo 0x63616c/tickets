@@ -7,7 +7,7 @@ use tickets_core::{domain::Dependency, history::Actor};
 
 // Correlated subqueries are part of one D1 request; ordered inner SELECTs keep
 // arrays deterministic without multiplying ticket rows through joins.
-const TICKET_SELECT: &str = "tickets.*,
+pub(crate) const TICKET_SELECT: &str = "tickets.*,
  (SELECT key_prefix FROM projects WHERE id=tickets.project_id) || '-' || number AS key,
  (SELECT json_group_array(json(label)) FROM
    (SELECT json_object('id',l.id,'name',l.name,'color',l.color) AS label

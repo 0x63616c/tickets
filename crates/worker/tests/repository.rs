@@ -64,7 +64,7 @@ fn repository_round_trip() {
         duplicate.external_id = a.external_id.clone();
         assert!(r.save_ticket(&duplicate).await.is_err());
         let label = r.create_label("bug", "#ff0000").await.unwrap();
-        assert_eq!(r.labels().await.unwrap(), vec![label.clone()]);
+        assert!(r.labels().await.unwrap().contains(&label));
         assert!(r.create_label("bug", "#ffffff").await.is_err());
         r.add_label(a.id, label.id).await.unwrap();
         assert_eq!(r.ticket_labels(a.id).await.unwrap(), vec![label.clone()]);
