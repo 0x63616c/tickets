@@ -35,6 +35,8 @@ mod first_run;
 #[cfg(not(target_arch = "wasm32"))]
 mod polish;
 #[cfg(not(target_arch = "wasm32"))]
+mod project_repos;
+#[cfg(not(target_arch = "wasm32"))]
 mod projects;
 
 type Result = std::result::Result<(), Box<dyn Error>>;
@@ -128,6 +130,8 @@ fn main() -> Result {
         Some("contrast-check") => api_smoke::contrast(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("projects-check") => api_smoke::projects(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("project-repos-check") => project_repos::check(root),
         Some("first-run-check") => api_smoke::first_run(root),
         Some("build") => build(root),
         Some("dev") => {

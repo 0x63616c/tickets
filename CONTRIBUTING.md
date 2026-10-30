@@ -229,6 +229,13 @@
   Project color tints its initial badge; show its key prefix in muted mono when no description exists. Keep row actions at the right edge, revealed on hover/focus (always visible on touch). The header contains the sole project count. Archive hides sidebar entries only;
   Show archived permits editing/restoring them. Tickets remain accessible.
 - Project dialogs use compact swatches from the shared color tokens. Use one GitHub Project field for a URL or owner/number; show owner type only for short input and the prefix-change hint only while editing.
+- Projects show repository links from `github_owner` + `github_repo`, independently
+  of `github_project_number`. Counts come from the project API across all tickets;
+  done excludes canceled, and last activity is the latest ticket update (all statuses).
+  `CHROME_BIN=<headless-chromium> cargo xtask project-repos-check` verifies immutable
+  repo-only and linked-PR fixtures and captures desktop/mobile evidence under
+  `docs/screenshots/TIK-42/`; `TICKETS_BEFORE_ASSETS` captures the same fixtures
+  against base assets.
 - GitHub linking makes no network requests. Core parses owner/number or an HTTPS
   `github.com/users|orgs/<owner>/projects/<number>` URL; persist the owner type in
   `github_project_kind` (default `users`). Repository is a name under that owner.

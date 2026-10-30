@@ -978,7 +978,7 @@ fn project_icon_round_trip_and_clear() {
 }
 
 #[test]
-fn project_open_counts_include_only_unresolved_tickets() {
+fn project_counts_and_last_activity_include_all_tickets() {
     block_on(async {
         let db = Sqlite::new();
         call(
@@ -1017,6 +1017,22 @@ fn project_open_counts_include_only_unresolved_tickets() {
         let projects = call(&db, "GET", "/api/v1/projects", Value::Null, 200).await;
         assert_eq!(projects["data"][0]["open_ticket_count"], 4);
         assert_eq!(projects["data"][1]["open_ticket_count"], 0);
+        assert_eq!(projects["data"][0]["done_ticket_count"], 1);
+        assert_eq!(projects["data"][1]["done_ticket_count"], 0);
+        assert!(projects["data"][1]["last_activity_at"].is_null());
+        db.0.execute(
+            "UPDATE tickets SET updated_at='2026-10-29T12:00:00.000Z' WHERE id=6",
+            [],
+        )
+        .unwrap();
+        db.0.execute(
+            "UPDATE tickets SET updated_at='2026-10-28T12:00:00.000Z' WHERE id<6",
+            [],
+        )
+        .unwrap();
+        let project = call(&db, "GET", "/api/v1/projects/1", Value::Null, 200).await;
+        assert_eq!(project["last_activity_at"], "2026-10-29T12:00:00.000Z");
+
         call(
             &db,
             "PATCH",

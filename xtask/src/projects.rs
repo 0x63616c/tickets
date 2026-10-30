@@ -18,7 +18,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.eval(r#"(async()=>{
         const api=async(path,body)=>{const r=await fetch('/api/v1/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error(path);return r.json()};
         await api('projects',{name:'Tickets',key_prefix:'TKT',color:'#5e6ad2',github_owner:'example',github_project_number:7,github_project_kind:'orgs',github_repo:'tickets'});
-        await api('projects',{name:'Quantum',key_prefix:'QUA',color:'#4ea7fc'});
+        await api('projects',{name:'Quantum',key_prefix:'QUA',color:'#4ea7fc',github_owner:'example',github_repo:'quantum'});
         await api('tickets',{project_id:1,title:'Link projects to GitHub',status:'todo'});
         return true;
     })()"#)?;
@@ -50,13 +50,17 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     for (size, width) in [("desktop", 1440), ("mobile", 390)] {
         b.viewport(width, 900)?;
         if width == 390 {
-            b.wait("document.documentElement.scrollWidth<=innerWidth && getComputedStyle(document.querySelector('.project-row-action')).display!=='none' && getComputedStyle(document.querySelector('.api-project-row > span:nth-child(3)')).display==='none'")?;
+            b.wait("document.documentElement.scrollWidth<=innerWidth && getComputedStyle(document.querySelector('.project-row-action')).display!=='none' && getComputedStyle(document.querySelector('.api-project-row > span:nth-child(3)')).display!=='none'")?;
         }
         b.screenshot(&output.join(format!("projects-{phase}-{size}.png")))?;
     }
     b.viewport(1440, 900)?;
-    b.wait("document.querySelector('.sidebar .nav-count')?.textContent==='2' && [...document.querySelectorAll('.sidebar a')].some(e=>e.textContent.includes('New project')) && !document.querySelector('.projects-page .view-footer')")?;
+    b.wait("document.querySelector('.sidebar .nav-count')?.textContent==='1' && [...document.querySelectorAll('.sidebar a')].some(e=>e.textContent.includes('New project')) && !document.querySelector('.projects-page .view-footer')")?;
     b.wait("[...document.querySelectorAll('.api-project-row')].every(e=>e.querySelector('.project-title .mono') && e.querySelector('.project-mark').textContent.trim().length===1 && e.querySelector('button[aria-label] svg')) && getComputedStyle(document.querySelector('.sidebar')).width==='240px'")?;
+    b.wait("!!document.querySelector('.api-project-row a[href=\"https://github.com/example/quantum\"]')")?;
+    b.click("[aria-label='Edit project Quantum']")?;
+    b.click("dialog button[type=submit]")?;
+    b.wait("!document.querySelector('dialog') && !!document.querySelector('.api-project-row a[href=\"https://github.com/example/quantum\"]')")?;
     b.eval("document.querySelector('.project-row-action').focus();true")?;
     b.wait("getComputedStyle(document.querySelector('.project-row-action')).opacity==='1'")?;
     b.click(".sidebar a[href='/projects?new=true']")?;
