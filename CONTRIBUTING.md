@@ -159,8 +159,8 @@ For a browser/runtime-only retry after a successful local build, set
 fresh isolated local D1 state; it only reuses web/Worker outputs. Verify those
 outputs belong to the current worktree (shared Cargo artifacts can be replaced
 by another job); use `RUSTC_WRAPPER=` and touch the Worker crate root to force a
-fresh compile if identity fixture assertions detect an old Worker. CI leaves
-this option unset and builds normally.
+fresh compile if identity fixture assertions detect an old Worker. CI performs a full build in pickup-check, then reuses that verified build for
+its sequential isolated API/browser checks; each check still creates fresh D1 state.
 
 ## Authentication conventions
 - All `/api/*` handlers must pass through the Worker auth gate, except health, login, the independently HMAC-authenticated GitHub webhook, and the setup-state-authorized GitHub App manifest callback. Invalid Authorization headers must not fall back to a cookie.
