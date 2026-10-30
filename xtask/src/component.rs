@@ -64,6 +64,7 @@ impl FixtureServer {
                         let mut request = [0; 8192];
                         let size = stream.read(&mut request).unwrap_or(0);
                         let line = String::from_utf8_lossy(&request[..size]);
+                        let request_path = line.split_whitespace().nth(1).unwrap_or("/");
                         let path = line
                             .split_whitespace()
                             .nth(1)
@@ -76,7 +77,9 @@ impl FixtureServer {
                             .canonicalize()
                             .ok()
                             .filter(|p| p.starts_with(&assets) && p.is_file());
-                        let (body, mime) = if let Some(fixture) = fixtures.get(path) {
+                        let (body, mime) = if let Some(fixture) =
+                            fixtures.get(request_path).or_else(|| fixtures.get(path))
+                        {
                             (serde_json::to_vec(fixture).unwrap(), "application/json")
                         } else if path.starts_with("/api/v1/projects") {
                             (br##"{"data":[{"id":1,"name":"Tickets","key_prefix":"TKT","color":"#5e6ad2","archived":false,"icon":null,"github_owner":null,"github_repo":null,"github_project_number":null,"github_project_kind":"users","next_ticket_number":1}],"next_cursor":null}"##.to_vec(),"application/json")
@@ -444,7 +447,7 @@ fn check_combobox(b: &mut Browser) -> super::Result {
 /// Same real composer route, fixture-only HTTP responses, and viewport for each baseline.
 fn capture_composer(b: &mut Browser, base: &str, output: &Path, before: bool) -> super::Result {
     let phase = if before { "before" } else { "after" };
-    b.go(&format!("{base}/"))?;
+    b.go(&format!("{base}{}", if before { "/" } else { "/board" }))?;
     b.wait("!!document.querySelector('.topbar .button-primary') && !document.querySelector('.topbar .button-primary').disabled")?;
     b.click(".topbar .button-primary")?;
     b.wait("document.querySelector('dialog')?.dataset.state==='open'")?;

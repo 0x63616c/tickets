@@ -33,7 +33,7 @@ pub fn check(root: &Path, password: &str) -> Result {
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
     b.wait("['/settings/tokens','/settings/api-tokens'].includes(location.pathname)")?;
-    b.go(&format!("{URL}/"))?;
+    b.go(&format!("{URL}/board"))?;
     b.wait("document.body.innerText.includes('No projects yet')")?;
     pair(&mut b, &output, phase, "empty-workspace")?;
     b.eval(r#"(async()=>{
@@ -63,7 +63,7 @@ pub fn check(root: &Path, password: &str) -> Result {
         await api('tickets/9/comments',{body:'Keep **keyboard focus** visible and announce the new status after a move.'});
         return true;
     })()"#)?;
-    b.go(&format!("{URL}/"))?;
+    b.go(&format!("{URL}/board"))?;
     b.wait("document.querySelectorAll('.api-ticket').length===15")?;
     pair(&mut b, &output, phase, "kanban")?;
     b.click(".topbar .button-primary")?;
@@ -89,7 +89,7 @@ pub fn check(root: &Path, password: &str) -> Result {
     b.eval("document.querySelector('.properties').scrollIntoView();true")?;
     b.screenshot(&output.join(format!("ticket-properties-{phase}-mobile.png")))?;
     b.viewport(1440, 900)?;
-    b.go(&format!("{URL}/"))?;
+    b.go(&format!("{URL}/board"))?;
     b.wait("document.querySelectorAll('.api-ticket').length===15")?;
     b.eval("[...document.querySelectorAll('.project-nav')].find(e=>e.textContent.includes('Quantum')).click();true")?;
     b.wait("document.querySelector('.breadcrumb-current')?.textContent.endsWith('Quantum') && !document.querySelector('.api-ticket')")?;
@@ -130,7 +130,7 @@ pub fn check(root: &Path, password: &str) -> Result {
 }
 
 fn interactions(b: &mut Browser) -> Result {
-    b.go(&format!("{URL}/"))?;
+    b.go(&format!("{URL}/board"))?;
     b.wait("document.querySelectorAll('.api-ticket').length===15 && document.querySelectorAll('.board-column').length===4")?;
     b.wait("document.querySelector('.sidebar').getBoundingClientRect().width===240 && [...document.querySelectorAll('.board-column')].every(e=>e.getBoundingClientRect().width>=240)")?;
     // Picking up a card does not shift columns. Moving to review reveals its group.
@@ -178,7 +178,7 @@ fn interactions(b: &mut Browser) -> Result {
     b.eval(r#"(async()=>{const r=await fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Preserve keyboard focus when moving tickets across projects with a very long title — '+ 'LongTitle'.repeat(20)})});if(!r.ok)throw Error('long title seed failed');return true})()"#)?;
     for width in [1440, 390] {
         b.viewport(width, 900)?;
-        for route in ["/", "/list?project=1", "/ticket?id=1"] {
+        for route in ["/board", "/list?project=1", "/ticket?id=1"] {
             b.go(&format!("{URL}{route}"))?;
             b.wait("document.body.innerText.includes('LongTitle') && document.documentElement.scrollWidth<=innerWidth")?;
         }

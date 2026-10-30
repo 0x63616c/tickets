@@ -152,6 +152,13 @@ async fn dispatch<S: Store>(
     if parts.len() < 3 || parts[..2] != ["api", "v1"] {
         return Err(Error::NotFound.into());
     }
+    if method == "GET" && parts == ["api", "v1", "analytics", "home"] {
+        return Ok(Reply {
+            status: 200,
+            change: None,
+            body: crate::analytics::home(r.0, q).await?,
+        });
+    }
     let entity = parts[2];
     if method == "GET" && parts.as_slice() == ["api", "v1", "search"] {
         let mut seen = std::collections::HashSet::new();

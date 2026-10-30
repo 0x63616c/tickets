@@ -72,7 +72,7 @@ pub fn ApiProjects() -> impl IntoView {
                     let activity=p.last_activity_at.clone();
                     let project=github_link(&p);
                     view! { <div class="project-row api-project-row">
-                        <div><a class="project-title" href="/" on:click=move|e|{if !board.select_project(id){e.prevent_default();}}><ProjectIcon name=p.name.clone() icon=p.icon.clone().unwrap_or_default() color=p.color.clone()/><div><strong>{p.name}</strong><p class="mono">{p.key_prefix}{if p.archived {" · Archived"}else{""}}</p></div></a></div>
+                        <div><a class="project-title" href="/board" on:click=move|e|{if !board.select_project(id){e.prevent_default();}}><ProjectIcon name=p.name.clone() icon=p.icon.clone().unwrap_or_default() color=p.color.clone()/><div><strong>{p.name}</strong><p class="mono">{p.key_prefix}{if p.archived {" · Archived"}else{""}}</p></div></a></div>
                         <span class="muted project-counts"><span>{format!("{} open",p.open_ticket_count)}</span><span>{format!("{} done",p.done_ticket_count)}</span></span>
                         <span class="muted project-repository">{repo.map(|repo|view!{<RepositoryLinks repo/>}.into_any()).unwrap_or_else(||view!{<span>"Not linked"</span>}.into_any())}{project.map(|link|view!{<a class="subtle-link github-project-link" href=link.url() target="_blank" rel="noreferrer">{format!("GitHub Project {}",link.number)}<Icon name="external"/></a>})}</span>
                         <span class="muted project-activity">{activity.map(|at|view!{<time datetime=at.clone() title=at.clone()>{at.chars().take(10).collect::<String>()}</time>}.into_any()).unwrap_or_else(||view!{<span>"No activity"</span>}.into_any())}</span>

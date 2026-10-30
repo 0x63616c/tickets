@@ -132,7 +132,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("!document.querySelector('dialog') && [...document.querySelectorAll('.sidebar .project-nav')].some(e=>e.textContent.includes('Engine'))")?;
     b.wait("[...document.querySelectorAll('.project-title')].some(e=>e.textContent.includes('Tickets'))")?;
     b.eval("[...document.querySelectorAll('.project-title')].find(e=>e.textContent.includes('Tickets')).click();true")?;
-    b.wait("location.pathname==='/' && !!document.querySelector('.api-ticket')")?;
+    b.wait("location.pathname==='/board' && !!document.querySelector('.api-ticket')")?;
     b.wait("!!document.querySelector('.view-tabs a[href=\"https://github.com/orgs/example/projects/7\"]')")?;
     b.screenshot(&output.join("header-after-desktop.png"))?;
     b.viewport(390, 900)?;

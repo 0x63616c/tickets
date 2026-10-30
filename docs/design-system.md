@@ -8,6 +8,7 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 
 | Route | Reference |
 | --- | --- |
+| `/design/home` | Current work, eight UTC weeks, review/blocked queues and chart data tables |
 | `/design/board` | Four-column Kanban; status menu and drag alternatives; counts, labels, blockers |
 | `/design/list` | 36px rows grouped by status; aligned ID, label, comment, project, and date fields |
 | `/design/ticket` | TKT-7; sanitized Markdown, task list, comments, properties, both dependency directions |
@@ -16,7 +17,8 @@ are recorded in [ADR 0001](adr/0001-frontend.md).
 | `/design/projects` | Project list and New project flow |
 | `/design` | Buttons, inputs, selects, status/priority icons, labels, avatars, connection states, overlays, tokens |
 
-The real API-backed board is `/`; see [Kanban](kanban.md) for its persistence,
+Home is available at `/` and `/home`. The real API-backed board is `/board`;
+see [Kanban](kanban.md) for its persistence,
 keyboard controls, local verification and #16 change-event hook.
 The API-backed list is `/list`: it reuses the grouped fixture rows and inline
 status/priority icons, with project/label/assignee/status filters and sort in the
@@ -341,6 +343,14 @@ viewport captures and cropped 2× states in `docs/screenshots/TIK-41/`. The real
 local lifecycle, including failed create/revoke and clipboard denial, is covered
 by `settings-check`; no real secret is included in its published screenshots.
 
+### Home (TIK-43)
+
+`/` and `/home` use a compact metric strip, status-stacked project counts,
+weekly created/completed bars, and review/blocked queues. `/design/home` is the
+sample-data specimen. Shared controls and static Skeletons reserve loading space;
+refresh retains same-scope data. SVG charts have a labelled data-table disclosure
+with exact cohort links; unavailable weeks remain gaps. Counts use tabular figures
+and status tokens. See [Home metric contract](design/home-analytics.md).
 ## Command palette (TIK-44)
 
 Search and commands share a 640px dialog with a fixed search field and keyboard

@@ -139,14 +139,14 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.documentElement.dataset.theme==='light'")?;
     b.choose("[aria-label=Theme]", "dark")?;
     b.go("http://127.0.0.1:8795/home")?;
-    b.wait("!!document.querySelector('.empty-project')")?;
+    b.wait("!!document.querySelector('.home-empty')")?;
     b.eval("document.activeElement.blur();true")?;
     b.key("g", 71, 0)?;
     b.key("l", 76, 0)?;
     b.wait("location.pathname==='/list'")?;
     b.key("g", 71, 0)?;
     b.key("b", 66, 0)?;
-    b.wait("location.pathname==='/'")?;
+    b.wait("location.pathname==='/board'")?;
     b.key("?", 191, 8)?;
     b.wait("!!document.querySelector('dialog[open]') && document.querySelector('dialog').textContent.includes('Keyboard shortcuts')")?;
     b.key("Escape", 27, 0)?;

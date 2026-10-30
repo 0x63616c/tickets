@@ -17,11 +17,10 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
-    b.wait("location.pathname==='/' && document.body.innerText.includes('No projects yet')")?;
+    b.wait("location.pathname==='/' && document.body.innerText.includes('Start with a project')")?;
     b.screenshot(&output.join("first-run-empty.png"))?;
-    b.click(".empty-project a")?;
+    b.click(".home-empty a")?;
     b.wait("!!document.querySelector('.projects-page') && !document.querySelector('.topbar .button-primary').disabled")?;
-    b.click(".topbar .button-primary")?;
     b.wait("!!document.querySelector('#project-title')")?;
     b.text("#project-title", "First project")?;
     b.text("#project-prefix", "FIRST")?;
@@ -29,7 +28,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("!document.querySelector('dialog') && document.querySelectorAll('.api-project-row').length===1 && document.querySelector('.project-title')?.textContent.includes('First project')")?;
     b.screenshot(&output.join("first-run-project.png"))?;
     b.click(".project-title")?;
-    b.wait("location.pathname==='/' && !document.querySelector('.api-ticket') && !document.querySelector('.topbar .button-primary').disabled")?;
+    b.wait("location.pathname==='/board' && !document.querySelector('.api-ticket') && !document.querySelector('.topbar .button-primary').disabled")?;
     for title in ["Prepare release", "Publish release"] {
         b.click(".topbar .button-primary")?;
         b.wait("!!document.querySelector('#board-title')")?;
@@ -104,6 +103,9 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         b.wait(
         "document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found')",
     )?;
+        // Stop the previous page's live requests before expiring the session.
+        b.call("Page.navigate", serde_json::json!({"url":"about:blank"}))?;
+        b.wait("location.href==='about:blank'")?;
         b.call("Network.clearBrowserCookies", serde_json::json!({}))?;
         b.go("http://127.0.0.1:8795/t/FIRST-2")?;
         b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/t/FIRST-2'")?;
@@ -112,6 +114,19 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         b.click("button[type=submit]")?;
         b.wait("location.pathname==='/t/FIRST-2' && document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
     }
+    // Home is the default landing route; all data above was created through the UI.
+    b.go("http://127.0.0.1:8795/")?;
+    b.wait("[...document.querySelectorAll('.home-metric strong')].map(e=>e.textContent).join(',')==='1,0,1,0'")?;
+    b.click("a.home-metric[href*='metric=in_flight']")?;
+    b.wait("document.querySelectorAll('.home-cohort .home-ticket-row').length===1 && document.querySelector('.home-cohort').textContent.includes('FIRST-1')")?;
+    b.go("http://127.0.0.1:8795/t/FIRST-1")?;
+    b.wait("!!document.querySelector('[aria-label=Status]')")?;
+    b.choose("[aria-label=Status]", "Done")?;
+    b.wait("document.querySelector('[aria-label=Status]').value==='Done' && !document.querySelector('[aria-label=Status]').disabled")?;
+    b.go("http://127.0.0.1:8795/")?;
+    b.wait("[...document.querySelectorAll('.home-metric strong')].map(e=>e.textContent).join(',')==='0,0,0,1'")?;
+    b.click("a.home-metric[href*='metric=completed']")?;
+    b.wait("document.querySelectorAll('.home-cohort .home-ticket-row').length===1 && document.querySelector('.home-cohort').textContent.includes('Week of') && document.querySelector('.home-cohort').textContent.includes('FIRST-1')")?;
     println!(
         "PASS first-run: empty install, UI login, project, two tickets, Kanban move, new label and dependency verified on both tickets; six dark 1440×900 screenshots"
     );

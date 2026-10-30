@@ -134,7 +134,7 @@
 
 ## Kanban ordering and verification
 
-- The API board lives at `/`; `/design*` retains its fixture-only state. Projects
+- The API board lives at `/board`; `/design*` retains its fixture-only state. Projects
   are selected in the sidebar. Hide Canceled by default; `?canceled=true` reveals it.
   Match the fixture's four default columns; show In review when populated.
   Status selects always offer all six statuses. Use equal flex
@@ -447,8 +447,8 @@ project icon schema changes additive and validate values in core.
 
 ## Sidebar and settings (TIK-40)
 
-- `/home` renders the current board until the dedicated Home page lands (TIK-43).
-  `/` remains the Board shortcut. G then H/B/L navigates; `?` opens shortcuts.
+- `/` and `/home` render Home; `/board` renders Board.
+  G then H/B/L navigates; `?` opens shortcuts.
 - Account identity comes from `/api/v1/me`, with nullable `display_name` falling
   back to the authenticated username. Never substitute a literal You/Y avatar.
 - `/settings` redirects to `/settings/account`; sections are `account`,
@@ -508,6 +508,23 @@ project icon schema changes additive and validate values in core.
   `docs/screenshots/TIK-41/`. The fixture secret is deliberately invalid. Use
   `settings-check` for the real local token lifecycle and `polish-check` for regression.
 
+## Home analytics conventions
+
+- `/` and `/home` show Home; `/board` is the API Kanban route. Board links,
+  shortcuts and checks must use `/board`. Home only fetches aggregate analytics
+  and project metadata until the user invokes the ticket composer.
+- V1 flow uses eight explicit UTC Monday weeks. Count observed status transitions,
+  never current done + updated_at. Null means unavailable. History must remain
+  additive and atomic with domain writes; subject IDs survive deletion/ID reuse.
+  See docs/design/home-analytics.md for the committed metric/deferred-scope contract.
+- `cargo xtask home-shot` uses immutable fixture HTTP data on an OS-assigned port,
+  checks Home interaction/states and saves docs/screenshots/TIK-43. Use
+  `TICKETS_BEFORE_ASSETS` for the same fixture's previous real landing page.
+  CI runs the fixture check after building the web assets.
+  `cargo test -p tickets-worker --test analytics` exercises full-migration history,
+  exact cohorts and one-read query budgets. Keep first-run-check's empty-D1 flow
+  through Home and UI project creation, then verify current counts and a completion
+  transition through its metric drilldown.
 ## Command palette (TIK-44)
 
 - Cmd/Ctrl+K uses `/api/v1/search`, independent of loaded board pages. Exact keys

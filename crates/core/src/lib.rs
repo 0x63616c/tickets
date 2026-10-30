@@ -44,3 +44,5 @@ pub mod navigation;
 pub mod github_mirror;
 
 pub mod pull_request;
+
+pub mod analytics;

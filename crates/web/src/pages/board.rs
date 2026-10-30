@@ -488,7 +488,7 @@ pub fn ApiBoard() -> impl IntoView {
             params.insert("canceled", "true".into());
         }
         navigate(
-            &format!("/{}", params.to_query_string()),
+            &format!("/board{}", params.to_query_string()),
             Default::default(),
         );
     });

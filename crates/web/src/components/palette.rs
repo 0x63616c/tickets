@@ -389,7 +389,7 @@ pub fn CommandPalette() -> impl IntoView {
                         Action::Navigate(if fixture {
                             "/design/board".into()
                         } else {
-                            format!("/?project={}", board.project.get())
+                            format!("/board?project={}", board.project.get())
                         }),
                     ),
                     Row::command(
@@ -602,7 +602,7 @@ pub fn CommandPalette() -> impl IntoView {
                 }
                 close.run(());
                 navigate(
-                    if fixture { "/design/board" } else { "/" },
+                    if fixture { "/design/board" } else { "/board" },
                     Default::default(),
                 );
             }
@@ -615,10 +615,13 @@ pub fn CommandPalette() -> impl IntoView {
                     );
                 } else if board.project.get_untracked() > 0 {
                     let path = location.pathname.get_untracked();
-                    if !["/", "/home", "/list", "/ticket"].contains(&path.as_str())
+                    if ["/", "/home"].contains(&path.as_str()) {
+                        board.refresh();
+                    }
+                    if !["/", "/home", "/board", "/list", "/ticket"].contains(&path.as_str())
                         && !path.starts_with("/t/")
                     {
-                        navigate("/", Default::default());
+                        navigate("/board", Default::default());
                     }
                     set_timeout(
                         move || board.composer.set(Some(Status::Todo)),

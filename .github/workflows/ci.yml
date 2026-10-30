@@ -27,6 +27,7 @@ jobs:
       - run: CHROME_BIN=google-chrome cargo xtask palette-check
       - run: CHROME_BIN=google-chrome cargo xtask project-repos-check
       - run: CHROME_BIN=google-chrome cargo xtask component-shot all
+      - run: CHROME_BIN=google-chrome cargo xtask home-shot
       - name: Upload Chromium startup logs
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

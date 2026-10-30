@@ -73,7 +73,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
         browser.text("#password", password)?;
         browser.click("button[type=submit]")?;
         browser.wait("['/settings/tokens','/settings/api-tokens'].includes(location.pathname)")?;
-        browser.go("http://127.0.0.1:8795/")?;
+        browser.go("http://127.0.0.1:8795/board")?;
         browser.wait("document.querySelectorAll('.ticket-card').length===1")?;
         Ok(())
     };
@@ -83,7 +83,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     a.go("http://127.0.0.1:8795/list")?;
     a.wait("document.querySelector('.list-row')!==null || document.querySelector('.view-footer')!==null")?;
     a.screenshot(&output.join(format!("list-{phase}-desktop.png")))?;
-    a.go("http://127.0.0.1:8795/")?;
+    a.go("http://127.0.0.1:8795/board")?;
     a.wait("document.querySelectorAll('.ticket-card').length===1")?;
     a.viewport(390, 900)?;
     a.screenshot(&output.join(format!("board-{phase}-mobile.png")))?;
@@ -238,8 +238,21 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
         json!({"offline":false,"latency":0,"downloadThroughput":-1,"uploadThroughput":-1}),
     )?;
     b.wait("document.body.innerText.includes('Reconnected and reconciled')")?;
+    // Home consumes invalidations through its aggregate endpoint, without a board download.
+    b.call("Page.addScriptToEvaluateOnNewDocument", json!({"source":
+        "window.homeReads=[];const homeFetch=window.fetch;window.fetch=(...args)=>{window.homeReads.push(new URL(args[0] instanceof Request?args[0].url:String(args[0]),location.href).pathname);return homeFetch(...args)};"
+    }))?;
+    b.go("http://127.0.0.1:8795/")?;
+    b.wait("document.querySelectorAll('.home-metric strong').length===4 && window.__liveSockets.some(s=>s.readyState===1)")?;
+    api(
+        reqwest::Method::PATCH,
+        &format!("tickets/{ticket}"),
+        json!({"status":"in_review"}),
+    )?;
+    b.wait("[...document.querySelectorAll('.home-metric strong')].slice(0,2).map(e=>e.textContent).join(',')==='1,1'")?;
+    b.eval("if(window.homeReads.some(p=>p.startsWith('/api/v1/tickets')))throw Error('Home downloaded tickets');if(window.homeReads.filter(p=>p==='/api/v1/analytics/home').length<2)throw Error('Home did not refresh aggregate');true")?;
     println!(
-        "live-check: upgrade auth, two-client broadcast, two-window move, list/detail reconciliation reconnect, hidden/visible intervals, event coalescing, focus/online/visibility and edit/drag deferral verified"
+        "live-check: upgrade auth, two-client broadcast, two-window move, list/detail reconciliation reconnect, hidden/visible intervals, event coalescing, focus/online/visibility, edit/drag deferral and aggregate-only Home refresh verified"
     );
     Ok(())
 }

@@ -297,3 +297,22 @@ Use a named glyph (`project`, `ticket`, `board`, `grid`, `code`, `globe`, `box`,
 including joiners, variation selectors, skin tones and flag sequences. Blank,
 plain text, controls and markup are rejected with 422. `color` applies to glyphs
 and the fallback tile; emoji retain their native color. Migration 0009 is additive.
+
+## Home analytics
+
+`GET /api/v1/analytics/home` returns the authenticated, no-store Home snapshot:
+`as_of`, `history_from`, current `in_flight`/`in_review`/`blocked` counts, active
+`projects` with status counts, eight UTC Monday `weeks`, five-row `review_queue`
+and `blocked_queue`, and `cohort`, `cohort_total`, `next_cursor`.
+
+Optional query: `project=<active ID>`,
+`metric=in_flight|review|blocked|inventory|created|completed`, `week=0..7`
+(oldest first, flow only, default 7), `status=<open status>` (inventory only),
+`cursor=<subject ID>` (metric only). Cohorts use 50 rows and ascending durable
+subject IDs. Unknown, duplicate and incompatible parameters return 422.
+Inventory counts and status filters follow Board/List's `later` → Backlog display
+rule; cohort rows retain the stored ticket status.
+Weeks contain `start`, `end`, `coverage=none|partial|full`, nullable `created`,
+`completed`, `imported`. Null is unavailable, never zero. Deleted historic cohort
+rows have null ticket/key/title and remain counted. Full metric definitions,
+coverage, event-time attribution and deferred scope: [Home analytics](design/home-analytics.md).

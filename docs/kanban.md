@@ -1,6 +1,6 @@
 # API-backed Kanban (#7)
 
-The real board is `/`. Pick a project in the sidebar. Five statuses are visible by default; Show canceled persists `?canceled=true`.
+The real board is `/board`. Pick a project in the sidebar. Five statuses are visible by default; Show canceled persists `?canceled=true`.
 Columns share space equally with a 240px minimum and 16px gaps. The sidebar
 contracts at 1440px to fit all five; narrower boards scroll horizontally. `/design/board`
 remains the in-memory visual reference.
@@ -45,7 +45,7 @@ It checks:
 
 Dark screenshots are in [screenshots/kanban](screenshots/kanban): before is the
 actual root route independently rebuilt on main at `d446c24` in a temporary
-worktree (main itself maps `/` to the fixture Board; no `/design` URL was used); after is the API-backed route on this
+worktree (main itself maps `/board` to the fixture Board; no `/design` URL was used); after is the API-backed route on this
 branch, at the same 1440×900 and 390×900 viewports with fonts loaded. The after
 dataset is deliberately smaller and includes the additional status columns.
 

@@ -88,7 +88,7 @@ pub fn check(b: &mut Browser, root: &Path) -> super::Result {
         b.eval(&format!(r#"fetch('/api/v1/tickets/{id}').then(r=>r.json()).then(t=>{{if(t.labels.length!==4 || !t.body.startsWith('Model: sol'))throw Error('Stored metadata changed');return true}})"#))?;
         // Reordering another Backlog ticket must not rewrite legacy Todo data.
         b.viewport(1440, 900)?;
-        b.go("http://127.0.0.1:8795/")?;
+        b.go("http://127.0.0.1:8795/board")?;
         b.wait(&format!("!!document.querySelector('#ticket-{later}')"))?;
         b.eval("document.querySelector('#ticket-1').focus();true")?;
         b.key(" ", 32, 0)?;

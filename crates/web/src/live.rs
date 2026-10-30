@@ -57,7 +57,8 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
     });
     let scheduled = RwSignal::new(false);
     Effect::new(move |_| {
-        let active = ["/", "/list", "/ticket", "/projects"].contains(&path.get().as_str())
+        let active = ["/", "/home", "/board", "/list", "/ticket", "/projects"]
+            .contains(&path.get().as_str())
             || path.get().starts_with("/t/");
         if dirty.get()
             && active
@@ -74,7 +75,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
             spawn_local(async move {
                 TimeoutFuture::new(350).await;
                 if online.get_untracked()
-                    && (["/", "/list", "/ticket", "/projects"]
+                    && (["/", "/home", "/board", "/list", "/ticket", "/projects"]
                         .contains(&path.get_untracked().as_str())
                         || path.get_untracked().starts_with("/t/"))
                     && !document().hidden()
@@ -85,7 +86,9 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                     && !board.refreshing.get_untracked()
                 {
                     dirty.set(false);
-                    board.catch_up();
+                    if !["/", "/home"].contains(&path.get_untracked().as_str()) {
+                        board.catch_up();
+                    }
                     board.catchup_revision.update(|r| *r += 1);
                 }
                 scheduled.set(false);
@@ -103,10 +106,11 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
         let project = board.project.get();
         let active = online.get()
             && board.signed_in.get()
-            && (["/", "/list", "/ticket"].contains(&path.as_str()) || path.starts_with("/t/"));
+            && (["/", "/home", "/board", "/list", "/ticket"].contains(&path.as_str())
+                || path.starts_with("/t/"));
         if !active {
             vec![]
-        } else if path == "/list" {
+        } else if ["/", "/home", "/list"].contains(&path.as_str()) {
             projects
         } else {
             projects.into_iter().filter(|id| *id == project).collect()

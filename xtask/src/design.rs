@@ -413,7 +413,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
     b.wait("['/settings/tokens','/settings/api-tokens'].includes(location.pathname)")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.body.innerText.includes('No projects yet')")?;
     b.eval(r#"(async()=>{
         const api=async(path,body,method='POST')=>{const r=await fetch('/api/v1/'+path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error('Seed request failed');return r.json()};
@@ -441,7 +441,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     if mode == "list" {
         return list_check(root, &mut b);
     }
-    b.go("http://127.0.0.1:8795/")?;
+    b.go("http://127.0.0.1:8795/board")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
     b.click(".canceled-toggle input")?;
     b.wait("location.search.includes('canceled=true') && document.querySelectorAll('.ticket-card').length===7")?;
@@ -455,14 +455,14 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.key(" ", 32, 0)?;
     b.wait("document.body.innerText.includes('Order saved') && document.querySelector('.board').getAttribute('aria-busy')!=='true'")?;
     b.wait("document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='In progress' && document.activeElement.id==='ticket-2'")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress'")?;
     b.eval("document.querySelector('#ticket-2').focus()")?;
     b.key(" ", 32, 0)?;
     b.key("ArrowUp", 38, 0)?;
     b.key(" ", 32, 0)?;
     b.wait("document.body.innerText.includes('Order saved')")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
     // Escape restores the draft, never issuing a write.
     b.eval("document.querySelector('#ticket-2').focus()")?;
@@ -473,11 +473,11 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     // Actual HTML drag event handlers, including a within-column insertion target.
     b.drag("#ticket-7", "#ticket-2")?;
     b.wait("document.body.innerText.includes('Order saved') && document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-7'")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-7'")?;
     b.drag("#ticket-2", "#ticket-7")?;
     b.wait("document.body.innerText.includes('Order saved') && document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
     // Native status select supplies the touch / keyboard alternative.
     b.choose("#ticket-7 [role=combobox]", "Todo")?;
@@ -488,7 +488,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.wait("document.querySelectorAll('.ticket-card').length===3")?;
     b.text("input[aria-label='Filter tickets']", "Review imported")?;
     b.wait("document.querySelectorAll('.ticket-card').length===1 && !!document.querySelector('#ticket-4')")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===7")?;
     // Reject a move at the API boundary, then verify optimistic rollback and focus.
     b.eval("window.boardFetch=window.fetch;window.fetch=(input,init)=>((input instanceof Request?input.method:init?.method)==='PATCH'?Promise.resolve(new Response(JSON.stringify({error:{message:'Verification rejection'}}),{status:409,headers:{'Content-Type':'application/json'}})):window.boardFetch(input,init));document.querySelector('#ticket-2').focus();true")?;
@@ -497,7 +497,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.key(" ", 32, 0)?;
     b.wait("document.body.innerText.includes('Previous order restored') && document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress' && document.activeElement.id==='ticket-2'")?;
     b.eval("window.fetch=window.boardFetch;true")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===7")?;
     // Reject the second write of a reorder, exercising compensation of a saved rank.
     b.eval("window.boardFetch=window.fetch;window.patchCount=0;window.fetch=(input,init)=>((input instanceof Request?input.method:init?.method)==='PATCH' && ++window.patchCount===2?Promise.resolve(new Response(JSON.stringify({error:{message:'Second-write rejection'}}),{status:409,headers:{'Content-Type':'application/json'}})):window.boardFetch(input,init));document.querySelector('#ticket-2').focus();true")?;
@@ -506,7 +506,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.key(" ", 32, 0)?;
     b.wait("document.body.innerText.includes('Previous order restored') && window.patchCount===3 && document.activeElement.id==='ticket-2'")?;
     b.eval("window.fetch=window.boardFetch;true")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-2'")?;
     b.eval("document.querySelector('.topbar .button-primary').focus();true")?;
     b.key("c", 67, 0)?;
@@ -547,7 +547,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     check_composer(&mut b)?;
     b.sign_out()?;
     b.wait("location.pathname==='/login'")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("location.pathname==='/login' && !document.querySelector('.sidebar, .ticket-card')")?;
     println!(
         "PASS: local API seed; populated review column + URL canceled toggle; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
@@ -800,7 +800,7 @@ pub(crate) fn select_value(b: &mut Browser, label: &str, value: &str) -> Result<
 fn check_composer(b: &mut Browser) -> Result<()> {
     b.eval("fetch('/api/v1/labels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Review',color:'#c6a1b9'})}).then(r=>{if(!r.ok)throw Error('Could not seed composer label');return true})")?;
     b.viewport(1440, 900)?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("!!document.querySelector('[aria-label=\"Add ticket to Backlog\"]') && !document.querySelector('[aria-label=\"Add ticket to Backlog\"]').disabled")?;
     b.click("[aria-label='Add ticket to Backlog']")?;
     b.wait("document.querySelector('[aria-label=\"New ticket status\"]')?.value==='Backlog'")?;
@@ -854,7 +854,7 @@ fn check_composer(b: &mut Browser) -> Result<()> {
         b.wait(&format!("[...document.querySelectorAll('.api-ticket')].some(e=>e.querySelector('.card-title')?.textContent==='Composer {value}' && e.closest('section').getAttribute('aria-label')==='{label}')"))?;
     }
     b.eval("window.fetch=window.composerFetch;true")?;
-    b.go("http://127.0.0.1:8795/?canceled=true")?;
+    b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("[...document.querySelectorAll('.card-title')].filter(e=>e.textContent.startsWith('Composer ')).length===6")?;
     b.wait("fetch('/api/v1/tickets?project=1&limit=100').then(r=>r.json()).then(r=>{const ts=r.data.filter(t=>t.title.startsWith('Composer '));return ts.length===6 && ts.every(t=>t.title==='Composer '+t.status && t.priority===2 && t.body==='Ready for **review**.') && ts.find(t=>t.status==='backlog').labels.length===2})")?;
     println!(

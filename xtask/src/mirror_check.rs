@@ -111,7 +111,7 @@ fn screenshots(root: &Path, password: &str) -> Result<()> {
     b.viewport(390, 900)?;
     b.screenshot(&output.join(format!("{prefix}-mobile.png")))?;
     if !before {
-        b.go("http://127.0.0.1:8795/")?;
+        b.go("http://127.0.0.1:8795/board")?;
         b.wait("document.querySelector('.api-ticket')?.getAttribute('draggable')==='true' && !document.querySelector('.card-status [role=combobox]')?.disabled")?;
         b.go("http://127.0.0.1:8795/list")?;
         b.wait("!!document.querySelector('.api-list-row [role=combobox]') && [...document.querySelectorAll('.api-list-row [role=combobox]')].every(s=>!s.disabled)")?;
