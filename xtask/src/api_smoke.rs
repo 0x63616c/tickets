@@ -1,26 +1,7 @@
 //! Isolated local Worker/D1 end-to-end check. Credentials never leave ignored target/.
 use serde_json::{Value, json};
-use sha2::Sha256;
-use std::{
-    error::Error,
-    fs,
-    path::Path,
-    process::{Child, Command, Stdio},
-    thread,
-    time::{Duration, Instant},
-};
+use std::{error::Error, fs, path::Path, process::Command};
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
-struct Server(Child);
-impl Drop for Server {
-    fn drop(&mut self) {
-        #[cfg(unix)]
-        let _ = Command::new("kill")
-            .args(["-TERM", "--", &format!("-{}", self.0.id())])
-            .output();
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
 struct Client {
     port: u16,
     dir: std::path::PathBuf,
@@ -161,15 +142,6 @@ pub fn projects(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "projects")
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-pub fn avatars(root: &Path) -> Result<()> {
-    run_inner_mode(root, false, true, "avatars")
-}
-#[cfg(not(target_arch = "wasm32"))]
-pub fn settings(root: &Path) -> Result<()> {
-    run_inner_mode(root, false, true, "settings")
-}
-
 pub fn mission(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "mission")
 }
@@ -178,9 +150,7 @@ pub fn mission(root: &Path) -> Result<()> {
 pub fn home_loading(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "home-loading")
 }
-pub fn first_run(root: &Path) -> Result<()> {
-    run_inner_mode(root, false, true, "first-run")
-}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn login(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "login")
@@ -201,156 +171,22 @@ fn run_inner(root: &Path, skill: bool, board: bool) -> Result<()> {
     run_inner_mode(root, skill, board, "board")
 }
 fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<()> {
-    if std::env::var("TICKETS_SKIP_BUILD").as_deref() == Ok("1") {
-        // Explicitly reuse assets built before a sequence of browser-only checks.
-        if !root.join("crates/web/dist/index.html").is_file()
-            || !root.join("crates/worker/build/worker/shim.mjs").is_file()
-        {
-            return Err("TICKETS_SKIP_BUILD requires an existing web and Worker build".into());
-        }
-    } else if _view == "home-loading" && std::env::var_os("TICKETS_BEFORE_ASSETS").is_some() {
-        // Baseline web assets are already built; only the local Worker is needed.
-        super::run(
-            &root.join("crates/worker"),
-            "worker-build",
-            &["--release", "--locked"],
-        )?;
-    } else {
-        super::build(root)?;
-    }
-    let mut random = [0u8; 24];
-    getrandom::getrandom(&mut random).map_err(|_| "randomness unavailable")?;
-    let password = tickets_core::auth::hex(&random);
-    let dir = root
-        .join("target")
-        .join(format!("api-smoke-{}", &password[..12]));
-    fs::create_dir_all(&dir)?;
-    let mut digest = [0u8; 32];
-    pbkdf2::pbkdf2_hmac::<Sha256>(
-        password.as_bytes(),
-        &random[..16],
-        tickets_core::auth::PASSWORD_ITERATIONS,
-        &mut digest,
-    );
-    fs::write(
-        dir.join(".dev.vars"),
-        format!(
-            "BOOTSTRAP_USERNAME=fixture\nBOOTSTRAP_PASSWORD_HASH=\"pbkdf2-sha256${}${}${}\"\n",
-            tickets_core::auth::PASSWORD_ITERATIONS,
-            tickets_core::auth::hex(&random[..16]),
-            tickets_core::auth::hex(&digest)
-        ),
-    )?;
-    let config = dir.join("wrangler.toml");
-    fs::write(
-        &config,
-        format!(
-            "name='tickets-api-smoke'\nmain='{}'\ncompatibility_date='2026-10-27'\n[assets]\ndirectory='{}'\nbinding='ASSETS'\nnot_found_handling='none'\nrun_worker_first=true\n[[d1_databases]]\nbinding='DB'\ndatabase_name='api-smoke'\ndatabase_id='00000000-0000-0000-0000-000000000000'\nmigrations_dir='{}'\n",
-            root.join("crates/worker/build/worker/shim.mjs").display(),
-            std::env::var_os("TICKETS_BEFORE_ASSETS")
-                .map(std::path::PathBuf::from)
-                .unwrap_or_else(|| root.join("crates/web/dist"))
-                .display(),
-            root.join("migrations").display()
-        ),
-    )?;
-    use std::io::Write;
-    fs::OpenOptions::new().append(true).open(&config)?.write_all(b"\n[[durable_objects.bindings]]\nname='BOARD_ROOMS'\nclass_name='BoardRoom'\n[[migrations]]\ntag='v1-board-room'\nnew_sqlite_classes=['BoardRoom']\n")?;
-    #[cfg(not(target_arch = "wasm32"))]
-    if _view == "mirror" {
-        fs::OpenOptions::new()
-            .append(true)
-            .open(&config)?
-            .write_all(b"\n[vars]\nGITHUB_PR_OWNERS='0x63616c'\n")?;
-        fs::OpenOptions::new()
-            .append(true)
-            .open(dir.join(".dev.vars"))?
-            .write_all(b"GITHUB_WEBHOOK_SECRET=mirror-fixture\n")?;
-    }
-    let state = dir.join("state");
-    let status = Command::new("wrangler")
-        .args(["d1", "migrations", "apply", "DB", "--local", "--config"])
-        .arg(&config)
-        .arg("--persist-to")
-        .arg(&state)
-        .stdin(Stdio::null())
-        .status()?;
-    if !status.success() {
-        return Err("local migrations failed".into());
-    }
-    let log = fs::File::create(dir.join("worker.log"))?;
-    let mut server_command = Command::new("wrangler");
-    #[cfg(unix)]
+    let mut options = crate::local_worker::LaunchOptions::default();
+    if _view == "home-loading"
+        && options.baseline_assets.is_some()
+        && !matches!(options.build, crate::local_worker::Build::Reuse)
     {
-        use std::os::unix::process::CommandExt;
-        server_command.process_group(0);
+        options.build = crate::local_worker::Build::WorkerOnly;
     }
-    let port = if _view == "login" { 8787 } else { 8795 };
-    let mut port_available = false;
-    for _ in 0..60 {
-        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
-            port_available = true;
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-    if !port_available {
-        return Err(format!(
-            "Local check port {port} is busy; retry after the other check finishes"
-        )
-        .into());
-    }
-
-    let mut server = Server(
-        server_command
-            .args([
-                "dev",
-                "--local",
-                "--ip",
-                "127.0.0.1",
-                "--port",
-                &port.to_string(),
-                "--test-scheduled",
-                "--inspector-port",
-                "0",
-                "--config",
-            ])
-            .arg(&config)
-            .arg("--persist-to")
-            .arg(&state)
-            .stdout(log.try_clone()?)
-            .stderr(log)
-            .stdin(Stdio::null())
-            .spawn()?,
-    );
-    let c = Client { dir, port };
-    let start = Instant::now();
-    loop {
-        if c.call("GET", "/api/health", Value::Null, "", 200).is_ok() {
-            break;
-        }
-        if server.0.try_wait()?.is_some() || start.elapsed() > Duration::from_secs(45) {
-            return Err(format!(
-                "Worker did not start; see {}",
-                c.dir.join("worker.log").display()
-            )
-            .into());
-        }
-        thread::sleep(Duration::from_millis(300));
-    }
-    // First-run must reach login with no prior API auth, token or domain writes.
-    #[cfg(not(target_arch = "wasm32"))]
-    if _view == "avatars" {
-        return super::settings::avatar_check(root, &password);
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    if _view == "settings" {
-        return super::settings::check(root, &password);
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    if _view == "first-run" {
-        return super::first_run::check(root, &password);
-    }
+    options.port = if _view == "login" { 8787 } else { 8795 };
+    options.mirror_fixture = _view == "mirror";
+    let port = options.port;
+    let worker = crate::local_worker::LocalWorker::start(root, options)?;
+    let password = worker.password();
+    let c = Client {
+        dir: worker.directory().to_path_buf(),
+        port,
+    };
     #[cfg(not(target_arch = "wasm32"))]
     if _view != "mirror" {
         let response = reqwest::blocking::Client::new()
@@ -422,7 +258,7 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
                 )?;
             }
         }
-        return super::home_loading::check(root, &password);
+        return super::home_loading::check(root, password);
     }
     let token = c.call(
         "POST",
@@ -439,32 +275,32 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     if _view == "mirror" {
         return super::mirror_check::check(
             root,
-            &password,
+            password,
             token["token"].as_str().ok_or("missing token")?,
         );
     }
     if board {
         #[cfg(not(target_arch = "wasm32"))]
         return if _view == "mission" {
-            super::mission::check(root, &password)
+            super::mission::check(root, password)
         } else if _view == "login" {
-            super::login::check(root, &password, &c.dir)
+            super::login::check(root, password, &c.dir)
         } else if _view == "contrast" {
-            super::contrast::check(root, &password)
+            super::contrast::check(root, password)
         } else if _view == "palette" {
-            super::palette::check(root, &password)
+            super::palette::check(root, password)
         } else if _view == "polish" {
-            super::polish::check(root, &password)
+            super::polish::check(root, password)
         } else if _view == "live" {
             super::live::check(
                 root,
-                &password,
+                password,
                 token["token"].as_str().ok_or("missing token")?,
             )
         } else if _view == "projects" {
-            super::projects::check(root, &password)
+            super::projects::check(root, password)
         } else {
-            super::design::board_check(root, &password, _view)
+            super::design::board_check(root, password, _view)
         };
         #[cfg(target_arch = "wasm32")]
         return Err("board-check requires a native host".into());
@@ -481,15 +317,11 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
     )?;
     #[cfg(not(target_arch = "wasm32"))]
     if _view == "perf" {
-        return super::perf_browser::check(
-            root,
-            &password,
-            token["token"].as_str().ok_or("token")?,
-        );
+        return super::perf_browser::check(root, password, token["token"].as_str().ok_or("token")?);
     }
     #[cfg(not(target_arch = "wasm32"))]
     if _view == "pickup" {
-        return pickup_check(&c, &config, &state);
+        return pickup_check(&c, worker.config(), worker.state());
     }
     c.call(
         "PUT",
