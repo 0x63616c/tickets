@@ -942,3 +942,17 @@ Analytics using fixture-only API responses, including cache reuse on navigation,
 exact-value keyboard tooltips, tables, scopes, loading, recovery and overflow.
 It captures dark evidence in `docs/screenshots/TIK-66/`; supply
 `TICKETS_BEFORE_ASSETS=<baseline-dist>` for Home before images.
+
+## Shared page layout verification
+
+After building, run `CHROME_BIN=<headless-chromium> cargo xtask page-layout-check`.
+It serves fixture-only routes on an OS-assigned loopback port and captures Home,
+list, ticket detail, Settings and Board at 1440, 1920, 2560, 1024 and 390 pixels
+wide under `docs/screenshots/TIK-69/`. Use `TICKETS_BEFORE_ASSETS=<base-dist>`
+for matching before captures from an unchanged base build. The after run asserts
+the shared container's cap and equal side margins relative to the main pane,
+Board's full width, unchanged desktop sidebar and absence of document overflow.
+It also checks Analytics, Projects, gallery, Mission Control, every Settings
+section, empty/not-found states and standalone login at wide/tablet/mobile sizes.
+CI runs this regression after the application build. See `docs/design-system.md`
+for the shared container and gutter contract.

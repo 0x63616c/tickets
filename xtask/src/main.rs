@@ -39,6 +39,8 @@ mod perf_browser;
 #[cfg(not(target_arch = "wasm32"))]
 mod mission;
 #[cfg(not(target_arch = "wasm32"))]
+mod page_layout;
+#[cfg(not(target_arch = "wasm32"))]
 mod pickup;
 #[cfg(not(target_arch = "wasm32"))]
 mod screenshots;
@@ -134,6 +136,8 @@ fn main() -> Result {
         Some("loading-check") => loading::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("home-shot") => home::shots(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("page-layout-check") => page_layout::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("home-loading-check") => api_smoke::home_loading(root),
         #[cfg(not(target_arch = "wasm32"))]

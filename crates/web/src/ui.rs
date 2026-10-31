@@ -163,7 +163,7 @@ pub fn Login() -> impl IntoView {
     let (error, set_error) = signal(String::new());
     let (busy, set_busy) = signal(false);
     let next = login_next();
-    view! { <main class="login-page"><section class="login"><div class="login-wordmark"><span class="workspace-switcher"><crate::components::BrandMark/><strong>"Tickets"</strong></span></div><h1>"Sign in"</h1><p>"Use your workspace credentials."</p>
+    view! { <main class="page-container login-page"><section class="login"><div class="login-wordmark"><span class="workspace-switcher"><crate::components::BrandMark/><strong>"Tickets"</strong></span></div><h1>"Sign in"</h1><p>"Use your workspace credentials."</p>
     <form method="post" action="/api/v1/login" aria-busy=move||busy.get().to_string() on:submit=move |ev| { ev.prevent_default(); if busy.get_untracked() { return; } let next = next.clone(); set_busy.set(true); set_error.set(String::new()); spawn_local(async move {
         let result=api_typed("POST","/api/v1/login",json!({"username":username.get_untracked(),"password":password.get_untracked()})).await;
         if crate::login::clear_password(result.as_ref().map(|_| ())) { set_password.set(String::new()); } set_busy.set(false);

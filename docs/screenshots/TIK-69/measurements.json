@@ -1,0 +1,562 @@
+[
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/home",
+    "viewport": 1440,
+    "width": 1200
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 460,
+    "route": "/design/home",
+    "viewport": 1920,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/home",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/home",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/home",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/list",
+    "viewport": 1440,
+    "width": 1200
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 460,
+    "route": "/design/list",
+    "viewport": 1920,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/list",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/list",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/list",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/ticket",
+    "viewport": 1440,
+    "width": 1200
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 460,
+    "route": "/design/ticket",
+    "viewport": 1920,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/ticket",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/ticket",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/ticket",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/settings/account",
+    "viewport": 1440,
+    "width": 1200
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 460,
+    "route": "/design/settings/account",
+    "viewport": 1920,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/settings/account",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/settings/account",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/settings/account",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": true,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/board",
+    "viewport": 1440,
+    "width": 1200
+  },
+  {
+    "board": true,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/board",
+    "viewport": 1920,
+    "width": 1680
+  },
+  {
+    "board": true,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/board",
+    "viewport": 2560,
+    "width": 2320
+  },
+  {
+    "board": true,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/board",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": true,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/board",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/list",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/list",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/list",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/t/TKT-1",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/t/TKT-1",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/t/TKT-1",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": true,
+    "cap": 1240,
+    "left": 240,
+    "route": "/board",
+    "viewport": 2560,
+    "width": 2320
+  },
+  {
+    "board": true,
+    "cap": 1240,
+    "left": 240,
+    "route": "/board",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": true,
+    "cap": 1240,
+    "left": 0,
+    "route": "/board",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/analytics",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/analytics",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/analytics",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/projects",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/projects",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/projects",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/empty",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/empty",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/empty",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/mission",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/mission",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/mission",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/settings/api-tokens",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/settings/api-tokens",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/settings/api-tokens",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/settings/projects",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/settings/projects",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/settings/projects",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/settings/appearance",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/settings/appearance",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/settings/appearance",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/design/settings/pickup-rules",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/design/settings/pickup-rules",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/design/settings/pickup-rules",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 780,
+    "route": "/missing-page",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 240,
+    "route": "/missing-page",
+    "viewport": 1024,
+    "width": 784
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/missing-page",
+    "viewport": 390,
+    "width": 390
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 660,
+    "route": "/login",
+    "viewport": 2560,
+    "width": 1240
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/login",
+    "viewport": 1024,
+    "width": 1024
+  },
+  {
+    "board": false,
+    "cap": 1240,
+    "left": 0,
+    "route": "/login",
+    "viewport": 390,
+    "width": 390
+  }
+]

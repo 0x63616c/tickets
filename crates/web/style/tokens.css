@@ -4,6 +4,9 @@
 @font-face { font-family: 'Geist'; src: url('/fonts/Geist.woff2') format('woff2'); font-style: normal; font-weight: 100 900; font-display: swap; }
 :root {
   --page-max-width: 1240px;
+  --page-gutter: var(--space-6);
+  --auth-form-width: 336px;
+  --settings-form-width: 440px;
   color-scheme: dark;
   --bg: #000000;
   --stub-ink: #ededed;
@@ -86,3 +89,6 @@
 :root[data-font="geist-mono"] { --font-ui: var(--font-mono); }
 :root[data-font="inter"] { --font-ui: 'Inter Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
 :root[data-font="system"] { --font-ui: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+
+/* Shared page gutters change with the shell, never with individual routes. */
+@media (max-width: 1100px) { :root { --page-gutter: var(--space-4); } }
