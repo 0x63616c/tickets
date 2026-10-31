@@ -901,7 +901,10 @@ Euclidean distance from its boundary, including notches and perforations. Sampli
 distances and cell phases are precomputed on resize. The dense `$`/`@` interior
 stays still; only a 2.6-cell boundary band shimmers. A uses ` .~+=x*%o@$`, white
 `--stub-ink` fill and a dim blue-grey `--stub-ring` (#718b9e) contour. Query-only
-`splash-look=A|B|C` studies share one renderer, pending Calum's pick (default A).
+`splash-look=A|B|C|D` studies share one renderer (default A).
+Calum picked A; D is a limited-palette refinement pending his approval.
+D uses exactly ` ·=%@$` (light to dense), with `·=` fray; its two-tone tokens,
+speed, amplitude, geometry and lifecycle match A. A/B/C remain unchanged.
 B uses the same ramp in one white tone with a subtle travelling edge wave;
 C uses ` .,:;~-=+!x*%&oO8#@$` with more levels and slower shimmer.
 A/B/C use speed multipliers .85/.65/.38 and amplitudes .12/.09/.10.

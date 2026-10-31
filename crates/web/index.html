@@ -70,14 +70,16 @@
       };
       let readyAt = null;
       let frame = 0;
-      // Query-only visual studies; A is the production default pending Calum's pick.
+      // Query-only visual studies; D awaits Calum's approval, A remains the default.
       const variants = {
         A: { ramp: " .~+=x*%o@$", speed: 0.85, amplitude: 0.12, wave: false, mono: false },
         B: { ramp: " .~+=x*%o@$", speed: 0.65, amplitude: 0.09, wave: true, mono: true },
         C: { ramp: " .,:;~-=+!x*%&oO8#@$", speed: 0.38, amplitude: 0.10, wave: false, mono: false },
+        D: { ramp: " ·=%@$", fray: "·=", speed: 0.85, amplitude: 0.12, wave: false, mono: false },
       };
       const selectedLook = new URLSearchParams(location.search).get("splash-look");
       const look = Object.hasOwn(variants, selectedLook) ? variants[selectedLook] : variants.A;
+      const frayRamp = look.fray ?? "·~,";
       splash.classList.toggle("boot-mono", look.mono);
       let fieldTime = 0;
       let fieldFrame = null;
@@ -207,7 +209,7 @@
             if (fray >= 0 && cell.seam) {
               const dropout = cell.phase > 3 && fray > 0.45 + cell.phase / 20;
               piece.bodyBuffer[i] = " ";
-              piece.edgeBuffer[i] = dropout ? " " : "·~,"[(Math.floor(fray * 5) + cell.phase) % 3];
+              piece.edgeBuffer[i] = dropout ? " " : frayRamp[(Math.floor(fray * 5) + cell.phase) % frayRamp.length];
             } else {
               const wave = cell.influence === 0 ? 0 : look.wave ? Math.sin(cell.a - t * 2) :
                 0.65 * Math.sin(cell.a - t) + 0.35 * Math.sin(cell.b + t * 0.73);
