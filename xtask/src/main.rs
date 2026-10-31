@@ -33,6 +33,7 @@ mod infra;
 mod live;
 #[cfg(not(target_arch = "wasm32"))]
 mod loading;
+mod local_worker;
 #[cfg(not(target_arch = "wasm32"))]
 mod login;
 #[cfg(not(target_arch = "wasm32"))]
@@ -155,11 +156,11 @@ fn main() -> Result {
         #[cfg(not(target_arch = "wasm32"))]
         Some("font-check") => fonts::check(root),
         #[cfg(not(target_arch = "wasm32"))]
-        Some("settings-check") => api_smoke::settings(root),
+        Some("settings-check") => settings::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("navigation-check") => navigation::check(root),
         #[cfg(not(target_arch = "wasm32"))]
-        Some("avatar-check") => api_smoke::avatars(root),
+        Some("avatar-check") => settings::avatar_check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("card-shots") => cards::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
@@ -210,11 +211,12 @@ fn main() -> Result {
         #[cfg(not(target_arch = "wasm32"))]
         Some("d1-usage-check") => d1_usage::check(),
         #[cfg(not(target_arch = "wasm32"))]
-        Some("api-docs-check") => api_smoke::api_docs(root),
+        Some("api-docs-check") => api_docs::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("infra-check") => infra::check(root),
         Some("mission-check") => api_smoke::mission(root),
-        Some("first-run-check") => api_smoke::first_run(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("first-run-check") => first_run::check(root),
         Some("build") => build(root),
         Some("dev") => {
             build(root)?;

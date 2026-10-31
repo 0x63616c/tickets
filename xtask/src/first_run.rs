@@ -2,7 +2,10 @@
 use crate::design::Browser;
 use std::{fs, path::Path};
 
-pub fn check(root: &Path, password: &str) -> super::Result {
+pub fn check(root: &Path) -> super::Result {
+    let worker = crate::local_worker::LocalWorker::start(root, Default::default())?;
+    let password = worker.password();
+    let url = worker.url();
     let output = root.join("docs/screenshots/1");
     let links_output = root.join("docs/screenshots/147");
     fs::create_dir_all(&links_output)?;
@@ -13,7 +16,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     let profile = format!("first-run-browser-{}", std::process::id());
     let mut b = Browser::start_named(root, &profile)?;
     b.viewport(1440, 900)?;
-    b.go("http://127.0.0.1:8795/login")?;
+    b.go(&format!("{url}/login"))?;
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
@@ -72,7 +75,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("(()=>{const p=document.querySelector('.properties'),d=document.querySelector('.detail-description'),a=document.querySelector('.activity');return p.getBoundingClientRect().bottom<=d.getBoundingClientRect().top && p.getBoundingClientRect().top<a.getBoundingClientRect().top && !!(p.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING)})()")?;
     b.wait("(()=>{const r=document.querySelector('.dependency-kind').getBoundingClientRect();return r.width>0 && r.height>0})()")?;
     b.screenshot(&links_output.join(format!("{capture}-mobile.png")))?;
-    b.go("http://127.0.0.1:8795/list?project=1")?;
+    b.go(&format!("{url}/list?project=1"))?;
     b.wait("(()=>{const row=document.querySelector('#list-ticket-2'),e=row?.querySelector('.row-blocked');if(!e)return false;const r=e.getBoundingClientRect(),p=row.getBoundingClientRect();return r.width>0 && r.height>0 && r.left>=p.left && r.right<=p.right && r.top>=p.top && r.bottom<=p.bottom && getComputedStyle(e).visibility==='visible' && document.documentElement.scrollWidth<=innerWidth})()")?;
     b.click("#list-ticket-2 .row-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
@@ -99,9 +102,9 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.click(".dependency-title")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release' && document.querySelector('[aria-label=Priority]')?.value==='High'")?;
     if !before {
-        b.go("http://127.0.0.1:8795/t/first-2")?;
+        b.go(&format!("{url}/t/first-2"))?;
         b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
-        b.go("http://127.0.0.1:8795/t/FIRST-999999")?;
+        b.go(&format!("{url}/t/FIRST-999999"))?;
         b.wait(
         "document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found')",
     )?;
@@ -109,7 +112,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         b.call("Page.navigate", serde_json::json!({"url":"about:blank"}))?;
         b.wait("location.href==='about:blank'")?;
         b.call("Network.clearBrowserCookies", serde_json::json!({}))?;
-        b.go("http://127.0.0.1:8795/t/FIRST-2")?;
+        b.go(&format!("{url}/t/FIRST-2"))?;
         b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/t/FIRST-2'")?;
         b.text("#username", "fixture")?;
         b.text("#password", password)?;
@@ -117,17 +120,17 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         b.wait("location.pathname==='/t/FIRST-2' && document.querySelector('.ticket-detail h1')?.textContent==='Publish release'")?;
     }
     // Home is the default landing route; all data above was created through the UI.
-    b.go("http://127.0.0.1:8795/")?;
+    b.go(&format!("{url}/"))?;
     b.wait("[...document.querySelectorAll('.home-metric strong')].map(e=>e.textContent).join(',')==='1,0,1'")?;
     b.click("a.home-metric[href*='metric=in_flight']")?;
     b.wait("document.querySelectorAll('.home-cohort .home-ticket-row').length===1 && document.querySelector('.home-cohort').textContent.includes('FIRST-1')")?;
-    b.go("http://127.0.0.1:8795/t/FIRST-1")?;
+    b.go(&format!("{url}/t/FIRST-1"))?;
     b.wait("!!document.querySelector('[aria-label=Status]')")?;
     b.choose("[aria-label=Status]", "Done")?;
     b.wait("document.querySelector('[aria-label=Status]').value==='Done' && !document.querySelector('[aria-label=Status]').disabled")?;
-    b.go("http://127.0.0.1:8795/")?;
+    b.go(&format!("{url}/"))?;
     b.wait("[...document.querySelectorAll('.home-metric strong')].map(e=>e.textContent).join(',')==='0,0,0'")?;
-    b.go("http://127.0.0.1:8795/analytics")?;
+    b.go(&format!("{url}/analytics"))?;
     b.wait("document.querySelectorAll('.analytics-card').length===2 && !document.querySelector('.home-page[aria-busy=true]')")?;
     b.click(".analytics-card:first-child .chart-data summary")?;
     b.click(".chart-data a[href*='metric=completed'][href*='week=7']")?;

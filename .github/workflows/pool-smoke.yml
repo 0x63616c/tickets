@@ -1,0 +1,32 @@
+name: pool-smoke
+
+# Manual smoke test for the self-hosted runner pool (runner-pool on the M5).
+# The GitHub bridge creates JIT ephemeral runners only for queued jobs that
+# request the pool-linux or pool-macos labels.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: pool-linux
+    runs-on: [self-hosted, pool-linux]
+    timeout-minutes: 15
+    steps:
+      - name: Host info
+        run: |
+          uname -a
+          nproc
+          free -m
+
+  macos:
+    name: pool-macos
+    runs-on: [self-hosted, pool-macos]
+    timeout-minutes: 30
+    steps:
+      - name: Host info
+        run: |
+          sw_vers
+          xcodebuild -version

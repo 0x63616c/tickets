@@ -16,10 +16,12 @@ fn full_page(b: &mut Browser, output: &Path) -> super::Result {
     )?;
     Ok(())
 }
-pub fn check(root: &Path, password: &str) -> super::Result {
+pub fn check(root: &Path) -> super::Result {
+    let worker = crate::local_worker::LocalWorker::start(root, Default::default())?;
+    let password = worker.password();
     let output = root.join("docs/screenshots/TIK-97");
     fs::create_dir_all(&output)?;
-    let base = "http://127.0.0.1:8795";
+    let base = worker.url();
     let before = std::env::var_os("TICKETS_BEFORE_ASSETS").is_some();
     let mut operation_count = 0;
     if !before {

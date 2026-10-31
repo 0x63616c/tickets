@@ -176,6 +176,21 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   separate local network namespaces. Browser policies must permit loopback access;
   isolate any test-only policy override to the child process, never shared settings.
 
+Local Worker checks share `LocalWorker::start(root, LaunchOptions)`. A returned
+session owns a healthy child and fresh fully migrated local D1, with no prior
+login, token creation or domain seeding. Startup makes only unauthenticated
+health reads after migrations. First-run, settings and avatar checks obtain this
+untouched session directly; the smoke coordinator authenticates only after start.
+Options retain build reuse, baseline assets, the Worker-only baseline build,
+login's port 8787 and mirror fixtures; other Worker checks use port 8795.
+Dropping a session terminates its private process group and reaps its child on
+success or error. Generated credentials/configuration/state and Worker logs remain
+under ignored `target/api-smoke-*/`; migration output is retained there in
+`migrations.log`. Startup failures identify the relevant retained log.
+Wrangler is a local-substitutable dependency: private executable fixtures and a
+loopback health responder exercise launch/drop without application builds.
+Executable and deadline injection stays private to the module.
+
 For a browser/runtime-only retry after a successful local build, set
 `TICKETS_SKIP_BUILD=1` on api-smoke/skill-check/browser checks. This still creates
 fresh isolated local D1 state; it only reuses web/Worker outputs. Verify those
@@ -377,7 +392,8 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 ## Projects conventions
 
 - `CHROME_BIN=<headless-chromium> cargo xtask first-run-check` builds and starts
-  isolated local Wrangler/D1 with the complete migration chain and zero data.
+  isolated local Wrangler/D1 with the complete migration chain and no prior
+  authenticated or domain state, apart from migration-seeded reference data.
   It logs in through `/login`, then uses visible UI controls only to create a
   project, two tickets, a Kanban move, a new label and a dependency verified on
   both tickets. No API seeding or token creation is used. CI runs it sequentially
