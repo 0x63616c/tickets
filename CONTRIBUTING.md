@@ -619,7 +619,15 @@ project icon schema changes additive and validate values in core.
 ## Sidebar and settings (TIK-40)
 
 - `/` and `/home` render Home; `/board` renders Board.
-  G then H/B/L navigates; `?` opens shortcuts.
+  Cmd+1…7 (Ctrl on Windows/Linux) navigates to Home, Analytics, Board, List,
+  Mission Control, All projects and Settings, respectively; `?` opens shortcuts.
+  Ignore navigation shortcuts in editable fields, during composition and while
+  dialogs/popovers are open. Cancel handled key events with `preventDefault`.
+  Hints use the shared `Shortcut`/kbd style: ⌘1 on Mac, Ctrl+1 elsewhere.
+- After building, `CHROME_BIN=<headless-chromium> cargo xtask navigation-check`
+  checks both platform modifiers, every navigation destination, editable/palette
+  focus, event cancellation and consistent hints. Dark desktop/mobile evidence
+  goes to `docs/screenshots/TIK-94/`; `TICKETS_BEFORE_ASSETS` captures the baseline.
 - Account identity comes from `/api/v1/me`, with nullable `display_name` falling
   back to the authenticated username. Never substitute a literal You/Y avatar.
 - `/settings` redirects to `/settings/account`; sections are `account`,

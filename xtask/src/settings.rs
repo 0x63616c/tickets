@@ -149,11 +149,14 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.go("http://127.0.0.1:8795/home")?;
     b.wait("!!document.querySelector('.home-empty')")?;
     b.eval("document.activeElement.blur();true")?;
-    b.key("g", 71, 0)?;
-    b.key("l", 76, 0)?;
+    let modifier = if b.eval("navigator.platform.includes('Mac')")? == true {
+        4
+    } else {
+        2
+    };
+    b.key("4", 52, modifier)?;
     b.wait("location.pathname==='/list'")?;
-    b.key("g", 71, 0)?;
-    b.key("b", 66, 0)?;
+    b.key("3", 51, modifier)?;
     b.wait("location.pathname==='/board'")?;
     b.key("?", 191, 8)?;
     b.wait("!!document.querySelector('dialog[open]') && document.querySelector('dialog').textContent.includes('Keyboard shortcuts')")?;
@@ -171,7 +174,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.sign_out()?;
     b.wait("location.pathname==='/login'")?;
     println!(
-        "PASS settings: account persistence, menu focus, collapsed sections, token redirect/lifecycle, appearance persistence, Home and G shortcuts, mobile overflow/focus"
+        "PASS settings: account persistence, menu focus, collapsed sections, token redirect/lifecycle, appearance persistence, Home and Cmd/Ctrl+number shortcuts, mobile overflow/focus"
     );
     Ok(())
 }

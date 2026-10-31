@@ -66,7 +66,11 @@ pub fn ProjectIconPicker(
 
 static LAST_TOOLTIP: AtomicU64 = AtomicU64::new(0);
 #[component]
-pub fn Tooltip(#[prop(into)] text: String, children: Children) -> impl IntoView {
+pub fn Tooltip(
+    #[prop(into)] text: String,
+    #[prop(optional)] shortcut: &'static str,
+    children: Children,
+) -> impl IntoView {
     let open = RwSignal::new(false);
     let presence = use_presence(open.into(), EXIT_MS);
     let trigger = NodeRef::<html::Span>::new();
@@ -137,7 +141,7 @@ pub fn Tooltip(#[prop(into)] text: String, children: Children) -> impl IntoView 
             t.clear();
         }
     });
-    view! {<span class="tooltip-trigger" node_ref=trigger on:mouseenter=move|_|{if open.try_get_untracked().is_some(){show.run(false);}} on:mouseleave=move|_|{if open.try_get_untracked().is_some(){hide.run(());}} on:focusin=move|_|{if open.try_get_untracked().is_some(){show.run(true);}} on:focusout=move|_|{if open.try_get_untracked().is_some(){hide.run(());}} on:keydown=move|e:web_sys::KeyboardEvent|{if e.key()=="Escape"{hide.run(());}}>{children()}<div node_ref=panel id=tooltip_id class="popup tooltip" data-instant=move||instant.get().to_string() role="tooltip" popover="manual" data-state=move||presence.state() hidden=move||!presence.mounted.get()>{text}</div></span>}
+    view! {<span class="tooltip-trigger" node_ref=trigger on:mouseenter=move|_|{if open.try_get_untracked().is_some(){show.run(false);}} on:mouseleave=move|_|{if open.try_get_untracked().is_some(){hide.run(());}} on:focusin=move|_|{if open.try_get_untracked().is_some(){show.run(true);}} on:focusout=move|_|{if open.try_get_untracked().is_some(){hide.run(());}} on:keydown=move|e:web_sys::KeyboardEvent|{if e.key()=="Escape"{hide.run(());}}>{children()}<div node_ref=panel id=tooltip_id class="popup tooltip" data-instant=move||instant.get().to_string() role="tooltip" popover="manual" data-state=move||presence.state() hidden=move||!presence.mounted.get()>{text}{(!shortcut.is_empty()).then(||view!{<span>" "<Shortcut>{shortcut}</Shortcut></span>})}</div></span>}
 }
 
 /// Equal-width segments, roving tab stop, immediate keyboard selection, transform indicator.
