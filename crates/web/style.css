@@ -676,7 +676,11 @@ main:has(.api-board) { height: 100dvh; min-height: 0; }
 .api-board .column-heading { position: sticky; top: 0; z-index: 1; background: var(--bg); }
 .api-board .board-drop-placeholder { background: var(--accent-surface); border: 1px dashed var(--accent); opacity: 1; }
 .api-board .board-drop-placeholder > * { visibility: hidden; }
+.board-origin-placeholder { opacity: .35; filter: grayscale(1); pointer-events: none; }
 .api-board .board-drag-chosen { cursor: grabbing; }
-.board-drag-preview { cursor: grabbing; box-shadow: var(--shadow-popover); pointer-events: none; opacity: 1; z-index: 100; }
+/* The preview lives under body, outside the board transition reset. Sortable
+   integrates the computed matrix on every move; interpolation loses travel. */
+.board-drag-preview { transition: none; cursor: grabbing; box-shadow: var(--shadow-popover); pointer-events: none; opacity: 1; z-index: 100; }
 .api-board[data-pointer-drag="true"] .ticket-card { transition: none; }
-.api-board .ticket-card:active { transform: none; }
+/* Match the press selector so pickup geometry is never sampled mid-scale. */
+.api-board .ticket-card:active:not(.drag-over):not(:has(button:active)) { transform: none; }
