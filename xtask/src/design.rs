@@ -100,6 +100,9 @@ impl Browser {
         Ok(result["result"]["value"].clone())
     }
     pub(crate) fn wait(&mut self, expression: &str) -> Result<()> {
+        self.wait_for(expression, Duration::from_secs(15))
+    }
+    pub(crate) fn wait_for(&mut self, expression: &str, timeout: Duration) -> Result<()> {
         let start = Instant::now();
         loop {
             match self.eval(expression) {
@@ -118,7 +121,7 @@ impl Browser {
                         .any(|message| error.to_string().contains(message)) => {}
                 Err(error) => return Err(error),
             }
-            if start.elapsed() > Duration::from_secs(15) {
+            if start.elapsed() > timeout {
                 let _ = self.screenshot(Path::new("target/browser-failure.png"));
                 let context=self.eval("({url:location.href,title:document.title,body:document.body.innerText.slice(0,1200)})").unwrap_or_default();
                 return Err(format!("Timed out: {expression}; {context}").into());

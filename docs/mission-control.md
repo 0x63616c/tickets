@@ -2,7 +2,7 @@
 
 `/mission` is a dark, cross-project operating queue, linked beside Home. It shows
 Needs Calum, Ready to test, Running jobs, Open PRs, Blocked, Recent merges and
-Builds, in that order. It refreshes every 30 seconds while visible and on focus
+Builds, in that order. It refreshes every 3 minutes while visible and on focus
 or visibility restoration. Failed refreshes retain the last snapshot with Retry.
 
 ## Report ingest

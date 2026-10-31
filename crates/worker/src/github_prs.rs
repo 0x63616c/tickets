@@ -108,15 +108,14 @@ pub async fn handle(env: &Env, event: &str, bytes: &[u8]) -> Result<Response> {
     .await
     .map_err(|_| Error::RustError("PR storage failed".into()))?;
     if !rows.is_empty() {
-        // Global invalidation also reaches tickets whose link was removed.
+        // Includes projects whose previous links were removed by this snapshot.
         let _ = crate::live::notify(
             env,
-            &db,
             crate::api::CommittedChange {
                 entity: "tickets".into(),
                 id: 0,
                 action: "update".into(),
-                projects: vec![],
+                projects: serde_json::from_str(rows[0]["projects"].as_str().unwrap_or("[]"))?,
             },
         )
         .await;

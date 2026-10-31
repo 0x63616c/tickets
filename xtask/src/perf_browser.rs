@@ -62,11 +62,19 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     b.click(".sidebar a[href='/board']")?;
     b.wait("document.querySelectorAll('.ticket-card').length===1")?;
     b.eval("if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('navigation reloaded collection');window.dispatchEvent(new Event('focus'));true")?;
+    b.eval("window.beforeLiveReads=perfReads.length;true")?;
+    api(
+        reqwest::Method::PATCH,
+        &format!("tickets/{id}"),
+        json!({"title":"First burst fixture"}),
+    )?;
     api(
         reqwest::Method::PATCH,
         &format!("tickets/{id}"),
         json!({"title":"Patched live fixture"}),
     )?;
+    b.eval("new Promise(resolve=>setTimeout(resolve,2000))")?;
+    b.eval("if(perfReads.length!==beforeLiveReads)throw Error('live notice refreshed before debounce');true")?;
     b.wait("document.querySelector('.card-title')?.textContent==='Patched live fixture'")?;
     b.eval("if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('live update reloaded collection');true")?;
     b.click(".card-title")?;
@@ -83,7 +91,10 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
         json!({"title":"Foreground catch-up fixture"}),
     )?;
     b.call("Page.bringToFront", json!({}))?;
-    b.wait("document.querySelector('.card-title')?.textContent==='Foreground catch-up fixture'")?;
+    b.wait_for(
+        "document.querySelector('.card-title')?.textContent==='Foreground catch-up fixture'",
+        std::time::Duration::from_secs(40),
+    )?;
     b.eval("if(perfErrors.length)throw Error(JSON.stringify(perfErrors));if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('foregrounding reloaded collection');true")?;
     b.click(".sidebar a[href='/']")?;
     b.wait("!!document.querySelector('.home-metric strong')")?;
@@ -94,7 +105,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
     // A cron/bulk invalidation has no record IDs. Home must keep aggregate-only
     // reads and mark an already-loaded collection stale for the next Board visit.
     b.eval("window.bulkHomeReads=perfReads.filter(p=>p==='/api/v1/analytics/home').length;for(const socket of perfSockets.filter(s=>s.readyState===1))socket.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({project_id:1,entity:'tickets',id:0,action:'update'})}));true")?;
-    b.wait("perfReads.filter(p=>p==='/api/v1/analytics/home').length>bulkHomeReads && !document.querySelector('.home-page[aria-busy=true]')")?;
+    b.wait_for("perfReads.filter(p=>p==='/api/v1/analytics/home').length>bulkHomeReads && !document.querySelector('.home-page[aria-busy=true]')", std::time::Duration::from_secs(40))?;
     b.eval("if(perfReads.filter(p=>p==='/api/v1/tickets').length!==collectionReads)throw Error('bulk Home event downloaded collection');true")?;
     b.viewport(1280, 800)?;
     b.click(".sidebar a[href='/board']")?;
