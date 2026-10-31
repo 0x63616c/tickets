@@ -247,15 +247,8 @@ its sequential isolated API/browser checks; each check still creates fresh D1 st
   `cargo xtask card-shots` captures TIK-57 fixture evidence (single/multiple blockers,
   desktop/mobile board/list and tooltip) using matching base assets when supplied.
 - Cards: Tab to focus; arrows navigate. Space picks up, arrows change column or
-  position, Space saves, Escape cancels. Position/status changes are announced.
-  Status selects remain the touch-friendly alternative. Pointer/touch uses pinned
-  SortableJS fallback sensors, a visible insertion slot and nested autoscroll; hold
-  briefly on touch to drag, or swipe immediately to scroll. Escape, pointer/touch
-  cancellation, blur and hidden tabs cancel the gesture. The adapter restores DOM
-  ownership before Rust updates or persists; never mutate Rust tickets on hover.
-  Keep the board click latch above card lifecycles and the shared link transition
-  handler. Research and TIK-49's manual/sorted integration boundary live in
-  [board-drag-drop.md](docs/design/board-drag-drop.md).
+  position, Space saves, Escape cancels. Status selects remain the touch-friendly
+  alternative. Mouse drops on a card insert before it; drops on a column append.
 - `CHROME_BIN=<headless-chromium> cargo xtask board-check` builds the app, starts
   an isolated local Worker/D1, seeds through the API, and verifies keyboard/mouse
   moves, ordering after reload, filters, pagination, rollback, focus, creation and
@@ -395,6 +388,17 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
   session upgrades require matching Origin. Each project uses one `BoardRoom` keyed
   by its numeric ID, with SQLite migrations and hibernating WebSockets. Never poll
   from an alarm or retain socket lists in object memory.
+- Notify only affected project rooms; an empty scope never means broadcast.
+  PR scope comes from the atomic mutation snapshot (old/new links and dependency
+  neighbors); resolve label membership before deletion. Claim heartbeats and
+  CI-only check updates store history/metadata without sending live notices.
+- Automatic live reconciliation batches notices for 5 seconds and runs at most
+  once per 30 seconds per tab. Keep pending events through cooldown, hidden tabs
+  and edits; manual refresh and local writes remain immediate. Live browser checks
+  allow 40 seconds for a cooldown plus reconciliation.
+- Mission Control polls every 3 minutes while visible; focus/manual refresh remain
+  available. Home analytics and project counts retain the private 60-second edge
+  cache keyed by workspace version; writes invalidate it early.
 - Change events are typed invalidations, not ordered patches. D1 remains authoritative.
   Reconcile duplicate/own events and refetch after every reconnect. Defer incoming
   reconciliation during local board moves and detail writes/edits.
@@ -615,7 +619,15 @@ project icon schema changes additive and validate values in core.
 ## Sidebar and settings (TIK-40)
 
 - `/` and `/home` render Home; `/board` renders Board.
-  G then H/B/L navigates; `?` opens shortcuts.
+  Cmd+1…7 (Ctrl on Windows/Linux) navigates to Home, Analytics, Board, List,
+  Mission Control, All projects and Settings, respectively; `?` opens shortcuts.
+  Ignore navigation shortcuts in editable fields, during composition and while
+  dialogs/popovers are open. Cancel handled key events with `preventDefault`.
+  Hints use the shared `Shortcut`/kbd style: ⌘1 on Mac, Ctrl+1 elsewhere.
+- After building, `CHROME_BIN=<headless-chromium> cargo xtask navigation-check`
+  checks both platform modifiers, every navigation destination, editable/palette
+  focus, event cancellation and consistent hints. Dark desktop/mobile evidence
+  goes to `docs/screenshots/TIK-94/`; `TICKETS_BEFORE_ASSETS` captures the baseline.
 - Account identity comes from `/api/v1/me`, with nullable `display_name` falling
   back to the authenticated username. Never substitute a literal You/Y avatar.
 - `/settings` redirects to `/settings/account`; sections are `account`,
@@ -881,17 +893,26 @@ of browser checks. Run the private copy from the workspace root; do not set a
 separate `CARGO_TARGET_DIR`. Verify the copy contains the issue's new task/check
 before relying on its results.
 
-## Startup splash (TIK-84, TIK-87, TIK-89)
+## Startup splash (TIK-84, TIK-87, TIK-89, TIK-91)
 
-`index.html` paints a full-screen ASCII Stub before the app mounts. Its small
+`index.html` paints a full-screen ASCII Stub before the app mounts.
+First paint (TIK-91): `style/tokens.css` and `style/splash.css` are inlined into
+`index.html` (`<link data-trunk rel="inline" type="css">`), and the app
+stylesheets are linked at the end of `<body>`, after the splash markup and its
+inline script. The browser can paint the splash before any external CSS, font,
+JS or wasm arrives, and the same element animates and tears off once the app is
+ready, so it never jumps in size or position. Keep the splash self-contained:
+it carries its own `.sr-only` rule and must not depend on app stylesheets. Its small
 inline canvas sampler uses the favicon's evenodd path, including notches and
 perforations, with fixed monospace cells: `--stub-edge` (#a78bfa) for a continuous
 one-cell purple contour (including notches and holes), `--stub-ink` for the body.
 Filled cells have at least 50% coverage; a filled cell with an empty four-neighbour
 is an edge. The sampled grid is rebuilt only on resize, never for motion.
-The mark enters over 550ms with an ease-out fade and 12px rise. CSS keeps the
+The mark is the loading state: fully visible in the first paint, with no entry
+fade or rise (TIK-91). It fits min(35.2% viewport width, 72% height), 80% of the
+TIK-89 size. CSS keeps the
 float on the compositor: vertical ±9px / 2.2s, horizontal ±6px / 3.4s and
-rotation ±1.6° / 3.8s (`.boot-mark` entry, `.boot-sway`, `.boot-grid` bob/tilt).
+rotation ±1.6° / 3.8s (`.boot-sway`, `.boot-grid` bob/tilt).
 Each of two full-grid piece wrappers has stacked edge/body `<pre>` layers with
 identical 0.6em advance and 1.2 line height; spaces register the pieces seamlessly.
 The purple contour is built once. Body Text.data updates at 30fps on rAF using

@@ -215,3 +215,31 @@ fn draft_review_edit_and_many_keys_are_atomic() {
         );
     });
 }
+
+#[test]
+fn notice_scope_covers_removed_and_added_links_but_not_unrelated_projects() {
+    block_on(async {
+        let db = setup("todo");
+        db.0.execute_batch("INSERT INTO projects(name,key_prefix,color) VALUES('Other','OTH','#123456'),('Dependency','DEP','#123456'),('Unrelated','UNR','#123456'); INSERT INTO tickets(project_id,number,title) VALUES(2,1,'Other'),(3,1,'Neighbor'),(4,1,'Unrelated'); INSERT INTO ticket_dependencies VALUES(1,3);").unwrap();
+        let first = event(&db, 1, "open", "", "Refs TIK-1", "2026-10-29T01:00:00Z").await;
+        assert_eq!(
+            serde_json::from_str::<Value>(first[0]["projects"].as_str().unwrap()).unwrap(),
+            json!([1, 3])
+        );
+        let changed = event(&db, 1, "open", "", "Refs OTH-1", "2026-10-29T02:00:00Z").await;
+        let mut projects: Vec<i64> =
+            serde_json::from_str(changed[0]["projects"].as_str().unwrap()).unwrap();
+        projects.sort_unstable();
+        assert_eq!(projects, vec![1, 2, 3]);
+        let removed = event(&db, 1, "open", "", "", "2026-10-29T03:00:00Z").await;
+        assert_eq!(
+            serde_json::from_str::<Value>(removed[0]["projects"].as_str().unwrap()).unwrap(),
+            json!([2])
+        );
+        assert!(
+            event(&db, 1, "open", "", "", "2026-10-29T03:00:00Z")
+                .await
+                .is_empty()
+        );
+    });
+}

@@ -365,3 +365,28 @@ fn api_creation_patch_and_external_upsert_share_authoritative_history() {
         assert_eq!(h["weeks"][7]["completed"], 2);
     });
 }
+
+#[test]
+fn blocker_aggregate_counts_only_unresolved_edges_and_preserves_empty_rows() {
+    block_on(async {
+        let db = Sqlite::new();
+        seed(&db);
+        db.0.execute_batch("INSERT INTO tickets(project_id,number,title,status) VALUES(1,1,'Review','in_review'),(1,2,'Open blocker','todo'),(2,1,'Archived-project blocker','in_progress'),(1,3,'Done blocker','done'),(1,4,'Canceled blocker','canceled'),(1,5,'Unblocked review','in_review'); INSERT INTO ticket_dependencies VALUES(2,1),(3,1),(4,1),(5,1);").unwrap();
+        let h = home(&db, &[("project", "1"), ("metric", "review")]).await;
+        assert_eq!(h["in_review"], 2);
+        assert_eq!(h["blocked"], 1);
+        let rows = h["cohort"].as_array().unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["blocker_count"], 2);
+        assert_eq!(rows[0]["blocker_id"], 2);
+        assert_eq!(rows[0]["blocker_key"], "EX-2");
+        assert_eq!(rows[1]["blocker_count"], 0);
+        assert!(rows[1]["blocker_id"].is_null());
+        db.0.execute_batch("UPDATE tickets SET status='done' WHERE id=2; UPDATE tickets SET status='canceled' WHERE id=3;").unwrap();
+        let h = home(&db, &[("project", "1"), ("metric", "review")]).await;
+        assert_eq!(h["in_review"], 2);
+        assert_eq!(h["blocked"], 0);
+        assert_eq!(h["cohort"][0]["blocker_count"], 0);
+        assert!(h["cohort"][0]["blocker_id"].is_null());
+    });
+}

@@ -46,14 +46,8 @@
   will-change: translate, rotate, opacity;
 }
 
-/* Soft entry rises into the compositor float. */
-#boot-splash .boot-mark {
-  opacity: 0;
-  translate: 0 12px;
-  transition: opacity 550ms var(--ease-out), translate 550ms var(--ease-out);
-  will-change: opacity, translate;
-}
-#boot-splash.boot-in .boot-mark { opacity: 1; translate: 0 0; }
+/* TIK-91: the mark is the loading state, fully visible in the first paint (no entry fade). */
+#boot-splash .boot-mark { will-change: opacity; }
 /* Fray first, then release the right stub and let the left piece settle. */
 #boot-splash.boot-torn .boot-stub {
   translate: calc(var(--splash-tear-x) / var(--boot-scale)) calc(var(--splash-tear-y) / var(--boot-scale));
@@ -108,4 +102,15 @@
 #boot-splash.boot-exit {
   opacity: 0;
   pointer-events: none;
+}
+
+/* TIK-91: app stylesheets load after the first paint, so the splash carries its own
+   visually-hidden rule; the status text must never shift the mark. */
+#boot-splash .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

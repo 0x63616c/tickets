@@ -101,7 +101,9 @@ pub async fn pull_request<S: Store>(store: &S, values: Vec<Value>) -> Result<Vec
         store,
         &Actor::webhook(),
         scope,
-        tickets_core::pull_request::UPSERT,
+        // The before snapshot includes both removed links and new matches under
+        // the same write lock. RETURNING captures scope before scratch cleanup.
+        &format!("{},(SELECT json_group_array(project_id) FROM (SELECT DISTINCT project_id FROM tickets WHERE id IN (SELECT ticket_id FROM ticket_mutation_before UNION SELECT blocked_id FROM ticket_dependencies WHERE blocker_id IN (SELECT ticket_id FROM ticket_mutation_before) UNION SELECT blocker_id FROM ticket_dependencies WHERE blocked_id IN (SELECT ticket_id FROM ticket_mutation_before)))) AS projects", tickets_core::pull_request::UPSERT),
         values,
     )
     .await

@@ -128,12 +128,26 @@ pub fn check(root: &Path) -> super::Result {
     let new_projects = format!(
         "SELECT {selection} FROM {source} WHERE projects.id>0 ORDER BY projects.id LIMIT 101"
     );
-    let analytics = fs::read_to_string(root.join("crates/worker/src/analytics.sql"))?
-        .replace("?1", "0")
-        .replace("?2", "''")
-        .replace("?3", "7")
-        .replace("?4", "''")
-        .replace("?5", "0");
+    let bind_analytics = |sql: &str| {
+        sql.replace("?1", "0")
+            .replace("?2", "''")
+            .replace("?3", "7")
+            .replace("?4", "''")
+            .replace("?5", "0")
+    };
+    // The baseline must use its own SQL: optimizing today's analytics must not
+    // retroactively reduce the historical denominator in the daily projection.
+    let old_analytics = Command::new("git")
+        .current_dir(root)
+        .args(["show", "b42be78:crates/worker/src/analytics.sql"])
+        .output()?;
+    if !old_analytics.status.success() {
+        return Err("baseline analytics unavailable; fetch repository history".into());
+    }
+    let old_analytics = bind_analytics(&String::from_utf8(old_analytics.stdout)?);
+    let analytics = bind_analytics(&fs::read_to_string(
+        root.join("crates/worker/src/analytics.sql"),
+    )?);
     let mut migrations: Vec<_> = fs::read_dir(root.join("migrations"))?
         .map(|e| e.unwrap().path())
         .filter(|p| p.extension().is_some_and(|e| e == "sql"))
@@ -148,9 +162,13 @@ pub fn check(root: &Path) -> super::Result {
                 .ends_with("_read_efficiency.sql")
         })
         .ok_or("missing read efficiency migration")?;
+    let activity_index = migrations
+        .iter()
+        .find(|p| p.file_name().unwrap() == "0020_project_activity.sql")
+        .ok_or("missing project activity migration")?;
     let mut setup = String::from("PRAGMA foreign_keys=ON;\n");
     for path in &migrations {
-        if path != efficiency {
+        if path != efficiency && path != activity_index {
             setup.push_str(&fs::read_to_string(path)?);
             setup.push('\n');
         }
@@ -223,7 +241,7 @@ pub fn check(root: &Path) -> super::Result {
     // return Home + room reopen; five Home minute ticks and three live updates.
     // Collections: 3 mounts + 3 room reopens. Home: 4 arrivals + 5 ticks + 3 events.
     for _ in 0..12 {
-        read(&analytics, &mut before, false);
+        read(&old_analytics, &mut before, false);
         read(&old_projects, &mut before, false);
     }
     for _ in 0..6 {
@@ -236,6 +254,12 @@ pub fn check(root: &Path) -> super::Result {
     );
     let before_result = execute(root, &dir, &before, "before")?;
     execute(root, &dir, &fs::read_to_string(efficiency)?, "optimize")?;
+    execute(
+        root,
+        &dir,
+        &fs::read_to_string(activity_index)?,
+        "activity-index",
+    )?;
     let mut after = String::new();
     // One Home snapshot + shared projects; Board collection once; List reuses it.
     // Initial snapshot-to-socket handshake: session auth plus one version row.
@@ -279,13 +303,11 @@ pub fn check(root: &Path) -> super::Result {
         let entries = v.as_array().unwrap();
         json!({"rows_read":entries.iter().map(|x|x["meta"]["rows_read"].as_u64().expect("wrangler must expose rows_read")).sum::<u64>(),"statements":entries.len(),"d1_duration_ms":entries.iter().filter_map(|x|x["meta"]["duration"].as_f64()).sum::<f64>()})
     };
-    let report = json!({"fixture_tickets":240,"before":summarize(&before_result),"after":summarize(&after_result),"note":"Deterministic request-schedule replay; not browser elapsed time or Worker CPU. Three live updates; five idle minute ticks elided after. Includes cold analytics after each update.","plans":plans});
+    let mut report = json!({"baseline":"b42be78","fixture_tickets":240,"before":summarize(&before_result),"after":summarize(&after_result),"note":"Deterministic request-schedule replay; not browser elapsed time or Worker CPU. Three live updates; five idle minute ticks elided after. Includes cold analytics after each update.","plans":plans});
     let before_rows = report["before"]["rows_read"].as_f64().unwrap();
     let after_rows = report["after"]["rows_read"].as_f64().unwrap();
-    // Hold every query family outside the baseline top three fixed.
-    if 256_552. + 2_414_178. * after_rows / before_rows >= 1_000_000. {
-        return Err("session replay exceeds projected 1M rows/day budget".into());
-    }
+    let projected_rows = 256_552. + 2_414_178. * after_rows / before_rows;
+    report["projected_rows_per_day"] = json!(projected_rows);
     fs::write(
         dir.join("report.json"),
         serde_json::to_string_pretty(&report)?,
@@ -295,5 +317,9 @@ pub fn check(root: &Path) -> super::Result {
         serde_json::to_string_pretty(&report)?,
         dir.display()
     );
+    // Hold every query family outside the baseline top three fixed.
+    if projected_rows >= 1_000_000. {
+        return Err("session replay exceeds projected 1M rows/day budget".into());
+    }
     Ok(())
 }

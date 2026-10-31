@@ -167,7 +167,7 @@ pub fn MissionPage() -> impl IntoView {
     let visibility = Closure::<dyn Fn()>::new(request);
     let _ = document()
         .add_event_listener_with_callback("visibilitychange", visibility.as_ref().unchecked_ref());
-    let _timer = StoredValue::new_local(gloo_timers::callback::Interval::new(30_000, request));
+    let _timer = StoredValue::new_local(gloo_timers::callback::Interval::new(180_000, request));
     let visibility = StoredValue::new_local(visibility);
     on_cleanup(move || {
         focus.remove();

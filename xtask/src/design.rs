@@ -16,6 +16,7 @@ pub(crate) struct Browser {
     socket: WebSocket<MaybeTlsStream<TcpStream>>,
     id: u64,
     session: String,
+    drag: Option<Value>,
 }
 impl Browser {
     pub(crate) fn start(root: &Path) -> Result<Self> {
@@ -31,6 +32,7 @@ impl Browser {
             socket,
             id: 0,
             session: String::new(),
+            drag: None,
         };
         let target = browser.call("Target.createTarget", json!({"url":"about:blank"}))?;
         let session = browser.call(
@@ -63,6 +65,9 @@ impl Browser {
             let message = self.socket.read()?;
             if let Message::Text(text) = message {
                 let response: Value = serde_json::from_str(&text)?;
+                if response["method"] == "Input.dragIntercepted" {
+                    self.drag = Some(response["params"]["data"].clone());
+                }
                 if response["method"] == "Runtime.exceptionThrown" {
                     return Err(format!("Browser exception: {}", response["params"]).into());
                 }
@@ -100,6 +105,9 @@ impl Browser {
         Ok(result["result"]["value"].clone())
     }
     pub(crate) fn wait(&mut self, expression: &str) -> Result<()> {
+        self.wait_for(expression, Duration::from_secs(15))
+    }
+    pub(crate) fn wait_for(&mut self, expression: &str, timeout: Duration) -> Result<()> {
         let start = Instant::now();
         loop {
             match self.eval(expression) {
@@ -118,7 +126,7 @@ impl Browser {
                         .any(|message| error.to_string().contains(message)) => {}
                 Err(error) => return Err(error),
             }
-            if start.elapsed() > Duration::from_secs(15) {
+            if start.elapsed() > timeout {
                 let _ = self.screenshot(Path::new("target/browser-failure.png"));
                 let context=self.eval("({url:location.href,title:document.title,body:document.body.innerText.slice(0,1200)})").unwrap_or_default();
                 return Err(format!("Timed out: {expression}; {context}").into());
@@ -262,81 +270,38 @@ impl Browser {
         self.call("Input.insertText", json!({"text":text}))?;
         Ok(())
     }
-    fn drag_point(&mut self, selector: &str) -> Result<Value> {
-        self.eval(&format!(
-            "(()=>{{const e=document.querySelector({});e.scrollIntoView({{block:'nearest',inline:'nearest'}});const r=e.getBoundingClientRect();return {{x:r.x+r.width/2,y:r.y+24}}}})()",
-            serde_json::to_string(selector)?
-        ))
-    }
-    fn pointer_start(&mut self, selector: &str, touch: bool) -> Result<Value> {
-        self.wait(&format!(
-            "!document.querySelector({}).animated",
-            serde_json::to_string(selector)?
-        ))?;
-        self.eval("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))")?;
-        let source = self.drag_point(selector)?;
-        if touch {
-            self.call("Input.dispatchTouchEvent", json!({"type":"touchStart","touchPoints":[{"x":source["x"],"y":source["y"],"id":1}]}))?;
-            self.eval("new Promise(r=>setTimeout(()=>r(true),220))")?;
-        } else {
-            self.call(
-                "Input.dispatchMouseEvent",
-                json!({"type":"mouseMoved","x":source["x"],"y":source["y"]}),
-            )?;
-            self.call("Input.dispatchMouseEvent", json!({"type":"mousePressed","x":source["x"],"y":source["y"],"button":"left","clickCount":1}))?;
-        }
-        self.pointer_move(
-            source["x"].as_f64().unwrap() + 10.,
-            source["y"].as_f64().unwrap(),
-            touch,
-        )?;
-        self.wait("!!document.querySelector('.board-drag-preview') && document.querySelector('.api-board').dataset.pointerDrag==='true'")?;
-        Ok(source)
-    }
-    fn pointer_move(&mut self, x: f64, y: f64, touch: bool) -> Result<()> {
-        if touch {
-            self.call(
-                "Input.dispatchTouchEvent",
-                json!({"type":"touchMove","touchPoints":[{"x":x,"y":y,"id":1}]}),
-            )?;
-        } else {
-            self.call(
-                "Input.dispatchMouseEvent",
-                json!({"type":"mouseMoved","x":x,"y":y,"button":"left","buttons":1}),
-            )?;
-        }
-        self.eval("new Promise(r=>setTimeout(()=>r(true),40))")?;
-        Ok(())
-    }
-    fn pointer_end(&mut self, x: f64, y: f64, touch: bool) -> Result<()> {
-        if touch {
-            self.call(
-                "Input.dispatchTouchEvent",
-                json!({"type":"touchEnd","touchPoints":[]}),
-            )?;
-        } else {
-            self.call(
-                "Input.dispatchMouseEvent",
-                json!({"type":"mouseReleased","x":x,"y":y,"button":"left","clickCount":1}),
-            )?;
-        }
-        Ok(())
-    }
     fn drag(&mut self, from: &str, to: &str) -> Result<()> {
-        let target = self.drag_point(to)?;
-        let source = self.pointer_start(from, false)?;
-        let x = target["x"].as_f64().unwrap();
-        let y = target["y"].as_f64().unwrap();
-        for step in 1..=12 {
-            let progress = f64::from(step) / 12.;
-            self.pointer_move(
-                source["x"].as_f64().unwrap() + (x - source["x"].as_f64().unwrap()) * progress,
-                source["y"].as_f64().unwrap() + (y - source["y"].as_f64().unwrap()) * progress,
-                false,
+        let point = |selector: &str| {
+            format!(
+                "(()=>{{const e=document.querySelector({});e.scrollIntoView({{block:'nearest'}});const r=e.getBoundingClientRect();return {{x:r.x+r.width/2,y:r.y+24}}}})()",
+                serde_json::to_string(selector).unwrap()
+            )
+        };
+        let target = self.eval(&point(to))?;
+        let source = self.eval(&point(from))?;
+        self.call("Input.setInterceptDrags", json!({"enabled":true}))?;
+        self.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":source["x"],"y":source["y"]}),
+        )?;
+        self.call("Input.dispatchMouseEvent",json!({"type":"mousePressed","x":source["x"],"y":source["y"],"button":"left","clickCount":1}))?;
+        for offset in [8., 16., 24.] {
+            self.call("Input.dispatchMouseEvent",json!({"type":"mouseMoved","x":source["x"].as_f64().unwrap()+offset,"y":source["y"],"button":"left","buttons":1}))?;
+        }
+        self.eval("new Promise(r=>setTimeout(()=>r(true),100))")?;
+        let data = self
+            .drag
+            .take()
+            .ok_or("Mouse did not start a native drag")?;
+        for kind in ["dragEnter", "dragOver", "drop"] {
+            self.call(
+                "Input.dispatchDragEvent",
+                json!({"type":kind,"x":target["x"],"y":target["y"],"data":data}),
             )?;
         }
-        self.eval("new Promise(r=>setTimeout(()=>r(true),250))")?;
-        self.pointer_end(x, y, false)
+        self.call("Input.dispatchMouseEvent",json!({"type":"mouseReleased","x":target["x"],"y":target["y"],"button":"left","clickCount":1}))?;
+        self.call("Input.setInterceptDrags", json!({"enabled":false}))?;
+        Ok(())
     }
     pub(crate) fn key(&mut self, key: &str, code: u32, modifiers: u32) -> Result<()> {
         for kind in ["keyDown", "keyUp"] {
@@ -532,15 +497,9 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     }
     b.go("http://127.0.0.1:8795/board")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
-    if env::var_os("TICKETS_BEFORE_ASSETS").is_some() {
-        let output = root.join("docs/screenshots/TIK-51");
-        fs::create_dir_all(&output)?;
-        b.screenshot(&output.join("before-board-desktop.png"))?;
-        b.viewport(390, 900)?;
-        b.screenshot(&output.join("before-board-mobile.png"))?;
-        return Ok(());
-    }
-    check_pointer_drag(root, &mut b)?;
+    // A completed/canceled drag must never turn its trailing click into navigation.
+    b.eval("(()=>{const c=document.querySelector('#ticket-1');c.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));c.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer:new DataTransfer()}));c.dispatchEvent(new DragEvent('dragend',{bubbles:true}));c.click();return true})()")?;
+    b.wait("location.pathname==='/board' && document.querySelector('.board').getAttribute('aria-busy')!=='true'")?;
     // The body, not only the title link, opens the ticket; Enter does too.
     b.click("#ticket-1 .ticket-id")?;
     b.wait("location.pathname==='/t/TKT-1' && !!document.querySelector('.ticket-detail')")?;
@@ -561,25 +520,26 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent==='Blocked by TKT-1: Remember filters when switching views')")?;
     b.key("Escape", 27, 0)?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].every(e=>e.hidden)")?;
-    // Server writes invalidate the mounted board; never reload to clear a blocker.
+    // Server writes reconcile after a 5s batch and up to a 30s tab cooldown.
+    // Allow that window only for live assertions, never reload to clear blockers.
     b.eval(r#"(async()=>{await fetch('/api/v1/tickets/3/dependencies/2',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});return true})()"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.eval("document.querySelector('#ticket-2 .blocked-indicator').focus();true")?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent.includes('TKT-1: Remember filters') && e.textContent.includes('TKT-3: Move tickets between board columns'))")?;
     b.key("Escape", 27, 0)?;
     b.eval(r#"fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'done'})}).then(r=>r.ok)"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-3'", Duration::from_secs(40))?;
     b.eval(r#"fetch('/api/v1/tickets/3',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceled'})}).then(r=>r.ok)"#)?;
-    b.wait("!document.querySelector('#ticket-2 .blocked-indicator') && document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='Todo'")?;
+    b.wait_for("!document.querySelector('#ticket-2 .blocked-indicator') && document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='Todo'", Duration::from_secs(40))?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'backlog'],[3,'in_progress']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});return true})()"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
-    b.wait("document.querySelector('#list-ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#list-ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.eval("document.querySelector('#list-ticket-2 .blocked-indicator').focus();true")?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent.includes('TKT-1: Remember filters') && e.textContent.includes('TKT-3: Move tickets'))")?;
     b.key("Escape", 27, 0)?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'done'],[3,'canceled']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});return true})()"#)?;
-    b.wait("!document.querySelector('#list-ticket-2 .blocked-indicator') && document.querySelector('#list-ticket-2').closest('section').getAttribute('aria-label')==='Todo'")?;
+    b.wait_for("!document.querySelector('#list-ticket-2 .blocked-indicator') && document.querySelector('#list-ticket-2').closest('section').getAttribute('aria-label')==='Todo'", Duration::from_secs(40))?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'backlog'],[3,'in_progress']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});await fetch('/api/v1/tickets/3/dependencies/2',{method:'DELETE'});return true})()"#)?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1' && document.querySelectorAll('.ticket-card').length===7")?;
@@ -607,7 +567,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.key("ArrowLeft", 37, 0)?;
     b.key("Escape", 27, 0)?;
     b.wait("document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress'")?;
-    // Real pointer sensor movement, including within-column insertion.
+    // Actual HTML drag event handlers, including a within-column insertion target.
     b.drag("#ticket-7", "#ticket-2")?;
     b.wait("document.body.innerText.includes('Order saved') && document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-7'")?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
@@ -681,7 +641,6 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     // Project switching must clear filters and never leak tickets from another project.
     b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===95 && !document.body.innerText.includes('Created from the board')")?;
-    check_board_autoscroll(root, &mut b)?;
     b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===5 && !document.querySelector('.add-card').disabled && document.body.innerText.includes('No tickets yet')")?;
     check_composer(&mut b)?;
@@ -698,176 +657,8 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("location.pathname==='/login' && !document.querySelector('.sidebar, .ticket-card')")?;
     println!(
-        "PASS: local API seed; empty review column; project column preferences + reload; checkbox menu keyboard navigation; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; real pointer/touch insertion and persistence; immediate Escape and touch cancellation; column/board edge autoscroll; reduced motion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
+        "PASS: local API seed; empty review column; project column preferences + reload; checkbox menu keyboard navigation; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
     );
-    Ok(())
-}
-
-fn check_pointer_drag(root: &Path, b: &mut Browser) -> super::Result {
-    let output = root.join("docs/screenshots/TIK-51");
-    fs::create_dir_all(&output)?;
-    b.screenshot(&output.join("after-board-desktop.png"))?;
-    b.viewport(390, 900)?;
-    b.screenshot(&output.join("after-board-mobile.png"))?;
-    b.viewport(1440, 900)?;
-    b.eval("(async()=>{const url=performance.getEntriesByType('resource').find(e=>e.name.endsWith('/node_modules/sortablejs/modular/sortable.complete.esm.js')).name;window.boardSortable=(await import(url)).default;window.boardLists=[...document.querySelectorAll('.api-board .column-cards')];return window.boardLists.every(list=>!!window.boardSortable.get(list))})()")?;
-    b.eval("document.documentElement.dataset.motion='reduce';true")?;
-    b.wait(
-        "window.boardLists.every(list=>window.boardSortable.get(list).option('animation')===0)",
-    )?;
-    b.eval("document.documentElement.dataset.motion='full';true")?;
-    b.call(
-        "Emulation.setEmulatedMedia",
-        json!({"features":[{"name":"prefers-reduced-motion","value":"reduce"}]}),
-    )?;
-    b.wait(
-        "window.boardLists.every(list=>window.boardSortable.get(list).option('animation')===0)",
-    )?;
-    b.call("Emulation.setEmulatedMedia", json!({"features":[]}))?;
-    b.eval("delete document.documentElement.dataset.motion;true")?;
-    b.wait(
-        "window.boardLists.every(list=>window.boardSortable.get(list).option('animation')===200)",
-    )?;
-    b.eval("window.dragWrites=0;window.dragFetch=window.fetch;window.fetch=(input,init)=>{if((input instanceof Request?input.method:init?.method)==='PATCH')window.dragWrites++;return window.dragFetch(input,init)};true")?;
-    // Starting on a nested status control must never pick up its enclosing card.
-    let control = b.eval("(()=>{const r=document.querySelector('#ticket-1 [role=combobox]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
-    b.call(
-        "Input.dispatchMouseEvent",
-        json!({"type":"mouseMoved","x":control["x"],"y":control["y"]}),
-    )?;
-    b.call("Input.dispatchMouseEvent", json!({"type":"mousePressed","x":control["x"],"y":control["y"],"button":"left","clickCount":1}))?;
-    b.pointer_move(
-        control["x"].as_f64().unwrap() - 12.,
-        control["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("!document.querySelector('.board-drag-preview') && document.querySelector('.api-board').dataset.moving!=='true'")?;
-    b.pointer_move(
-        control["x"].as_f64().unwrap(),
-        control["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.pointer_end(
-        control["x"].as_f64().unwrap(),
-        control["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("location.pathname==='/board' && document.querySelector('#ticket-1 [role=combobox]').getAttribute('aria-expanded')==='true'")?;
-    b.key("Escape", 27, 0)?;
-    // Escape restores both DOM and state without a write. A trailing click on
-    // either the card body or its title link must stay on the board.
-    let source = b.pointer_start("#ticket-1", false)?;
-    let target = b.drag_point("#ticket-2")?;
-    b.pointer_move(
-        target["x"].as_f64().unwrap(),
-        target["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("document.querySelector('[aria-label=Todo] .board-drop-placeholder')?.id==='ticket-1'")?;
-    b.pointer_move(
-        target["x"].as_f64().unwrap() + 48.,
-        target["y"].as_f64().unwrap() + 32.,
-        false,
-    )?;
-    b.screenshot(&output.join("after-pointer-placeholder.png"))?;
-    // A project change cannot replace a list currently owned by the pointer sensor.
-    b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
-    b.wait("document.querySelectorAll('.project-nav')[0].classList.contains('active') && !!document.querySelector('#ticket-1.board-drop-placeholder')")?;
-    b.key("Escape", 27, 0)?;
-    b.wait("!document.querySelector('.board-drag-preview')")?;
-    b.pointer_end(
-        source["x"].as_f64().unwrap(),
-        source["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("!document.querySelector('.board-drag-preview') && document.querySelector('#ticket-1').closest('section').getAttribute('aria-label')==='Backlog' && window.dragWrites===0")?;
-    b.eval("document.querySelector('#ticket-1 .card-title').click();document.querySelector('#ticket-1').click();true")?;
-    b.wait("location.pathname==='/board'")?;
-    // Touch activation goes through Chromium's real touch input, not DragEvents.
-    b.call(
-        "Emulation.setTouchEmulationEnabled",
-        json!({"enabled":true,"maxTouchPoints":1}),
-    )?;
-    b.pointer_start("#ticket-1", true)?;
-    b.pointer_move(
-        target["x"].as_f64().unwrap(),
-        target["y"].as_f64().unwrap(),
-        true,
-    )?;
-    b.wait("document.querySelector('[aria-label=Todo] .board-drop-placeholder')?.id==='ticket-1'")?;
-    b.pointer_move(
-        target["x"].as_f64().unwrap() + 48.,
-        target["y"].as_f64().unwrap() + 32.,
-        true,
-    )?;
-    b.screenshot(&output.join("after-touch-placeholder.png"))?;
-    b.pointer_end(
-        target["x"].as_f64().unwrap(),
-        target["y"].as_f64().unwrap(),
-        true,
-    )?;
-    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='Todo' && document.querySelector('.board').getAttribute('aria-busy')!=='true' && window.dragWrites>0")?;
-    b.eval("document.querySelector('#ticket-1 .card-title').click();true")?;
-    b.wait("location.pathname==='/board'")?;
-    b.call(
-        "Emulation.setTouchEmulationEnabled",
-        json!({"enabled":false}),
-    )?;
-    b.eval("document.querySelector('#ticket-1 .card-title').focus();true")?;
-    b.key("Enter", 13, 0)?;
-    b.wait("location.pathname==='/t/TKT-1'")?;
-    b.go("http://127.0.0.1:8795/board")?;
-    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='Todo'")?;
-    b.drag("#ticket-1", "[aria-label=Backlog] .column-cards")?;
-    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='Backlog' && document.querySelector('.board').getAttribute('aria-busy')!=='true'")?;
-    b.go("http://127.0.0.1:8795/board")?;
-    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='Backlog'")?;
-    Ok(())
-}
-
-fn check_board_autoscroll(root: &Path, b: &mut Browser) -> super::Result {
-    b.viewport(1440, 900)?;
-    b.eval("document.querySelector('.board').scrollLeft=0;true")?;
-    b.pointer_start("#ticket-9", false)?;
-    let column = b.eval("(()=>{const r=document.querySelector('#ticket-9').closest('section').getBoundingClientRect();return {x:r.x+r.width/2,y:Math.min(innerHeight,r.bottom)-8}})()")?;
-    b.pointer_move(
-        column["x"].as_f64().unwrap(),
-        column["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("document.querySelector('#ticket-9').closest('section').scrollTop>0")?;
-    b.screenshot(&root.join("docs/screenshots/TIK-51/after-column-autoscroll.png"))?;
-    b.key("Escape", 27, 0)?;
-    b.pointer_end(
-        column["x"].as_f64().unwrap(),
-        column["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("!document.querySelector('.board-drag-preview')")?;
-    b.viewport(390, 900)?;
-    b.call(
-        "Emulation.setTouchEmulationEnabled",
-        json!({"enabled":true,"maxTouchPoints":1}),
-    )?;
-    b.pointer_start("#ticket-9", true)?;
-    let edge = b.eval("(()=>{const r=document.querySelector('.board').getBoundingClientRect();return {x:r.right-8,y:r.top+120}})()")?;
-    b.pointer_move(
-        edge["x"].as_f64().unwrap(),
-        edge["y"].as_f64().unwrap(),
-        true,
-    )?;
-    b.wait("document.querySelector('.board').scrollLeft>0")?;
-    b.screenshot(&root.join("docs/screenshots/TIK-51/after-board-autoscroll.png"))?;
-    b.call(
-        "Input.dispatchTouchEvent",
-        json!({"type":"touchCancel","touchPoints":[]}),
-    )?;
-    b.wait("!document.querySelector('.board-drag-preview')")?;
-    b.call(
-        "Emulation.setTouchEmulationEnabled",
-        json!({"enabled":false}),
-    )?;
-    b.viewport(390, 900)?;
     Ok(())
 }
 
@@ -1318,6 +1109,11 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("window.fetch=window.savedFetch;true")?;
     b.go("http://127.0.0.1:8795/t/UNKNOWN-999999")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found') && [...document.querySelectorAll('button')].some(b=>b.textContent==='Edit ticket' && b.disabled)")?;
+    // Dispose the previous page's live reads before expiring authentication.
+    // Otherwise its late 401 can redirect back to the not-found route while
+    // this independent logged-out navigation is being checked.
+    b.call("Page.navigate", json!({"url":"about:blank"}))?;
+    b.wait("location.href==='about:blank'")?;
     b.call("Network.clearBrowserCookies", json!({}))?;
     b.go("http://127.0.0.1:8795/t/qua-87")?;
     b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/t/qua-87'")?;
