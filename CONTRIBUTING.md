@@ -898,3 +898,18 @@ and webdriver sessions skip the splash; add `?splash` to opt automated recording
 in (component previews always skip). Client-side navigation never recreates it.
 For local fixture viewing, build and serve `crates/web/dist` with SPA fallback,
 then open `/design/home?splash`. The splash uses no API or external assets.
+
+## Analytics page
+
+`/analytics` (fixture `/design/analytics`) owns every chart. Home retains the three
+current-work summary cards, review/blocked queues and a project waiting table.
+Use the shared `ChartCard` frame and cached `/api/v1/analytics/home` rollup; never
+load the ticket collection to derive charts. Scope both charts through the page's
+shared project selector. Preserve null/partial history and observed-completion
+semantics; new metrics need an explicit aggregate API contract first.
+
+`CHROME_BIN=<headless-chromium> cargo xtask home-shot` checks both Home and
+Analytics using fixture-only API responses, including cache reuse on navigation,
+exact-value keyboard tooltips, tables, scopes, loading, recovery and overflow.
+It captures dark evidence in `docs/screenshots/TIK-66/`; supply
+`TICKETS_BEFORE_ASSETS=<baseline-dist>` for Home before images.

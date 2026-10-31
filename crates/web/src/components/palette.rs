@@ -382,6 +382,13 @@ pub fn CommandPalette() -> impl IntoView {
                     create,
                     Row::command(
                         "Commands",
+                        "Go to analytics",
+                        "analytics",
+                        "G A",
+                        Action::Navigate(format!("{root}/analytics")),
+                    ),
+                    Row::command(
+                        "Commands",
                         "Go to board",
                         "board",
                         "G B",

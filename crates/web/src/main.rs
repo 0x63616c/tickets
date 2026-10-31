@@ -43,6 +43,8 @@ fn App() -> impl IntoView {
                 <Route path=path!("/board") view=pages::ApiBoard/>
                 <Route path=path!("/mission") view=pages::mission::MissionPage/>
                 <Route path=path!("/design/mission") view=pages::mission::MissionPage/>
+                <Route path=path!("/analytics") view=pages::analytics::AnalyticsPage/>
+                <Route path=path!("/design/analytics") view=pages::analytics::AnalyticsPage/>
                 <Route path=path!("/home") view=pages::home::HomePage/>
                 <Route path=path!("/list") view=pages::list::ApiList/>
                 <Route path=path!("/t/:key") view=pages::api_detail::ApiDetail/>

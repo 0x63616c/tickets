@@ -71,6 +71,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
         let active = [
             "/",
             "/home",
+            "/analytics",
             "/board",
             "/list",
             "/ticket",
@@ -97,6 +98,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                     && ([
                         "/",
                         "/home",
+                        "/analytics",
                         "/board",
                         "/list",
                         "/ticket",
@@ -118,7 +120,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                     crate::ui::invalidate_reads();
                     if recover.get_untracked() || pending.iter().any(|event| event.id == 0) {
                         recover.set(false);
-                        if ["/", "/home"].contains(&path.get_untracked().as_str()) {
+                        if ["/", "/home", "/analytics"].contains(&path.get_untracked().as_str()) {
                             // Home does not need tickets, but a future Board/List must
                             // not reuse a collection from before the disconnect.
                             board.invalidate_tickets();

@@ -24,7 +24,6 @@
   "crates/web/src/pages/gallery.rs:rust-raw:\"#eb5757\"": 1,
   "crates/web/src/pages/gallery.rs:rust-raw:\"#f7f8f8\"": 1,
   "crates/web/src/pages/gallery.rs:rust-raw:\"A consistent 16px stroke set.\"": 1,
-  "crates/web/src/pages/home.rs:rust-dynamic-style:\"=format\"": 1,
   "crates/web/src/pages/projects.rs:rust-dynamic-style:\"=format\"": 1,
   "crates/web/src/pages/projects.rs:rust-raw:\"#27a644\"": 1,
   "crates/web/src/pages/projects.rs:rust-raw:\"#4ea7fc\"": 1,
@@ -180,11 +179,6 @@
   "crates/web/style/foundation.css:css:inset:-4px": 1,
   "crates/web/style/foundation.css:css:inset:2px auto 2px 2px": 1,
   "crates/web/style/foundation.css:css:padding:2px": 1,
-  "crates/web/style/home.css:css:border-radius:2px": 2,
-  "crates/web/style/home.css:css:gap:1px": 1,
-  "crates/web/style/home.css:css:padding-right:68px": 1,
-  "crates/web/style/home.css:css:padding:2px var(--space-1)": 1,
-  "crates/web/style/home.css:css:text-decoration:underline": 4,
   "crates/web/style/palette.css:css:gap:12px": 3,
   "crates/web/style/palette.css:css:gap:4px": 1,
   "crates/web/style/palette.css:css:gap:8px": 5,
@@ -201,5 +195,6 @@
   "crates/web/style/palette.css:css:right:8px": 1,
   "crates/web/style/palette.css:css:top:8px": 1,
   "crates/web/style/settings.css:css:gap:2px": 2,
-  "crates/web/style/settings.css:css:margin-left:32px": 1
+  "crates/web/style/settings.css:css:margin-left:32px": 1,
+  "crates/web/style/home.css:css:text-decoration:underline": 3
 }
