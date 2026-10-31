@@ -1,0 +1,50 @@
+name: safari-probe
+on:
+  push:
+    branches: [TIK-96-safari-probe]
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Versions
+        run: |
+          sw_vers; /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" /Applications/Safari.app/Contents/Info.plist || true
+          ls /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/ || true
+      - name: JSC syntax check of production modules
+        run: |
+          B=https://tickets.worldwidewebb.co
+          S=snippets/tickets-web-8e589db3b4472a38
+          curl -sA Mozilla/5.0 $B/login > login.html
+          MAIN=$(grep -o "/tickets-web-[0-9a-f]*\.js" login.html | head -1)
+          curl -sA Mozilla/5.0 -o main.js $B$MAIN
+          curl -sA Mozilla/5.0 -o dom.js $B/$S/src/components/dom.js
+          curl -sA Mozilla/5.0 -o core.js $B/$S/node_modules/ascii-reveal/dist/core.js
+          curl -sA Mozilla/5.0 -o sortable.js $B/$S/node_modules/sortablejs/modular/sortable.complete.esm.js
+          python3 - <<'PY'
+          import re
+          h=open('login.html').read()
+          for i,m in enumerate(re.finditer(r'<script([^>]*)>(.*?)</script>',h,re.S)):
+              open(f'inline{i}.js','w').write(m.group(2))
+          PY
+          J=/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc
+          for f in main.js dom.js core.js sortable.js inline1.js; do echo "== $f"; $J -e "checkModuleSyntax(readFile('$f'))" || true; done
+          for f in inline0.js inline2.js; do echo "== $f"; $J -e "checkSyntax('$f')" || true; done
+      - name: Safari load
+        run: |
+          sudo safaridriver --enable
+          pip3 install --break-system-packages selenium >/dev/null 2>&1 || pip3 install selenium >/dev/null
+          python3 - <<'PY'
+          import time
+          from selenium import webdriver
+          d=webdriver.Safari()
+          d.get('https://tickets.worldwidewebb.co/login')
+          time.sleep(6)
+          print('wasmBindings:', d.execute_script('return typeof window.wasmBindings'))
+          print('body:', d.execute_script('return document.body.innerText.slice(0,300)'))
+          print('resources:', d.execute_script("return performance.getEntriesByType('resource').map(e=>e.name.split('/').pop()+' '+e.responseStatus).join('\\n')"))
+          d.quit()
+          PY
