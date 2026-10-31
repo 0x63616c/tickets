@@ -11,6 +11,20 @@
   transition: opacity var(--duration-splash-exit) var(--ease-out);
 }
 
+#boot-splash .boot-grid {
+  position: relative;
+  width: calc(var(--boot-columns) * 0.6em);
+  height: calc(var(--boot-rows) * 1.2em);
+  font-size: var(--text-base);
+  /* Individual translate/rotate apply before the scale, so the float is in screen px. */
+  transform: scale(var(--boot-scale));
+  animation:
+    boot-bob 1.1s ease-in-out -0.55s infinite alternate,
+    boot-tilt 1.9s ease-in-out -0.95s infinite alternate;
+  will-change: translate, rotate;
+}
+
+/* Both pieces retain the full grid: spaces preserve exact layer registration. */
 #boot-splash pre {
   margin: 0;
   font-family: var(--font-mono);
@@ -22,15 +36,17 @@
   width: calc(var(--boot-columns) * 0.6em);
   height: calc(var(--boot-rows) * 1.2em);
   white-space: pre;
-  /* Individual translate/rotate apply before the scale, so the float is in screen px. */
-  transform: scale(var(--boot-scale));
-  animation:
-    boot-bob 1.1s ease-in-out -0.55s infinite alternate,
-    boot-tilt 1.9s ease-in-out -0.95s infinite alternate;
-  will-change: translate, rotate;
+  position: absolute;
+  inset: 0;
+}
+#boot-splash .boot-piece {
+  position: absolute;
+  inset: 0;
+  transform-origin: var(--boot-tear-origin) 100%;
+  will-change: translate, rotate, opacity;
 }
 
-/* Soft entry/exit: fade plus a short drift; entry rises into the float, exit keeps rising. */
+/* Soft entry rises into the compositor float. */
 #boot-splash .boot-mark {
   opacity: 0;
   translate: 0 12px;
@@ -38,10 +54,27 @@
   will-change: opacity, translate;
 }
 #boot-splash.boot-in .boot-mark { opacity: 1; translate: 0 0; }
-#boot-splash.boot-leaving .boot-mark {
+/* Fray first, then release the right stub and let the left piece settle. */
+#boot-splash.boot-torn .boot-stub {
+  translate: calc(var(--splash-tear-x) / var(--boot-scale)) calc(var(--splash-tear-y) / var(--boot-scale));
+  rotate: 12deg;
   opacity: 0;
-  translate: 0 -16px;
-  transition: opacity 400ms cubic-bezier(.4, 0, 1, 1), translate 400ms cubic-bezier(.4, 0, 1, 1);
+  /* It tips as it releases, then falls (ease-in) and fades only in the second half. */
+  transition: rotate 520ms cubic-bezier(.3, .6, .4, 1),
+    translate 520ms cubic-bezier(.55, 0, .8, .35), opacity 280ms linear 240ms;
+}
+/* The ticket stays: a tiny recoil, then it fades with the backdrop. */
+#boot-splash.boot-torn .boot-main {
+  animation: boot-recoil 360ms var(--ease-out) both;
+}
+@keyframes boot-recoil {
+  0% { translate: 0 0; }
+  30% { translate: calc(-1 * var(--splash-recoil) / var(--boot-scale)) 0; }
+  100% { translate: 0 0; }
+}
+#boot-splash.boot-reduced.boot-leaving .boot-mark {
+  opacity: 0;
+  transition: opacity 400ms var(--ease-out);
 }
 
 #boot-splash .boot-sway {
@@ -53,23 +86,23 @@
 @keyframes boot-sway { from { translate: -6px 0; } to { translate: 6px 0; } }
 @keyframes boot-tilt { from { rotate: -1.6deg; } to { rotate: 1.6deg; } }
 
-#boot-splash pre span {
-  display: inline-block;
-  vertical-align: top;
-  width: 0.6em;
-  height: 1.2em;
-}
-
 #boot-splash .boot-edge { color: var(--stub-edge); }
 #boot-splash .boot-body { color: var(--stub-ink); }
 /* Reduced motion: still outlined mark, opacity-only fades. */
-#boot-splash.boot-reduced pre,
+#boot-splash.boot-reduced .boot-grid,
 #boot-splash.boot-reduced .boot-sway { animation: none; translate: none; rotate: none; }
 #boot-splash.boot-reduced .boot-mark { translate: none; }
+#boot-splash.boot-reduced .boot-piece {
+  animation: none;
+  transition: none;
+  translate: none;
+  rotate: none;
+}
 @media (prefers-reduced-motion: reduce) {
-  #boot-splash pre,
+  #boot-splash .boot-grid,
   #boot-splash .boot-sway { animation: none; translate: none; rotate: none; }
   #boot-splash .boot-mark { translate: none; }
+  #boot-splash .boot-piece { animation: none; transition: none; translate: none; rotate: none; }
 }
 
 #boot-splash.boot-exit {

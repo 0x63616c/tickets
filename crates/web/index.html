@@ -46,7 +46,12 @@
 </head>
 <body>
   <div id="boot-splash">
-    <div class="boot-mark"><div class="boot-sway"><pre aria-hidden="true"></pre></div></div>
+    <div class="boot-mark"><div class="boot-sway">
+      <div class="boot-grid" aria-hidden="true">
+        <div class="boot-piece boot-main"><pre class="boot-edge"></pre><pre class="boot-body"></pre></div>
+        <div class="boot-piece boot-stub"><pre class="boot-edge"></pre><pre class="boot-body"></pre></div>
+      </div>
+    </div></div>
     <span class="sr-only" role="status">Loading Tickets</span>
   </div>
   <script>
@@ -58,21 +63,29 @@
         return;
       }
       const art = splash.querySelector("pre");
+      const pieces = Array.from(splash.querySelectorAll(".boot-piece"), element => ({
+        edge: element.querySelector(".boot-edge"),
+        body: element.querySelector(".boot-body"),
+        cells: [], bodyBuffer: [], edgeBuffer: [], bodyText: null, edgeText: null,
+      }));
       const media = matchMedia("(prefers-reduced-motion: reduce)");
-      let storedReduce = false;
-      try { storedReduce = localStorage.getItem("tickets.motion") === "reduce"; } catch (_) {}
-      const reduced = () => media.matches || storedReduce ||
-        document.documentElement.dataset.motion === "reduce";
+      const reduced = () => {
+        let storedReduce = false;
+        try { storedReduce = localStorage.getItem("tickets.motion") === "reduce"; } catch (_) {}
+        return media.matches || storedReduce || document.documentElement.dataset.motion === "reduce";
+      };
       let readyAt = null;
       let frame = 0;
       let lastFrame = -Infinity;
       let firstPaint = null;
       let exiting = false;
       let removed = false;
-      let cells = [];
+      let tearAt = null;
+      let tearTimer;
       let columns = 0;
       let rows = 0;
-      const MARK_EXIT_MS = 400;
+      const FRAY_MS = 150;
+      const MARK_EXIT_MS = 620;
       const BACKDROP_EXIT_MS = 280;
 
       const ready = () => { readyAt ??= performance.now(); };
@@ -82,6 +95,8 @@
         cancelAnimationFrame(frame);
         clearTimeout(safety);
         clearTimeout(exitTimer);
+        clearTimeout(tearTimer);
+        document.removeEventListener("visibilitychange", visibility);
         window.removeEventListener("tickets:ready", ready);
         window.removeEventListener("resize", resize);
         splash.remove();
@@ -120,12 +135,31 @@
         });
         // One shared occupancy threshold keeps the contour and holes continuous.
         const filled = coverage.map(value => value >= 0.5);
-        cells = filled.map((value, i) => {
+        const split = Math.round(columns * 2 / 3); // SVG x=20, relative to x=4..28.
+        splash.style.setProperty("--boot-tear-origin", `${split / columns * 100}%`);
+        pieces.forEach(piece => {
+          piece.cells = [];
+          piece.bodyBuffer = Array(rows * (columns + 1) - 1).fill(" ");
+          piece.edgeBuffer = piece.bodyBuffer.slice();
+          for (let y = 1; y < rows; y++) {
+            piece.bodyBuffer[y * (columns + 1) - 1] = "\n";
+            piece.edgeBuffer[y * (columns + 1) - 1] = "\n";
+          }
+        });
+        filled.forEach((value, i) => {
           const x = i % columns, y = Math.floor(i / columns);
           const edge = value && [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) =>
             x + dx < 0 || x + dx >= columns || y + dy < 0 || y + dy >= rows ||
             !filled[(y + dy) * columns + x + dx]);
-          return { value, edge, glyph: edge ? "+" : (x + y * 3) % 2 ? "$" : "%" };
+          if (!value) return;
+          const piece = pieces[x < split ? 0 : 1];
+          const index = y * (columns + 1) + x;
+          const seam = x === split - 1 || x === split;
+          const cell = { index, edge, seam, x: x / columns, y: y / rows,
+            a: x * 0.28 + y * 0.36, b: x * 0.13 - y * 0.31,
+            c: x * 0.39 + y * 0.12, phase: (y * 7 + x * 3) % 11 };
+          piece.cells.push(cell);
+          if (edge) piece.edgeBuffer[index] = "+";
         });
         splash.style.setProperty("--boot-columns", columns);
         splash.style.setProperty("--boot-rows", rows);
@@ -134,46 +168,98 @@
         splash.style.setProperty("--boot-scale",
           Math.min(innerWidth * 0.44, innerHeight * 0.9) / (columns * fontSize * 0.6));
       }
-      function render() {
-        let html = "";
-        cells.forEach((cell, i) => {
-          const glyph = cell.value ? cell.glyph : " ";
-          html += `<span class="${cell.edge ? "boot-edge" : "boot-body"}">${glyph}</span>`;
-          if ((i + 1) % columns === 0 && i + 1 < cells.length) html += "\n";
-        });
-        art.innerHTML = html; // Only fixed glyphs and generated classes enter HTML.
+      // Reuse cell buffers; two body strings/Text.data writes per glyph frame.
+      // The contour is written once, except for the short tear-line fray.
+      function render(now = 0, fray = -1) {
+        const t = now / 1000;
+        const ramp = "ox+=*%$@";
+        const waveA = t * 1.15, waveB = t * 0.73, waveC = t * 0.47;
+        const highlight = (t * 0.16 + 0.45) % 2 - 0.5;
+        for (const piece of pieces) {
+          for (const cell of piece.cells) {
+            const i = cell.index;
+            if (fray >= 0 && cell.seam) {
+              // Deterministic stagger, with progressive dropout rather than random noise.
+              const dropout = cell.phase > 3 && fray > 0.45 + cell.phase / 20;
+              const glyph = dropout ? " " : "·~,"[(Math.floor(fray * 5) + cell.phase) % 3];
+              piece.bodyBuffer[i] = " ";
+              piece.edgeBuffer[i] = glyph;
+            } else if (!cell.edge) {
+              const band = Math.max(0, 1 - Math.abs(cell.x + cell.y * 0.28 - highlight) / 0.22);
+              const density = 0.52 + 0.19 * Math.sin(cell.a - waveA) +
+                0.14 * Math.sin(cell.b - waveB) + 0.08 * Math.sin(cell.c + waveC) + band * 0.22;
+              piece.bodyBuffer[i] = ramp[Math.max(0, Math.min(7, Math.floor(density * 8)))];
+            }
+          }
+          if (!piece.bodyText) {
+            piece.bodyText = document.createTextNode("");
+            piece.edgeText = document.createTextNode(piece.edgeBuffer.join(""));
+            piece.body.replaceChildren(piece.bodyText);
+            piece.edge.replaceChildren(piece.edgeText);
+          }
+          piece.bodyText.data = piece.bodyBuffer.join("");
+          if (fray >= 0) piece.edgeText.data = piece.edgeBuffer.join("");
+        }
       }
       function resize() {
         if (exiting) return;
-        try { build(); render(); } catch (_) { remove(); }
+        try {
+          pieces.forEach(piece => { piece.bodyText = null; });
+          build(); render(reduced() ? 0 : performance.now());
+        } catch (_) { remove(); }
       }
       function tick(now) {
-        if (removed || exiting) return;
+        if (removed) return;
+        if (!splash.isConnected) { remove(); return; }
+        if (document.hidden) return;
         firstPaint ??= now;
         const elapsed = now - firstPaint;
         if (now - lastFrame >= 1000 / 30) {
-          lastFrame = now;
-          splash.classList.toggle("boot-reduced", reduced());
+          lastFrame = now - (Number.isFinite(lastFrame) ? (now - lastFrame) % (1000 / 30) : 0);
+          const reduce = reduced();
+          splash.classList.toggle("boot-reduced", reduce);
+          if (exiting) {
+            if (tearAt !== null && !reduce) {
+              render(now, Math.min(1, (now - tearAt) / FRAY_MS));
+              if (now - tearAt < FRAY_MS) frame = requestAnimationFrame(tick);
+            }
+            return;
+          }
+          if (!reduce) render(now);
           const busy = document.querySelector('body > :not(#boot-splash) [aria-busy="true"], body > [aria-busy="true"]');
           if (readyAt !== null && elapsed >= (reduced() ? 500 : 900) &&
               (!busy || now - readyAt >= 1500)) {
             exiting = true;
-            // Mark fades and drifts up first, then the black backdrop fades into the app.
+            // Timers advance the exit even when rAF stalls or the tab is hidden.
+            if (!reduce) {
+              tearAt = now;
+              render(now, 0);
+              tearTimer = setTimeout(() => {
+                render(now + FRAY_MS, 1);
+                splash.classList.add("boot-torn");
+              }, FRAY_MS);
+            }
             splash.classList.add("boot-leaving");
             exitTimer = setTimeout(() => {
               splash.classList.add("boot-exit");
               exitTimer = setTimeout(remove, BACKDROP_EXIT_MS);
-            }, MARK_EXIT_MS);
+            }, reduce ? 400 : MARK_EXIT_MS);
+            if (!reduce) frame = requestAnimationFrame(tick);
             return;
           }
         }
         frame = requestAnimationFrame(tick);
       }
+      function visibility() {
+        if (!document.hidden && !removed) frame = requestAnimationFrame(tick);
+        else cancelAnimationFrame(frame);
+      }
       try {
         build();
-        render(); // Sample once; motion never rebuilds the grid.
+        render(); // First paint already contains the outlined mark.
         splash.classList.toggle("boot-reduced", reduced());
         window.addEventListener("resize", resize);
+        document.addEventListener("visibilitychange", visibility);
         frame = requestAnimationFrame(tick);
         // Float and fades are CSS on the compositor, so they keep moving while wasm compiles.
         requestAnimationFrame(() => requestAnimationFrame(() => splash.classList.add("boot-in")));
