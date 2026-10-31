@@ -91,6 +91,11 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
         "/settings/account"
     };
     let home = if fixture { "/design/home" } else { "/" };
+    let analytics = if fixture {
+        "/design/analytics"
+    } else {
+        "/analytics"
+    };
     let board_path = if fixture { "/design/board" } else { "/board" };
     let list = if fixture { "/design/list" } else { "/list" };
     let projects = if fixture {
@@ -135,6 +140,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
                     "b" => Some(board_path),
                     "l" => Some(list),
                     "h" => Some(home),
+                    "a" => Some(analytics),
                     _ => None,
                 };
                 if let Some(path) = path {
@@ -150,6 +156,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
         <div class="workspace workspace-brand"><Icon name="logo"/><strong>"Tickets"</strong></div>
         <nav class="sidebar-nav" aria-label="Main navigation" on:click=move|e: web_sys::MouseEvent|{if e.target().and_then(|t|t.dyn_into::<web_sys::Element>().ok()).is_some_and(|t|t.closest("a").ok().flatten().is_some()) && let Some(cb)=on_navigate {cb.run(());}}>
             <Tooltip text="Home · G then H"><A href=home attr:class=move||if location.pathname.get()=="/home"{"nav-item active"}else{"nav-item"} exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
+            <Tooltip text="Analytics · G then A"><A href=analytics attr:class="nav-item" exact=true><Icon name="analytics"/><span>"Analytics"</span></A></Tooltip>
             <A href=if fixture {"/design/mission"}else{"/mission"} attr:class="nav-item"><Icon name="grid"/><span>"Mission Control"</span></A>
             <button class="nav-item search-trigger" on:click=move|_|{state.dialog.set(DialogKind::Command);if let Some(cb)=on_navigate{cb.run(());}}><Icon name="search"/><span>"Search tickets"</span><Shortcut>"⌘ K"</Shortcut></button>
             <SidebarSection title="Projects" storage="tickets.sidebar.projects" id="sidebar-projects">
@@ -185,7 +192,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
     </aside>
     {let shown=present_value(editor.into());move||shown.get().map(|project: tickets_core::domain::Project|{let id=project.id;view!{<crate::pages::projects::ProjectEditor project=Some(project) archive_control=false restore_project=id open=Signal::derive(move||editor.get().is_some()) on_close=Callback::new(move|_|editor.set(None))/>}})}
     {let shown=present_value(archive.into());move||shown.get().map(|project|view!{<ArchiveProject project fixture open=Signal::derive(move||archive.get().is_some()) on_close=Callback::new(move|_|archive.set(None))/>})}
-    <Presence show=shortcuts><Modal title="Keyboard shortcuts" on_close=Callback::new(move|_|shortcuts.set(false))><div class="modal-body shortcut-list">{[("Search tickets","⌘ / Ctrl K"),("New ticket","C"),("Home","G then H"),("Board","G then B"),("List","G then L"),("Next / previous list ticket","J / K"),("Open focused ticket","Enter"),("Close menu or dialog","Esc")].into_iter().map(|(name,key)|view!{<div><span>{name}</span><Shortcut>{key}</Shortcut></div>}).collect_view()}</div></Modal></Presence>}
+    <Presence show=shortcuts><Modal title="Keyboard shortcuts" on_close=Callback::new(move|_|shortcuts.set(false))><div class="modal-body shortcut-list">{[("Search tickets","⌘ / Ctrl K"),("New ticket","C"),("Home","G then H"),("Analytics","G then A"),("Board","G then B"),("List","G then L"),("Next / previous list ticket","J / K"),("Open focused ticket","Enter"),("Close menu or dialog","Esc")].into_iter().map(|(name,key)|view!{<div><span>{name}</span><Shortcut>{key}</Shortcut></div>}).collect_view()}</div></Modal></Presence>}
 }
 
 #[component]

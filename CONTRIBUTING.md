@@ -908,3 +908,18 @@ removal and shared sidebar/comment/assignee avatars. PNGs default to
 `target/avatar-shots`; set `TICKETS_AVATAR_SHOTS` to choose an output directory.
 Like other API checks, it uses port 8795 and supports `TICKETS_SKIP_BUILD=1` after
 a verified build. Run `component-shot user-menu` for the fixture-only avatar shell.
+
+## Analytics page
+
+`/analytics` (fixture `/design/analytics`) owns every chart. Home retains the three
+current-work summary cards, review/blocked queues and a project waiting table.
+Use the shared `ChartCard` frame and cached `/api/v1/analytics/home` rollup; never
+load the ticket collection to derive charts. Scope both charts through the page's
+shared project selector. Preserve null/partial history and observed-completion
+semantics; new metrics need an explicit aggregate API contract first.
+
+`CHROME_BIN=<headless-chromium> cargo xtask home-shot` checks both Home and
+Analytics using fixture-only API responses, including cache reuse on navigation,
+exact-value keyboard tooltips, tables, scopes, loading, recovery and overflow.
+It captures dark evidence in `docs/screenshots/TIK-66/`; supply
+`TICKETS_BEFORE_ASSETS=<baseline-dist>` for Home before images.

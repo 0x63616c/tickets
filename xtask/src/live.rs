@@ -241,7 +241,7 @@ pub fn check(root: &Path, password: &str, token: &str) -> super::Result {
         "window.homeReads=[];const homeFetch=window.fetch;window.fetch=(...args)=>{window.homeReads.push(new URL(args[0] instanceof Request?args[0].url:String(args[0]),location.href).pathname);return homeFetch(...args)};"
     }))?;
     b.go("http://127.0.0.1:8795/")?;
-    b.wait("document.querySelectorAll('.home-metric strong').length===4 && window.__liveSockets.some(s=>s.readyState===1)")?;
+    b.wait("document.querySelectorAll('.home-metric strong').length===3 && window.__liveSockets.some(s=>s.readyState===1)")?;
     api(
         reqwest::Method::PATCH,
         &format!("tickets/{ticket}"),

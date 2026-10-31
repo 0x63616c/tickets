@@ -118,7 +118,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("location.pathname==='/'")?;
     b.eval(r#"(async()=>{const post=async(p,v)=>{const r=await fetch('/api/v1/'+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)});if(!r.ok)throw Error('Seed failed');return r.json()};await post('projects',{name:'Tickets',key_prefix:'TIK',color:'#5e6ad2'});await post('projects',{name:'Quantum',key_prefix:'QUA',color:'#4ea7fc'});await post('tickets',{project_id:1,title:'Command palette',body:'Search the workspace',status:'in_progress',assignee:'agent'});await post('tickets',{project_id:2,title:'Render voxel mesh',body:'Incremental mesh cache',status:'todo',external_url:'https://github.com/example/quantum/issues/78'});await post('tickets',{project_id:1,title:'Reference QUA-1',status:'todo'});return true})()"#)?;
     b.go(base)?;
-    b.wait("document.querySelectorAll('.home-metric strong').length===4")?;
+    b.wait("document.querySelectorAll('.home-metric strong').length===3")?;
     open(&mut b)?;
     b.wait(
         "document.querySelector('.command-results').textContent.includes('In progress & assigned')",

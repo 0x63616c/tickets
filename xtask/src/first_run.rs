@@ -118,7 +118,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     }
     // Home is the default landing route; all data above was created through the UI.
     b.go("http://127.0.0.1:8795/")?;
-    b.wait("[...document.querySelectorAll('.home-metric strong')].map(e=>e.textContent).join(',')==='1,0,1,0'")?;
+    b.wait("[...document.querySelectorAll('.home-metric strong')].map(e=>e.textContent).join(',')==='1,0,1'")?;
     b.click("a.home-metric[href*='metric=in_flight']")?;
     b.wait("document.querySelectorAll('.home-cohort .home-ticket-row').length===1 && document.querySelector('.home-cohort').textContent.includes('FIRST-1')")?;
     b.go("http://127.0.0.1:8795/t/FIRST-1")?;
@@ -126,11 +126,14 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.choose("[aria-label=Status]", "Done")?;
     b.wait("document.querySelector('[aria-label=Status]').value==='Done' && !document.querySelector('[aria-label=Status]').disabled")?;
     b.go("http://127.0.0.1:8795/")?;
-    b.wait("[...document.querySelectorAll('.home-metric strong')].map(e=>e.textContent).join(',')==='0,0,0,1'")?;
-    b.click("a.home-metric[href*='metric=completed']")?;
+    b.wait("[...document.querySelectorAll('.home-metric strong')].map(e=>e.textContent).join(',')==='0,0,0'")?;
+    b.go("http://127.0.0.1:8795/analytics")?;
+    b.wait("document.querySelectorAll('.analytics-card').length===2 && !document.querySelector('.home-page[aria-busy=true]')")?;
+    b.click(".analytics-card:first-child .chart-data summary")?;
+    b.click(".chart-data a[href*='metric=completed'][href*='week=7']")?;
     b.wait("document.querySelectorAll('.home-cohort .home-ticket-row').length===1 && document.querySelector('.home-cohort').textContent.includes('Week of') && document.querySelector('.home-cohort').textContent.includes('FIRST-1')")?;
     println!(
-        "PASS first-run: empty install, UI login, project, two tickets, Kanban move, new label and dependency verified on both tickets; six dark 1440×900 screenshots"
+        "PASS first-run: empty install, UI login, project, two tickets, Kanban move, new label and dependency verified on both tickets; Home and Analytics rollup/cohort; six dark 1440×900 screenshots"
     );
     Ok(())
 }

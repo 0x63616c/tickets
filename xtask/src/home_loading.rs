@@ -160,7 +160,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         return Err("Home replayed loading/reveal during manual refresh".into());
     }
     b.choose("[aria-label='Home project']", "1")?;
-    b.wait("location.search==='?project=1' && !document.querySelector('.home-page[aria-busy=true]') && document.querySelectorAll('.project-chart-row').length===1")?;
+    b.wait("location.search==='?project=1' && !document.querySelector('.home-page[aria-busy=true]') && document.querySelectorAll('.home-waiting tbody tr').length===1")?;
     if b.eval("window.homeTrace.some(s=>s.state==='loader'||s.state==='reveal')")? == true {
         return Err("Home replayed loading/reveal during scope change".into());
     }
