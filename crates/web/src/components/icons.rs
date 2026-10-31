@@ -62,7 +62,7 @@ pub fn Icon(#[prop(default = "plus")] name: &'static str) -> impl IntoView {
 /// black tile, matching the favicon and home-screen icons.
 #[component]
 pub fn BrandMark() -> impl IntoView {
-    view! { <svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" rx="3.5" fill="#000"/><path fill="#ededed" fill-rule="evenodd" d="M3 4h10a1 1 0 0 1 1 1v2a1.5 1.5 0 0 0 0 3v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2a1.5 1.5 0 0 0 0-3V5a1 1 0 0 1 1-1Zm7 1h1v1h-1Zm0 2h1v1h-1Zm0 2h1v1h-1Zm0 2h1v1h-1Z"/></svg> }
+    view! { <svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" rx="3.5" fill="var(--bg)"/><path fill="var(--stub-ink)" fill-rule="evenodd" d="M3 4h10a1 1 0 0 1 1 1v2a1.5 1.5 0 0 0 0 3v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2a1.5 1.5 0 0 0 0-3V5a1 1 0 0 1 1-1Zm7 1h1v1h-1Zm0 2h1v1h-1Zm0 2h1v1h-1Zm0 2h1v1h-1Z"/></svg> }
 }
 
 #[component]

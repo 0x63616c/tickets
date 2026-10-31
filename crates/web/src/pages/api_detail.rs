@@ -426,7 +426,12 @@ fn LabelPicker() -> impl IntoView {
                     label.id
                 } else {
                     // The four label hues from tokens.css, stable across sessions.
-                    let palette = ["#8b82d9", "#eb5757", "#4ea7fc", "#c6a1b9"];
+                    let palette = [
+                        crate::colors::value("--label-feature"),
+                        crate::colors::value("--label-bug"),
+                        crate::colors::value("--label-infra"),
+                        crate::colors::value("--label-design"),
+                    ];
                     let hash = name
                         .to_lowercase()
                         .bytes()

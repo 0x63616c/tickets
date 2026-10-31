@@ -123,7 +123,7 @@ pub(crate) fn ProjectEditor(
         project
             .as_ref()
             .map(|p| p.color.clone())
-            .unwrap_or("#5e6ad2".into()),
+            .unwrap_or(crate::colors::value("--project-default").into()),
     );
     let owner = RwSignal::new(
         project
@@ -188,7 +188,7 @@ pub(crate) fn ProjectEditor(
         <div class="modal-body"><TextInput id="project-title" label="Name" value=name/>
         <TextInput id="project-prefix" label="Key prefix" placeholder="TKT" value=prefix/>
         <Show when=move||id.is_some()><p class="muted">"Changing the prefix updates existing ticket keys."</p></Show>
-        <ProjectIconPicker value=icon color name/><fieldset class="project-colors"><legend>"Icon color"</legend><div class="project-swatches">{[("#5e6ad2","Accent","--accent"),("#8b82d9","Feature","--label-feature"),("#eb5757","Bug","--label-bug"),("#4ea7fc","Infrastructure","--label-infra"),("#c6a1b9","Design","--label-design"),("#27a644","Green","--success"),("#f0bf00","Yellow","--warning")].into_iter().map(|(value,label,token)|view!{<button type="button" class="project-swatch" aria-label=format!("{label} color") aria-pressed=move||(color.get()==value).to_string() style=format!("--swatch:var({token})") on:click=move|_|color.set(value.into())/>}).collect_view()}</div></fieldset>
+        <ProjectIconPicker value=icon color name/><fieldset class="project-colors"><legend>"Icon color"</legend><div class="project-swatches">{[(crate::colors::value("--project-default"),"Accent","--project-default"),(crate::colors::value("--label-feature"),"Feature","--label-feature"),(crate::colors::value("--label-bug"),"Bug","--label-bug"),(crate::colors::value("--label-infra"),"Infrastructure","--label-infra"),(crate::colors::value("--label-design"),"Design","--label-design"),(crate::colors::value("--success"),"Green","--success"),(crate::colors::value("--warning"),"Yellow","--warning")].into_iter().map(|(value,label,token)|view!{<button type="button" class="project-swatch" aria-label=format!("{label} color") aria-pressed=move||(color.get()==value).to_string() style=format!("--swatch:var({token})") on:click=move|_|color.set(value.into())/>}).collect_view()}</div></fieldset>
         <TextInput id="project-color" label="Color" placeholder="#RRGGBB" value=color/>
         <TextInput id="project-owner" label="GitHub Project" placeholder="github.com/orgs/example/projects/1 or example/1" value=owner/>
         <Show when=move||{let value=owner.get(); !value.trim().is_empty() && !value.contains("github.com/") && !value.contains("://")}><label class="field">"Owner type"<SelectField label="Owner type" value=Signal::derive(move||kind.get()) options=Signal::derive(move||vec![SelectOption::new("users","User"),SelectOption::new("orgs","Organization")]) on_change=Callback::new(move|next:String|kind.set(next))/></label></Show>

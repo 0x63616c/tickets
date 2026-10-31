@@ -66,6 +66,28 @@ document the maintainer/agent workflow and project conventions.
 
 ## Design-token lint
 
+Every app color must come from `crates/web/style/tokens.css`: use `var(--role)`
+in CSS, inline styles and SVG. This also applies to JS snippets and Worker HTML.
+Reuse semantic roles; add new colors deliberately to that file only, documenting
+their role in DESIGN.md or the design-system docs. Tickets remains dark only.
+For fixed project/label choices that must reach the API as `#RRGGBB`, use
+`crate::colors::value("--role")`, which reads the same default palette rather
+than duplicating literals or persisting a browser accent override. Arbitrary
+user colors are validated API data.
+
+`cargo xtask check raw-colors` checks all app source formats and runs in
+`cargo xtask ci`, independently of the existing design-token debt baseline.
+Its errors suggest existing tokens. Browser assets/metadata and negative test
+fixtures require exact literal counts and reasons in
+`xtask/raw-color-allowlist.json`; don't allowlist new app styling. Stale exceptions
+fail too. The inventory and scope are in [docs/color-palette.md](docs/color-palette.md).
+
+For a palette-preservation change, build the original assets and run
+`TICKETS_BEFORE_ASSETS=<original-dist> cargo xtask color-check`, then rebuild and
+run `cargo xtask color-check`. This compares computed colors (including SVG and
+chips) on desktop/mobile fixtures and saves paired PNGs/JSON under
+`target/TIK-136/colors`. Baseline files must be from the real previous UI.
+
 Run `npm ci --prefix crates/web`, then:
 
 ```sh

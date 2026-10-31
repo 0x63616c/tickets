@@ -9,6 +9,8 @@ mod cards;
 #[cfg(not(target_arch = "wasm32"))]
 mod cleanup;
 #[cfg(not(target_arch = "wasm32"))]
+mod color_check;
+#[cfg(not(target_arch = "wasm32"))]
 mod component;
 #[cfg(not(target_arch = "wasm32"))]
 mod d1_usage;
@@ -40,6 +42,7 @@ mod mirror_check;
 mod perf;
 #[cfg(not(target_arch = "wasm32"))]
 mod perf_browser;
+mod raw_colors;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod mission;
@@ -139,6 +142,9 @@ fn main() -> Result {
         #[cfg(not(target_arch = "wasm32"))]
         Some("perf-browser-check") => api_smoke::perf(root),
         Some("check") if args.get(1).map(String::as_str) == Some("design-tokens") => design_tokens::check(root, &args[2..]),
+        Some("check") if args.len() == 2 && args.get(1).map(String::as_str) == Some("raw-colors") => raw_colors::check(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("color-check") => color_check::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("loading-check") => loading::check(root),
         #[cfg(not(target_arch = "wasm32"))]
@@ -243,6 +249,7 @@ fn main() -> Result {
         Some("autofill-check") => autofill::check(root),        Some("ci") => {
             web_dependencies(root)?;
             autofill::check(root)?;
+            raw_colors::check(root)?;
             design_tokens::check(root, &[])?;
             run(root, "node", &["--test", "crates/web/lint/value-policy.test.mjs"])?;
             run(root, "cargo", &["fmt", "--all", "--check"])?;
@@ -278,7 +285,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <check design-tokens [--staged] [--css] [--report]|dev|build|migrate [--remote]|ci|infra-check|d1-usage-check|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check|first-run-check>".into())
+            Err("usage: cargo xtask <check design-tokens [--staged] [--css] [--report]|check raw-colors|color-check|dev|build|migrate [--remote]|ci|infra-check|d1-usage-check|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check|first-run-check>".into())
         }
     }
 }
