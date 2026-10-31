@@ -96,6 +96,9 @@ pub fn check(root: &Path, b: &mut Browser) -> super::Result {
                 b.eval("window.dispatchEvent(new Event('online'));true")?;
                 b.wait("window.heldRequests>0")?;
                 b.click("a[href='/board']")?;
+                // SPA navigation commits asynchronously. Start continuity
+                // sampling on Board, rather than capturing List as its root.
+                b.wait("!!document.querySelector('.api-board') && !document.querySelector('.ticket-list')")?;
             } else {
                 b.eval("window.dispatchEvent(new Event('online'));true")?;
             }

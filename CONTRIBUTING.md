@@ -418,6 +418,12 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
   once per 30 seconds per tab. Keep pending events through cooldown, hidden tabs
   and edits; manual refresh and local writes remain immediate. Live browser checks
   allow 40 seconds for a cooldown plus reconciliation.
+- `crates/web/src/reconciliation.rs` owns the in-process notice queue, recovery
+  precedence and cooldown. Browser events and deterministic host traces use
+  `Reconciler::advance` with explicit time and readiness; the browser adapter only
+  samples signals/DOM and executes actions. Editing gates timer completion, not
+  scheduling. Keep policy tests on this interface (`cargo test -p tickets-web
+  reconciliation`), and retain browser checks for event wiring and DOM edit detection.
 - Mission Control polls every 3 minutes while visible; focus/manual refresh remain
   available. Home analytics and project counts retain the private 60-second edge
   cache keyed by workspace version; writes invalidate it early.
@@ -467,8 +473,9 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 
 ## Live catch-up conventions
 
-- Browser visibility, focus, online and a 60-second visible-tab interval share the
-  live invalidation debounce. Hidden tabs make no catch-up requests. Refreshes keep
+- Browser visibility, focus recovery and online events share the live invalidation
+  debounce. Healthy connected sockets need no focus catch-up or interval polling.
+  Hidden tabs make no catch-up requests. Refreshes keep
   saved content visible and defer while moving tickets, editing fields or holding
   comment drafts. Recheck before applying responses so an edit begun during a read
   is preserved. Existing paginated REST reads retain the per-invocation D1 budget;
@@ -902,7 +909,9 @@ It saves dark Settings/Board evidence in `docs/screenshots/TIK-83`; set
   skeleton/content visibility every 50ms for four seconds. It covers cold/slow
   Board, Home navigation (including empty project and mobile), List, explicit
   refresh and live focus catch-up. Refresh must preserve card counts and board
-  position. Before mode (`TICKETS_BEFORE_ASSETS=<base-dist>`) records violations;
+  position. Wait for the destination page after SPA clicks before capturing its
+  content root or geometry, so continuity samples measure the settled route.
+  Before mode (`TICKETS_BEFORE_ASSETS=<base-dist>`) records violations;
   after mode fails on overlap or lost refresh continuity.
 - PNG sequences go to ignored `target/TIK-75/`; held/settled PNGs, sample JSON
   and `transitions.txt` go to `docs/screenshots/TIK-75/`. Copy review evidence to

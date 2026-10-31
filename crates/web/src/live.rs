@@ -1,5 +1,9 @@
 //! Scoped subscriptions with cancellation, jittered reconnect and authoritative reconciliation.
-use crate::{components::ConnectionState, pages::board::BoardState};
+use crate::{
+    components::ConnectionState,
+    pages::board::BoardState,
+    reconciliation::{Action, Input, Readiness, Reconciler, Route},
+};
 use futures_util::{
     StreamExt,
     future::{AbortHandle, Abortable},
@@ -12,16 +16,74 @@ use tickets_core::live::ChangeEvent;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::wasm_bindgen::{JsCast, closure::Closure};
 
+/// Browser I/O for the in-process policy. Only the reconciler owns pending work.
+#[derive(Clone, Copy)]
+struct BrowserReconciler {
+    policy: StoredValue<Reconciler, LocalStorage>,
+    board: BoardState,
+    path: Memo<String>,
+    online: RwSignal<bool>,
+}
+
+impl BrowserReconciler {
+    // Called in the readiness effect to track every BoardState gate, and
+    // untracked by browser events and timer continuations for a fresh snapshot.
+    fn readiness(self) -> Readiness {
+        Readiness {
+            route: Route::from_path(&self.path.get()),
+            online: self.online.get(),
+            visible: !document().hidden(),
+            signed_in: self.board.signed_in.get(),
+            busy: self.board.busy.get(),
+            dragged: self.board.dragged.get().is_some(),
+            composer: self.board.composer.get().is_some(),
+            refreshing: self.board.refreshing.get(),
+            editing: editing(),
+        }
+    }
+
+    fn send(self, input: Input) {
+        let readiness = untrack(|| self.readiness());
+        let mut actions = vec![];
+        self.policy.update_value(|policy| {
+            actions = policy.advance(input, js_sys::Date::now() as u64, readiness);
+        });
+        // Release the policy borrow before executing actions, which can change
+        // BoardState and cause subsequent readiness inputs.
+        for action in actions {
+            match action {
+                Action::ScheduleTimer(delay) => spawn_local(async move {
+                    TimeoutFuture::new(delay).await;
+                    self.send(Input::TimerElapsed);
+                }),
+                Action::Reconcile(pending) => {
+                    crate::ui::invalidate_reads();
+                    self.board.reconcile(pending);
+                }
+                Action::CatchUp | Action::InvalidateTickets => {
+                    crate::ui::invalidate_reads();
+                    if action == Action::InvalidateTickets {
+                        self.board.invalidate_tickets();
+                    } else {
+                        self.board.catch_up();
+                    }
+                    self.board.catchup_revision.update(|r| *r += 1);
+                }
+            }
+        }
+    }
+}
+
 pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
-    let dirty = RwSignal::new(false);
-    let events = RwSignal::new(BTreeMap::<(String, i64), ChangeEvent>::new());
-    let recover = RwSignal::new(false);
     let online = RwSignal::new(window().navigator().on_line());
-    let went_offline = window_event_listener(leptos::ev::offline, move |_| online.set(false));
-    let request = move || {
-        recover.set(true);
-        dirty.set(true);
+    let reconciler = BrowserReconciler {
+        policy: StoredValue::new_local(Reconciler::default()),
+        board,
+        path,
+        online,
     };
+    let went_offline = window_event_listener(leptos::ev::offline, move |_| online.set(false));
+    let request = move || reconciler.send(Input::Recover);
     let went_online = window_event_listener(leptos::ev::online, move |_| {
         online.set(true);
         request();
@@ -33,14 +95,12 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
         }
     });
     let visibility = Closure::<dyn Fn()>::new(move || {
-        if !document().hidden()
-            && (dirty.get_untracked()
-                || !matches!(board.connection.get_untracked(), ConnectionState::Connected))
-        {
+        if !document().hidden() {
             if !matches!(board.connection.get_untracked(), ConnectionState::Connected) {
-                recover.set(true);
+                request();
+            } else {
+                reconciler.send(Input::ReadinessChanged);
             }
-            dirty.set(true);
         }
     });
     document()
@@ -58,92 +118,16 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
         went_online.remove();
         focus.remove();
     });
-    // A single debounce coalesces room broadcasts, reconnects and browser events.
+    // Reconnect recovery and signal changes cross the same policy interface as
+    // socket notices and browser events. Readiness reads track every gate.
     Effect::new(move |_| {
-        let revision = board.live_revision.get();
-        if revision > 0 {
-            recover.set(true);
-            dirty.set(true);
+        if board.live_revision.get() > 0 {
+            request();
         }
     });
-    let scheduled = RwSignal::new(false);
-    let last_reload = StoredValue::new_local(None::<u64>);
     Effect::new(move |_| {
-        let active = [
-            "/",
-            "/home",
-            "/analytics",
-            "/board",
-            "/list",
-            "/ticket",
-            "/projects",
-            "/mission",
-        ]
-        .contains(&path.get().as_str())
-            || path.get().starts_with("/t/");
-        if dirty.get()
-            && active
-            && online.get()
-            && !document().hidden()
-            && board.signed_in.get()
-            && !board.busy.get()
-            && board.dragged.get().is_none()
-            && board.composer.get().is_none()
-            && !board.refreshing.get()
-            && !scheduled.get()
-        {
-            scheduled.set(true);
-            spawn_local(async move {
-                // Coalesce bursts for 5s, and allow at most one automatic live
-                // reconciliation per 30s per tab. Pending notices stay queued.
-                let delay = tickets_core::live::refresh_delay_ms(
-                    js_sys::Date::now() as u64,
-                    last_reload.get_value(),
-                );
-                TimeoutFuture::new(delay).await;
-                if online.get_untracked()
-                    && board.signed_in.get_untracked()
-                    && ([
-                        "/",
-                        "/home",
-                        "/analytics",
-                        "/board",
-                        "/list",
-                        "/ticket",
-                        "/projects",
-                        "/mission",
-                    ]
-                    .contains(&path.get_untracked().as_str())
-                        || path.get_untracked().starts_with("/t/"))
-                    && !document().hidden()
-                    && !editing()
-                    && !board.busy.get_untracked()
-                    && board.dragged.get_untracked().is_none()
-                    && board.composer.get_untracked().is_none()
-                    && !board.refreshing.get_untracked()
-                {
-                    last_reload.set_value(Some(js_sys::Date::now() as u64));
-                    dirty.set(false);
-                    let pending = events.get_untracked().into_values().collect::<Vec<_>>();
-                    events.update(|e| e.clear());
-                    crate::ui::invalidate_reads();
-                    if recover.get_untracked() || pending.iter().any(|event| event.id == 0) {
-                        recover.set(false);
-                        if ["/", "/home", "/analytics"].contains(&path.get_untracked().as_str()) {
-                            // Home does not need tickets, but a future Board/List must
-                            // not reuse a collection from before the disconnect.
-                            board.invalidate_tickets();
-                        } else {
-                            board.catch_up();
-                        }
-                        board.catchup_revision.update(|r| *r += 1);
-                    } else {
-                        board.reconcile(pending);
-                    }
-                }
-                scheduled.set(false);
-            });
-        }
+        let _ = reconciler.readiness();
+        reconciler.send(Input::ReadinessChanged);
     });
     let subscriptions = Memo::new(move |_| {
         let path = path.get();
@@ -217,13 +201,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                                                 serde_json::from_str::<ChangeEvent>(&text)
                                             && event.project_id == id
                                         {
-                                            events.update(|events| {
-                                                events.insert(
-                                                    (event.entity.clone(), event.id),
-                                                    event,
-                                                );
-                                            });
-                                            dirty.set(true);
+                                            reconciler.send(Input::Notice(event));
                                         }
                                     }
                                 }
