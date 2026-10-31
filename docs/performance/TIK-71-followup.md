@@ -101,3 +101,16 @@ remain unverified. Keep Refs TIK-71.
 
 Validation results are recorded in PR #115. No deployment, remote migration,
 plan/secret change or manual merge was performed.
+
+Local continuation checks passed: `cargo xtask ci` (fmt, host/wasm clippy,
+workspace tests, token lint and CSS policy tests), branch-wide design-token
+ratchet, npm CSS lint/policy tests, release web/Worker build, local migrations,
+`perf-check`, `pickup-check`, `api-smoke`, `skill-check`, `import-check`, mocked
+GitHub App tests, `perf-browser-check`, empty-D1 `first-run-check`, and
+`component-shot all`. Further browser results are recorded in PR #115's Validation
+section. The web package has no npm build script; Trunk builds it through xtask.
+
+CI then exposed Board's 15-second waits for consecutive external blocker updates.
+The intentional tab cooldown can take 30 seconds; those live assertions now use
+the documented 40-second reconciliation window. Ordinary UI readiness retains
+15-second waits. The browser still asserts every blocker state without reloads.

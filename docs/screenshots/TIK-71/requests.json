@@ -1,20 +1,42 @@
 {
-  "errors": [],
-  "reads": [
-    "/tickets-web-ffdc9406faabda92_bg.wasm",
-    "/api/v1/me",
-    "/api/v1/analytics/home",
-    "/api/v1/projects",
-    "/api/v1/version",
-    "/api/v1/tickets",
-    "/api/v1/labels",
-    "/api/v1/projects",
-    "/api/v1/tickets/1",
-    "/api/v1/tickets/TKT-1",
-    "/api/v1/tickets/1/comments",
-    "/api/v1/tickets/1/history",
-    "/api/v1/projects",
-    "/api/v1/tickets/1",
-    "/api/v1/analytics/home"
-  ]
+  "initial_snapshot_race": {
+    "errors": [],
+    "reads": [
+      "/tickets-web-512b007387ff0735_bg.wasm",
+      "/api/v1/me",
+      "/api/v1/projects",
+      "/api/v1/users",
+      "/api/v1/tickets",
+      "/api/v1/labels",
+      "/api/v1/version",
+      "/api/v1/projects",
+      "/api/v1/tickets",
+      "/api/v1/labels"
+    ]
+  },
+  "session": {
+    "errors": [],
+    "reads": [
+      "/tickets-web-512b007387ff0735_bg.wasm",
+      "/api/v1/me",
+      "/api/v1/analytics/home",
+      "/api/v1/projects",
+      "/api/v1/users",
+      "/api/v1/version",
+      "/api/v1/tickets",
+      "/api/v1/labels",
+      "/api/v1/projects",
+      "/api/v1/tickets/1",
+      "/api/v1/tickets/TKT-1",
+      "/api/v1/tickets/1/comments",
+      "/api/v1/tickets/1/history",
+      "/api/v1/projects",
+      "/api/v1/tickets/1",
+      "/api/v1/analytics/home",
+      "/api/v1/analytics/home",
+      "/api/v1/projects",
+      "/api/v1/tickets",
+      "/api/v1/labels"
+    ]
+  }
 }
