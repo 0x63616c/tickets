@@ -664,23 +664,3 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 @media (pointer: coarse) {
   .comment-action { min-height: 44px; height: auto; padding-inline: var(--space-2); }
 }
-
-/* Pointer/touch drag is transient; the outlined slot is the actual drop position. */
-main:has(.api-board) { height: 100dvh; min-height: 0; }
-.api-board { min-height: 0; }
-@media (max-width: 760px) {
-  main:has(.api-board) { height: calc(100dvh - var(--topbar-height)); }
-}
-.api-board .column-cards { min-height: var(--space-12); }
-.api-board .board-column { max-height: 100%; overflow-y: auto; overscroll-behavior-y: contain; }
-.api-board .column-heading { position: sticky; top: 0; z-index: 1; background: var(--bg); }
-.api-board .board-drop-placeholder { background: var(--accent-surface); border: 1px dashed var(--accent); opacity: 1; }
-.api-board .board-drop-placeholder > * { visibility: hidden; }
-.board-origin-placeholder { opacity: .35; filter: grayscale(1); pointer-events: none; }
-.api-board .board-drag-chosen { cursor: grabbing; }
-/* The preview lives under body, outside the board transition reset. Sortable
-   integrates the computed matrix on every move; interpolation loses travel. */
-.board-drag-preview { transition: none; cursor: grabbing; box-shadow: var(--shadow-popover); pointer-events: none; opacity: 1; z-index: 100; }
-.api-board[data-pointer-drag="true"] .ticket-card { transition: none; }
-/* Match the press selector so pickup geometry is never sampled mid-scale. */
-.api-board .ticket-card:active:not(.drag-over):not(:has(button:active)) { transform: none; }

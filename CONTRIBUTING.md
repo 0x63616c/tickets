@@ -247,23 +247,12 @@ its sequential isolated API/browser checks; each check still creates fresh D1 st
   `cargo xtask card-shots` captures TIK-57 fixture evidence (single/multiple blockers,
   desktop/mobile board/list and tooltip) using matching base assets when supplied.
 - Cards: Tab to focus; arrows navigate. Space picks up, arrows change column or
-  position, Space saves, Escape cancels. Position/status changes are announced.
-  Status selects remain the touch-friendly alternative. Pointer/touch uses pinned
-  SortableJS fallback sensors, a visible insertion slot and nested autoscroll; hold
-  briefly on touch to drag, or swipe immediately to scroll. Escape, pointer/touch
-  cancellation, blur and hidden tabs cancel the gesture. The adapter restores DOM
-  ownership before Rust updates or persists; never mutate Rust tickets on hover.
-  Keep the board click latch above card lifecycles and the shared link transition
-  handler. Research and TIK-49's manual/sorted integration boundary live in
-  [board-drag-drop.md](docs/design/board-drag-drop.md).
+  position, Space saves, Escape cancels. Status selects remain the touch-friendly
+  alternative. Mouse drops on a card insert before it; drops on a column append.
 - `CHROME_BIN=<headless-chromium> cargo xtask board-check` builds the app, starts
   an isolated local Worker/D1, seeds through the API, and verifies keyboard/mouse
   moves, ordering after reload, filters, pagination, rollback, focus, creation and
-  project isolation. TIK-92 also asserts mouse/touch preview tracking and a fixed,
-  dimmed origin slot, recording frames/geometry under `docs/screenshots/TIK-92/`.
-  `TICKETS_DRAG_BASELINE=1 TICKETS_SKIP_BUILD=1` records the same gesture against
-  existing unchanged baseline assets without asserting the repaired behavior.
-  Screenshots are written to `docs/screenshots/kanban/` at
+  project isolation. Screenshots are written to `docs/screenshots/kanban/` at
   1440×900 and 390×900. `board-before` captures the previous real `/` route on a
   running local Worker at port 8787 before changing frontend assets.
 

@@ -16,6 +16,7 @@ pub(crate) struct Browser {
     socket: WebSocket<MaybeTlsStream<TcpStream>>,
     id: u64,
     session: String,
+    drag: Option<Value>,
 }
 impl Browser {
     pub(crate) fn start(root: &Path) -> Result<Self> {
@@ -31,6 +32,7 @@ impl Browser {
             socket,
             id: 0,
             session: String::new(),
+            drag: None,
         };
         let target = browser.call("Target.createTarget", json!({"url":"about:blank"}))?;
         let session = browser.call(
@@ -63,6 +65,9 @@ impl Browser {
             let message = self.socket.read()?;
             if let Message::Text(text) = message {
                 let response: Value = serde_json::from_str(&text)?;
+                if response["method"] == "Input.dragIntercepted" {
+                    self.drag = Some(response["params"]["data"].clone());
+                }
                 if response["method"] == "Runtime.exceptionThrown" {
                     return Err(format!("Browser exception: {}", response["params"]).into());
                 }
@@ -265,86 +270,38 @@ impl Browser {
         self.call("Input.insertText", json!({"text":text}))?;
         Ok(())
     }
-    fn drag_point(&mut self, selector: &str) -> Result<Value> {
-        self.eval(&format!(
-            "(()=>{{const e=document.querySelector({});e.scrollIntoView({{block:'nearest',inline:'nearest'}});const r=e.getBoundingClientRect();return {{x:r.x+r.width/2,y:r.y+24}}}})()",
-            serde_json::to_string(selector)?
-        ))
-    }
-    fn pointer_start(&mut self, selector: &str, touch: bool) -> Result<Value> {
-        self.wait("!document.querySelector('[data-ar-t]')")?;
-        self.wait(&format!(
-            "!document.querySelector({}).animated",
-            serde_json::to_string(selector)?
-        ))?;
-        self.eval("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))")?;
-        let source = self.drag_point(selector)?;
-        if touch {
-            self.call("Input.dispatchTouchEvent", json!({"type":"touchStart","touchPoints":[{"x":source["x"],"y":source["y"],"id":1}]}))?;
-            self.eval("new Promise(r=>setTimeout(()=>r(true),220))")?;
-        } else {
-            self.call(
-                "Input.dispatchMouseEvent",
-                json!({"type":"mouseMoved","x":source["x"],"y":source["y"]}),
-            )?;
-            self.call("Input.dispatchMouseEvent", json!({"type":"mousePressed","x":source["x"],"y":source["y"],"button":"left","clickCount":1}))?;
-        }
-        self.pointer_move(
-            source["x"].as_f64().unwrap() + 10.,
-            source["y"].as_f64().unwrap(),
-            touch,
-        )?;
-        self.wait("!!document.querySelector('.board-drag-preview') && document.querySelector('.api-board').dataset.pointerDrag==='true'")?;
-        Ok(source)
-    }
-    fn pointer_input(&mut self, x: f64, y: f64, touch: bool) -> Result<()> {
-        if touch {
-            self.call(
-                "Input.dispatchTouchEvent",
-                json!({"type":"touchMove","touchPoints":[{"x":x,"y":y,"id":1}]}),
-            )?;
-        } else {
-            self.call(
-                "Input.dispatchMouseEvent",
-                json!({"type":"mouseMoved","x":x,"y":y,"button":"left","buttons":1}),
-            )?;
-        }
-        Ok(())
-    }
-    fn pointer_move(&mut self, x: f64, y: f64, touch: bool) -> Result<()> {
-        self.pointer_input(x, y, touch)?;
-        self.eval("new Promise(r=>setTimeout(()=>r(true),40))")?;
-        Ok(())
-    }
-    fn pointer_end(&mut self, x: f64, y: f64, touch: bool) -> Result<()> {
-        if touch {
-            self.call(
-                "Input.dispatchTouchEvent",
-                json!({"type":"touchEnd","touchPoints":[]}),
-            )?;
-        } else {
-            self.call(
-                "Input.dispatchMouseEvent",
-                json!({"type":"mouseReleased","x":x,"y":y,"button":"left","clickCount":1}),
-            )?;
-        }
-        Ok(())
-    }
     fn drag(&mut self, from: &str, to: &str) -> Result<()> {
-        let target = self.drag_point(to)?;
-        let source = self.pointer_start(from, false)?;
-        let x = target["x"].as_f64().unwrap();
-        let y = target["y"].as_f64().unwrap();
-        for step in 1..=12 {
-            let progress = f64::from(step) / 12.;
-            self.pointer_move(
-                source["x"].as_f64().unwrap() + (x - source["x"].as_f64().unwrap()) * progress,
-                source["y"].as_f64().unwrap() + (y - source["y"].as_f64().unwrap()) * progress,
-                false,
+        let point = |selector: &str| {
+            format!(
+                "(()=>{{const e=document.querySelector({});e.scrollIntoView({{block:'nearest'}});const r=e.getBoundingClientRect();return {{x:r.x+r.width/2,y:r.y+24}}}})()",
+                serde_json::to_string(selector).unwrap()
+            )
+        };
+        let target = self.eval(&point(to))?;
+        let source = self.eval(&point(from))?;
+        self.call("Input.setInterceptDrags", json!({"enabled":true}))?;
+        self.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":source["x"],"y":source["y"]}),
+        )?;
+        self.call("Input.dispatchMouseEvent",json!({"type":"mousePressed","x":source["x"],"y":source["y"],"button":"left","clickCount":1}))?;
+        for offset in [8., 16., 24.] {
+            self.call("Input.dispatchMouseEvent",json!({"type":"mouseMoved","x":source["x"].as_f64().unwrap()+offset,"y":source["y"],"button":"left","buttons":1}))?;
+        }
+        self.eval("new Promise(r=>setTimeout(()=>r(true),100))")?;
+        let data = self
+            .drag
+            .take()
+            .ok_or("Mouse did not start a native drag")?;
+        for kind in ["dragEnter", "dragOver", "drop"] {
+            self.call(
+                "Input.dispatchDragEvent",
+                json!({"type":kind,"x":target["x"],"y":target["y"],"data":data}),
             )?;
         }
-        self.eval("new Promise(r=>setTimeout(()=>r(true),250))")?;
-        self.pointer_end(x, y, false)
+        self.call("Input.dispatchMouseEvent",json!({"type":"mouseReleased","x":target["x"],"y":target["y"],"button":"left","clickCount":1}))?;
+        self.call("Input.setInterceptDrags", json!({"enabled":false}))?;
+        Ok(())
     }
     pub(crate) fn key(&mut self, key: &str, code: u32, modifiers: u32) -> Result<()> {
         for kind in ["keyDown", "keyUp"] {
@@ -540,19 +497,9 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     }
     b.go("http://127.0.0.1:8795/board")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
-    if env::var_os("TICKETS_DRAG_BASELINE").is_some() {
-        return check_drag_tracking(root, &mut b);
-    }
-    if env::var_os("TICKETS_BEFORE_ASSETS").is_some() {
-        let output = root.join("docs/screenshots/TIK-51");
-        fs::create_dir_all(&output)?;
-        b.screenshot(&output.join("before-board-desktop.png"))?;
-        b.viewport(390, 900)?;
-        b.screenshot(&output.join("before-board-mobile.png"))?;
-        return Ok(());
-    }
-    check_drag_tracking(root, &mut b)?;
-    check_pointer_drag(root, &mut b)?;
+    // A completed/canceled drag must never turn its trailing click into navigation.
+    b.eval("(()=>{const c=document.querySelector('#ticket-1');c.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));c.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer:new DataTransfer()}));c.dispatchEvent(new DragEvent('dragend',{bubbles:true}));c.click();return true})()")?;
+    b.wait("location.pathname==='/board' && document.querySelector('.board').getAttribute('aria-busy')!=='true'")?;
     // The body, not only the title link, opens the ticket; Enter does too.
     b.click("#ticket-1 .ticket-id")?;
     b.wait("location.pathname==='/t/TKT-1' && !!document.querySelector('.ticket-detail')")?;
@@ -620,7 +567,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.key("ArrowLeft", 37, 0)?;
     b.key("Escape", 27, 0)?;
     b.wait("document.querySelector('#ticket-2')?.closest('section').getAttribute('aria-label')==='In progress'")?;
-    // Real pointer sensor movement, including within-column insertion.
+    // Actual HTML drag event handlers, including a within-column insertion target.
     b.drag("#ticket-7", "#ticket-2")?;
     b.wait("document.body.innerText.includes('Order saved') && document.querySelector('[aria-label=\"In progress\"] .ticket-card')?.id==='ticket-7'")?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
@@ -694,7 +641,6 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     // Project switching must clear filters and never leak tickets from another project.
     b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===95 && !document.body.innerText.includes('Created from the board')")?;
-    check_board_autoscroll(root, &mut b)?;
     b.eval("document.querySelectorAll('.project-nav')[2].click();true")?;
     b.wait("document.querySelectorAll('.ticket-card').length===0 && document.querySelectorAll('.board-column').length===5 && !document.querySelector('.add-card').disabled && document.body.innerText.includes('No tickets yet')")?;
     check_composer(&mut b)?;
@@ -711,314 +657,8 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("location.pathname==='/login' && !document.querySelector('.sidebar, .ticket-card')")?;
     println!(
-        "PASS: local API seed; empty review column; project column preferences + reload; checkbox menu keyboard navigation; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; real pointer/touch insertion and persistence; immediate Escape and touch cancellation; column/board edge autoscroll; reduced motion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
+        "PASS: local API seed; empty review column; project column preferences + reload; checkbox menu keyboard navigation; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; drag insertion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots"
     );
-    Ok(())
-}
-
-// Real sensor input: sample before the press transition could settle. Sortable
-// reads the computed matrix at each move, so a transform transition loses travel.
-fn check_drag_tracking(root: &Path, b: &mut Browser) -> super::Result {
-    let baseline = env::var_os("TICKETS_DRAG_BASELINE").is_some();
-    let phase = if baseline { "before" } else { "after" };
-    let output = root.join("docs/screenshots/TIK-92");
-    fs::create_dir_all(&output)?;
-    let mut samples = Vec::new();
-    for (width, touch) in [(1440, false), (2560, false), (390, true)] {
-        b.viewport(width, 900)?;
-        b.eval("document.querySelector('.board').scrollLeft=0;true")?;
-        b.call(
-            "Emulation.setTouchEmulationEnabled",
-            json!({"enabled":touch,"maxTouchPoints":1}),
-        )?;
-        let original =
-            b.eval("document.querySelector('#ticket-1').getBoundingClientRect().toJSON()")?;
-        let source = b.pointer_start("#ticket-1", touch)?;
-        let x = source["x"].as_f64().unwrap();
-        let y = source["y"].as_f64().unwrap();
-        for step in 0..20 {
-            let dx = 20. + f64::from(step) * 4.;
-            let dy = 10. + f64::from(step) * 3.;
-            b.pointer_input(x + dx, y + dy, touch)?;
-            b.eval("new Promise(r=>requestAnimationFrame(()=>r(true)))")?;
-            // Headless captures omit the OS cursor. A decorative ring records
-            // the actual CDP pointer position without affecting hit testing.
-            b.eval(&format!("(()=>{{let p=document.querySelector('[data-drag-test-pointer]');if(!p){{p=document.createElement('div');p.dataset.dragTestPointer='';document.body.append(p)}}Object.assign(p.style,{{position:'fixed',left:'{}px',top:'{}px',width:'12px',height:'12px',border:'2px solid white',borderRadius:'50%',transform:'translate(-50%,-50%)',pointerEvents:'none',zIndex:'2147483647'}});return true}})()", x+dx, y+dy))?;
-            let geometry = b.eval(r#"(()=>{
-                const ghost=document.querySelector('.board-drag-preview');
-                const slot=document.querySelector('.board-origin-placeholder');
-                const style=getComputedStyle(ghost);
-                return {ghost:ghost.getBoundingClientRect().toJSON(), transition:style.transition,
-                    origin:slot ? {rect:slot.getBoundingClientRect().toJSON(),opacity:Number(getComputedStyle(slot).opacity),filter:getComputedStyle(slot).filter,inert:slot.inert,hidden:slot.getAttribute('aria-hidden'),column:slot.closest('section').getAttribute('aria-label')} : null};
-            })()"#)?;
-            let error_x =
-                geometry["ghost"]["x"].as_f64().unwrap() - original["x"].as_f64().unwrap() - dx;
-            let error_y =
-                geometry["ghost"]["y"].as_f64().unwrap() - original["y"].as_f64().unwrap() - dy;
-            samples.push(json!({"width":width,"touch":touch,"step":step,"pointer":{"x":x+dx,"y":y+dy},"error":{"x":error_x,"y":error_y},"geometry":geometry}));
-            if [0, 6, 12, 19].contains(&step) {
-                b.screenshot(&output.join(format!("{phase}-{width}-step-{step}.png")))?;
-            }
-            if !baseline {
-                let slot = &geometry["origin"];
-                if error_x.abs() > 3. || error_y.abs() > 3. {
-                    return Err(format!(
-                        "Drag tracking error at {width}/{step}: {error_x}, {error_y}; {geometry}"
-                    )
-                    .into());
-                }
-                if slot["inert"] != true
-                    || slot["hidden"] != "true"
-                    || slot["column"] != "Backlog"
-                    || slot["opacity"].as_f64().is_none_or(|n| n > 0.5 || n <= 0.)
-                    || slot["filter"] != "grayscale(1)"
-                {
-                    return Err(format!("Missing/damaged origin placeholder: {geometry}").into());
-                }
-                for dimension in ["x", "y", "width", "height"] {
-                    if (slot["rect"][dimension].as_f64().unwrap_or(0.)
-                        - original[dimension].as_f64().unwrap())
-                    .abs()
-                        > 1.
-                    {
-                        return Err(format!("Origin slot changed {dimension}: {geometry}").into());
-                    }
-                }
-            }
-        }
-        b.eval("document.querySelector('[data-drag-test-pointer]')?.remove();true")?;
-        b.key("Escape", 27, 0)?;
-        b.pointer_end(x + 100., y + 65., touch)?;
-        b.wait("!document.querySelector('.board-drag-preview, .board-origin-placeholder, .board-drop-placeholder') && document.querySelector('#ticket-1').closest('section').getAttribute('aria-label')==='Backlog'")?;
-        // Dropping outside after crossing a valid column must cancel that move.
-        if !baseline && !touch {
-            b.pointer_start("#ticket-1", false)?;
-            let target = b.drag_point("#ticket-2")?;
-            b.pointer_move(
-                target["x"].as_f64().unwrap(),
-                target["y"].as_f64().unwrap(),
-                false,
-            )?;
-            b.wait("document.querySelector('[aria-label=Todo] .board-drop-placeholder')?.id==='ticket-1'")?;
-            b.pointer_move(20., 60., false)?;
-            b.pointer_end(20., 60., false)?;
-            b.eval(
-                "new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))",
-            )?;
-            b.wait("!document.querySelector('.board-drag-preview, .board-origin-placeholder') && document.querySelector('.api-board').dataset.busy==='false' && document.querySelector('.api-board').dataset.moving==='false' && document.querySelector('#ticket-1').closest('section').getAttribute('aria-label')==='Backlog'")?;
-        }
-    }
-    fs::write(
-        output.join(format!("{phase}-tracking.json")),
-        serde_json::to_vec_pretty(&samples)?,
-    )?;
-    b.call(
-        "Emulation.setTouchEmulationEnabled",
-        json!({"enabled":false}),
-    )?;
-    b.viewport(1440, 900)?;
-    Ok(())
-}
-
-fn check_pointer_drag(root: &Path, b: &mut Browser) -> super::Result {
-    let output = root.join("docs/screenshots/TIK-51");
-    fs::create_dir_all(&output)?;
-    b.screenshot(&output.join("after-board-desktop.png"))?;
-    b.viewport(390, 900)?;
-    b.screenshot(&output.join("after-board-mobile.png"))?;
-    b.viewport(1440, 900)?;
-    b.eval("(async()=>{const url=performance.getEntriesByType('resource').find(e=>e.name.endsWith('/node_modules/sortablejs/modular/sortable.complete.esm.js')).name;window.boardSortable=(await import(url)).default;window.boardLists=[...document.querySelectorAll('.api-board .column-cards')];return window.boardLists.every(list=>!!window.boardSortable.get(list))})()")?;
-    b.eval("document.documentElement.dataset.motion='reduce';true")?;
-    b.wait(
-        "window.boardLists.every(list=>window.boardSortable.get(list).option('animation')===0)",
-    )?;
-    b.eval("document.documentElement.dataset.motion='full';true")?;
-    b.call(
-        "Emulation.setEmulatedMedia",
-        json!({"features":[{"name":"prefers-reduced-motion","value":"reduce"}]}),
-    )?;
-    b.wait(
-        "window.boardLists.every(list=>window.boardSortable.get(list).option('animation')===0)",
-    )?;
-    b.call("Emulation.setEmulatedMedia", json!({"features":[]}))?;
-    b.eval("delete document.documentElement.dataset.motion;true")?;
-    b.wait(
-        "window.boardLists.every(list=>window.boardSortable.get(list).option('animation')===200)",
-    )?;
-    b.eval("window.dragWrites=0;window.dragFetch=window.fetch;window.fetch=(input,init)=>{if((input instanceof Request?input.method:init?.method)==='PATCH')window.dragWrites++;return window.dragFetch(input,init)};true")?;
-    // Starting on a nested status control must never pick up its enclosing card.
-    let control = b.eval("(()=>{const r=document.querySelector('#ticket-1 [role=combobox]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
-    b.call(
-        "Input.dispatchMouseEvent",
-        json!({"type":"mouseMoved","x":control["x"],"y":control["y"]}),
-    )?;
-    b.call("Input.dispatchMouseEvent", json!({"type":"mousePressed","x":control["x"],"y":control["y"],"button":"left","clickCount":1}))?;
-    b.pointer_move(
-        control["x"].as_f64().unwrap() - 12.,
-        control["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("!document.querySelector('.board-drag-preview') && document.querySelector('.api-board').dataset.moving!=='true'")?;
-    b.pointer_move(
-        control["x"].as_f64().unwrap(),
-        control["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.pointer_end(
-        control["x"].as_f64().unwrap(),
-        control["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("location.pathname==='/board' && document.querySelector('#ticket-1 [role=combobox]').getAttribute('aria-expanded')==='true'")?;
-    b.key("Escape", 27, 0)?;
-    // Escape restores both DOM and state without a write. A trailing click on
-    // either the card body or its title link must stay on the board.
-    let source = b.pointer_start("#ticket-1", false)?;
-    let target = b.drag_point("#ticket-2")?;
-    b.pointer_move(
-        target["x"].as_f64().unwrap(),
-        target["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("document.querySelector('[aria-label=Todo] .board-drop-placeholder')?.id==='ticket-1'")?;
-    b.pointer_move(
-        target["x"].as_f64().unwrap() + 48.,
-        target["y"].as_f64().unwrap() + 32.,
-        false,
-    )?;
-    b.wait("document.querySelector('.board-origin-placeholder[inert]')?.closest('section').getAttribute('aria-label')==='Backlog'")?;
-    b.screenshot(&root.join("docs/screenshots/TIK-92/after-cross-column.png"))?;
-    b.screenshot(&output.join("after-pointer-placeholder.png"))?;
-    // A project change cannot replace a list currently owned by the pointer sensor.
-    b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
-    b.wait("document.querySelectorAll('.project-nav')[0].classList.contains('active') && !!document.querySelector('#ticket-1.board-drop-placeholder')")?;
-    b.key("Escape", 27, 0)?;
-    b.wait("!document.querySelector('.board-drag-preview')")?;
-    b.pointer_end(
-        source["x"].as_f64().unwrap(),
-        source["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("!document.querySelector('.board-drag-preview') && document.querySelector('#ticket-1').closest('section').getAttribute('aria-label')==='Backlog' && window.dragWrites===0")?;
-    b.eval("document.querySelector('#ticket-1 .card-title').click();document.querySelector('#ticket-1').click();true")?;
-    b.wait("location.pathname==='/board'")?;
-    // Touch activation goes through Chromium's real touch input, not DragEvents.
-    b.call(
-        "Emulation.setTouchEmulationEnabled",
-        json!({"enabled":true,"maxTouchPoints":1}),
-    )?;
-    b.pointer_start("#ticket-1", true)?;
-    b.pointer_move(
-        target["x"].as_f64().unwrap(),
-        target["y"].as_f64().unwrap(),
-        true,
-    )?;
-    b.wait("document.querySelector('[aria-label=Todo] .board-drop-placeholder')?.id==='ticket-1'")?;
-    b.pointer_move(
-        target["x"].as_f64().unwrap() + 48.,
-        target["y"].as_f64().unwrap() + 32.,
-        true,
-    )?;
-    b.screenshot(&output.join("after-touch-placeholder.png"))?;
-    b.pointer_end(
-        target["x"].as_f64().unwrap(),
-        target["y"].as_f64().unwrap(),
-        true,
-    )?;
-    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='Todo' && document.querySelector('.board').getAttribute('aria-busy')!=='true' && window.dragWrites>0")?;
-    b.eval("document.querySelector('#ticket-1 .card-title').click();true")?;
-    b.wait("location.pathname==='/board'")?;
-    b.call(
-        "Emulation.setTouchEmulationEnabled",
-        json!({"enabled":false}),
-    )?;
-    b.eval("document.querySelector('#ticket-1 .card-title').focus();true")?;
-    b.key("Enter", 13, 0)?;
-    b.wait("location.pathname==='/t/TKT-1'")?;
-    b.go("http://127.0.0.1:8795/board")?;
-    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='Todo'")?;
-    b.drag("#ticket-1", "[aria-label=Backlog] .column-cards")?;
-    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='Backlog' && document.querySelector('.board').getAttribute('aria-busy')!=='true'")?;
-    b.go("http://127.0.0.1:8795/board")?;
-    b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='Backlog'")?;
-    Ok(())
-}
-
-fn check_tracking_after_scroll(b: &mut Browser, x: f64, y: f64, touch: bool) -> super::Result {
-    let before =
-        b.eval("document.querySelector('.board-drag-preview').getBoundingClientRect().toJSON()")?;
-    b.pointer_move(x - 24., y - 16., touch)?;
-    let after =
-        b.eval("document.querySelector('.board-drag-preview').getBoundingClientRect().toJSON()")?;
-    for (axis, delta) in [("x", -24.), ("y", -16.)] {
-        let travel = after[axis].as_f64().unwrap() - before[axis].as_f64().unwrap();
-        if (travel - delta).abs() > 3. {
-            return Err(
-                format!("Ghost lost tracking after scroll on {axis}: {travel} != {delta}").into(),
-            );
-        }
-    }
-    b.wait("!!document.querySelector('.board-origin-placeholder[inert]')")?;
-    Ok(())
-}
-
-fn check_board_autoscroll(root: &Path, b: &mut Browser) -> super::Result {
-    b.viewport(1440, 900)?;
-    b.eval("document.querySelector('.board').scrollLeft=0;true")?;
-    b.pointer_start("#ticket-9", false)?;
-    let column = b.eval("(()=>{const r=document.querySelector('#ticket-9').closest('section').getBoundingClientRect();return {x:r.x+r.width/2,y:Math.min(innerHeight,r.bottom)-8}})()")?;
-    b.pointer_move(
-        column["x"].as_f64().unwrap(),
-        column["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("document.querySelector('#ticket-9').closest('section').scrollTop>0")?;
-    check_tracking_after_scroll(
-        b,
-        column["x"].as_f64().unwrap(),
-        column["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.screenshot(&root.join("docs/screenshots/TIK-92/after-column-autoscroll.png"))?;
-    b.screenshot(&root.join("docs/screenshots/TIK-51/after-column-autoscroll.png"))?;
-    b.key("Escape", 27, 0)?;
-    b.pointer_end(
-        column["x"].as_f64().unwrap(),
-        column["y"].as_f64().unwrap(),
-        false,
-    )?;
-    b.wait("!document.querySelector('.board-drag-preview')")?;
-    b.viewport(390, 900)?;
-    b.call(
-        "Emulation.setTouchEmulationEnabled",
-        json!({"enabled":true,"maxTouchPoints":1}),
-    )?;
-    b.pointer_start("#ticket-9", true)?;
-    let edge = b.eval("(()=>{const r=document.querySelector('.board').getBoundingClientRect();return {x:r.right-8,y:r.top+120}})()")?;
-    b.pointer_move(
-        edge["x"].as_f64().unwrap(),
-        edge["y"].as_f64().unwrap(),
-        true,
-    )?;
-    b.wait("document.querySelector('.board').scrollLeft>0")?;
-    check_tracking_after_scroll(
-        b,
-        edge["x"].as_f64().unwrap(),
-        edge["y"].as_f64().unwrap(),
-        true,
-    )?;
-    b.screenshot(&root.join("docs/screenshots/TIK-92/after-board-autoscroll.png"))?;
-    b.screenshot(&root.join("docs/screenshots/TIK-51/after-board-autoscroll.png"))?;
-    b.call(
-        "Input.dispatchTouchEvent",
-        json!({"type":"touchCancel","touchPoints":[]}),
-    )?;
-    b.wait("!document.querySelector('.board-drag-preview')")?;
-    b.call(
-        "Emulation.setTouchEmulationEnabled",
-        json!({"enabled":false}),
-    )?;
-    b.viewport(390, 900)?;
     Ok(())
 }
 
