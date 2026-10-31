@@ -83,7 +83,7 @@ pub async fn put<S: Store>(store: &S, source: &str, raw: &str) -> Reply {
 
 pub async fn get<S: Store>(store: &S) -> Result<Value> {
     // A single atomic batch gives the report clock and queues one consistent snapshot.
-    let ticket_sql = "SELECT t.id,p.key_prefix||'-'||t.number key,t.title,p.name project,t.status,t.updated_at,
+    let ticket_sql = "SELECT t.id,p.key_prefix||'-'||t.number key,t.title,t.type,t.scope,p.name project,t.status,t.updated_at,
       (SELECT json_group_array(json_object('id',l.id,'name',l.name)) FROM ticket_labels tl JOIN labels l ON l.id=tl.label_id WHERE tl.ticket_id=t.id) labels,
       (SELECT json_group_array(json_object('repo',pr.repo,'number',pr.number,'url',pr.url,'title',pr.title,'state',pr.state,'updated_at',pr.updated_at,'ci_status',coalesce((SELECT c.ci_status FROM github_pull_request_checks c WHERE c.repo=pr.repo AND c.number=pr.number AND c.head_sha=pr.head_sha ORDER BY c.ci_updated_at DESC,c.updated_at DESC LIMIT 1),'none'))) FROM ticket_pull_requests pr WHERE pr.ticket_id=t.id) pull_requests,
       (SELECT max(e.recorded_at) FROM ticket_events e JOIN ticket_subjects s ON s.id=e.subject_id WHERE s.ticket_id=t.id AND e.kind IN ('status','created') AND e.new_value='done') done_at

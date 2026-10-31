@@ -144,6 +144,13 @@ impl<S: Store> ApiRepository<'_, S> {
                     .ok_or_else(|| Error::Storage("Invalid ticket ID".into()))?;
                 v = self.get("tickets", id).await?;
             }
+            v["pr_title"] = tickets_core::ticket_type::pr_title(
+                v["type"].as_str(),
+                v["scope"].as_str(),
+                v["title"].as_str().unwrap_or(""),
+                v["key"].as_str().unwrap_or(""),
+            )
+            .into();
             for field in ["labels", "blocks", "blocked_by", "pull_requests"] {
                 let text = v[field]
                     .as_str()
@@ -190,6 +197,14 @@ impl<S: Store> ApiRepository<'_, S> {
     }
     pub async fn create(&self, entity: &str, input: &Value, upsert: bool) -> Result<Value> {
         tickets_core::api::validate_create(entity, input).map_err(Error::Validation)?;
+        let mut input = input.clone();
+        if entity == "tickets"
+            && let Some(scope) = input.get("scope").and_then(Value::as_str)
+        {
+            input["scope"] = json!(
+                tickets_core::ticket_type::normalize_scope(scope).map_err(Error::Validation)?
+            );
+        }
         let obj = input.as_object().unwrap();
         let mut fields: Vec<_> = obj.keys().cloned().collect();
         let mut values: Vec<_> = obj.values().cloned().collect();
@@ -236,6 +251,14 @@ impl<S: Store> ApiRepository<'_, S> {
 
     pub async fn patch(&self, entity: &str, existing: &Value, input: &Value) -> Result<Value> {
         tickets_core::api::validate(entity, input).map_err(Error::Validation)?;
+        let mut input = input.clone();
+        if entity == "tickets"
+            && let Some(scope) = input.get("scope").and_then(Value::as_str)
+        {
+            input["scope"] = json!(
+                tickets_core::ticket_type::normalize_scope(scope).map_err(Error::Validation)?
+            );
+        }
         let obj = input.as_object().unwrap();
         if let Some(p) = obj.get("project_id") {
             self.one("SELECT id FROM projects WHERE id=?", vec![p.clone()])
