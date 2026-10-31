@@ -1,0 +1,102 @@
+{
+  "settings": {
+    "compatibility_date": "2026-10-27",
+    "compatibility_flags": [],
+    "usage_model": "standard",
+    "logpush": false,
+    "tail_consumers": [],
+    "observability": {
+      "enabled": true,
+      "head_sampling_rate": 1.0,
+      "logs": {
+        "enabled": true,
+        "invocation_logs": true,
+        "head_sampling_rate": 1.0
+      }
+    },
+    "bindings": [
+      {
+        "name": "ASSETS",
+        "type": "assets"
+      },
+      {
+        "name": "DB",
+        "type": "d1",
+        "id": "aac62c45-1f61-4858-956f-c0e4556b52ab"
+      },
+      {
+        "name": "BOARD_ROOMS",
+        "type": "durable_object_namespace",
+        "class_name": "BoardRoom",
+        "namespace_id": "fixture-namespace"
+      },
+      {
+        "name": "GITHUB_PR_OWNERS",
+        "type": "plain_text",
+        "text": "0x63616c"
+      },
+      {
+        "name": "BOOTSTRAP_USERNAME",
+        "type": "secret_text"
+      },
+      {
+        "name": "BOOTSTRAP_PASSWORD_HASH",
+        "type": "secret_text"
+      },
+      {
+        "name": "GITHUB_WEBHOOK_SECRET",
+        "type": "secret_text"
+      },
+      {
+        "name": "GITHUB_APP_STORE_KEY",
+        "type": "secret_text"
+      },
+      {
+        "name": "GITHUB_APP_SETUP_STATE",
+        "type": "secret_text"
+      }
+    ]
+  },
+  "schedules": {
+    "schedules": [
+      {
+        "cron": "* * * * *",
+        "created_on": "2026-10-31T00:00:00Z"
+      }
+    ]
+  },
+  "subdomain": {
+    "enabled": false,
+    "previews_enabled": false
+  },
+  "domains": [
+    {
+      "id": "fixture-domain",
+      "hostname": "tickets.worldwidewebb.co",
+      "service": "tickets-production",
+      "enabled": true,
+      "zone_id": "fixture-zone"
+    }
+  ],
+  "dns": [
+    {
+      "name": "tickets.worldwidewebb.co",
+      "type": "AAAA",
+      "content": "100::",
+      "meta": {
+        "read_only": true,
+        "origin_worker_id": "fixture-domain"
+      }
+    }
+  ],
+  "namespaces": [
+    {
+      "id": "fixture-namespace",
+      "class": "BoardRoom",
+      "script": "tickets-production",
+      "use_sqlite": true
+    }
+  ],
+  "routes": [],
+  "rulesets": []
+}
