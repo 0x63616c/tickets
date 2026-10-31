@@ -452,3 +452,20 @@ Run `CHROME_BIN=<headless-chromium> cargo xtask font-check` after building for
 fixture-only font selection, persistence, pre-mount boot and mobile checks plus
 Settings/Board captures under `docs/screenshots/TIK-83`. Set
 `TICKETS_BEFORE_ASSETS=<main-dist>` to capture the actual main baseline.
+
+## Shared page container (TIK-69)
+
+`AppShell` applies `.page-container` to the route's main landmark. The canvas is
+centred in the space beside the unchanged sidebar with `margin-inline: auto` and
+capped by `--page-max-width` (1240px, including gutters). Home, Analytics, lists,
+detail including its properties rail, Projects, all Settings sections, gallery
+and recovery states inherit it without route-specific width limits. Login uses
+the same class without the application shell; first-run states inherit the shell.
+
+`--page-gutter` is 24px on desktop and 16px at 1100px and below. Page bodies,
+headers, tabs, filters, list rows and footers use this token for their horizontal
+inset. Board alone uses `.page-container--board` to expand to the available
+width, with scrolling inside the canvas and the same header/toolbar gutters.
+Nested form controls retain `--auth-form-width` (336px) and
+`--settings-form-width` (440px) for readable input lengths. These are control
+measures, not additional page containers. Component previews stay tightly cropped.

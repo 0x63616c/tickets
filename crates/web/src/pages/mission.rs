@@ -289,7 +289,7 @@ pub fn MissionPage() -> impl IntoView {
     );
     view! {
         <header class="topbar"><h1 class="home-title">"Mission Control"</h1><div class="topbar-actions"><IconButton label="Refresh Mission Control" icon="refresh" disabled=Signal::derive(move ||busy.get() || !pending.get().is_empty()) on_click=Callback::new(move |_|revision.update(|r|*r+=1))/></div></header>
-        <div class="page-container mission-page" node_ref=root aria-busy=move ||busy.get().to_string()>
+        <div class="mission-page" node_ref=root aria-busy=move ||busy.get().to_string()>
             <Show when=move ||!error.get().is_empty()><div class="home-error" role="alert"><span>{move ||error.get()}</span><button class="button button-secondary" on:click=move |_|revision.update(|r|*r+=1)>"Retry"</button></div></Show>
             {move ||data.get().map(|mission|view!{<MissionContent mission pending approve fixture/>})}
             <Show when=move ||data.get().is_none() && busy.get()><LoadingIndicator label="Loading Mission Control"/></Show>

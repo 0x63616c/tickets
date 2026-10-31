@@ -1,5 +1,4 @@
-.page-container { width: 100%; max-width: var(--page-max-width); margin-inline: auto; }
-.mission-page { width: 100%; padding: var(--space-6) var(--space-6) var(--space-12); }
+.mission-page { width: 100%; padding: var(--space-6) var(--page-gutter) var(--space-12); }
 .mission-intro, .mission-freshness { display: flex; flex-wrap: wrap; gap: var(--space-3); color: var(--text-muted); font-size: var(--text-sm); }
 .mission-intro { justify-content: space-between; }
 .mission-freshness { margin-top: var(--space-2); }
@@ -27,7 +26,7 @@
  .mission-row a[href]:hover { color: var(--text); text-decoration-line: underline; }
 }
 @media (max-width: 760px) {
- .mission-page { padding: var(--space-4) var(--space-4) var(--space-8); }
+ .mission-page { padding-block: var(--space-4) var(--space-8); }
  .mission-row { align-items: flex-start; flex-direction: column; gap: var(--space-2); }
  .mission-row-meta { justify-content: flex-start; gap: var(--space-2); }
  .mission-approval { gap: var(--space-2); }

@@ -67,7 +67,7 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .tooltip[data-instant="true"] { animation: none; }
 .busy-button[aria-busy="true"] { opacity: 1; cursor: progress; }
 .loading-caption { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4); }
-.loading-skeleton { padding: var(--space-6); min-width: 0; width: 100%; max-width: 100%; overflow: clip; }
+.loading-skeleton { padding: var(--space-6) var(--page-gutter); min-width: 0; width: 100%; max-width: 100%; overflow: clip; }
 .skeleton-heading { width: 40%; margin-bottom: var(--space-4); }
 .skeleton-meta { width: 48px; }
 .skeleton-short { width: 60%; }
@@ -76,7 +76,7 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .skeleton-row { height: 36px; display: flex; align-items: center; gap: var(--space-4); border-bottom: 1px solid var(--border); }
 
 .loading-projects .skeleton-row { height: 64px; }
-.loading-detail { padding: 0; }.loading-detail .loading-caption { margin: var(--space-6) var(--space-6) 0; }
+.loading-detail { padding: 0; }.loading-detail .loading-caption { margin: var(--space-6) var(--page-gutter) 0; }
 .skeleton-section { margin-top: var(--space-12); }
 .project-mark { background: color-mix(in srgb, var(--project-color,var(--accent)) 12%, var(--surface)); border-color: color-mix(in srgb, var(--project-color,var(--accent)) 24%, var(--border)); width: 20px; height: 20px; }
 .project-mark .icon { width: 14px; height: 14px; flex-basis: 14px; }.project-mark.large .icon { width: 20px; height: 20px; }

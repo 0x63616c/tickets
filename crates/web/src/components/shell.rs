@@ -40,7 +40,7 @@ pub fn AppShell(children: Children) -> impl IntoView {
             <Sidebar on_navigate=Callback::new(move |_| mobile_open.set(false))/>
             <div class="app-main">
                 <div class="mobile-bar"><button node_ref=toggle class="icon-button" aria-label="Toggle sidebar" aria-controls="workspace-sidebar" aria-expanded=move||mobile_open.get().to_string() on:click=move|_|{ mobile_open.update(|v| *v = !*v); if mobile_open.get_untracked() { request_animation_frame(move||{if let Ok(Some(first))=document().query_selector(".sidebar a[href], .sidebar button") && let Some(first)=first.dyn_ref::<web_sys::HtmlElement>() {let _=first.focus();}}); } }><Icon name="list"/></button><strong class="mobile-brand"><Icon name="logo"/>"Tickets"</strong></div>
-                <main id="main" tabindex="-1">{children()}</main>
+                <main id="main" class="page-container" class:page-container--board=move || matches!(location.pathname.get().as_str(), "/board" | "/design/board") tabindex="-1">{children()}</main>
             </div>
         </div>
         <Overlays/>

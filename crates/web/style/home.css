@@ -1,5 +1,5 @@
 .home-title { margin: 0; font-size: var(--text-base); font-weight: var(--weight-semibold); }
-.home-page { padding: 0 var(--space-6) var(--space-6); max-width: 1600px; }
+.home-page { padding: 0 var(--page-gutter) var(--space-6); }
 .home-toolbar { min-height: 56px; display: flex; align-items: center; gap: var(--space-3); }
 .home-toolbar .select-root { min-width: 0; max-width: 240px; }
 .home-period, .home-freshness, .home-note, .home-coverage { color: var(--text-muted); font-size: var(--text-sm); }
@@ -60,7 +60,6 @@
 }
 @media (max-width: 1000px) {
  .home-queues { gap: var(--space-4); }
- .home-page { padding-inline: var(--space-4); }
  .home-freshness { margin-left: auto; font-size: var(--text-xs); }
  .home-toolbar > .tooltip { margin-left: auto; }
 }
