@@ -1,4 +1,6 @@
 import cairosvg, io
+from shutil import copyfile
+from version import sync
 from PIL import Image
 BG,FG,BD='#000000','#EDEDED','#2A2A2A'
 def tk(x0,y0,x1,y1,rc,n,cy):
@@ -38,3 +40,5 @@ for j,svg in enumerate([tile16(),tile32()]):
     pv.paste(tile,(10+j*140,160))
 pv.save('preview16.png')
 print(G16)
+copyfile('apple-touch-icon.png', 'apple-touch-icon-precomposed.png')
+sync(write=True)

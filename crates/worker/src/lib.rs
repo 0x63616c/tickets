@@ -147,6 +147,7 @@ fn is_public_asset(path: &str) -> bool {
                 | "/favicon.svg"
                 | "/favicon-32.png"
                 | "/apple-touch-icon.png"
+                | "/apple-touch-icon-precomposed.png"
                 | "/icon-192.png"
                 | "/icon-512.png"
                 | "/icon-maskable-512.png"
@@ -198,6 +199,7 @@ mod tests {
             "/favicon.svg",
             "/favicon-32.png",
             "/apple-touch-icon.png",
+            "/apple-touch-icon-precomposed.png",
             "/icon-192.png",
             "/icon-512.png",
             "/icon-maskable-512.png",
