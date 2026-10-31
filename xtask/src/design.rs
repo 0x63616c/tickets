@@ -1322,6 +1322,11 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("window.fetch=window.savedFetch;true")?;
     b.go("http://127.0.0.1:8795/t/UNKNOWN-999999")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found') && [...document.querySelectorAll('button')].some(b=>b.textContent==='Edit ticket' && b.disabled)")?;
+    // Dispose the previous page's live reads before expiring authentication.
+    // Otherwise its late 401 can redirect back to the not-found route while
+    // this independent logged-out navigation is being checked.
+    b.call("Page.navigate", json!({"url":"about:blank"}))?;
+    b.wait("location.href==='about:blank'")?;
     b.call("Network.clearBrowserCookies", json!({}))?;
     b.go("http://127.0.0.1:8795/t/qua-87")?;
     b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/t/qua-87'")?;
