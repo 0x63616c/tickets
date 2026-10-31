@@ -762,6 +762,15 @@ project icon schema changes additive and validate values in core.
   responses on real routes, asserts moving sweeps, decode, cleanup and reduced
   motion. Original evidence and reproduction notes live in
   `docs/screenshots/TIK-47/`; current cold-load comparisons are described below.
+- Skeleton glyph hosts and block placeholders stay transparent so the enclosing
+  page, card, popup or button supplies its existing surface token. Keep package
+  scan glyphs low contrast; do not add a neutral fill or change the published
+  package. `loading-check` asserts transparent hosts and quiet glyphs on Home,
+  Analytics, Board, List, detail, Projects, Settings and Mission Control at desktop
+  and mobile widths, plus static OS/app reduced motion. Set
+  `TICKETS_LOADING_SHOTS=docs/screenshots/<KEY>` for ticket-specific paired route
+  PNGs and cold-load diagnostics; `TICKETS_BEFORE_ASSETS=<base-dist>` captures
+  the same held fixtures without enforcing the new palette.
 - Serialize Trunk builds within a worktree and keep source assets stable until
   they finish; concurrent staging or mid-build CSS edits can mismatch hashed
   stylesheet URLs and files. Loading checks require every stylesheet to load.
