@@ -1,0 +1,71 @@
+name: WebKit smoke
+# Safari-only breakage (TIK-96) slipped past the Chromium-only checks in CI.
+on:
+  pull_request:
+    paths: ['crates/web/**', '.github/workflows/webkit-smoke.yml', '.github/scripts/webkit-smoke.mjs']
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  syntax:
+    # Parse every browser module with Safari's own JavaScriptCore before merge.
+    if: github.event_name == 'pull_request'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: npm ci --prefix crates/web --omit=dev
+      - name: JavaScriptCore module syntax
+        run: |
+          jsc=/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc
+          status=0
+          for file in crates/web/src/components/*.js \
+                      crates/web/node_modules/ascii-reveal/dist/core.js \
+                      crates/web/node_modules/sortablejs/modular/sortable.complete.esm.js; do
+            if out=$("$jsc" -e "checkModuleSyntax(readFile('$file'))" 2>&1) && [ -z "$out" ]; then
+              echo "PASS $file"
+            else
+              echo "FAIL $file: $out"; status=1
+            fi
+          done
+          exit $status
+  production:
+    # After each production deploy, boot every route in WebKit and real Safari.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Wait for the deploy to settle
+        run: sleep 30
+      - name: Playwright WebKit
+        run: |
+          mkdir -p "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
+          npm init -y >/dev/null && npm install --no-save playwright@1.64.1 >/dev/null
+          npx playwright install webkit
+          cp "$GITHUB_WORKSPACE/.github/scripts/webkit-smoke.mjs" .
+          node webkit-smoke.mjs
+      - name: Safari
+        run: |
+          sudo safaridriver --enable
+          python3 -m pip install --break-system-packages selenium==4.52.0 >/dev/null
+          python3 - <<'PY'
+          from selenium import webdriver
+          from selenium.webdriver.support.ui import WebDriverWait
+          driver = webdriver.Safari()
+          try:
+              for route in ['/login', '/board', '/mission']:
+                  driver.get('https://tickets.worldwidewebb.co' + route)
+                  WebDriverWait(driver, 15).until(lambda d: d.execute_script('return typeof window.wasmBindings') == 'object')
+                  print('PASS safari', route)
+          finally:
+              driver.quit()
+          PY
