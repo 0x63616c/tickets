@@ -174,6 +174,11 @@ async fn dispatch<S: Store>(
     q: &[(String, String)],
     mut body: Value,
 ) -> Result<Reply> {
+    if !crate::routes::resolve(method, path)
+        .is_some_and(|route| route.handler == crate::routes::Handler::Domain)
+    {
+        return Err(Error::NotFound.into());
+    }
     let parts: Vec<_> = path.trim_matches('/').split('/').collect();
     if parts.len() < 3 || parts[..2] != ["api", "v1"] {
         return Err(Error::NotFound.into());

@@ -1,5 +1,13 @@
 # REST API
 
+The complete machine-readable [OpenAPI 3.1 document](openapi.json) is served at
+`GET /api/openapi.json` (public, static JSON, cached for one hour, zero D1 reads).
+Open **API reference** in the sidebar or command palette at `/api-docs` to filter
+every endpoint and inspect authentication, parameters, request and response schemas.
+Its GET explorer uses your existing session cookie; it never asks for or stores
+tokens. Binary, WebSocket, setup callbacks and credential exports are documented
+without a request runner. `cargo test --workspace` enforces route/spec parity.
+
 All domain routes live under `/api/v1` and require a session cookie or
 `Authorization: Bearer $TICKETS_TOKEN`. Set `TICKETS_URL` to your instance URL
 (for local development, `http://localhost:8787`). Keep the token in your secure

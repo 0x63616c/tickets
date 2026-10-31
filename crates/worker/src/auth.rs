@@ -110,13 +110,19 @@ pub async fn has_session(req: &Request, env: &Env) -> Result<bool> {
 pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
     let path = req.path();
     let method = req.method();
-    if path == "/api/health" && method == Method::Get {
+    if path == "/api/health"
+        && method == Method::Get
+        && crate::routes::resolve(method.as_ref(), &path).is_some()
+    {
         return Response::from_json(&tickets_core::Health::default());
     }
     let db = env.d1("DB")?;
     let changing = !matches!(method, Method::Get | Method::Head | Method::Options);
     let authorization = req.headers().get("Authorization")?;
-    if path == "/api/v1/login" && method == Method::Post {
+    if path == "/api/v1/login"
+        && method == Method::Post
+        && crate::routes::resolve(method.as_ref(), &path).is_some()
+    {
         if !same_origin(&req) {
             return reply(json!({"error":"Origin required"}), 403);
         }
@@ -201,6 +207,10 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
     };
     if changing && !bearer && !same_origin(&req) {
         return reply(json!({"error":"Origin required"}), 403);
+    }
+    // A handler cannot expose an undocumented API operation.
+    if crate::routes::resolve(method.as_ref(), &path).is_none() {
+        return reply(json!({"error":"Resource not found"}), 404);
     }
     if method == Method::Get
         && let Some(project) = path.strip_prefix("/api/v1/live/")

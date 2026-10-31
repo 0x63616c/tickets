@@ -14,6 +14,7 @@ mod github_prs;
 mod live;
 #[cfg(target_arch = "wasm32")]
 mod read_cache;
+pub mod routes;
 #[cfg(target_arch = "wasm32")]
 pub use live::BoardRoom;
 mod search;
@@ -25,14 +26,19 @@ use worker::*;
 #[cfg(target_arch = "wasm32")]
 #[event(fetch)]
 pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
-    if req.path() == "/api/v1/github/app/manifest-callback" {
-        return github_app::manifest_callback(req, &env).await;
-    }
-    if req.path() == "/api/v1/github/app/webhook" {
-        return github_app_webhook::webhook(req, &env).await;
-    }
-    if req.path() == "/api/v1/github/webhook" {
-        return github_mirror::webhook(req, &env).await;
+    // Dispatch authority is the canonical route table, shared with the spec guard.
+    // Path-only fallback preserves each public webhook's 405 response.
+    let path = req.path();
+    let route =
+        routes::resolve(req.method().as_ref(), &path).or_else(|| routes::resolve_path(&path));
+    match route.map(|r| r.handler) {
+        Some(routes::Handler::Spec) if req.method() == Method::Get => {
+            return routes::spec_response();
+        }
+        Some(routes::Handler::Manifest) => return github_app::manifest_callback(req, &env).await,
+        Some(routes::Handler::AppWebhook) => return github_app_webhook::webhook(req, &env).await,
+        Some(routes::Handler::LegacyWebhook) => return github_mirror::webhook(req, &env).await,
+        _ => {}
     }
     if req.path() == "/api" || req.path().starts_with("/api/") {
         return match auth::handle(req, env).await {
