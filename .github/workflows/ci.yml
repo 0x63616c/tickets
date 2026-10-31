@@ -53,6 +53,7 @@ jobs:
       - run: cargo xtask perf-check
       - run: CHROME_BIN=google-chrome cargo xtask perf-browser-check
       - run: CHROME_BIN=google-chrome cargo xtask settings-check
+      - run: CHROME_BIN=google-chrome cargo xtask navigation-check
       - run: cargo xtask api-smoke
       - run: CHROME_BIN=google-chrome cargo xtask font-check
       - run: cargo xtask skill-check
