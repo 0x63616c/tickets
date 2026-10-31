@@ -70,42 +70,34 @@ is made. The previous supplied baseline/measurement is in [TIK-71.md](TIK-71.md)
 The original <10 ms/request and <1M rows/day targets still need observation after
 normal CI deployment. This job does not deploy or change plans/secrets.
 
-## Verification status
+## Validation continuation (PR #115)
 
-Passed: `cargo fmt --all --check`, `git diff --check`, Node CSS value-policy test,
-the standalone Rust timing-policy test, the 264-case SQLite comparison, PR scope SQL checks, and EXPLAIN above.
+The writable job environment reproduced the CI budget failure. The replay was
+using today's analytics SQL on both sides, although ticket/project baseline SQL
+was pinned to `b42be78`. This made an analytics optimization retroactively shrink
+the historical denominator. The baseline now loads its analytics SQL from the
+same commit, and migration 0020 is applied only after baseline measurement.
+The request schedule, three separated updates, cold analytics charges, fixed
+256,552 rows/day outside the top families, proportional factor 2,414,178 and
+strict 1,000,000 rows/day ceiling are unchanged.
 
-Added/updated Rust coverage: notice delay/cooldown/clock skew; heartbeat silence;
-label edit/deletion scope; PR old/new/dependency scope and replay; activity index
-plan. Live browser acceptance allows 40 seconds for the cooldown; the shared-store
-check also rejects reads in the first 2 seconds of a notice burst.
+Correcting the baseline alone was insufficient: 90,270 before / 28,152 after
+projected **1,009,448 rows/day**. The original stale-baseline replay measured
+85,968 / 28,152 and projected **1,047,125 rows/day**. This exposed a real
+all-projects analytics regression despite the earlier selected-project VM gain.
 
-Attempted but blocked: host/wasm clippy, workspace tests, xtask ci, token check,
-perf-check, skill-check, first-run-check and perf-browser-check. Sccache startup is denied and, even without it, the
-required job-managed shared Cargo cache is read-only. No alternate Cargo target
-or worktree was created. npm ci fails DNS; CSS lint/browser/first-run checks and
-before/after screenshots consequently remain unverified. No Chromium executable
-is available. These checks must run in a writable job environment before merge.
-The Tickets skill is mounted read-only, so its live-behavior paragraph could not
-be updated; the canonical API and contributor documentation are updated.
+The query now computes blocker count and first blocker in one grouped LEFT JOIN
+per scoped open ticket instead of two correlated dependency probes. Resolved
+blockers remain excluded, cross-project blockers remain included, and unblocked
+tickets retain a zero count/null first blocker. A regression exercises multiple,
+archived-project, done and canceled blockers, plus empty/resolved-only edges.
 
-## Critique and polish
+Final local D1 replay: **90,270 before / 27,328 after** (110 / 49 statements),
+projecting **987,411 rows/day** with the unchanged conservative formula.
+See [the measured report](TIK-71-followup-rows.json). Reports are now saved and
+printed even on budget failure, including the computed projection. Local D1
+statement durations are diagnostic only; production CPU and actual daily reads
+remain unverified. Keep Refs TIK-71.
 
-⚠️ DEGRADED: single-context (optional consent step skipped per job instruction).
-Impeccable context/detector engine download was unavailable. Source critique
-against PRODUCT.md and DESIGN.md found no layout/token changes. The polish pass
-preserves edit/drag/hidden-tab deferral, checks sign-in again after the timer, and
-keeps manual refresh immediate. Visual inspection and new PNGs are blocked by
-the build/runtime limitations above, so this is not a completed visual critique.
-Questions skipped: the job explicitly requires autonomous completion without
-optional consent; scope is the supplied performance checklist.
-
-## Publication status
-
-Publishing was attempted and failed: git add cannot create index.lock because
-/workspace/repos/tickets/.git/worktrees/TIK-71 is read-only; gh pr create cannot
-connect to api.github.com; the progress-comment POST fails Tickets DNS resolution.
-There is no commit, push, PR or posted comment from this job. Edits remain in the
-provided worktree. The reviewable PR body and comment payload are saved at
-/tmp/TIK-71-pr.md and /tmp/TIK-71-progress.json; /tmp/TIK-71.patch includes all
-tracked and new changes. The claim was not released.
+Validation results are recorded in PR #115. No deployment, remote migration,
+plan/secret change or manual merge was performed.

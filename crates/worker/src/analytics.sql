@@ -18,15 +18,17 @@ inventory AS NOT MATERIALIZED (
  WHERE t.status NOT IN ('done','canceled')
 ),
 -- Materialize only scoped open tickets before reusing blocker/label work in
--- counts, queues and cohorts. Keep inventory inline so counts use covering indexes.
+-- counts, queues and cohorts. Aggregate each ticket's edges once for both count
+-- and first blocker. Keep empty/resolved-only edges via LEFT JOIN. Inventory stays
+-- inline so project counts can use covering indexes.
 current AS MATERIALIZED (
  SELECT s.id AS subject_id,t.id AS ticket_id,t.project_id,p.key_prefix || '-' || t.number AS key,t.title,t.display_status AS status,t.priority,
- (SELECT count(*) FROM ticket_dependencies d JOIN tickets blocker ON blocker.id=d.blocker_id
-  WHERE d.blocked_id=t.id AND blocker.status NOT IN ('done','canceled')) AS blocker_count,
- (SELECT min(blocker.id) FROM ticket_dependencies d JOIN tickets blocker ON blocker.id=d.blocker_id
-  WHERE d.blocked_id=t.id AND blocker.status NOT IN ('done','canceled')) AS blocker_id
+ count(blocker.id) AS blocker_count,min(blocker.id) AS blocker_id
  FROM inventory t JOIN active_projects p ON p.id=t.project_id JOIN ticket_subjects s ON s.ticket_id=t.id
+ LEFT JOIN ticket_dependencies d ON d.blocked_id=t.id
+ LEFT JOIN tickets blocker ON blocker.id=d.blocker_id AND blocker.status NOT IN ('done','canceled')
  WHERE (?1=0 OR t.project_id=?1) AND t.status NOT IN ('done','canceled')
+ GROUP BY t.id
 ),
 -- Restrict history before expanding it into weekly buckets. Imported/deleted
 -- subjects retain their historical counts, with active-project scope applied here.
