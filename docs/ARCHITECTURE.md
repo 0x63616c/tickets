@@ -16,35 +16,34 @@ upgrade and must close existing subscriptions when permissions change.
 
 Ticket writes notify the current, previous and dependency-related projects.
 Dependency links notify both endpoint projects. Comments notify their ticket's
-project. Labels invalidate every project because labels are global. Project
-metadata changes notify their room. Notification runs after the D1 commit and
+project. Label edits notify projects using that label; an empty scope does not
+broadcast. Project metadata changes notify their room. Claim heartbeats and
+CI-only check updates do not send notices. Notification runs after the D1 commit and
 errors are isolated from the mutation response. A failed notification can leave
 an already-connected client stale until reconnect or manual reload; there is no
 transactional outbox. This is an intentional day-one tradeoff.
 
-Leptos subscribes to the selected board/detail project, or all projects for list.
-Subscriptions are canceled on scope changes. Existing optimistic local edits stay
-in place; incoming invalidations coalesce and refetch authoritative REST state.
-Own echoes and duplicates are harmless. Board reconciliation waits for moves and
-dragging to settle. Detail reconciliation waits for writes and the ticket editor.
-Every connection opening triggers a refetch to recover missed messages. Retries
-use exponential backoff (500 ms to 30 s, plus up to 50% jitter). The existing
-Connected / Reconnecting / Offline indicator reflects transport availability.
+Leptos shares ticket state across routes and subscribes to workspace projects.
+Incoming invalidations update affected records through authoritative REST reads.
+Automatic reconciliation batches notices for 5 seconds and runs at most once per
+30 seconds per tab; hidden-tab events wait until visible, and local edits defer
+reconciliation. Reconnects refetch authoritative state because live events have
+no replay. Retries use exponential backoff (500 ms to 30 s, plus up to 50% jitter).
+The Connected / Reconnecting / Offline indicator reflects transport availability.
+See [the API caching and live contract](API.md#read-caching-and-weekly-analytics-tik-71)
+for cache versions, refresh behavior and metadata visibility limits.
 
-## Free tier
+## Hosting and limits
 
-Keep the account on Workers Free. [Cloudflare pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
-currently includes 100,000 DO requests/day and 13,000 GB-s/day. SQLite includes
-5 million rows read/day, 100,000 rows written/day and 5 GB total storage.
-[Limits](https://developers.cloudflare.com/durable-objects/platform/limits/)
-include 100 classes on Free and 1 GB per object. Limits reset daily at 00:00 UTC;
-exceeding them fails operations rather than enabling paid overages.
+The maintainer instance uses Workers Paid. SQLite Durable Objects are also
+available on Workers Free; account allowances and pricing references are recorded
+in [DEPLOY.md](DEPLOY.md#free-tier-limits-worth-knowing). Choose and monitor the
+plan for your own workload; this architecture does not require staying on Free.
 
 Opening a socket and each Worker notification consume requests. Outgoing frames
 are uncharged. Idle hibernation-eligible sockets incur no duration charges.
-One active class and no persisted replay data keep usage small for one owner;
-large project counts multiply list sockets and global-label fanout, so monitor
-request counts before expanding usage. D1/Worker limits remain separate.
+Large project counts multiply sockets and notification work, so monitor request
+counts before expanding usage. D1/Worker limits remain separate.
 
 ## Local verification
 
