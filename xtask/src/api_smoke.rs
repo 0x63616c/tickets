@@ -170,10 +170,11 @@ pub fn settings(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "settings")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn api_docs(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "api-docs")
 }
-#[cfg(not(target_arch = "wasm32"))]
+
 pub fn mission(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "mission")
 }

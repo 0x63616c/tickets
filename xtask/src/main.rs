@@ -203,6 +203,7 @@ fn main() -> Result {
         Some("project-repos-check") => project_repos::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("d1-usage-check") => d1_usage::check(),
+        #[cfg(not(target_arch = "wasm32"))]
         Some("api-docs-check") => api_smoke::api_docs(root),
         Some("mission-check") => api_smoke::mission(root),
         Some("first-run-check") => api_smoke::first_run(root),
