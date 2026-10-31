@@ -96,6 +96,8 @@ You need a Cloudflare account, a D1 database and a Worker with a SQLite Durable
 Object binding. Tickets uses neither KV nor R2. GitHub integration is optional
 and uses your own GitHub App. The [self-hosting guide](docs/SELF-HOSTING.md) covers
 provisioning, secrets, domains, CI/CD and values to change when forking.
+The maintainer instance's Cloudflare configuration, ownership audit and drift
+check are described in [docs/INFRA.md](docs/INFRA.md).
 
 ## API and agents
 

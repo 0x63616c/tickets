@@ -1017,3 +1017,13 @@ upstream messages. Do not automatically retry writes.
 failing at 3M account rows read in the UTC day or when monitoring is unavailable.
 The scheduled Actions workflow reuses existing production credentials. See
 [docs/d1-operations.md](docs/d1-operations.md) for alert delivery and acceptance.
+
+## Cloudflare infrastructure drift
+
+Keep Tickets-owned deploy settings in `wrangler.toml`; see [docs/INFRA.md](docs/INFRA.md)
+for ownership boundaries and manual prerequisites. `cargo xtask infra-check` uses
+read-only Cloudflare API requests and fails on drift or unreadable essential state.
+Only the optional WAF check may skip on HTTP 403, with a visible warning. Never
+expand management to unrelated records or settings in the shared zone. When
+changing Worker secrets, update the names in `xtask/src/infra.rs` and the deploy
+step together; the fixture-only unit test enforces agreement without reading values.

@@ -63,6 +63,9 @@ Both environments run a cron every minute to sweep expired ticket leases (up to
 25 per tick). There is no GitHub issue reconciliation cron. Tickets uses no KV or
 R2 bindings. Fork provisioning is documented in [SELF-HOSTING.md](SELF-HOSTING.md).
 
+See [Cloudflare infrastructure](INFRA.md) for the complete ownership audit,
+Workers Logs configuration, drift checks, API permissions and manual settings.
+
 ## Free-tier limits worth knowing
 
 These are account allowances, shared with other workloads; check the linked
