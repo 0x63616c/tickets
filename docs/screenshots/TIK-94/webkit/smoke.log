@@ -1,0 +1,13 @@
+Playwright WebKit: 27.2; executable: /home/box/.cache/ms-playwright/webkit-2370/pw_run.sh
+Release app; isolated local Wrangler/D1; generated fixture credentials; 1440x900 dark viewport.
+PASS /login: Wasm mounted login form
+Local HTTP fixture auth: installed returned session cookie with secure:false in this context only; production Secure cookie unchanged.
+PASS /: authenticated hard navigation; no pageerror or console error
+PASS /board: authenticated hard navigation; no pageerror or console error
+PASS /list: authenticated hard navigation; no pageerror or console error
+PASS /mission: authenticated hard navigation; no pageerror or console error
+PASS Cmd+1 -> / (MacIntel platform emulation; real WebKit key dispatch)
+PASS Cmd+2 -> /analytics (MacIntel platform emulation; real WebKit key dispatch)
+PASS Cmd+3 -> /board (MacIntel platform emulation; real WebKit key dispatch)
+PASS Cmd+4 -> /list (MacIntel platform emulation; real WebKit key dispatch)
+PASS: zero pageerrors and zero console errors throughout login, route boot and Cmd+1..4.
