@@ -260,12 +260,9 @@ D1 writes succeed even when notification fails. There is no replay log.
 clients, then checks a move in two browser windows plus list/detail and reconnect.
 See [architecture](ARCHITECTURE.md) for free-tier constraints and consistency limits.
 
-The browser also reconciles when a tab becomes visible, on window focus/online,
-and every 60 seconds while visible. These triggers and stream invalidations share
-a 350 ms debounce and one board/list fetch at a time. Reads retain the displayed
-content and wait for local edits, comment drafts and board moves. Each catch-up
-uses the existing paginated REST endpoints (projects, tickets, labels, plus ticket
-and comments on detail); no new D1 query, replay log or Durable Object alarm is used.
+The browser's shared collection, visibility handling, reconciliation cadence and
+read caching are described in [Read caching and weekly analytics](#read-caching-and-weekly-analytics-tik-71)
+below. No Durable Object replay log or alarm is used.
 
 ## GitHub App registration (Phase 1)
 
@@ -351,8 +348,10 @@ consume or delete the stored registration; the endpoint remains repeatable.
 
 The App replaces per-repository hooks. Set the manifest `hook_attributes.url` to
 `https://tickets.worldwidewebb.co/api/v1/github/app/webhook`, grant **Checks: write**,
-**Pull requests: read**, and **Metadata: read**, and subscribe to `pull_request`,
-`check_suite`, and `check_run` (installation events are automatic). Install via the
+**Pull requests: read**, and **Metadata: read** for PR/check handling. The generated
+manifest additionally requests **Issues: read**, **Commit statuses: write** and
+**Contents: read**, and subscribes to `pull_request`, `check_suite`, `check_run`
+and `push` (push is ignored; installation events are automatic). Install via the
 callback page's link or `https://github.com/apps/<app-slug>/installations/new`.
 Keep `GITHUB_PR_OWNERS` configured as a comma-separated owner allowlist. After
 verifying the App, remove the old per-repository hooks; the legacy

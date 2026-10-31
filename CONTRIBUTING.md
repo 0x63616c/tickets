@@ -1,5 +1,27 @@
 # Contributing
 
+## For outside contributors
+
+Fork the repository, create a focused branch in your fork, and follow
+[local development](docs/DEVELOPMENT.md) to set up the toolchain. Run
+`cargo xtask ci` before submitting; include a summary and validation evidence.
+UI contributions also need dark before/after screenshots and the review steps below.
+
+Use a Conventional Commit PR title, for example `docs: clarify local setup`.
+Allowed types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci` and
+`perf`; scope is optional and the subject must start with a non-whitespace character.
+
+The ticket-key convention below organizes maintainer work. The current
+[PR conventions workflow](.github/workflows/pr-conventions.yml) nevertheless
+enforces it on **every non-bot PR**, including outside contributors: the title
+must end in `[KEY-N]` and the body must link the same ticket. Coordinate a ticket
+with a maintainer before review; do not invent a key. Once assigned, use a title
+such as `docs: clarify local setup [TIK-123]` and a body line such as
+`Refs [TIK-123](https://tickets.worldwidewebb.co/t/TIK-123)` (or `Closes` when
+appropriate). Bot PRs skip the ticket check but still need a Conventional Commit
+title. There is currently no human-contributor exemption. The remaining sections
+document the maintainer/agent workflow and project conventions.
+
 ## Tickets is the source of truth
 - Every piece of work has a Tickets ticket with a **Done when** checklist.
 - Every open ticket carries exactly one model label:
@@ -247,12 +269,28 @@ its sequential isolated API/browser checks; each check still creates fresh D1 st
   `cargo xtask card-shots` captures TIK-57 fixture evidence (single/multiple blockers,
   desktop/mobile board/list and tooltip) using matching base assets when supplied.
 - Cards: Tab to focus; arrows navigate. Space picks up, arrows change column or
-  position, Space saves, Escape cancels. Status selects remain the touch-friendly
-  alternative. Mouse drops on a card insert before it; drops on a column append.
+  position, Space saves, Escape cancels. Position/status changes are announced.
+  Status selects remain the touch-friendly alternative. Pointer/touch uses pinned
+  SortableJS fallback sensors, a visible insertion slot and nested autoscroll; hold
+  briefly on touch to drag, or swipe immediately to scroll. Escape, pointer/touch
+  cancellation, blur and hidden tabs cancel the gesture. The adapter restores DOM
+  ownership before Rust updates or persists; never mutate Rust tickets on hover.
+  Keep the board click latch above card lifecycles and the shared link transition
+  handler. Research and TIK-49's manual/sorted integration boundary live in
+  [board-drag-drop.md](docs/design/board-drag-drop.md).
+  Keep new wasm imports out of the existing `dom.js` surface. Drag adapter file
+  names contain their source SHA-256 prefix; update the filename, Rust imports and
+  digest regression test together on edits. The Worker allows this digest-named
+  family so retained Trunk modulepreloads remain valid. Never assume wasm-bindgen snippet directory
+  identifiers are content hashes.
 - `CHROME_BIN=<headless-chromium> cargo xtask board-check` builds the app, starts
   an isolated local Worker/D1, seeds through the API, and verifies keyboard/mouse
   moves, ordering after reload, filters, pagination, rollback, focus, creation and
-  project isolation. Screenshots are written to `docs/screenshots/kanban/` at
+  project isolation. TIK-92 also asserts mouse/touch preview tracking and a fixed,
+  dimmed origin slot, recording frames/geometry under `docs/screenshots/TIK-92/`.
+  `TICKETS_DRAG_BASELINE=1 TICKETS_SKIP_BUILD=1` records the same gesture against
+  existing unchanged baseline assets without asserting the repaired behavior.
+  Screenshots are written to `docs/screenshots/kanban/` at
   1440×900 and 390×900. `board-before` captures the previous real `/` route on a
   running local Worker at port 8787 before changing frontend assets.
 
@@ -619,7 +657,15 @@ project icon schema changes additive and validate values in core.
 ## Sidebar and settings (TIK-40)
 
 - `/` and `/home` render Home; `/board` renders Board.
-  G then H/B/L navigates; `?` opens shortcuts.
+  Cmd+1…7 (Ctrl on Windows/Linux) navigates to Home, Analytics, Board, List,
+  Mission Control, All projects and Settings, respectively; `?` opens shortcuts.
+  Ignore navigation shortcuts in editable fields, during composition and while
+  dialogs/popovers are open. Cancel handled key events with `preventDefault`.
+  Hints use the shared `Shortcut`/kbd style: ⌘1 on Mac, Ctrl+1 elsewhere.
+- After building, `CHROME_BIN=<headless-chromium> cargo xtask navigation-check`
+  checks both platform modifiers, every navigation destination, editable/palette
+  focus, event cancellation and consistent hints. Dark desktop/mobile evidence
+  goes to `docs/screenshots/TIK-94/`; `TICKETS_BEFORE_ASSETS` captures the baseline.
 - Account identity comes from `/api/v1/me`, with nullable `display_name` falling
   back to the authenticated username. Never substitute a literal You/Y avatar.
 - `/settings` redirects to `/settings/account`; sections are `account`,
@@ -1002,3 +1048,13 @@ prefix. After building, `CHROME_BIN=/usr/bin/google-chrome TICKETS_SKIP_BUILD=1
 cargo xtask api-docs-check` checks real local session requests and saves dark desktop,
 mobile and expanded evidence to `docs/screenshots/TIK-97/`. Use
 `TICKETS_BEFORE_ASSETS=<baseline-dist>` for matching before captures.
+
+## Cloudflare infrastructure drift
+
+Keep Tickets-owned deploy settings in `wrangler.toml`; see [docs/INFRA.md](docs/INFRA.md)
+for ownership boundaries and manual prerequisites. `cargo xtask infra-check` uses
+read-only Cloudflare API requests and fails on drift or unreadable essential state.
+Only the optional WAF check may skip on HTTP 403, with a visible warning. Never
+expand management to unrelated records or settings in the shared zone. When
+changing Worker secrets, update the names in `xtask/src/infra.rs` and the deploy
+step together; the fixture-only unit test enforces agreement without reading values.

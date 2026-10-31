@@ -1,0 +1,11 @@
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/src/components/dom.js
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/src/components/dom_drag_c97c58dae072cc25.js
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/node_modules/sortablejs/modular/sortable.complete.esm.js
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/dist/snippets/tickets-web-8e589db3b4472a38/node_modules/ascii-reveal/dist/core.js
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/dist/snippets/tickets-web-8e589db3b4472a38/node_modules/sortablejs/modular/sortable.complete.esm.js
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/dist/snippets/tickets-web-8e589db3b4472a38/src/components/dom.js
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/dist/snippets/tickets-web-8e589db3b4472a38/src/components/dom_drag_700c3e9a9c6ce819.js
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/dist/snippets/tickets-web-8e589db3b4472a38/src/components/dom_drag_c97c58dae072cc25.js
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/dist/snippets/tickets-web-8e589db3b4472a38/src/components/dom_drag_fca663421a9fe357.js
+PASS Acorn 8.15.0 ECMAScript 2020 module parse: crates/web/dist/tickets-web-63b4c35dc216eb4a.js
+PASS no regex lookbehind or logical assignment in either bridge or SortableJS.

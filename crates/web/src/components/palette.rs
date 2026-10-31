@@ -389,16 +389,27 @@ pub fn CommandPalette() -> impl IntoView {
                     ),
                     Row::command(
                         "Commands",
+                        "Go to home",
+                        "home",
+                        navigation_shortcut(1),
+                        Action::Navigate(if fixture {
+                            "/design/home".into()
+                        } else {
+                            "/".into()
+                        }),
+                    ),
+                    Row::command(
+                        "Commands",
                         "Go to analytics",
                         "analytics",
-                        "G A",
+                        navigation_shortcut(2),
                         Action::Navigate(format!("{root}/analytics")),
                     ),
                     Row::command(
                         "Commands",
                         "Go to board",
                         "board",
-                        "G B",
+                        navigation_shortcut(3),
                         Action::Navigate(if fixture {
                             "/design/board".into()
                         } else {
@@ -409,21 +420,28 @@ pub fn CommandPalette() -> impl IntoView {
                         "Commands",
                         "Go to list",
                         "list",
-                        "G L",
+                        navigation_shortcut(4),
                         Action::Navigate(format!("{root}/list?project={}", board.project.get())),
+                    ),
+                    Row::command(
+                        "Commands",
+                        "Go to mission control",
+                        "grid",
+                        navigation_shortcut(5),
+                        Action::Navigate(format!("{root}/mission")),
                     ),
                     Row::command(
                         "Commands",
                         "Go to projects",
                         "project",
-                        "",
+                        navigation_shortcut(6),
                         Action::Navigate(format!("{root}/projects")),
                     ),
                     Row::command(
                         "Commands",
                         "Settings",
                         "settings",
-                        "",
+                        navigation_shortcut(7),
                         Action::Navigate(format!("{root}/settings/account")),
                     ),
                 ]);

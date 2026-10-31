@@ -1,0 +1,388 @@
+build
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running `/home/box/.cache/cargo-shared/tickets/debug/xtask build`
+Running: npm ci --prefix crates/web
+
+added 119 packages, and audited 120 packages in 584ms
+
+27 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+Running: trunk build --release --locked
+2026-10-31T19:30:17.066517Z  INFO 🚀 Starting trunk 0.21.14
+2026-10-31T19:30:17.067528Z  INFO ⏫ Found an update of trunk: 0.21.14 -> 0.22.1
+2026-10-31T19:30:17.232783Z  INFO 📦 starting build
+   Compiling tickets-web v0.1.0 (/workspace/wt/tickets/TIK-92/crates/web)
+    Finished `release` profile [optimized] target(s) in 2m 15s
+2026-10-31T19:32:38.095879Z  INFO applying new distribution
+2026-10-31T19:32:38.098958Z  INFO ✅ success
+Running: worker-build --release --locked
+[INFO]: 🎯  Checking for the Wasm target...
+[INFO]: 🌀  Compiling to Wasm...
+   Compiling tickets-worker v0.1.0 (/workspace/wt/tickets/TIK-92/crates/worker)
+    Finished `release` profile [optimized] target(s) in 3.82s
+[INFO]: Optimizing wasm binaries with `wasm-opt`...
+[INFO]: ✨  Done in 7.84s
+[INFO]: 📦   Your wasm pkg is ready to publish at /workspace/wt/tickets/TIK-92/crates/worker/build/.tmp.
+
+  index.js  30.9kb
+
+⚡ Done in 8ms
+
+web-final
+2026-10-31T19:38:03.327537Z  INFO 🚀 Starting trunk 0.21.14
+2026-10-31T19:38:03.328803Z  INFO ⏫ Found an update of trunk: 0.21.14 -> 0.22.1
+2026-10-31T19:38:03.524476Z  INFO 📦 starting build
+   Compiling tickets-web v0.1.0 (/workspace/wt/tickets/TIK-92/crates/web)
+    Finished `release` profile [optimized] target(s) in 2m 10s
+2026-10-31T19:40:19.646657Z  INFO applying new distribution
+2026-10-31T19:40:19.649550Z  INFO ✅ success
+
+worker-build
+[INFO]: 🎯  Checking for the Wasm target...
+[INFO]: 🌀  Compiling to Wasm...
+   Compiling tickets-worker v0.1.0 (/workspace/wt/tickets/TIK-92/crates/worker)
+    Finished `release` profile [optimized] target(s) in 3.69s
+[INFO]: Optimizing wasm binaries with `wasm-opt`...
+[INFO]: ✨  Done in 7.76s
+[INFO]: 📦   Your wasm pkg is ready to publish at /workspace/wt/tickets/TIK-92/crates/worker/build/.tmp.
+
+  index.js  30.9kb
+
+⚡ Done in 7ms
+
+clippy-host
+    Checking tickets-worker v0.1.0 (/workspace/wt/tickets/TIK-92/crates/worker)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.90s
+
+wasm-clippy
+    Checking tickets-worker v0.1.0 (/workspace/wt/tickets/TIK-92/crates/worker)
+    Checking tickets-web v0.1.0 (/workspace/wt/tickets/TIK-92/crates/web)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.32s
+
+tests
+   Compiling tickets-worker v0.1.0 (/workspace/wt/tickets/TIK-92/crates/worker)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.43s
+     Running unittests src/lib.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/tickets_core-0e2785dcb999c16c)
+
+running 46 tests
+test api::icon_tests::project_icons_are_nullable_bounded_and_never_markup ... ok
+test auth::tests::credentials ... ok
+test auth::account_tests::validates_nullable_display_name ... ok
+test dependency::tests::directions_and_rejections ... ok
+test auth::tests::strict_password_iterations ... ok
+test github_app::tests::ciphertext_format_is_iv_then_ciphertext_and_tag_in_standard_base64 ... ok
+test domain::tests::validation ... ok
+test github_app::tests::code_is_a_bounded_ascii_path_segment ... ok
+test github::tests::parse_links ... ok
+test github_app::tests::error_pages_use_fixed_messages_and_only_upstream_status ... ok
+test github_app::tests::configuration_and_inputs_fail_closed_in_order ... ok
+test github_app::tests::state_comparison_handles_lengths_and_unicode ... ok
+test github_app_checks::tests::check_variants_and_markdown ... ok
+test github_app::tests::html_escapes_metadata_omits_credentials_and_has_no_external_assets ... ok
+test github_app::tests::conversion_requires_metadata_and_complete_secrets ... ok
+test github_app_checks::tests::der_lengths ... ok
+test github_app::tests::register_form_encodes_state_and_round_trips_exact_manifest ... ok
+test github_app::tests::existing_registration_has_app_link_without_form_script_or_state ... ok
+test github_app_checks::tests::signing_input_and_base64 ... ok
+test github_mirror::tests::signatures ... ok
+test github_app_checks::tests::throwaway_fixture_conversion ... ok
+test github_app::tests::register_name_is_allowlisted_and_manifest_is_attribute_escaped ... ok
+test history::tests::sets_creation_deletion_and_claim_contract ... ok
+test live::tests::notice_batches_wait_and_respect_the_tab_cooldown ... ok
+test github_mirror::tests::migration_state_priority_and_attribution ... ok
+test live::tests::event_wire_format ... ok
+test history::tests::every_scalar_and_null_clear ... ok
+test github_mirror::tests::mapping ... ok
+test markdown::tests::headings_fit_beneath_the_page_title ... ok
+test markdown::tests::gfm ... ok
+test markdown::tests::project_references_only_link_prose ... ok
+test navigation::tests::rejects_external_and_ambiguous_destinations ... ok
+test pickup::tests::total_order_and_preferences ... ok
+test navigation::tests::preserves_relative_path_and_query ... ok
+test pickup::tests::every_exclusion_and_opt_out ... ok
+test pickup::tests::validate_rules ... ok
+test pull_request::tests::keywords_colons_and_invalid_keys ... ok
+test pull_request::tests::markdown_links_preserve_intent_and_ignore_destinations ... ok
+test markdown::tests::raw_html_keeps_safe_content_but_never_active_controls ... ok
+test pull_request::tests::parses_multiple_keys_and_reference_override ... ok
+test tests::health_reports_the_workspace_version ... ok
+test search::tests::literal_patterns_and_unicode_subsequences ... ok
+test search::tests::filters_are_case_insensitive_and_not_search_terms ... ok
+test markdown::tests::xss ... ok
+test dependency::tests::long_chain ... ok
+test auth::password_tests::pbkdf2_known_vector_and_wrong_password ... ok
+
+test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running unittests src/main.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/tickets_web-ec305e03381610dd)
+
+running 3 tests
+test login::tests::retryable_errors_keep_password ... ok
+test count::tests::singular_only_for_one ... ok
+test login::tests::success_and_rejected_credentials_clear_password ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/tickets_worker-9893e689cdeba5b4)
+
+running 4 tests
+test d1_errors::tests::availability_errors_preserve_no_upstream_details ... ok
+test tests::icon_paths_are_public_exactly ... ok
+test tests::only_known_hashed_modules_are_public ... ok
+test tests::drag_snippet_import_and_public_url_track_source_contents ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/analytics.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/analytics-6685e3faca78adb3)
+
+running 9 tests
+test migration_does_not_invent_completion_or_historical_project ... ok
+test events_are_atomic_ignore_edits_and_survive_deletion_and_id_reuse ... ok
+test blocker_aggregate_counts_only_unresolved_edges_and_preserves_empty_rows ... ok
+test inventory_matches_later_presentation_without_changing_history ... ok
+test inventory_coverage_imports_and_exact_completion_cohorts ... ok
+test webhook_replays_state_observations_and_status_history ... ok
+test api_creation_patch_and_external_upsert_share_authoritative_history ... ok
+test weekly_boundaries_deduplication_and_project_at_completion ... ok
+test validates_parameters_and_pages_with_one_bounded_query ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.70s
+
+     Running tests/api.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/api-301bc523b12cd073)
+
+running 11 tests
+test account_name_migration_and_shared_queries ... ok
+test errors_and_validation ... ok
+test palette_ranking_filters_and_query_budget ... ok
+test unexpected_storage_data_returns_internal_error ... ok
+test project_icon_round_trip_and_clear ... ok
+test project_counts_and_last_activity_include_all_tickets ... ok
+test project_link_kind_and_archive_preserve_tickets ... ok
+test committed_changes_keep_project_scope_including_moves_and_dependencies ... ok
+test moves_imports_search_and_cascades ... ok
+test every_route_and_filters ... ok
+test constant_query_budget_with_full_enrichment ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.96s
+
+     Running tests/avatars.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/avatars-247686abca647063)
+
+running 3 tests
+test invalid_type_mismatch_empty_and_oversize_preserve_existing_photo ... ok
+test upload_replace_remove_and_binary_roundtrip ... ok
+test comments_use_durable_identity_and_versioned_photos ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/comments.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/comments-1a77e5c1b7aabb43)
+
+running 3 tests
+test authentication_resolves_labels_without_extra_queries ... ok
+test legacy_machine_authors_and_same_named_bot_remain_distinct ... ok
+test identity_permissions_soft_delete_and_history ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/github_app.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/github_app-01d81a95ed580944)
+
+running 4 tests
+test singleton_registration_is_parameterized_and_never_overwrites_a_winner ... ok
+test credentials_export_requires_token_and_returns_stored_ciphertext ... ok
+test callback_preflight_statuses_do_not_need_network_or_authentication ... ok
+test installation_schema_enforces_identity_cascades_and_timestamps ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/github_app_events.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/github_app_events-9d4171176d403e94)
+
+running 2 tests
+test overview_exposes_only_public_metadata_and_sorted_repositories ... ok
+test check_results_do_not_change_ticket_status_and_only_current_head_is_exposed ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/history.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/history-407ea5dd75f4d44a)
+
+running 7 tests
+test additive_migration_baseline_and_old_worker_compatibility ... ok
+test sql_diff_matches_core_reference_for_all_fields ... ok
+test old_values_are_read_inside_the_batch_after_a_concurrent_edit ... ok
+test failure_rolls_back_domain_history_and_analytics ... ok
+test cursor_validation_retention_and_reserved_claim_kinds ... ok
+test importer_replays_and_typed_repository_share_the_executor ... ok
+test api_fields_relationships_cascades_and_actors ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+     Running tests/mission.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/mission-1e386a2c005d20f4)
+
+running 3 tests
+test validation_raw_storage_and_replacement ... ok
+test cross_project_queues_current_head_ci_done_window_and_archive ... ok
+test done_queue_is_bounded_sorted_and_not_extended_by_waiting_label ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/pickup.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/pickup-0b520c4bd2dc7a71)
+
+running 8 tests
+test additive_migration_preserves_existing_label_and_tickets ... ok
+test bounded_calls_and_empty_claim_history ... ok
+test expiry_and_rollback ... ok
+test rules_ranking_filters_and_cap ... ok
+test sql_matches_core_priority_age_and_id_order ... ok
+test lifecycle_fencing_history_and_manual_status ... ok
+test two_connections_never_claim_same_ticket_or_exceed_cap ... ok
+test status_pr_blocker_project_and_capacity_boundaries ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
+
+     Running tests/pull_requests.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/pull_requests-5ec46ea00fff5f5d)
+
+running 4 tests
+test notice_scope_covers_removed_and_added_links_but_not_unrelated_projects ... ok
+test edits_stale_events_multiple_prs_and_key_api ... ok
+test draft_review_edit_and_many_keys_are_atomic ... ok
+test all_status_transitions_and_replays ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.70s
+
+     Running tests/read_efficiency.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/read_efficiency-434bf2157c04fdd8)
+
+running 4 tests
+test ci_versions_are_limited_to_linked_current_heads ... ok
+test old_writer_relationship_and_history_changes_advance_version ... ok
+test list_plans_use_covering_counts_and_indexed_relationships ... ok
+test project_activity_range_uses_project_updated_index_without_sorting ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/repository.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/repository-b14cb1ebe4234d84)
+
+running 3 tests
+test auth_expiry_revocation_and_hash_only_storage ... ok
+test database_constraints_and_atomic_cycle_guard ... ok
+test repository_round_trip ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running unittests src/main.rs (/home/box/.cache/cargo-shared/tickets/debug/deps/xtask-b5d01b3142c1e51a)
+
+running 25 tests
+test contrast::tests::action_text_and_shortcuts_meet_aa_in_every_state ... ok
+test chromium::tests::waits_for_complete_port_file ... ok
+test autofill::tests::flags_bare_input_and_allows_login ... ok
+test d1_usage::tests::missing_partial_or_invalid_analytics_never_reports_zero ... ok
+test d1_usage::tests::reads_rows_not_query_count_and_preserves_threshold ... ok
+test design_tokens::tests::captures_static_style_and_property_bindings_for_shared_css_policy ... ok
+test design_tokens::tests::comments_identifiers_and_token_literals_are_not_raw_values ... ok
+test design_tokens::tests::detects_hex_functions_and_interpolated_units ... ok
+test design_tokens::tests::dynamic_css_and_format_injection_cannot_silently_bypass_the_lint ... ok
+test design_tokens::tests::exact_match_stale_zero_entries_and_no_growth ... ok
+test design_tokens::tests::ordinary_blocks_starting_with_doc_are_still_scanned ... ok
+test design_tokens::tests::raw_values_in_macros_formats_classes_and_raw_strings ... ok
+test import_check::tests::reject_nonlocal_tickets ... ok
+test autofill::tests::web_crate_passes ... ok
+test import_github::tests::dependency_references_are_unique_and_directed ... ok
+test import_github::tests::references_selection_and_close_idempotency ... ok
+test skill_check::tests::assertions_detect_missing_fields_and_extra_rows ... ok
+test skill_check::tests::extraction_preserves_json_and_continuations ... ok
+test import_github::tests::remote_urls_and_identity ... ok
+test design_tokens::tests::staged_sources_and_baseline_ignore_unstaged_fixes ... ok
+test design_tokens::tests::ratchet_bootstraps_only_when_file_is_absent_at_a_valid_commit ... ok
+test chromium::tests::timeout_kills_and_reaps_child ... ok
+test chromium::tests::failed_launches_retry_with_fresh_profiles_and_keep_logs ... ok
+test import_check::tests::connection_drop_retries_safe_write_only ... ok
+test import_check::tests::fixture_paginates_and_retries ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+
+   Doc-tests tickets_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickets_worker
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+design
+design-tokens: 356 existing findings exactly match xtask/lint-allowlist.json; no growth
+
+> lint:css
+> cargo xtask check design-tokens --css
+
+   Compiling xtask v0.1.0 (/workspace/wt/tickets/TIK-92/xtask)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.66s
+     Running `/home/box/.cache/cargo-shared/tickets/debug/xtask check design-tokens --css`
+design-tokens: 311 existing findings exactly match xtask/lint-allowlist.json; no growth
+
+> test:lint
+> node --test lint/value-policy.test.mjs
+
+✔ tokens, keywords, responsive geometry and token arithmetic (1.669988ms)
+✔ all covered properties and shorthands reject raw values (1.177061ms)
+✔ a token or function cannot hide raw values (0.206594ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47.636807
+
+components
+Screenshot: docs/screenshots/TIK-92/reland/components/after-toolbar-1440.png
+Screenshot: docs/screenshots/TIK-92/reland/components/after-board-1440.png
+Screenshot: docs/screenshots/TIK-92/reland/components/after-popover-1440.png
+Screenshot: docs/screenshots/TIK-92/reland/components/after-board-popover-1440.png
+Screenshot: docs/screenshots/TIK-92/reland/components/after-toolbar-390.png
+Screenshot: docs/screenshots/TIK-92/reland/components/after-board-390.png
+Screenshot: docs/screenshots/TIK-92/reland/components/after-popover-390.png
+Screenshot: docs/screenshots/TIK-92/reland/components/after-board-popover-390.png
+PASS component PNGs: fixture data, dark, 2× DPR, tight bounds, loaded fonts
+
+board
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-1440-step-0.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-1440-step-6.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-1440-step-12.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-1440-step-19.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-2560-step-0.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-2560-step-6.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-2560-step-12.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-2560-step-19.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-390-step-0.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-390-step-6.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-390-step-12.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-390-step-19.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-51/after-board-desktop.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-51/after-board-mobile.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-cross-column.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-51/after-pointer-placeholder.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-51/after-touch-placeholder.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/kanban/after-desktop.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/kanban/after-mobile.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-column-autoscroll.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-51/after-column-autoscroll.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-92/after-board-autoscroll.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/TIK-51/after-board-autoscroll.png
+PASS composer: all six API statuses persisted; column/Todo defaults; keyboard flow and submit; busy lock; label retry without duplicate creation
+PASS: local API seed; empty review column; project column preferences + reload; checkbox menu keyboard navigation; 240px sidebar and contained board scrolling; palette shortcut/search/Escape; sidebar logout; card metadata; >100-ticket pagination; project isolation; keyboard move/reorder/cancel/focus; real pointer/touch insertion and persistence; immediate Escape and touch cancellation; column/board edge autoscroll; reduced motion; status select; label+assignee filters; rejected-write rollback; composer; desktop/mobile screenshots
+
+first-run
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/1/first-run-empty.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/1/first-run-project.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/1/first-run-tickets.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/1/first-run-kanban.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/1/first-run-label.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/1/first-run-dependency.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/147/after-desktop.png
+Screenshot: /workspace/wt/tickets/TIK-92/docs/screenshots/147/after-mobile.png
+PASS first-run: empty install, UI login, project, two tickets, Kanban move, new label and dependency verified on both tickets; Home and Analytics rollup/cohort; six dark 1440×900 screenshots

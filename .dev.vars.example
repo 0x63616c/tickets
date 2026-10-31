@@ -1,0 +1,20 @@
+# Copy to .dev.vars for Wrangler local development. Never commit real values.
+# Required for login. Generate a unique passphrase; cargo xtask auth-hash reads
+# it on stdin. Paste the resulting PBKDF2 hash here, preserving literal $ signs.
+BOOTSTRAP_USERNAME=""
+BOOTSTRAP_PASSWORD_HASH=""
+
+# Optional legacy per-repository webhook HMAC secret; not the App webhook secret.
+GITHUB_WEBHOOK_SECRET=""
+# Optional GitHub App integration: standard base64 of 32 random bytes.
+# Keep this key stable: it encrypts/decrypts the saved App credentials in D1.
+GITHUB_APP_STORE_KEY=""
+# Required only during App registration: an unguessable random setup state.
+# Remove after registration to disable the manifest callback.
+GITHUB_APP_SETUP_STATE=""
+
+# Comma-separated GitHub owner allowlist for PR ingestion; empty denies all.
+# Overrides the maintainer-specific value in wrangler.toml during local dev.
+GITHUB_PR_OWNERS=""
+# Optional local mock GitHub API only. Leave UNSET for the real GitHub API.
+# GITHUB_API_BASE_URL="http://127.0.0.1:9999"

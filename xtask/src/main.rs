@@ -28,6 +28,8 @@ mod import_check;
 #[cfg(not(target_arch = "wasm32"))]
 mod import_github;
 #[cfg(not(target_arch = "wasm32"))]
+mod infra;
+#[cfg(not(target_arch = "wasm32"))]
 mod live;
 #[cfg(not(target_arch = "wasm32"))]
 mod loading;
@@ -42,6 +44,8 @@ mod perf_browser;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod mission;
+#[cfg(not(target_arch = "wasm32"))]
+mod navigation;
 #[cfg(not(target_arch = "wasm32"))]
 mod page_layout;
 #[cfg(not(target_arch = "wasm32"))]
@@ -153,6 +157,8 @@ fn main() -> Result {
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-check") => api_smoke::settings(root),
         #[cfg(not(target_arch = "wasm32"))]
+        Some("navigation-check") => navigation::check(root),
+        #[cfg(not(target_arch = "wasm32"))]
         Some("avatar-check") => api_smoke::avatars(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("card-shots") => cards::shots(root),
@@ -205,6 +211,8 @@ fn main() -> Result {
         Some("d1-usage-check") => d1_usage::check(),
         #[cfg(not(target_arch = "wasm32"))]
         Some("api-docs-check") => api_smoke::api_docs(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("infra-check") => infra::check(root),
         Some("mission-check") => api_smoke::mission(root),
         Some("first-run-check") => api_smoke::first_run(root),
         Some("build") => build(root),
@@ -272,7 +280,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <check design-tokens [--staged] [--css] [--report]|dev|build|migrate [--remote]|ci|d1-usage-check|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check|first-run-check>".into())
+            Err("usage: cargo xtask <check design-tokens [--staged] [--css] [--report]|dev|build|migrate [--remote]|ci|infra-check|d1-usage-check|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check|first-run-check>".into())
         }
     }
 }

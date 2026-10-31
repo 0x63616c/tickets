@@ -3138,6 +3138,7 @@ dependencies = [
  "shlex",
  "syn 2.0.119",
  "tickets-core",
+ "toml",
  "tungstenite",
 ]
 

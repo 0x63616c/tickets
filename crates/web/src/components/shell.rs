@@ -4,6 +4,26 @@ use leptos_router::components::A;
 use leptos_router::hooks::use_location;
 use web_sys::wasm_bindgen::JsCast;
 
+fn is_mac() -> bool {
+    window()
+        .navigator()
+        .platform()
+        .unwrap_or_default()
+        .contains("Mac")
+}
+
+/// Navigation hints share the same numbering across the sidebar, palette and help.
+pub(super) fn navigation_shortcut(number: usize) -> &'static str {
+    if is_mac() {
+        ["⌘1", "⌘2", "⌘3", "⌘4", "⌘5", "⌘6", "⌘7", "⌘8", "⌘9"][number - 1]
+    } else {
+        [
+            "Ctrl+1", "Ctrl+2", "Ctrl+3", "Ctrl+4", "Ctrl+5", "Ctrl+6", "Ctrl+7", "Ctrl+8",
+            "Ctrl+9",
+        ][number - 1]
+    }
+}
+
 #[component]
 pub fn AppShell(children: Children) -> impl IntoView {
     let board = expect_context::<crate::pages::board::BoardState>();
@@ -103,65 +123,71 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
     } else {
         "/projects"
     };
-    let stamp = StoredValue::new(0.0);
+    let mission = if fixture {
+        "/design/mission"
+    } else {
+        "/mission"
+    };
+    let destinations = [
+        home, analytics, board_path, list, mission, projects, settings,
+    ];
     let handle = window_event_listener(ev::keydown, move |e| {
         let editing = e
             .target()
             .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
             .is_some_and(|el| {
-                el.closest("input,textarea,select,[contenteditable=true]")
-                    .ok()
-                    .flatten()
-                    .is_some()
+                el.closest("input,textarea,select").ok().flatten().is_some()
+                    || el
+                        .dyn_ref::<web_sys::HtmlElement>()
+                        .is_some_and(|el| el.is_content_editable())
             });
         if editing
-            || e.meta_key()
-            || e.ctrl_key()
             || e.alt_key()
             || e.repeat()
+            || e.is_composing()
+            || e.default_prevented()
             || document()
-                .query_selector("dialog[open],.popup[data-state=open]:not([hidden])")
+                .query_selector(
+                    "dialog[open],.popup[data-state=open]:not([hidden]):not([role=tooltip])",
+                )
                 .ok()
                 .flatten()
                 .is_some()
         {
-            stamp.set_value(0.);
             return;
         }
-        let now = js_sys::Date::now();
-        if e.key() == "?" {
+        let primary = if is_mac() {
+            e.meta_key() && !e.ctrl_key()
+        } else {
+            e.ctrl_key() && !e.meta_key()
+        };
+        if primary && !e.shift_key() {
+            if let Some(path) = e
+                .key()
+                .parse::<usize>()
+                .ok()
+                .and_then(|number| number.checked_sub(1))
+                .and_then(|index| destinations.get(index))
+            {
+                e.prevent_default();
+                go.run((*path).into());
+            }
+        } else if !e.meta_key() && !e.ctrl_key() && e.key() == "?" {
             e.prevent_default();
             shortcuts.set(true);
-        } else if e.key().eq_ignore_ascii_case("g") {
-            stamp.set_value(now);
-        } else {
-            if now - stamp.get_value() < 1000. {
-                let path = match e.key().to_lowercase().as_str() {
-                    "b" => Some(board_path),
-                    "l" => Some(list),
-                    "h" => Some(home),
-                    "a" => Some(analytics),
-                    _ => None,
-                };
-                if let Some(path) = path {
-                    e.prevent_default();
-                    go.run(path.into());
-                }
-            }
-            stamp.set_value(0.);
         }
     });
     on_cleanup(move || handle.remove());
     view! {<aside class="sidebar" id="workspace-sidebar" aria-label="Workspace">
         <div class="workspace workspace-brand"><Icon name="logo"/><strong>"Tickets"</strong></div>
         <nav class="sidebar-nav" aria-label="Main navigation" on:click=move|e: web_sys::MouseEvent|{if e.target().and_then(|t|t.dyn_into::<web_sys::Element>().ok()).is_some_and(|t|t.closest("a").ok().flatten().is_some()) && let Some(cb)=on_navigate {cb.run(());}}>
-            <Tooltip text="Home · G then H"><A href=home attr:class=move||if location.pathname.get()=="/home"{"nav-item active"}else{"nav-item"} exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
-            <Tooltip text="Analytics · G then A"><A href=analytics attr:class="nav-item" exact=true><Icon name="analytics"/><span>"Analytics"</span></A></Tooltip>
-            <A href=if fixture {"/design/mission"}else{"/mission"} attr:class="nav-item"><Icon name="grid"/><span>"Mission Control"</span></A>
+            <Tooltip text="Home" shortcut=navigation_shortcut(1)><A href=home attr:class=move||if location.pathname.get()=="/home"{"nav-item active"}else{"nav-item"} exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
+            <Tooltip text="Analytics" shortcut=navigation_shortcut(2)><A href=analytics attr:class="nav-item" exact=true><Icon name="analytics"/><span>"Analytics"</span></A></Tooltip>
+            <Tooltip text="Mission Control" shortcut=navigation_shortcut(5)><A href=mission attr:class="nav-item"><Icon name="grid"/><span>"Mission Control"</span></A></Tooltip>
             <A href="/api-docs" attr:class="nav-item"><Icon name="code"/><span>"API reference"</span></A>
             <button class="nav-item search-trigger" on:click=move|_|{state.dialog.set(DialogKind::Command);if let Some(cb)=on_navigate{cb.run(());}}><Icon name="search"/><span>"Search tickets"</span><Shortcut>"⌘ K"</Shortcut></button>
             <SidebarSection title="Projects" storage="tickets.sidebar.projects" id="sidebar-projects">
-                <A href=projects attr:class="nav-item" on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="project"/><span>"All projects"</span></A>
+                <Tooltip text="All projects" shortcut=navigation_shortcut(6)><A href=projects attr:class="nav-item" on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="project"/><span>"All projects"</span></A></Tooltip>
                 {move||board.projects.get().into_iter().filter(|p|!p.archived).map(|p|{let id=p.id;let edit=p.clone();let arch=p.clone();let repo=crate::pages::projects::repository(&p);let name=p.name.clone();let active=Signal::derive(move||if fixture {state.current_project.get()==name && ["/design/board","/design/empty"].contains(&location.pathname.get().as_str())}else{board.project.get()==id && location.pathname.get()=="/board"});view!{
                     <div class="sidebar-project-row" data-project-id=id><a href=if fixture {if id!=1 {"/design/empty".to_string()}else{board_path.to_string()}}else{format!("/board?project={id}")} class="nav-item project-nav" class:active=move||active.get() aria-current=move||active.get().then_some("page") aria-label=format!("{}, {} open tickets",p.name,p.open_ticket_count)
                         on:click=move|ev|{if fixture{state.current_project.set(p.name.clone());}else if !board.select_project(id){ev.prevent_default();return;}
@@ -179,13 +205,13 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
                 <a class="nav-item quiet" href=if fixture {"/design/projects"}else{"/projects?new=true"} on:click=move|e|{if fixture{e.prevent_default();state.dialog.set(DialogKind::Project);}}><Icon name="plus"/><span>"New project"</span></a>
             </SidebarSection>
             <SidebarSection title="Views" storage="tickets.sidebar.views" id="sidebar-views">
-                <Tooltip text="Board · G then B"><A href=board_path exact=true attr:class="nav-item"><Icon name="board"/><span>"Board"</span></A></Tooltip>
-                <Tooltip text="List · G then L"><A href=list attr:class="nav-item"><Icon name="list"/><span>"List"</span></A></Tooltip>
+                <Tooltip text="Board" shortcut=navigation_shortcut(3)><A href=board_path exact=true attr:class="nav-item"><Icon name="board"/><span>"Board"</span></A></Tooltip>
+                <Tooltip text="List" shortcut=navigation_shortcut(4)><A href=list attr:class="nav-item"><Icon name="list"/><span>"List"</span></A></Tooltip>
             </SidebarSection>
         </nav>
         <div class="sidebar-bottom">{fixture.then(||view!{<div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div>})}
         <div class="user-menu"><DropdownMenu class="account-dropdown" trigger_class="button button-ghost account-trigger" label="Account menu" trigger_content=Box::new(move||view!{{move||view!{<Avatar label=account.account.get().label() initials={account.account.get().label().chars().take(1).collect::<String>().to_uppercase()} url=Signal::derive(move||account.account.get().avatar_url) lookup=false/>}}<span class="account-name">{move||account.account.get().label()}</span>}.into_any())>
-            <MenuItem on_select=Callback::new(move|_|go.run(settings.into()))><Icon name="settings"/>"Settings"</MenuItem>
+            <MenuItem shortcut=navigation_shortcut(7) on_select=Callback::new(move|_|go.run(settings.into()))><Icon name="settings"/>"Settings"</MenuItem>
             <MenuItem on_select=Callback::new(move|_|shortcuts.set(true)) shortcut="?"><Icon name="help"/>"Keyboard shortcuts"</MenuItem>
             <MenuItem on_select=Callback::new(move|_|{if fixture || signing_out.get_untracked(){return;}signing_out.set(true);wasm_bindgen_futures::spawn_local(async move{match crate::ui::api("POST","/api/v1/logout",serde_json::Value::Null).await{Ok(_)=>{let _=window().location().set_href("/login");},Err(e)=>state.toast.set(e)}signing_out.set(false);});})><Icon name="arrow"/>{move||if signing_out.get(){"Signing out…"}else{"Sign out"}}</MenuItem>
         </DropdownMenu></div>
@@ -193,7 +219,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
     </aside>
     {let shown=present_value(editor.into());move||shown.get().map(|project: tickets_core::domain::Project|{let id=project.id;view!{<crate::pages::projects::ProjectEditor project=Some(project) archive_control=false restore_project=id open=Signal::derive(move||editor.get().is_some()) on_close=Callback::new(move|_|editor.set(None))/>}})}
     {let shown=present_value(archive.into());move||shown.get().map(|project|view!{<ArchiveProject project fixture open=Signal::derive(move||archive.get().is_some()) on_close=Callback::new(move|_|archive.set(None))/>})}
-    <Presence show=shortcuts><Modal title="Keyboard shortcuts" on_close=Callback::new(move|_|shortcuts.set(false))><div class="modal-body shortcut-list">{[("Search tickets","⌘ / Ctrl K"),("New ticket","C"),("Home","G then H"),("Analytics","G then A"),("Board","G then B"),("List","G then L"),("Next / previous list ticket","J / K"),("Open focused ticket","Enter"),("Close menu or dialog","Esc")].into_iter().map(|(name,key)|view!{<div><span>{name}</span><Shortcut>{key}</Shortcut></div>}).collect_view()}</div></Modal></Presence>}
+    <Presence show=shortcuts><Modal title="Keyboard shortcuts" on_close=Callback::new(move|_|shortcuts.set(false))><div class="modal-body shortcut-list">{[("Search tickets","⌘ / Ctrl K"),("New ticket","C"),("Home",navigation_shortcut(1)),("Analytics",navigation_shortcut(2)),("Board",navigation_shortcut(3)),("List",navigation_shortcut(4)),("Mission Control",navigation_shortcut(5)),("All projects",navigation_shortcut(6)),("Settings",navigation_shortcut(7)),("Next / previous list ticket","J / K"),("Open focused ticket","Enter"),("Close menu or dialog","Esc")].into_iter().map(|(name,key)|view!{<div><span>{name}</span><Shortcut>{key}</Shortcut></div>}).collect_view()}</div></Modal></Presence>}
 }
 
 #[component]
