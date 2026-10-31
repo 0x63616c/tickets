@@ -139,6 +139,11 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
 `git config --unset core.hooksPath`. Skipping local hooks does not skip CI.
 
 ## Data model conventions
+
+Use [the domain glossary](GLOSSARY.md) for canonical Tickets vocabulary. Reuse its
+terms when naming future modules and their interfaces; keep implementation
+conventions here and existing decisions in the ADRs.
+
 - Store timestamps as UTC ISO 8601 text (`YYYY-MM-DDTHH:MM:SS.sssZ`). Repository
   updates set `updated_at`; creation timestamps are immutable. Explicit API project
   moves allocate a fresh destination number atomically and advance its counter;
