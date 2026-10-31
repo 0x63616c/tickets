@@ -26,11 +26,11 @@ changes stop the dev server and run `cargo xtask dev` again, then refresh the
 browser. This rebuilds the assets and refreshes Wrangler's asset manifest. Run each command from
 the workspace root so Cargo can resolve the xtask alias.
 
-Visit http://localhost:8787 for the Leptos CSR design preview. `/design` is the
-component gallery; board, list, ticket, project and empty-state routes are listed
-in [the design system](design-system.md). Changes use in-memory fixtures and reset
-on reload. API-backed ticket CRUD arrives separately. The existing `/login` and
-`/settings/tokens` routes remain API-backed; see Local authentication below.
+Visit http://localhost:8787 and sign in for the API-backed application. `/design`
+is the fixture component gallery; board, list, ticket, project and empty-state
+preview routes are listed in [the design system](design-system.md). Preview
+changes use in-memory fixtures and reset on reload. See Local authentication
+below for login and personal tokens.
 Static assets use SPA fallback; `/api` and `/api/*` always
 reach the Worker and unknown API routes return 404 rather than HTML.
 
@@ -61,7 +61,9 @@ are compile-checked, not executed as native tests.
 CI runs on every PR and push to main on GitHub-hosted Ubuntu. It runs
 `cargo xtask ci`, both release wasm builds, gitleaks, and migrations against a
 fresh local D1 in a separate job. Actions are pinned to full commit SHAs; Rust
-artifacts are cached with Swatinem/rust-cache. There are no deploy steps.
+artifacts are cached with Swatinem/rust-cache. Pushes to `main` deploy through
+the production environment after checks pass; PRs do not deploy. See
+[DEPLOY.md](DEPLOY.md).
 
 For UI changes capture dark-mode before/after screenshots under
 `docs/screenshots/` and reference raw branch URLs in the PR. There was no runnable
@@ -70,7 +72,8 @@ dark baseline. Later UI changes use the real previous UI as their before image.
 
 ## Local authentication
 
-Create a gitignored `.dev.vars` at the repository root. Use placeholder values
+Copy [`.dev.vars.example`](../.dev.vars.example) to a gitignored `.dev.vars` at
+the repository root. Use placeholder values
 below only as a guide; never commit real credentials or generated tokens:
 
 ```dotenv
