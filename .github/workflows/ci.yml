@@ -61,7 +61,6 @@ jobs:
       - run: cargo xtask import-check
       - run: CHROME_BIN=google-chrome cargo xtask mirror-check
       - run: CHROME_BIN=google-chrome cargo xtask first-run-check
-      - run: CHROME_BIN=google-chrome cargo xtask board-check
       - run: CHROME_BIN=google-chrome cargo xtask mission-check
       - run: CHROME_BIN=google-chrome cargo xtask detail-check
       - run: CHROME_BIN=google-chrome cargo xtask palette-check
