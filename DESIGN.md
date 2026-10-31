@@ -72,9 +72,11 @@ path as a two-tone ASCII mark on black: `--stub-ink` (#ededed, matching the favi
 for the body and `--stub-edge` (#a78bfa) for a continuous one-cell purple outline,
 including notches and perforation holes. The lighter purple keeps thin `+` edge
 glyphs legible against black without a glow. The grid is sampled once and on resize.
-The mark enters over 550ms with an ease-out fade and 12px rise. CSS keeps the
+The mark is the loading state: fully visible in the first paint, with no entry
+fade or rise (TIK-91). It fits min(35.2% viewport width, 72% height), 80% of the
+TIK-89 size. CSS keeps the
 float on the compositor: vertical ±9px / 2.2s, horizontal ±6px / 3.4s and
-rotation ±1.6° / 3.8s (`.boot-mark` entry, `.boot-sway`, `.boot-grid` bob/tilt).
+rotation ±1.6° / 3.8s (`.boot-sway`, `.boot-grid` bob/tilt).
 Each of two full-grid piece wrappers has stacked edge/body `<pre>` layers with
 identical 0.6em advance and 1.2 line height; spaces register the pieces seamlessly.
 The purple contour is built once. Body Text.data updates at 30fps on rAF using
@@ -98,7 +100,7 @@ The fall's ease-in is a splash-only exception to normal UI easing. Independent
 phase timers and the 8s safety removal work even if rAF stalls. The tear travel
 and recoil use `--splash-tear-x`, `--splash-tear-y`, `--splash-recoil` tokens.
 Reduced motion uses the same static outlined mark, a 500ms minimum and opacity-only
-entry and exit (400ms mark + 280ms backdrop), without glyph updates, float or tear.
+exit (400ms mark + 280ms backdrop), without glyph updates, float or tear.
 OS, localStorage `tickets.motion=reduce` and `html[data-motion=reduce]` apply.
 The readiness/busy wait, safety cap and skip rules are unchanged.
 In-app ascii-reveal starts after the splash is removed; component previews skip it.
