@@ -144,7 +144,7 @@ export function install_board_drag(root, Sortable, start, finish) {
         scroll: true, bubbleScroll: true, forceAutoScrollFallback: true,
         scrollSensitivity: 48, scrollSpeed: 12, emptyInsertThreshold: 32,
         preventOnFilter: false,
-        filter: (event, target) => blocked() || !!target.closest('button, input, textarea, select, [role="combobox"], [contenteditable="true"], a:not(.card-title)'),
+        filter: event => blocked() || !!event.target?.closest?.('button, input, textarea, select, [role="combobox"], [contenteditable="true"], a:not(.card-title)'),
         onChoose: event => {
           origin = { item: event.item, parent: event.item.parentNode, next: event.item.nextSibling };
           canceled = false;
@@ -188,7 +188,11 @@ export function install_board_drag(root, Sortable, start, finish) {
     document.dispatchEvent(new Event('mouseup', { bubbles: true }));
   };
   const key = event => {
-    if (!active) return;
+    if (!active) {
+      // A deliberate keyboard activation is a new gesture, like pointerdown.
+      if (event.key === 'Enter' || event.key === ' ') suppressClick = false;
+      return;
+    }
     // Keyboard and pointer gestures must not mutate the same draft together.
     if (event.key === 'Escape') { event.preventDefault(); cancel(); }
     event.stopImmediatePropagation();

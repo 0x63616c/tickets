@@ -729,6 +729,31 @@ fn check_pointer_drag(root: &Path, b: &mut Browser) -> super::Result {
         "window.boardLists.every(list=>window.boardSortable.get(list).option('animation')===200)",
     )?;
     b.eval("window.dragWrites=0;window.dragFetch=window.fetch;window.fetch=(input,init)=>{if((input instanceof Request?input.method:init?.method)==='PATCH')window.dragWrites++;return window.dragFetch(input,init)};true")?;
+    // Starting on a nested status control must never pick up its enclosing card.
+    let control = b.eval("(()=>{const r=document.querySelector('#ticket-1 [role=combobox]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
+    b.call(
+        "Input.dispatchMouseEvent",
+        json!({"type":"mouseMoved","x":control["x"],"y":control["y"]}),
+    )?;
+    b.call("Input.dispatchMouseEvent", json!({"type":"mousePressed","x":control["x"],"y":control["y"],"button":"left","clickCount":1}))?;
+    b.pointer_move(
+        control["x"].as_f64().unwrap() - 12.,
+        control["y"].as_f64().unwrap(),
+        false,
+    )?;
+    b.wait("!document.querySelector('.board-drag-preview') && document.querySelector('.api-board').dataset.moving!=='true'")?;
+    b.pointer_move(
+        control["x"].as_f64().unwrap(),
+        control["y"].as_f64().unwrap(),
+        false,
+    )?;
+    b.pointer_end(
+        control["x"].as_f64().unwrap(),
+        control["y"].as_f64().unwrap(),
+        false,
+    )?;
+    b.wait("location.pathname==='/board' && document.querySelector('#ticket-1 [role=combobox]').getAttribute('aria-expanded')==='true'")?;
+    b.key("Escape", 27, 0)?;
     // Escape restores both DOM and state without a write. A trailing click on
     // either the card body or its title link must stay on the board.
     let source = b.pointer_start("#ticket-1", false)?;
@@ -745,6 +770,9 @@ fn check_pointer_drag(root: &Path, b: &mut Browser) -> super::Result {
         false,
     )?;
     b.screenshot(&output.join("after-pointer-placeholder.png"))?;
+    // A project change cannot replace a list currently owned by the pointer sensor.
+    b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
+    b.wait("document.querySelectorAll('.project-nav')[0].classList.contains('active') && !!document.querySelector('#ticket-1.board-drop-placeholder')")?;
     b.key("Escape", 27, 0)?;
     b.wait("!document.querySelector('.board-drag-preview')")?;
     b.pointer_end(
@@ -785,6 +813,9 @@ fn check_pointer_drag(root: &Path, b: &mut Browser) -> super::Result {
         "Emulation.setTouchEmulationEnabled",
         json!({"enabled":false}),
     )?;
+    b.eval("document.querySelector('#ticket-1 .card-title').focus();true")?;
+    b.key("Enter", 13, 0)?;
+    b.wait("location.pathname==='/t/TKT-1'")?;
     b.go("http://127.0.0.1:8795/board")?;
     b.wait("document.querySelector('#ticket-1')?.closest('section').getAttribute('aria-label')==='Todo'")?;
     b.drag("#ticket-1", "[aria-label=Backlog] .column-cards")?;

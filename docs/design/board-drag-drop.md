@@ -37,7 +37,9 @@ During a pointer gesture, SortableJS may temporarily reposition a card. Before
 calling Rust on drop, the adapter restores the original DOM position, including
 Leptos' list markers. Rust then updates the canonical state once. Hover movement
 never emits network writes or rebuilds Leptos cards. Cleanup destroys sensors,
-listeners and observers. Keyboard moves remain immediate.
+listeners and observers. Project switching waits until a move is dropped or
+canceled, and in-flight live responses defer card replacement during a move.
+Keyboard moves remain immediate.
 
 A board-level capture listener suppresses trailing clicks, including clicks on
 nested title links and replacement card nodes. A new pointer gesture clears the

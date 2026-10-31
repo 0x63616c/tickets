@@ -154,6 +154,11 @@ impl BoardState {
         if self.busy.get_untracked() {
             return false;
         }
+        if self.dragged.get_untracked().is_some() {
+            self.notice
+                .set("Drop or cancel this move before changing projects.".into());
+            return false;
+        }
         self.cancel();
         self.project.set(project);
         self.label.set(String::new());
