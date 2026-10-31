@@ -43,6 +43,8 @@ mod perf_browser;
 #[cfg(not(target_arch = "wasm32"))]
 mod mission;
 #[cfg(not(target_arch = "wasm32"))]
+mod navigation;
+#[cfg(not(target_arch = "wasm32"))]
 mod page_layout;
 #[cfg(not(target_arch = "wasm32"))]
 mod pickup;
@@ -152,6 +154,8 @@ fn main() -> Result {
         Some("font-check") => fonts::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-check") => api_smoke::settings(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("navigation-check") => navigation::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("avatar-check") => api_smoke::avatars(root),
         #[cfg(not(target_arch = "wasm32"))]
