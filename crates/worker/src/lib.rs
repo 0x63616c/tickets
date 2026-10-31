@@ -120,6 +120,9 @@ fn is_public_asset(path: &str) -> bool {
         .and_then(|rest| {
             rest.strip_suffix("/src/components/dom.js")
                 .or_else(|| rest.strip_suffix("/node_modules/ascii-reveal/dist/core.js"))
+                .or_else(|| {
+                    rest.strip_suffix("/node_modules/sortablejs/modular/sortable.complete.esm.js")
+                })
         })
         .is_some_and(|hash| hash.len() == 16 && hash.bytes().all(|b| b.is_ascii_hexdigit()))
         || path.starts_with("/fonts/")
@@ -160,10 +163,15 @@ mod tests {
         assert!(is_public_asset(
             "/snippets/tickets-web-8e589db3b4472a38/node_modules/ascii-reveal/dist/core.js"
         ));
+        assert!(is_public_asset(
+            "/snippets/tickets-web-8e589db3b4472a38/node_modules/sortablejs/modular/sortable.complete.esm.js"
+        ));
         for path in [
             "/snippets/tickets-web-8e589db3b4472a38/node_modules/ascii-reveal/dist/core.js.bak",
             "/snippets/tickets-web-8e589db3b4472a38/node_modules/ascii-reveal/dist/index.js",
             "/snippets/tickets-web-notahash/node_modules/ascii-reveal/dist/core.js",
+            "/snippets/tickets-web-8e589db3b4472a38/node_modules/sortablejs/modular/sortable.complete.esm.js.bak",
+            "/snippets/tickets-web-notahash/node_modules/sortablejs/modular/sortable.complete.esm.js",
             "/snippets/private.js",
             "/snippets/tickets-web-notahash/src/components/dom.js",
             "/snippets/tickets-web-8e589db3b4472a38/src/components/secret.js",
