@@ -538,10 +538,6 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
   .properties .property-section h2 { margin-bottom: var(--space-2); }
 }
 
-.pr-link-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); padding-block: var(--space-2); font-size: var(--text-sm); }
-.pr-link-row .subtle-link { min-width: 0; overflow-wrap: anywhere; }
-.pr-link-row .subtle-link span { min-width: 0; }
-@media (max-width: 760px) { .pr-link-row .subtle-link { min-height: 44px; } }
 
 /* Ticket composer: fixed editor geometry and compact, shared property controls. */
 .ticket-composer { --composer-boundary: color-mix(in srgb, var(--text-muted) 65%, var(--surface)); }

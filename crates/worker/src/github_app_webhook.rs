@@ -277,16 +277,31 @@ pub async fn webhook(mut req: Request, env: &Env) -> Result<Response> {
         "check_suite" | "check_run" => {
             let check = &payload[event.as_str()];
             let own = check["app"]["id"].as_i64() == Some(credentials.app.app_id);
-            if event == "check_suite" && action == "completed" && !own {
-                if let Some(repo) = repository(env, &payload) {
-                    let db = env.d1("DB")?;
-                    storage::save_ci(&db, &repo, check)
-                        .await
-                        .map_err(|_| unavailable())?;
-                    // CI-only metadata is read on the next normal refresh; it
-                    // must not cause ticket/analytics reloads in every open tab.
+            let observed = !own
+                && check["head_sha"].is_string()
+                && ((event == "check_suite"
+                    && ["completed", "requested", "rerequested"].contains(&action))
+                    || (event == "check_run"
+                        && ["created", "in_progress", "completed"].contains(&action)));
+            if observed && let Some(repo) = repository(env, &payload) {
+                let db = env.d1("DB")?;
+                let mut snapshot = check.clone();
+                // Check-run payloads use started/completed times rather than updated_at.
+                snapshot["updated_at"] = check["updated_at"]
+                    .as_str()
+                    .or_else(|| check["completed_at"].as_str())
+                    .or_else(|| check["started_at"].as_str())
+                    .map(|time| json!(time))
+                    .unwrap_or(Value::Null);
+                if action != "completed" {
+                    snapshot["conclusion"] = Value::Null;
                 }
-            } else if (event == "check_suite" && ["requested", "rerequested"].contains(&action))
+                storage::save_ci(&db, &repo, &snapshot)
+                    .await
+                    .map_err(|_| unavailable())?;
+                // CI-only metadata is read on the next normal refresh.
+            }
+            if (event == "check_suite" && ["requested", "rerequested"].contains(&action))
                 || (event == "check_run"
                     && action == "rerequested"
                     && own
@@ -307,9 +322,26 @@ pub async fn webhook(mut req: Request, env: &Env) -> Result<Response> {
                     // Request retry for standalone check requests; PR status writes above succeed.
                     return Response::error("Tickets check unavailable", 502);
                 }
-            } else {
+            } else if !observed {
                 return Response::empty().map(|r| r.with_status(202));
             }
+            Response::empty().map(|r| r.with_status(204))
+        }
+        "status" => {
+            let Some(repo) = repository(env, &payload) else {
+                return Response::empty().map(|r| r.with_status(202));
+            };
+            let conclusion = match payload["state"].as_str() {
+                Some("success") => "success",
+                Some("failure" | "error") => "failure",
+                Some("pending") => "pending",
+                _ => return Response::error("Invalid commit status", 400),
+            };
+            let snapshot = json!({"head_sha":payload["sha"],
+                "updated_at":payload["updated_at"],"conclusion":conclusion,"pull_requests":[]});
+            storage::save_ci(&env.d1("DB")?, &repo, &snapshot)
+                .await
+                .map_err(|_| unavailable())?;
             Response::empty().map(|r| r.with_status(204))
         }
         _ => Response::empty().map(|r| r.with_status(202)),

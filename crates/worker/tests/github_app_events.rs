@@ -64,6 +64,31 @@ fn check_results_do_not_change_ticket_status_and_only_current_head_is_exposed() 
         events::save_ci(&db,"example/repo",&json!({"head_sha":"a","updated_at":"2026-10-30T12:01:00Z","conclusion":"success","pull_requests":[]})).await.unwrap();
         let ticket = api::handle(&db, "GET", "/api/v1/tickets/1", &[], Value::Null).await;
         assert_eq!(ticket.body["pull_requests"][0]["ci_status"], "success");
+        // A new run clears the last conclusion; late and duplicate events cannot regress it.
+        for (time, conclusion, expected) in [
+            ("2026-10-30T12:02:00Z", Value::Null, "pending"),
+            ("2026-10-30T12:01:30Z", json!("failure"), "pending"),
+            ("2026-10-30T12:02:00Z", json!("success"), "success"),
+            ("2026-10-30T12:03:00Z", json!("success"), "success"),
+            ("2026-10-30T12:03:00Z", json!("failure"), "success"),
+        ] {
+            events::save_ci(
+                &db,
+                "example/repo",
+                &json!({"head_sha":"a", "updated_at":time,
+                "conclusion":conclusion,"pull_requests":[]}),
+            )
+            .await
+            .unwrap();
+            let ticket = api::handle(&db, "GET", "/api/v1/tickets/TIK-1", &[], Value::Null).await;
+            let pr = &ticket.body["pull_requests"][0];
+            assert_eq!(pr["ci_status"], expected);
+            assert_eq!(pr["repo"], "example/repo");
+            assert_eq!(pr["number"], 1);
+            assert_eq!(pr["title"], "[TIK-1]");
+            assert_eq!(pr["state"], "open");
+            assert_eq!(pr["url"], "https://github.com/example/repo/pull/1");
+        }
         // User status wins; a check update does not reapply PR triggers.
         db.0.execute("UPDATE tickets SET status='todo' WHERE id=1", [])
             .unwrap();

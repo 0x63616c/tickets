@@ -342,8 +342,8 @@ The App replaces per-repository hooks. Set the manifest `hook_attributes.url` to
 `https://tickets.worldwidewebb.co/api/v1/github/app/webhook`, grant **Checks: write**,
 **Pull requests: read**, and **Metadata: read** for PR/check handling. The generated
 manifest additionally requests **Issues: read**, **Commit statuses: write** and
-**Contents: read**, and subscribes to `pull_request`, `check_suite`, `check_run`
-and `push` (push is ignored; installation events are automatic). Install via the
+**Contents: read**, and subscribes to `pull_request`, `check_suite`, `check_run`,
+`status` and `push` (push is ignored; installation events are automatic). Install via the
 callback page's link or `https://github.com/apps/<app-slug>/installations/new`.
 Keep `GITHUB_PR_OWNERS` configured as a comma-separated owner allowlist. After
 verifying the App, remove the old per-repository hooks; the legacy
@@ -366,9 +366,10 @@ statuses and Closes/Refs intent. Check-post failures log a fixed non-secret
 message and preserve the successful status-sync response. Check suite requests
 and rerequests recompute checks (fetching PR details as needed); check run
 rerequests are handled only for this App's **Tickets** run. Standalone recompute
-failures return 502 so GitHub can retry. Other apps' completed suites record the
-latest observed CI conclusion for that head (this is not an aggregate across all
-CI providers). Older suite timestamps cannot overwrite newer conclusions.
+failures return 502 so GitHub can retry. External suites/runs and commit statuses
+record the latest observed CI event for that head (not an aggregate across
+providers), including pending events. Older timestamps cannot overwrite newer
+results; a completion can replace pending at the same timestamp.
 
 Worker authentication signs short-lived RS256 App JWTs via WebCrypto, accepting
 PKCS#1 or PKCS#8 PEM, and exchanges them for installation tokens. Tokens/keys
@@ -430,11 +431,23 @@ Ticket responses (including `GET /api/v1/tickets/{key}` for the box job CLI) con
 `closes` (boolean), `head_sha` and `updated_at`. Order is repository then number.
 
 Linked ticket `pull_requests` entries include nullable `tickets_check` (the Tickets
-check conclusion) and `ci_status` (latest other-app CI suite conclusion). Both
+check conclusion) and `ci_status` (latest observed other-app CI conclusion/status). Both
 are scoped to the current `head_sha`; a new head has null values until reported.
 Historical heads never supply current results. `tickets_check_run_id` and
 `checks_updated_at` are also nullable and scoped to that head. Conclusions include
-`success`, `failure`, `neutral`, `cancelled`, `timed_out`, or `skipped`. Null means unreported.
+`success`, `failure`, `neutral`, `cancelled`, `timed_out`, `skipped`, or `pending`.
+Null means unreported. The App webhook stores completed external `check_suite`
+and `check_run` conclusions, records pending suite requests and created/in-progress
+runs, and handles commit `status` events (`error` maps to `failure`). Subscribe
+existing installations to `status` to receive commit statuses. This is the latest
+observed provider event by GitHub timestamp, not an aggregate across checks;
+stale/duplicate deliveries cannot overwrite newer metadata (completion wins a
+pending/completed timestamp tie). CI writes do not change ticket status or emit live notices. The legacy PR webhook only ingests PRs.
+
+The ticket detail sidebar shows these links under **Pull requests**, hiding the
+section for an empty array. Draft is represented by `state: "draft"`; no separate
+draft column is needed. CI conclusions are shown as passing, failing, pending,
+or none (neutral/skipped/canceled/unreported are not presented as passing).
 
 Open PRs move backlog/todo/in_progress tickets to in_review; drafts move
 backlog/todo to in_progress. Neither moves in_review backwards or changes done

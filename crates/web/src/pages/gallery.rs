@@ -29,6 +29,7 @@ pub fn Gallery() -> impl IntoView {
 pub const COMPONENTS: &[&str] = &[
     "mission",
     "pr-check-status",
+    "linked-pull-requests",
     "pickup-rules",
     "history",
     "palette",
@@ -72,6 +73,15 @@ fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
     let show = RwSignal::new(false);
     let tabs = RwSignal::new("Write".to_string());
     match name {
+        "linked-pull-requests" => {
+            let requests = ["open", "draft", "merged", "closed"].into_iter().enumerate().map(|(i, state)| {
+                serde_json::from_value(serde_json::json!({"repo":"example/tickets", "number":115+i,
+                    "url":format!("https://github.com/example/tickets/pull/{}",115+i),
+                    "title":"Show linked pull requests with a deliberately long title in the ticket sidebar",
+                    "state":state,"closes":true,"ci_status":([Some("success"),Some("pending"),None,Some("failure")][i])})).unwrap()
+            }).collect();
+            view!{<div class="pr-sidebar-preview"><LinkedPullRequests requests/></div>}.into_any()
+        },
         "pr-check-status" => view!{<div class="sample-controls"><PrCheckStatus conclusion=Some("success".into())/><PrCheckStatus conclusion=Some("failure".into())/><PrCheckStatus conclusion=Some("neutral".into())/><PrCheckStatus/><PrCheckStatus label="Tickets" conclusion=Some("success".into())/></div>}.into_any(),
         "mission"=>view!{<super::mission::MissionPage/>}.into_any(),
         "pickup-rules"=>view!{<super::pickup::PickupSettings fixture=true/>}.into_any(),

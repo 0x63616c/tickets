@@ -286,7 +286,7 @@ pub fn register_html(
         "setup_on_update": false,
         "public": false,
         "default_permissions": {"pull_requests": "read", "issues": "read", "checks": "write", "statuses": "write", "metadata": "read", "contents": "read"},
-        "default_events": ["pull_request", "check_suite", "check_run", "push"]
+        "default_events": ["pull_request", "check_suite", "check_run", "status", "push"]
     });
     let state: String = setup_state
         .bytes()
@@ -575,7 +575,7 @@ mod tests {
                 "setup_url": format!("{origin}/settings"),
                 "setup_on_update": false, "public": false,
                 "default_permissions": {"pull_requests": "read", "issues": "read", "checks": "write", "statuses": "write", "metadata": "read", "contents": "read"},
-                "default_events": ["pull_request", "check_suite", "check_run", "push"]
+                "default_events": ["pull_request", "check_suite", "check_run", "status", "push"]
             })
         );
         let script = html
