@@ -564,25 +564,26 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent==='Blocked by TKT-1: Remember filters when switching views')")?;
     b.key("Escape", 27, 0)?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].every(e=>e.hidden)")?;
-    // Server writes invalidate the mounted board; never reload to clear a blocker.
+    // Server writes reconcile after a 5s batch and up to a 30s tab cooldown.
+    // Allow that window only for live assertions, never reload to clear blockers.
     b.eval(r#"(async()=>{await fetch('/api/v1/tickets/3/dependencies/2',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});return true})()"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.eval("document.querySelector('#ticket-2 .blocked-indicator').focus();true")?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent.includes('TKT-1: Remember filters') && e.textContent.includes('TKT-3: Move tickets between board columns'))")?;
     b.key("Escape", 27, 0)?;
     b.eval(r#"fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'done'})}).then(r=>r.ok)"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-3'", Duration::from_secs(40))?;
     b.eval(r#"fetch('/api/v1/tickets/3',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceled'})}).then(r=>r.ok)"#)?;
-    b.wait("!document.querySelector('#ticket-2 .blocked-indicator') && document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='Todo'")?;
+    b.wait_for("!document.querySelector('#ticket-2 .blocked-indicator') && document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='Todo'", Duration::from_secs(40))?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'backlog'],[3,'in_progress']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});return true})()"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
-    b.wait("document.querySelector('#list-ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#list-ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.eval("document.querySelector('#list-ticket-2 .blocked-indicator').focus();true")?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent.includes('TKT-1: Remember filters') && e.textContent.includes('TKT-3: Move tickets'))")?;
     b.key("Escape", 27, 0)?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'done'],[3,'canceled']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});return true})()"#)?;
-    b.wait("!document.querySelector('#list-ticket-2 .blocked-indicator') && document.querySelector('#list-ticket-2').closest('section').getAttribute('aria-label')==='Todo'")?;
+    b.wait_for("!document.querySelector('#list-ticket-2 .blocked-indicator') && document.querySelector('#list-ticket-2').closest('section').getAttribute('aria-label')==='Todo'", Duration::from_secs(40))?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'backlog'],[3,'in_progress']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});await fetch('/api/v1/tickets/3/dependencies/2',{method:'DELETE'});return true})()"#)?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1' && document.querySelectorAll('.ticket-card').length===7")?;
