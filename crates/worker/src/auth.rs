@@ -45,7 +45,7 @@ async fn derive(password: &str, salt: &[u8], iterations: u32) -> Result<Vec<u8>>
 async fn query(db: &D1Database, sql: &str, args: Vec<Value>) -> Result<Vec<Value>> {
     Store::query(db, sql, args)
         .await
-        .map_err(|_| Error::RustError("Authentication storage failed".into()))
+        .map_err(|e| Error::RustError(e.to_string()))
 }
 pub(crate) fn reply(value: Value, status: u16) -> Result<Response> {
     let value = if status >= 400 && value["error"].is_string() {
@@ -57,6 +57,7 @@ pub(crate) fn reply(value: Value, status: u16) -> Result<Response> {
             405 => "method_not_allowed",
             422 => "validation",
             429 => "rate_limited",
+            503 => "unavailable",
             _ => "internal",
         };
         json!({"error":{"code":code,"message":value["error"]}})

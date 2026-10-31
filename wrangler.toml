@@ -18,7 +18,7 @@ database_name = "tickets"
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 
-# Keep the Cloudflare account on Workers Free; Wrangler does not select billing plans.
+# Workers Paid approved in TIK-88; billing is an owner action, never selected here.
 [env.production]
 name = "tickets-production"
 workers_dev = false

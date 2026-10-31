@@ -963,3 +963,14 @@ It also checks Analytics, Projects, gallery, Mission Control, every Settings
 section, empty/not-found states and standalone login at wide/tablet/mobile sizes.
 CI runs this regression after the application build. See `docs/design-system.md`
 for the shared container and gutter contract.
+
+## D1 availability and usage monitoring
+
+Keep D1 availability classification and safe error-code logging at the Store
+adapter boundary; preserve it through authentication and all API error paths.
+Return 503 `unavailable` for quota/capacity/transient outages, without raw SQL or
+upstream messages. Do not automatically retry writes.
+`cargo xtask d1-usage-check` queries Cloudflare GraphQL only (zero D1 reads),
+failing at 3M account rows read in the UTC day or when monitoring is unavailable.
+The scheduled Actions workflow reuses existing production credentials. See
+[docs/d1-operations.md](docs/d1-operations.md) for alert delivery and acceptance.

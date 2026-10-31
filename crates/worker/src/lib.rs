@@ -1,4 +1,5 @@
 pub mod avatars;
+pub mod d1_errors;
 #[cfg(target_arch = "wasm32")]
 pub mod github_app;
 pub mod github_app_events;
@@ -36,14 +37,17 @@ pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     if req.path() == "/api" || req.path().starts_with("/api/") {
         return match auth::handle(req, env).await {
             Ok(response) => Ok(response),
-            Err(_) => Ok(Response::from_json(&serde_json::json!({"error":{"code":"internal","message":"Request could not be completed"}}))?.with_status(500)),
+            Err(error) => request_error(error),
         };
     }
     let path = req.path();
     let public = is_public_asset(&path);
     if !public {
         let url = req.url()?;
-        let signed_in = auth::has_session(&req, &env).await?;
+        let signed_in = match auth::has_session(&req, &env).await {
+            Ok(value) => value,
+            Err(error) => return request_error(error),
+        };
         let destination = if path == "/login" {
             if signed_in {
                 let next = url
@@ -104,6 +108,17 @@ pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         response = response.with_headers(headers);
     }
     Ok(response)
+}
+#[cfg(target_arch = "wasm32")]
+fn request_error(error: worker::Error) -> Result<Response> {
+    if matches!(error, worker::Error::RustError(ref message) if message == d1_errors::MARKER) {
+        auth::reply(serde_json::json!({"error":d1_errors::MESSAGE}), 503)
+    } else {
+        auth::reply(
+            serde_json::json!({"error":"Request could not be completed"}),
+            500,
+        )
+    }
 }
 pub mod repository;
 
