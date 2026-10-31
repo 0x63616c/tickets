@@ -1,0 +1,392 @@
+[
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 800,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1476,
+        "decode": 26,
+        "skeleton": 34
+      },
+      "samples": 1536,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 800,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 1040,
+          "height": 800,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 26295.5
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/board",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 2216,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 2216,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1478,
+        "decode": 15,
+        "skeleton": 34
+      },
+      "samples": 1527,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 2216,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 2216,
+          "clientWidth": 1040,
+          "height": 2216,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 26534.5
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/list",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 800,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1480,
+        "decode": 18,
+        "skeleton": 28
+      },
+      "samples": 1526,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 800,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 1040,
+          "height": 800,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 26419.39999999106
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/t/TKT-1",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 800,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1477,
+        "decode": 26,
+        "skeleton": 34
+      },
+      "samples": 1537,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 800,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 1040,
+          "height": 800,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 26196.5
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/projects",
+    "width": 1280
+  },
+  {
+    "height": 800,
+    "report": {
+      "peakDocument": {
+        "height": 857,
+        "width": 1280
+      },
+      "peakMain": {
+        "height": 857,
+        "width": 1040
+      },
+      "phases": {
+        "content": 1477,
+        "decode": 26,
+        "skeleton": 14
+      },
+      "samples": 1517,
+      "settled": {
+        "document": {
+          "clientHeight": 800,
+          "clientWidth": 1280,
+          "height": 857,
+          "width": 1280
+        },
+        "main": {
+          "clientHeight": 857,
+          "clientWidth": 1040,
+          "height": 857,
+          "width": 1040
+        },
+        "phase": "content",
+        "time": 25900.5
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/",
+    "width": 1280
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 844,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 390
+      },
+      "phases": {
+        "content": 1481,
+        "decode": 22,
+        "skeleton": 36
+      },
+      "samples": 1539,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 844,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 390,
+          "height": 800,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 26325.70000000298
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/board",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 2425,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 2381,
+        "width": 390
+      },
+      "phases": {
+        "content": 1459,
+        "decode": 14,
+        "skeleton": 35
+      },
+      "samples": 1508,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 2425,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 2381,
+          "clientWidth": 390,
+          "height": 2381,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 26518.09999999404
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/list",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 844,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 390
+      },
+      "phases": {
+        "content": 1482,
+        "decode": 26,
+        "skeleton": 30
+      },
+      "samples": 1538,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 844,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 390,
+          "height": 800,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 26247
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/t/TKT-1",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 844,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 800,
+        "width": 390
+      },
+      "phases": {
+        "content": 1477,
+        "decode": 24,
+        "skeleton": 37
+      },
+      "samples": 1538,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 844,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 800,
+          "clientWidth": 390,
+          "height": 800,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 26151.79999999702
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/projects",
+    "width": 390
+  },
+  {
+    "height": 844,
+    "report": {
+      "peakDocument": {
+        "height": 1088,
+        "width": 390
+      },
+      "peakMain": {
+        "height": 1044,
+        "width": 390
+      },
+      "phases": {
+        "content": 1477,
+        "decode": 26,
+        "skeleton": 13
+      },
+      "samples": 1516,
+      "settled": {
+        "document": {
+          "clientHeight": 844,
+          "clientWidth": 390,
+          "height": 1088,
+          "width": 390
+        },
+        "main": {
+          "clientHeight": 1044,
+          "clientWidth": 390,
+          "height": 1044,
+          "width": 390
+        },
+        "phase": "content",
+        "time": 25891.5
+      },
+      "violationCount": 0,
+      "violations": []
+    },
+    "route": "/",
+    "width": 390
+  }
+]
