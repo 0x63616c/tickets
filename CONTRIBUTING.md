@@ -681,6 +681,11 @@ project icon schema changes additive and validate values in core.
 - `/` and `/home` show Home; `/board` is the API Kanban route. Board links,
   shortcuts and checks must use `/board`. Home only fetches aggregate analytics
   and project metadata until the user invokes the ticket composer.
+- Home and Analytics share the project scope SelectField: use `SelectOption::project`
+  for sidebar-matching project identities and the neutral `project` glyph for all projects.
+  `cargo xtask component-shot project-switcher --output docs/screenshots/TIK-67`
+  captures fixture-only open menus at desktop/mobile sizes and checks keyboard selection;
+  `--before-assets <dist>` captures matching baseline menus.
 - V1 flow uses eight explicit UTC Monday weeks. Count observed status transitions,
   never current done + updated_at. Null means unavailable. History must remain
   additive and atomic with domain writes; subject IDs survive deletion/ID reuse.

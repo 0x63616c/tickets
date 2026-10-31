@@ -24,6 +24,7 @@ const NAMES: &[&str] = &[
     "palette",
     "sidebar",
     "user-menu",
+    "project-switcher",
     "select",
     "menu",
     "combobox",
@@ -160,6 +161,10 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
     } else {
         vec![name]
     } {
+        if name == "project-switcher" {
+            project_switcher_shots(root, &assets, &output, before.is_some())?;
+            continue;
+        }
         if name == "mission" {
             super::mission::shots(root, &assets, &output, before.is_some())?;
             continue;
@@ -792,5 +797,88 @@ fn capture_board_columns(
             )?;
         }
     }
+    Ok(())
+}
+
+/// Exercise the real shared Home/Analytics switcher with immutable HTTP fixtures.
+fn project_switcher_shots(
+    root: &Path,
+    assets: &Path,
+    output: &Path,
+    before: bool,
+) -> super::Result {
+    let seed: serde_json::Value =
+        serde_json::from_str(include_str!("../../docs/fixtures/home-api.json"))?;
+    let home: serde_json::Value =
+        serde_json::from_str(include_str!("../../docs/fixtures/home.json"))?;
+    let mut projects = seed["projects"].clone();
+    // Cover the sidebar's three supported identity forms: glyph, emoji and initial.
+    projects[2]["icon"] = json!("🚀");
+    projects[4]["icon"] = serde_json::Value::Null;
+    let server = FixtureServer::start_with_api(
+        assets,
+        std::collections::HashMap::from([
+            (
+                "/api/v1/me".into(),
+                json!({"authenticated":true,"username":"sample-user","display_name":"Sample User"}),
+            ),
+            (
+                "/api/v1/projects".into(),
+                json!({"data":projects,"next_cursor":null}),
+            ),
+            ("/api/v1/analytics/home".into(), home),
+        ]),
+    )?;
+    let mut b = Browser::start_named(root, "project-switcher")?;
+    let phase = if before { "before" } else { "after" };
+    for page in ["home", "analytics"] {
+        for (size, width) in [("desktop", 1440), ("mobile", 390)] {
+            b.viewport(width, 900)?;
+            b.go(&format!("{}/{page}", server.url))?;
+            b.wait("!!document.querySelector('.home-page[aria-busy=false]') && !document.querySelector('#boot-splash,[data-ar-t]') && !document.querySelector('.home-toolbar .select-trigger:disabled')")?;
+            b.click(".home-toolbar .select-trigger")?;
+            b.wait("!!document.querySelector('.home-toolbar .select-trigger[aria-expanded=true]') && document.querySelectorAll('.select-option').length===6")?;
+            check_menu_spacing(&mut b)?;
+            b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+            if !before {
+                b.wait("(()=>{const labels=[...document.querySelectorAll('.select-option > span:not(.select-glyph):not(.project-mark):not(.option-check)')];return labels.every(e=>Math.abs(e.getBoundingClientRect().left-labels[0].getBoundingClientRect().left)<1)})()")?;
+                b.wait("!!document.querySelector('.select-value .select-glyph > .icon') && document.querySelectorAll('.select-option .project-mark').length===5 && !!document.querySelector('.select-option[aria-selected=true] .option-check')")?;
+                b.eval("(()=>{for(const o of document.querySelectorAll('.select-option[data-value]:not([data-value=\"\"])')){const side=document.querySelector('.sidebar a[href=\"/board?project='+o.dataset.value+'\"] .project-mark');if(!side || side.outerHTML!==o.querySelector('.project-mark').outerHTML)throw Error('Sidebar icon mismatch');}return true;})()")?;
+            }
+            b.eval("document.fonts.ready.then(()=>true)")?;
+            b.screenshot(&output.join(format!("{phase}-{page}-{size}.png")))?;
+            if size == "desktop" {
+                b.call(
+                    "Emulation.setDeviceMetricsOverride",
+                    json!({"width":1440,"height":900,"deviceScaleFactor":2,"mobile":false}),
+                )?;
+                crop(
+                    &mut b,
+                    ".home-toolbar .select-root",
+                    &output.join(format!("{phase}-{page}-switcher.png")),
+                )?;
+                b.viewport(width, 900)?;
+            }
+            if !before {
+                b.key("a", 65, 0)?;
+                b.key("p", 80, 0)?;
+                b.wait("document.activeElement.dataset.value==='3'")?;
+                b.key("End", 35, 0)?;
+                b.wait("document.activeElement.dataset.value==='5'")?;
+                b.key("Home", 36, 0)?;
+                b.key("ArrowDown", 40, 0)?;
+                b.key("Enter", 13, 0)?;
+                b.wait("location.search==='?project=1' && !!document.querySelector('.select-value .project-mark') && document.activeElement.matches('.select-trigger')")?;
+                b.click(".home-toolbar .select-trigger")?;
+                b.wait("!!document.querySelector('.select-trigger[aria-expanded=true]') && !!document.querySelector('.select-option[aria-selected=true][data-value=\"1\"]')")?;
+                b.screenshot(&output.join(format!("{phase}-{page}-{size}-selected.png")))?;
+                b.key("Escape", 27, 0)?;
+                b.wait("document.activeElement.matches('.select-trigger') && !!document.querySelector('.select-trigger[aria-expanded=false]')")?;
+            }
+        }
+    }
+    println!(
+        "PASS project switcher: fixture icons, shared spacing, selection, keyboard and responsive layout"
+    );
     Ok(())
 }
