@@ -500,9 +500,26 @@ time { color: var(--text-muted); font-size: var(--text-xs); }
 .api-project-row:hover .project-row-action, .api-project-row:focus-within .project-row-action { opacity: 1; } }
 .project-colors { border: 0; margin: 0; padding: 0; }
 .project-colors legend { margin-bottom: var(--space-2); color: var(--text-secondary); }
-.project-swatches { display: flex; gap: var(--space-2); flex-wrap: wrap; }
-.project-swatch { width: 28px; height: 28px; border: 3px solid var(--bg); border-radius: var(--radius-md); background: var(--swatch); cursor: pointer; }
-.project-swatch[aria-pressed="true"] { outline: 1px solid var(--text); }
+.project-color-list { display: flex; flex-direction: column; gap: var(--space-1); }
+.project-color-row { position: relative; display: flex; align-items: center; gap: var(--space-3); min-height: 32px; padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); cursor: pointer; color: var(--text-secondary); }
+.project-color-row input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.project-color-row:has(input:checked) { background: var(--surface-active); color: var(--text); }
+.project-color-row:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+.project-color-check { margin-left: auto; visibility: hidden; display: flex; }
+.project-color-row:has(input:checked) .project-color-check { visibility: visible; }
+.project-swatch { width: 16px; height: 16px; flex-shrink: 0; border-radius: var(--radius-sm); }
+.project-swatch-indigo { background: var(--project-indigo); }
+.project-swatch-purple { background: var(--project-purple); }
+.project-swatch-red { background: var(--project-red); }
+.project-swatch-blue { background: var(--project-blue); }
+.project-swatch-pink { background: var(--project-pink); }
+.project-swatch-green { background: var(--project-green); }
+.project-swatch-yellow { background: var(--project-yellow); }
+.project-swatch-graphite { background: var(--project-graphite); }
+.project-swatch-custom { background: var(--surface-raised); border: 1px dashed var(--text-muted); }
+.project-custom-color { margin-top: var(--space-3); }
+@media (hover:hover) and (pointer:fine) { .project-color-row:hover { background: var(--surface-hover); } }
+@media (pointer:coarse) { .project-color-row { min-height: 44px; } }
 @media (hover: none) { .project-row-action { opacity: 1; } }
 
 @media (max-width: 760px) {

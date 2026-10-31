@@ -47,6 +47,15 @@
   --warning: #f0bf00;
   --danger: #eb5757;
   --blocked: #f07856;
+  /* Project icon palette: hue names, persisted as resolved hex values. */
+  --project-indigo: #5e6ad2;
+  --project-purple: #8b82d9;
+  --project-red: #eb5757;
+  --project-blue: #4ea7fc;
+  --project-pink: #c6a1b9;
+  --project-green: #27a644;
+  --project-yellow: #f0bf00;
+  --project-graphite: #8a8f98;
   --label-feature: #8b82d9;
   --label-bug: #eb5757;
   --label-infra: #4ea7fc;
