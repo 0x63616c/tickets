@@ -1318,6 +1318,10 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("window.fetch=window.savedFetch;true")?;
     b.go("http://127.0.0.1:8795/t/UNKNOWN-999999")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found') && [...document.querySelectorAll('button')].some(b=>b.textContent==='Edit ticket' && b.disabled)")?;
+    // Dispose the previous app before removing auth: its background requests can
+    // otherwise race the next navigation with a login redirect for the old URL.
+    b.call("Page.navigate", json!({"url":"about:blank"}))?;
+    b.wait("location.href==='about:blank'")?;
     b.call("Network.clearBrowserCookies", json!({}))?;
     b.go("http://127.0.0.1:8795/t/qua-87")?;
     b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/t/qua-87'")?;
