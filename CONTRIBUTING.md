@@ -8,7 +8,7 @@ Fork the repository, create a focused branch in your fork, and follow
 UI contributions also need dark before/after screenshots and the review steps below.
 
 Use a Conventional Commit PR title, for example `docs: clarify local setup`.
-Allowed types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci` and
+Allowed types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci`, `build` and
 `perf`; scope is optional and the subject must start with a non-whitespace character.
 
 The ticket-key convention below organizes maintainer work. The current
@@ -30,12 +30,12 @@ document the maintainer/agent workflow and project conventions.
   - `model:sol` – all implementation work. Run: `codex exec -m gpt-6.1-sol`.
 - Dependencies use native blocker → blocked edges; blocked state is derived until
   every blocker is done or canceled.
-- Type labels: `type:feat`, `type:fix`, `type:chore`.
+- Use the dedicated `type` and `scope` fields; legacy `type:<x>` labels are migration input.
 
 ## Pull requests
 - One focused PR per ticket. Branch name: `<key-lowercase>-<slug>`.
 - PR title in Conventional Commits form (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`,
-  `test:`, `ci:`, `perf:`).
+  `test:`, `ci:`, `build:`, `perf:`).
 - PR titles end with `[KEY-N]`; bodies contain `Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)`
   (or `Refs [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` for references),
   a summary, and test evidence.
@@ -161,6 +161,11 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
 `git config --unset core.hooksPath`. Skipping local hooks does not skip CI.
 
 ## Data model conventions
+
+Use [the domain glossary](GLOSSARY.md) for canonical Tickets vocabulary. Reuse its
+terms when naming future modules and their interfaces; keep implementation
+conventions here and existing decisions in the ADRs.
+
 - Store timestamps as UTC ISO 8601 text (`YYYY-MM-DDTHH:MM:SS.sssZ`). Repository
   updates set `updated_at`; creation timestamps are immutable. Explicit API project
   moves allocate a fresh destination number atomically and advance its counter;
@@ -425,7 +430,12 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 - `/projects` uses the `/design/projects` table and shared Modal, fields and icon.
   Project color tints its initial badge; show its key prefix in muted mono when no description exists. Keep row actions at the right edge, revealed on hover/focus (always visible on touch). The header contains the sole project count. Archive hides sidebar entries only;
   Show archived permits editing/restoring them. Tickets remain accessible.
-- Project dialogs use compact swatches from the shared color tokens. Use one GitHub Project field for a URL or owner/number; show owner type only for short input and the prefix-change hint only while editing.
+- Project dialogs use named native radio rows from the shared `--project-*` palette
+  (including Graphite), with custom hex entry under Custom.
+  `cargo xtask project-colors-shot` captures fixture-only before/after desktop/mobile
+  editors and checks keyboard selection, custom colors and Graphite contrast.
+  Use one GitHub Project field for a URL or owner/number; show owner type only for
+  short input and the prefix-change hint only while editing.
 - Projects show repository links from `github_owner` + `github_repo`, independently
   of `github_project_number`. Counts come from the project API across all tickets;
   done excludes canceled, and last activity is the latest ticket update (all statuses).
@@ -472,6 +482,12 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
   once per 30 seconds per tab. Keep pending events through cooldown, hidden tabs
   and edits; manual refresh and local writes remain immediate. Live browser checks
   allow 40 seconds for a cooldown plus reconciliation.
+- `crates/web/src/reconciliation.rs` owns the in-process notice queue, recovery
+  precedence and cooldown. Browser events and deterministic host traces use
+  `Reconciler::advance` with explicit time and readiness; the browser adapter only
+  samples signals/DOM and executes actions. Editing gates timer completion, not
+  scheduling. Keep policy tests on this interface (`cargo test -p tickets-web
+  reconciliation`), and retain browser checks for event wiring and DOM edit detection.
 - Mission Control polls every 3 minutes while visible; focus/manual refresh remain
   available. Home analytics and project counts retain the private 60-second edge
   cache keyed by workspace version; writes invalidate it early.
@@ -521,8 +537,9 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 
 ## Live catch-up conventions
 
-- Browser visibility, focus, online and a 60-second visible-tab interval share the
-  live invalidation debounce. Hidden tabs make no catch-up requests. Refreshes keep
+- Browser visibility, focus recovery and online events share the live invalidation
+  debounce. Healthy connected sockets need no focus catch-up or interval polling.
+  Hidden tabs make no catch-up requests. Refreshes keep
   saved content visible and defer while moving tickets, editing fields or holding
   comment drafts. Recheck before applying responses so an edit begun during a read
   is preserved. Existing paginated REST reads retain the per-invocation D1 budget;
@@ -956,7 +973,9 @@ It saves dark Settings/Board evidence in `docs/screenshots/TIK-83`; set
   skeleton/content visibility every 50ms for four seconds. It covers cold/slow
   Board, Home navigation (including empty project and mobile), List, explicit
   refresh and live focus catch-up. Refresh must preserve card counts and board
-  position. Before mode (`TICKETS_BEFORE_ASSETS=<base-dist>`) records violations;
+  position. Wait for the destination page after SPA clicks before capturing its
+  content root or geometry, so continuity samples measure the settled route.
+  Before mode (`TICKETS_BEFORE_ASSETS=<base-dist>`) records violations;
   after mode fails on overlap or lost refresh continuity.
 - PNG sequences go to ignored `target/TIK-75/`; held/settled PNGs, sample JSON
   and `transitions.txt` go to `docs/screenshots/TIK-75/`. Copy review evidence to
@@ -1081,3 +1100,19 @@ Only the optional WAF check may skip on HTTP 403, with a visible warning. Never
 expand management to unrelated records or settings in the shared zone. When
 changing Worker secrets, update the names in `xtask/src/infra.rs` and the deploy
 step together; the fixture-only unit test enforces agreement without reading values.
+
+## Ticket classification and PR titles
+
+Ticket titles are plain (for example `Grid home`, never `feat(ui): Grid home`).
+Ticket `type` is nullable and must be exactly `feat`, `fix`, `chore`, `refactor`,
+`docs`, `perf`, `test`, `ci`, or `build`. Optional nullable `scope` is trimmed and
+lowercased and must match `[a-z0-9][a-z0-9._/-]{0,31}`; an empty string clears it.
+The shared `tickets_core::ticket_type::pr_title` helper uses the title verbatim:
+`<type>(<scope>): <title> [KEY-N]` with scope, or `<type>: <title> [KEY-N]`
+without scope. An unset type falls back to `chore`, including when scope is set.
+
+`cargo xtask component-shot ticket-type` captures fixture card/list/detail pages
+and create/edit dialogs at desktop/mobile sizes (2× dark PNGs). Use
+`--before-assets <baseline-dist>` for matching before evidence. The isolated
+classification preview is `/design/c/ticket-type`; long badge values retain full
+hover and accessible text. Scope-only tickets show “No type · scope”.

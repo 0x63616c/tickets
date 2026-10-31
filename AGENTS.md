@@ -54,3 +54,13 @@ Read `CONTRIBUTING.md` first; everything there applies.
 - Set `IMPECCABLE_HOME="$PWD/.impeccable"` for bundled launchers so fallback
   engine downloads stay in the ignored project cache.
 - Installation, verification and version updates: see CONTRIBUTING.md.
+
+## Ticket classification and PR titles
+
+Ticket titles are plain (for example `Grid home`, never `feat(ui): Grid home`).
+Ticket `type` is nullable and must be exactly `feat`, `fix`, `chore`, `refactor`,
+`docs`, `perf`, `test`, `ci`, or `build`. Optional nullable `scope` is trimmed and
+lowercased and must match `[a-z0-9][a-z0-9._/-]{0,31}`; an empty string clears it.
+The shared `tickets_core::ticket_type::pr_title` helper uses the title verbatim:
+`<type>(<scope>): <title> [KEY-N]` with scope, or `<type>: <title> [KEY-N]`
+without scope. An unset type falls back to `chore`, including when scope is set.

@@ -319,7 +319,7 @@ pub(crate) fn focus_project_action(id: i64) {
         .flatten()
         .or_else(|| {
             document()
-                .query_selector("#sidebar-projects > a")
+                .query_selector("#sidebar-projects a.nav-item")
                 .ok()
                 .flatten()
         });

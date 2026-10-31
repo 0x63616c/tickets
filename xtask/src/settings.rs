@@ -448,3 +448,84 @@ pub fn avatar_check(root: &Path) -> super::Result {
     );
     Ok(())
 }
+
+/// The real project editor with fixture data; no account or API credentials.
+pub fn project_colors_shots(root: &Path) -> super::Result {
+    let before = std::env::var_os("TICKETS_BEFORE_ASSETS");
+    let assets = before
+        .as_ref()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.join("crates/web/dist"));
+    let phase = if before.is_some() { "before" } else { "after" };
+    let output = root.join("docs/screenshots/TIK-135");
+    fs::create_dir_all(&output)?;
+    let server = FixtureServer::start(&assets)?;
+    let mut b = Browser::start_named(root, "project-colors")?;
+    b.viewport(1440, 1000)?;
+    b.go(&format!("{}/design/board", server.url))?;
+    b.wait("!!document.querySelector('.project-more-trigger')")?;
+    b.click(".project-more-trigger")?;
+    b.wait("document.activeElement.textContent.includes('Edit project')")?;
+    b.key("Enter", 13, 0)?;
+    b.wait("!!document.querySelector('.project-colors')")?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    if before.is_none() {
+        b.wait("document.querySelectorAll('.project-colors input[type=radio]').length===9")?;
+        b.eval("document.querySelector('.project-colors input').focus();true")?;
+        b.key("ArrowDown", 40, 0)?;
+        b.wait("document.activeElement.value==='Purple' && document.activeElement.checked")?;
+        b.key("ArrowUp", 38, 0)?;
+        b.wait("document.activeElement.value==='Indigo' && document.activeElement.checked")?;
+        b.click(".project-colors input[value=Graphite]")?;
+        b.key("ArrowUp", 38, 0)?;
+        b.key("ArrowDown", 40, 0)?;
+        b.wait("document.querySelector('.project-colors input[value=Graphite]').checked")?;
+        b.wait("getComputedStyle(document.querySelector('.project-color-row:has(input:focus-visible)')).outlineStyle==='solid'")?;
+        b.eval(r#"(()=>{
+            const icon=document.querySelector('.project-icon-picker .project-mark');
+            const style=getComputedStyle(icon);
+            const channels=s=>s.match(/[\d.]+/g).slice(-3).map(v=>Number(v)*(s.startsWith('color(')?255:1));
+            const luminance=rgb=>rgb.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((v,c,i)=>v+c*[.2126,.7152,.0722][i],0);
+            const fg=luminance(channels(style.color)),bg=luminance(channels(style.backgroundColor));
+            const ratio=(Math.max(fg,bg)+.05)/(Math.min(fg,bg)+.05);
+            if(ratio<4.5)throw Error('Graphite icon contrast '+ratio);
+            return {foreground:style.color,background:style.backgroundColor,ratio};
+        })()"#).map(|pairs|println!("Graphite contrast: {pairs}"))?;
+    }
+    for (size, width, height) in [("desktop", 1440, 1000), ("mobile", 390, 844)] {
+        b.viewport(width, height)?;
+        b.eval("document.querySelector('.project-colors').scrollIntoView({block:'center'});true")?;
+        b.screenshot(&output.join(format!("{phase}-{size}.png")))?;
+        visible_crop(
+            &mut b,
+            ".project-colors",
+            &output.join(format!("{phase}-picker-{size}.png")),
+        )?;
+    }
+    if before.is_none() {
+        b.click(".project-colors input[value=Custom]")?;
+        b.text("#project-color", "#aabbcc")?;
+        b.screenshot(&output.join("after-custom.png"))?;
+        b.viewport(1440, 1000)?;
+        b.click("dialog button[type=submit]")?;
+        b.wait("!document.querySelector('dialog')")?;
+        b.click(".project-more-trigger")?;
+        b.wait("document.activeElement.textContent.includes('Edit project')")?;
+        b.key("Enter", 13, 0)?;
+        b.wait("document.querySelector('.project-colors input[value=Custom]')?.checked && document.querySelector('#project-color')?.value==='#aabbcc'")?;
+        b.text("#project-color", "#4EA7FC")?;
+        b.click("dialog button[type=submit]")?;
+        b.wait("!document.querySelector('dialog')")?;
+        b.click(".project-more-trigger")?;
+        b.wait("document.activeElement.textContent.includes('Edit project')")?;
+        b.key("Enter", 13, 0)?;
+        b.wait("document.querySelector('.project-colors input[value=Blue]')?.checked && !document.querySelector('#project-color')")?;
+    }
+    println!("PASS project color picker {phase}: desktop/mobile screenshots");
+    if before.is_none() {
+        println!(
+            "PASS named radios, arrow keys, visible focus, Graphite contrast, custom round trip and case-insensitive palette matching"
+        );
+    }
+    Ok(())
+}

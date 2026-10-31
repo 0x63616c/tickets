@@ -27,6 +27,7 @@ pub fn Gallery() -> impl IntoView {
 }
 
 pub const COMPONENTS: &[&str] = &[
+    "ticket-type",
     "mission",
     "pr-check-status",
     "pickup-rules",
@@ -72,6 +73,11 @@ fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
     let show = RwSignal::new(false);
     let tabs = RwSignal::new("Write".to_string());
     match name {
+        "ticket-type" => {
+            let kind = RwSignal::new("feat".to_string());
+            let scope = RwSignal::new("ui".to_string());
+            view!{<div><TypeBadge kind=Some("feat".into()) scope=Some("ui".into())/><TypeBadge kind=Some("fix".into()) scope=None/><TicketClassification kind scope/></div>}.into_any()
+        },
         "pr-check-status" => view!{<div class="sample-controls"><PrCheckStatus conclusion=Some("success".into())/><PrCheckStatus conclusion=Some("failure".into())/><PrCheckStatus conclusion=Some("neutral".into())/><PrCheckStatus/><PrCheckStatus label="Tickets" conclusion=Some("success".into())/></div>}.into_any(),
         "mission"=>view!{<super::mission::MissionPage/>}.into_any(),
         "pickup-rules"=>view!{<super::pickup::PickupSettings fixture=true/>}.into_any(),

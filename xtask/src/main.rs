@@ -158,6 +158,8 @@ fn main() -> Result {
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-shot") => settings::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
+        Some("project-colors-shot") => settings::project_colors_shots(root),
+        #[cfg(not(target_arch = "wasm32"))]
         Some("font-check") => fonts::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-check") => settings::check(root),

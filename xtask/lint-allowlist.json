@@ -4,7 +4,6 @@
   "crates/web/src/components/feedback.rs:rust-dynamic-style:\"=move\"": 1,
   "crates/web/src/components/ticket_hit.rs:rust-dynamic-style:\"=format\"": 1,
   "crates/web/src/pages/gallery.rs:rust-raw:\"A consistent 16px stroke set.\"": 1,
-  "crates/web/src/pages/projects.rs:rust-dynamic-style:\"=format\"": 1,
   "crates/web/style.css:css:--sidebar-width:200px": 1,
   "crates/web/style.css:css:border-radius:10px": 1,
   "crates/web/style.css:css:border-radius:3px": 2,

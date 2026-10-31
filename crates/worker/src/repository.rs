@@ -160,13 +160,23 @@ impl<S: Store> Repository<S> {
     /// Project/number and creation timestamp are immutable; moving projects needs explicit renumbering.
     pub async fn save_ticket(&self, t: &Ticket) -> Result<Ticket> {
         validate_name(&t.title).map_err(Error::Validation)?;
+        if let Some(kind) = &t.r#type {
+            tickets_core::ticket_type::validate_type(kind).map_err(Error::Validation)?;
+        }
+        let scope = t
+            .scope
+            .as_deref()
+            .map(tickets_core::ticket_type::normalize_scope)
+            .transpose()
+            .map_err(Error::Validation)?
+            .flatten();
         if !t.sort_order.is_finite() {
             return Err(Error::Validation("sort order must be finite".into()));
         }
         self.mutate_one(
             Scope::ticket(t.id),
             "UPDATE tickets SET title=?,body=?,status=?,priority=?,assignee=?,sort_order=?,
-             external_url=?,external_id=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+             external_url=?,external_id=?,type=?,scope=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
              WHERE id=? RETURNING *",
             vec![
                 t.title.clone().into(),
@@ -177,6 +187,8 @@ impl<S: Store> Repository<S> {
                 t.sort_order.into(),
                 t.external_url.clone().into(),
                 t.external_id.clone().into(),
+                t.r#type.clone().into(),
+                scope.into(),
                 t.id.into(),
             ],
         )

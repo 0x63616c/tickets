@@ -469,3 +469,16 @@ width, with scrolling inside the canvas and the same header/toolbar gutters.
 Nested form controls retain `--auth-form-width` (336px) and
 `--settings-form-width` (440px) for readable input lengths. These are control
 measures, not additional page containers. Component previews stay tightly cropped.
+
+## Project icon colors (TIK-135)
+
+Project settings uses a vertical native radio list: Indigo, Purple, Red, Blue,
+Pink, Green, Yellow and Graphite. The `--project-*` palette in `tokens.css` owns
+these hex values independently of status and label meanings. The editor resolves
+those tokens for API storage; existing project hex strings remain compatible.
+Custom reveals the hex field; unlisted saved colors select Custom automatically.
+Graphite uses a light neutral gray so the glyph remains readable on its dark,
+12% tinted project tile. `cargo xtask project-colors-shot` verifies keyboard
+selection, custom round trips and rendered Graphite contrast, and captures the
+real editor with fixture data at desktop/mobile sizes in `docs/screenshots/TIK-135`.
+Set `TICKETS_BEFORE_ASSETS` to built baseline assets for before screenshots.

@@ -31,6 +31,7 @@ mod tests {
 pub mod dependency;
 pub mod domain;
 pub mod markdown;
+pub mod ticket_type;
 
 pub mod api;
 pub mod auth;

@@ -38,7 +38,7 @@ impl ReadCache {
             0
         };
         let digest = tickets_core::auth::hash_token(&format!(
-            "read-v1:{}:{}:{clock}",
+            "read-v2:{}:{}:{clock}",
             req.url()?,
             rows[0]["version"]
         ));

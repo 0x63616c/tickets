@@ -14,6 +14,8 @@ mod live;
 mod login;
 #[cfg(target_arch = "wasm32")]
 mod pages;
+#[cfg(any(target_arch = "wasm32", test))]
+mod reconciliation;
 #[cfg(target_arch = "wasm32")]
 mod ui;
 

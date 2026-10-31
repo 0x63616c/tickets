@@ -46,7 +46,7 @@ pub async fn search<S: Store>(
         scores.join(" + ")
     };
     args.push(limit.into());
-    let sql = format!("SELECT t.id,t.project_id,p.key_prefix || '-' || t.number AS key,t.title,t.status,t.priority,t.assignee,t.updated_at,t.external_url,
+    let sql = format!("SELECT t.id,t.project_id,p.key_prefix || '-' || t.number AS key,t.title,t.type,t.scope,t.status,t.priority,t.assignee,t.updated_at,t.external_url,
         (lower(p.key_prefix || '-' || t.number)=?1) AS exact,
         ({relevance} + CASE WHEN lower(t.title)=?1 THEN 100 ELSE 0 END
         + CASE WHEN t.status NOT IN ('done','canceled') THEN 8 ELSE 0 END

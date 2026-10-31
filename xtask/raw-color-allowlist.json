@@ -59,7 +59,27 @@
     "count": 1,
     "reason": "Negative policy fixture: verifies this raw color is rejected."
   },
+  "crates/web/src/pages/projects.rs|Blue": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
   "crates/web/src/pages/projects.rs|Green": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Indigo": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Pink": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Purple": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Red": {
     "count": 1,
     "reason": "Visible swatch name (text copy), not a CSS color value."
   },
