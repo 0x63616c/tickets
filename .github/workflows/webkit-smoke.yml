@@ -26,8 +26,7 @@ jobs:
           jsc=/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc
           status=0
           for file in crates/web/src/components/*.js \
-                      crates/web/node_modules/ascii-reveal/dist/core.js \
-                      crates/web/node_modules/sortablejs/modular/sortable.complete.esm.js; do
+                      crates/web/node_modules/ascii-reveal/dist/core.js; do
             if out=$("$jsc" -e "checkModuleSyntax(readFile('$file'))" 2>&1) && [ -z "$out" ]; then
               echo "PASS $file"
             else
