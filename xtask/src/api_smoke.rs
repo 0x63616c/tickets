@@ -164,6 +164,11 @@ pub fn polish(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "polish")
 }
 #[cfg(not(target_arch = "wasm32"))]
+pub fn cleanup(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "cleanup")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn contrast(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "contrast")
 }
@@ -289,6 +294,8 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
             super::contrast::check(root, password)
         } else if _view == "palette" {
             super::palette::check(root, password)
+        } else if _view == "cleanup" {
+            super::cleanup::standalone(root, password)
         } else if _view == "polish" {
             super::polish::check(root, password)
         } else if _view == "live" {

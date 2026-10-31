@@ -1,5 +1,6 @@
 //! API-backed board. The fixture routes deliberately retain their own state.
 use crate::{
+    board_move::{BoardMove, CommitOutcome, MoveRow, OrderWriter, Placement},
     components::*,
     fixtures::{Priority, Status},
     ui::api,
@@ -95,6 +96,19 @@ pub(crate) async fn all<T: DeserializeOwned>(path: &str) -> Result<Vec<T>, Strin
         }
     }
 }
+/// Authenticated browser adapter; move recovery belongs to BoardMove.
+struct BrowserOrderWriter;
+impl OrderWriter for BrowserOrderWriter {
+    async fn patch_order(&mut self, id: i64, status: Status, rank: f64) -> Result<(), String> {
+        api(
+            "PATCH",
+            &format!("/api/v1/tickets/{id}"),
+            json!({"status": status, "sort_order": rank}),
+        )
+        .await
+        .map(|_| ())
+    }
+}
 #[derive(Clone, Copy)]
 pub(crate) struct BoardState {
     pub(crate) tickets: RwSignal<Vec<BoardTicket>>,
@@ -119,6 +133,7 @@ pub(crate) struct BoardState {
     pub(crate) catchup_revision: RwSignal<u64>,
     pub(crate) connection: RwSignal<ConnectionState>,
     snapshot: RwSignal<Vec<BoardTicket>>,
+    movement: RwSignal<Option<BoardMove>>,
     pub(crate) composer: RwSignal<Option<Status>>,
 }
 impl BoardState {
@@ -149,6 +164,7 @@ impl BoardState {
             catchup_revision: RwSignal::new(0),
             connection: RwSignal::new(ConnectionState::Offline),
             snapshot: RwSignal::new(vec![]),
+            movement: RwSignal::new(None),
             composer: RwSignal::new(None),
         }
     }
@@ -381,16 +397,12 @@ impl BoardState {
                 .to_lowercase()
                 .contains(&self.query.get().to_lowercase())
     }
-    fn column(self, s: Status, filtered: bool) -> Vec<BoardTicket> {
+    fn column(self, s: Status) -> Vec<BoardTicket> {
         let mut ts: Vec<_> = self
             .tickets
             .get()
             .into_iter()
-            .filter(|t| {
-                t.ui_status() == s
-                    && t.project_id == self.project.get()
-                    && (!filtered || self.visible(t))
-            })
+            .filter(|t| t.ui_status() == s && t.project_id == self.project.get() && self.visible(t))
             .collect();
         ts.sort_by(|a, b| a.sort_order.total_cmp(&b.sort_order).then(a.id.cmp(&b.id)));
         ts
@@ -400,7 +412,27 @@ impl BoardState {
             return;
         }
         self.cancel();
-        self.snapshot.set(self.tickets.get_untracked());
+        let snapshot = self.tickets.get_untracked();
+        let rows = snapshot
+            .iter()
+            .map(|t| MoveRow {
+                id: t.id,
+                project_id: t.project_id,
+                stored_status: t.status,
+                displayed_status: t.ui_status(),
+                later: t
+                    .labels
+                    .iter()
+                    .any(|label| label.name.eq_ignore_ascii_case("later")),
+                rank: t.sort_order,
+            })
+            .collect();
+        self.movement.set(Some(BoardMove::begin(
+            rows,
+            self.project.get_untracked(),
+            ticket,
+        )));
+        self.snapshot.set(snapshot);
         self.dragged.set(Some(ticket));
         self.notice
             .set("Picked up ticket. Arrows move; Space drops; Escape cancels.".into());
@@ -412,98 +444,67 @@ impl BoardState {
             .copied()
             .unwrap_or(true)
     }
-    fn place(self, ticket: i64, s: Status, before: Option<i64>) {
-        if !self.manual(s) {
-            self.tickets.update(|tickets| {
-                if let Some(t) = tickets.iter_mut().find(|t| t.id == ticket) {
-                    t.status = s;
-                }
-            });
-            focus(ticket);
-            return;
-        }
-        let mut column = self.column(s, false);
-        column.retain(|t| id(t) != ticket);
-        let at = before
-            .and_then(|b| column.iter().position(|t| id(t) == b))
-            .unwrap_or(column.len());
-        if let Some(mut moving) = self
-            .tickets
-            .get_untracked()
-            .into_iter()
-            .find(|t| id(t) == ticket)
-        {
-            moving.status = s;
-            column.insert(at, moving);
-            self.tickets.update(|ts| {
-                for (index, t) in column.iter().enumerate() {
-                    if let Some(row) = ts.iter_mut().find(|r| id(r) == id(t)) {
-                        // A legacy `later` ticket can share the displayed Backlog
-                        // column while retaining its stored Todo status.
-                        row.status = t.status;
-                        row.sort_order = (index + 1) as f64 * 1024.;
+    fn place(self, ticket: i64, s: Status, placement: Placement) {
+        self.movement.update(|movement| {
+            if let Some(movement) = movement {
+                let preview: std::collections::HashMap<_, _> = movement
+                    .place(s, placement, self.manual(s))
+                    .iter()
+                    .map(|row| (row.id, row))
+                    .collect();
+                self.tickets.update(|tickets| {
+                    for ticket in tickets {
+                        if let Some(row) = preview.get(&ticket.id) {
+                            ticket.status = row.stored_status;
+                            ticket.sort_order = row.rank;
+                        }
                     }
-                }
-            });
-        }
+                });
+            }
+        });
         focus(ticket);
     }
     fn cancel(self) {
         if self.dragged.get_untracked().is_some() {
+            self.movement.update(|movement| {
+                if let Some(movement) = movement.take() {
+                    let _ = movement.cancel();
+                }
+            });
             self.tickets.set(self.snapshot.get_untracked());
             self.dragged.set(None);
             self.notice.set("Move canceled.".into());
         }
     }
     fn save(self, ticket: i64) {
+        let Some(movement) = self.movement.try_update(Option::take).flatten() else {
+            return;
+        };
         let before = self.snapshot.get_untracked();
-        let after = self.tickets.get_untracked();
         self.dragged.set(None);
         self.busy.set(true);
         self.error.set(String::new());
         spawn_local(async move {
-            let mut saved = vec![];
-            for t in &after {
-                if let Some(old) = before.iter().find(|o| id(o) == id(t))
-                    && (old.status != t.status || old.sort_order != t.sort_order)
-                {
-                    match api(
-                        "PATCH",
-                        &format!("/api/v1/tickets/{}", id(t)),
-                        json!({"status":t.status,"sort_order":t.sort_order}),
-                    )
-                    .await
-                    {
-                        Ok(_) => saved.push(old.clone()),
-                        Err(e) => {
-                            let mut restored = true;
-                            for old in saved {
-                                restored &= api(
-                                    "PATCH",
-                                    &format!("/api/v1/tickets/{}", id(&old)),
-                                    json!({"status":old.status,"sort_order":old.sort_order}),
-                                )
-                                .await
-                                .is_ok();
-                            }
-                            self.tickets.set(before);
-                            self.busy.set(false);
-                            self.error.set(format!(
-                                "Couldn’t move ticket: {e} {}",
-                                if restored {
-                                    "Previous order restored. Try the move again."
-                                } else {
-                                    "Reload to reconcile the saved order."
-                                }
-                            ));
-                            focus(ticket);
-                            return;
+            let outcome = movement.commit(&mut BrowserOrderWriter).await;
+            let restored = matches!(outcome, CommitOutcome::Restored(_));
+            match outcome {
+                CommitOutcome::Saved => {
+                    self.busy.set(false);
+                    self.notice.set("Ticket moved. Order saved.".into());
+                }
+                CommitOutcome::Restored(e) | CommitOutcome::NeedsReload(e) => {
+                    self.tickets.set(before);
+                    self.busy.set(false);
+                    self.error.set(format!(
+                        "Couldn’t move ticket: {e} {}",
+                        if restored {
+                            "Previous order restored. Try the move again."
+                        } else {
+                            "Reload to reconcile the saved order."
                         }
-                    }
+                    ));
                 }
             }
-            self.busy.set(false);
-            self.notice.set("Ticket moved. Order saved.".into());
             focus(ticket);
         });
     }
@@ -512,7 +513,7 @@ impl BoardState {
             self.pickup(ticket);
         }
         if self.dragged.get_untracked() == Some(ticket) {
-            self.place(ticket, s, before);
+            self.place(ticket, s, before.map_or(Placement::End, Placement::Before));
             self.save(ticket);
         }
     }
@@ -564,7 +565,7 @@ impl BoardState {
             return;
         };
         let s = status(&t);
-        let column = self.column(s, true);
+        let column = self.column(s);
         let index = column.iter().position(|t| id(t) == ticket).unwrap_or(0);
         let target = match key.as_str() {
             "ArrowUp" => column.get(index.saturating_sub(1)).map(id),
@@ -579,7 +580,7 @@ impl BoardState {
                 } else {
                     (at + 1).min(last_column)
                 };
-                self.place(ticket, columns[next], None);
+                self.place(ticket, columns[next], Placement::End);
             } else if !self.manual(s) {
                 self.notice
                     .set("This column is sorted. Move left or right to change status.".into());
@@ -587,16 +588,12 @@ impl BoardState {
             } else if let Some(target) = target
                 && target != ticket
             {
-                let full = self.column(s, false);
-                let Some(at) = full.iter().position(|t| id(t) == target) else {
-                    return;
-                };
-                let before = if key == "ArrowDown" {
-                    full.get(at + 1).map(id)
+                let placement = if key == "ArrowDown" {
+                    Placement::After(target)
                 } else {
-                    Some(target)
+                    Placement::Before(target)
                 };
-                self.place(ticket, s, before);
+                self.place(ticket, s, placement);
             }
             let current = self
                 .tickets
@@ -605,7 +602,7 @@ impl BoardState {
                 .find(|t| t.id == ticket);
             if let Some(t) = current {
                 let s = status(&t);
-                let column = self.column(s, true);
+                let column = self.column(s);
                 let position = column.iter().position(|t| t.id == ticket).unwrap_or(0) + 1;
                 self.notice.set(format!(
                     "{}: {}, position {} of {}. Space to save; Escape to cancel.",
@@ -627,7 +624,7 @@ impl BoardState {
                 (at + 1..=last_column).collect()
             };
             for next in candidates {
-                if let Some(t) = self.column(columns[next], true).first() {
+                if let Some(t) = self.column(columns[next]).first() {
                     focus(id(t));
                     break;
                 }
@@ -885,8 +882,8 @@ pub fn ApiBoard() -> impl IntoView {
         <Show when=move||state.project.get()!=0><div node_ref=reveal_root class="board api-board" data-moving=move||state.dragged.get().is_some().to_string() data-busy=move||(state.busy.get() || state.loading.get()).to_string() aria-label="Ticket board" aria-busy=move||(state.busy.get() || state.refreshing.get()).to_string()>{Status::ALL.into_iter().map(|s|view!{
             <Show when=move|| state.columns.visible.get().contains(&s)>
             <section class="board-column" aria-label=s.name()>
-            <div class="column-heading"><StatusIcon status=s/><h2>{s.name()}</h2><span class="count">{move||state.column(s,true).len()}</span><button class="icon-button" aria-label=format!("Add ticket to {}",s.name()) disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/></button></div>
-            <div class="column-cards" data-status=s.name() data-order=move||if state.manual(s){"manual"}else{"sorted"}><For each=move||state.column(s,true) key=|t| (id(t),format!("{t:?}")) children=move|ticket|view!{<ApiCard ticket/>}/></div><button class="add-card" disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/>"New ticket"</button></section>
+            <div class="column-heading"><StatusIcon status=s/><h2>{s.name()}</h2><span class="count">{move||state.column(s).len()}</span><button class="icon-button" aria-label=format!("Add ticket to {}",s.name()) disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/></button></div>
+            <div class="column-cards" data-status=s.name() data-order=move||if state.manual(s){"manual"}else{"sorted"}><For each=move||state.column(s) key=|t| (id(t),format!("{t:?}")) children=move|ticket|view!{<ApiCard ticket/>}/></div><button class="add-card" disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/>"New ticket"</button></section>
             </Show>
         }).collect_view()}</div></Show>
         <div class="view-footer" id="board-keys"><span hidden=move||state.loading.get()>{move||crate::count::count_label(state.tickets.get().iter().filter(|t|state.visible(t) && state.columns.visible.get().contains(&status(t))).count(), "ticket")}</span><span>"Space: pick up / drop · Arrows: move · Esc: cancel"</span></div>

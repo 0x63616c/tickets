@@ -4,6 +4,23 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use serde_json::json;
 use std::{env, fs, path::Path};
 
+/// Run the existing TIK-45 assertions independently of the broad polish audit.
+pub fn standalone(root: &Path, password: &str) -> super::Result {
+    let mut b = Browser::start_named(root, "cleanup")?;
+    b.go("http://127.0.0.1:8795/login")?;
+    b.text("#username", "fixture")?;
+    b.text("#password", password)?;
+    b.click("button[type=submit]")?;
+    b.wait("location.pathname!='/login'")?;
+    b.eval(r#"(async()=>{
+        const api=async(path,body)=>{const r=await fetch('/api/v1/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error('Cleanup seed failed: '+path);return r.json()};
+        await api('projects',{name:'Tickets',key_prefix:'TKT',color:'#5e6ad2'});
+        await api('tickets',{project_id:1,title:'Backlog reorder fixture',status:'backlog'});
+        return true;
+    })()"#)?;
+    check(&mut b, root)
+}
+
 pub fn check(b: &mut Browser, root: &Path) -> super::Result {
     let before = env::var_os("TICKETS_BEFORE_ASSETS").is_some();
     let phase = if before { "before" } else { "after" };
