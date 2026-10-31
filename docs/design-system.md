@@ -469,3 +469,21 @@ width, with scrolling inside the canvas and the same header/toolbar gutters.
 Nested form controls retain `--auth-form-width` (336px) and
 `--settings-form-width` (440px) for readable input lengths. These are control
 measures, not additional page containers. Component previews stay tightly cropped.
+
+## API reference (TIK-97)
+
+`/api-docs` inherits the shared shell, page container and gutters. Group endpoints
+by tag in flat, bordered rows using native `details`/`summary` disclosures. Keep
+the HTTP method written out beside the monospace path; semantic method colours
+supplement that text. On narrow screens, the operation summary wraps below the
+path while its disclosure control remains beside the method/path row. Search
+filters tags, methods, paths and operation text, with a visible result count and
+an explicit no-matches state.
+
+Expanded operations use compact parameter tables with readable schema summaries;
+full request, response and reusable schemas remain in nested disclosures. JSON
+uses `--font-mono` in bordered `--surface` panels, with wrapping and local scrolling
+for long content. The GET runner reuses shared fields and secondary buttons,
+names required inputs, and displays response status and body inline. It uses the
+existing session; it does not collect credentials. These patterns reuse existing
+type, colour, spacing and radius tokens without introducing a separate docs theme.

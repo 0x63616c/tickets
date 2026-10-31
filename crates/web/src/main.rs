@@ -43,6 +43,7 @@ fn App() -> impl IntoView {
             <Routes fallback=|| view! { <components::TopBar/><div class="empty-state"><h1>"Page not found"</h1><a class="button button-secondary" href="/">"Back to tickets"</a></div> }>
                 <Route path=path!("/") view=pages::home::HomePage/>
                 <Route path=path!("/board") view=pages::ApiBoard/>
+                <Route path=path!("/api-docs") view=pages::api_docs::ApiDocs/>
                 <Route path=path!("/mission") view=pages::mission::MissionPage/>
                 <Route path=path!("/design/mission") view=pages::mission::MissionPage/>
                 <Route path=path!("/analytics") view=pages::analytics::AnalyticsPage/>

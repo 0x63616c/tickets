@@ -12,6 +12,17 @@ log, commit or put credentials in URLs. Disable shell tracing when using curl.
 Bearer mutations need no Origin header. A 401 means missing/invalid/revoked
 access: stop and request replacement access, rather than retrying.
 
+Discover all operations and schemas through public `GET /api/openapi.json`
+(OpenAPI 3.1, no credentials or D1 required). The native `/api-docs` page groups
+endpoints by tag, filters methods/paths and offers session-based GET exploration.
+When changing an API route, update `docs/openapi.json` and the canonical Worker
+route table together; the workspace tests enforce exact parity.
+
+```sh
+# expect {"status":200,"body":{"openapi":"3.1.0"}}
+curl -sS "$TICKETS_URL/api/openapi.json"
+```
+
 Use [the API reference](../../../docs/API.md) for full fields, defaults, routes
 and authentication details. Examples below form a disposable walkthrough, **not
 an instruction to seed a live workspace**. For real work, list existing resources

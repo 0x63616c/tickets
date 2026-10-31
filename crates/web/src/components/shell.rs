@@ -158,6 +158,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
             <Tooltip text="Home · G then H"><A href=home attr:class=move||if location.pathname.get()=="/home"{"nav-item active"}else{"nav-item"} exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
             <Tooltip text="Analytics · G then A"><A href=analytics attr:class="nav-item" exact=true><Icon name="analytics"/><span>"Analytics"</span></A></Tooltip>
             <A href=if fixture {"/design/mission"}else{"/mission"} attr:class="nav-item"><Icon name="grid"/><span>"Mission Control"</span></A>
+            <A href="/api-docs" attr:class="nav-item"><Icon name="code"/><span>"API reference"</span></A>
             <button class="nav-item search-trigger" on:click=move|_|{state.dialog.set(DialogKind::Command);if let Some(cb)=on_navigate{cb.run(());}}><Icon name="search"/><span>"Search tickets"</span><Shortcut>"⌘ K"</Shortcut></button>
             <SidebarSection title="Projects" storage="tickets.sidebar.projects" id="sidebar-projects">
                 <A href=projects attr:class="nav-item" on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="project"/><span>"All projects"</span></A>

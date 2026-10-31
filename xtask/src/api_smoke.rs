@@ -170,6 +170,11 @@ pub fn settings(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "settings")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn api_docs(root: &Path) -> Result<()> {
+    run_inner_mode(root, false, true, "api-docs")
+}
+
 pub fn mission(root: &Path) -> Result<()> {
     run_inner_mode(root, false, true, "mission")
 }
@@ -339,6 +344,10 @@ fn run_inner_mode(root: &Path, skill: bool, board: bool, _view: &str) -> Result<
         thread::sleep(Duration::from_millis(300));
     }
     // First-run must reach login with no prior API auth, token or domain writes.
+    #[cfg(not(target_arch = "wasm32"))]
+    if _view == "api-docs" {
+        return super::api_docs::check(root, &password);
+    }
     #[cfg(not(target_arch = "wasm32"))]
     if _view == "avatars" {
         return super::settings::avatar_check(root, &password);
