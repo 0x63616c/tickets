@@ -13,3 +13,19 @@ The Tickets mark is a notched ticket stub with a perforation line (TIK-55).
   rounded tile in the dark-only interface. Every icon uses a black background, never purple.
 
 Regenerate everything with `python3 build.py` (needs `cairosvg` and `Pillow`).
+Run it from this directory. It also copies `apple-touch-icon.png` to Safari's
+implicit `apple-touch-icon-precomposed.png` path and updates/prints the URL token.
+
+Icon URLs in `../index.html` (including the black Safari mask) and every manifest
+icon use the same `?v=<token>` to invalidate Safari's URL-keyed favicon cache.
+The token **must be bumped whenever icons change**. It is the first eight hex
+digits of SHA-256 over the sorted shipped image filenames, each followed by a
+NUL byte and its file contents (the `IMAGES` list in `version.py`). The manifest,
+generator, documentation and unshipped previews are excluded to avoid a circular
+hash and unrelated cache invalidation. Add new shipped images to that list.
+
+After changing images manually, keep the precomposed copy identical and run
+`python3 version.py --write`. Verify with `python3 version.py --check` (no extra
+dependencies); this fails on stale/missing versioned links or a mismatched copy.
+These commands also work from the repository root using
+`python3 crates/web/icons/version.py --check` (or `--write`).
