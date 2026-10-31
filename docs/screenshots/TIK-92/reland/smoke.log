@@ -1,0 +1,14 @@
+PASS release artifact identity: emitted legacy/new module bytes and new glue import match this worktree.
+webkit: 27.2; executable: /home/box/.cache/ms-playwright/webkit-2370/pw_run.sh
+webkit login navigation: /login
+PASS webkit: UI login, authenticated /board boot, no errors
+PASS webkit: new wasm booted with previous main dom.js and unchanged ascii-reveal substituted (4 old module responses)
+PASS webkit Backlog -> Todo: 20 real mouse steps, max axis error 0.8000000000000114px, grey inert origin, PATCH 200, persisted after reload
+PASS webkit Todo -> Backlog: 20 real mouse steps, max axis error 0.8000000000000114px, grey inert origin, PATCH 200, persisted after reload
+chromium: 139.0.7258.154; executable: /workspace/wt/tickets/TIK-92/target/chromium-local
+chromium login navigation: /login
+PASS chromium: UI login, authenticated /board boot, no errors
+PASS chromium: new wasm booted with previous main dom.js and unchanged ascii-reveal substituted (10 old module responses)
+PASS chromium Backlog -> Todo: 20 real mouse steps, max axis error 0.000042724609329525265px, grey inert origin, PATCH 200, persisted after reload
+PASS chromium Todo -> Backlog: 20 real mouse steps, max axis error 0.00005493164064773737px, grey inert origin, PATCH 200, persisted after reload
+PASS: both engines, stale-snippet substitution kept active during both persisted round trips; zero pageerrors/console errors.

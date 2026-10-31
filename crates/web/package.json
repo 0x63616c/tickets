@@ -2,7 +2,8 @@
   "name": "tickets-web",
   "private": true,
   "dependencies": {
-    "ascii-reveal": "0.3.0"
+    "ascii-reveal": "0.3.0",
+    "sortablejs": "1.15.6"
   },
   "devDependencies": {
     "stylelint": "16.26.1"

@@ -4,13 +4,13 @@ use wasm_bindgen::prelude::*;
 
 // Make Cargo track the local bridge when only JavaScript changes.
 const _: &str = include_str!("dom.js");
+const _: &str = include_str!("dom_drag_c97c58dae072cc25.js");
 
 #[wasm_bindgen(module = "/src/components/dom.js")]
 extern "C" {
     pub fn position_popup(trigger: &web_sys::Element, panel: &web_sys::Element);
     pub fn watch_popup(trigger: &web_sys::Element, panel: &web_sys::Element) -> js_sys::Function;
     pub fn hide_popup(panel: &web_sys::Element);
-    pub fn install_motion() -> js_sys::Function;
 }
 
 pub const EXIT_MS: u64 = 140;
@@ -79,4 +79,10 @@ pub fn Presence(#[prop(into)] show: Signal<bool>, children: ChildrenFn) -> impl 
         provide_context(presence);
         children()
     }}</Show> }
+}
+
+// Keep the legacy popup snippet unchanged; motion coordinates with board drag.
+#[wasm_bindgen(module = "/src/components/dom_drag_c97c58dae072cc25.js")]
+extern "C" {
+    pub fn install_motion() -> js_sys::Function;
 }

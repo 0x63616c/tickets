@@ -6,8 +6,8 @@ use crate::{
 };
 use leptos::{ev, prelude::*};
 use serde_json::{Value, json};
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::wasm_bindgen::JsCast;
 
 use serde::{Deserialize, de::DeserializeOwned};
 use tickets_core::domain::{Label, Project};
@@ -100,6 +100,8 @@ pub(crate) struct BoardState {
     pub(crate) labels: RwSignal<Vec<Label>>,
     pub(crate) project: RwSignal<i64>,
     columns: ColumnVisibility,
+    // TIK-49: set false for a column controlled by an explicit sort.
+    pub(crate) manual_order: RwSignal<std::collections::HashMap<String, bool>>,
     label: RwSignal<String>,
     assignee: RwSignal<String>,
     query: RwSignal<String>,
@@ -129,6 +131,7 @@ impl BoardState {
             labels: RwSignal::new(vec![]),
             project,
             columns,
+            manual_order: RwSignal::new(std::collections::HashMap::new()),
             label: RwSignal::new(String::new()),
             assignee: RwSignal::new(String::new()),
             query: RwSignal::new(String::new()),
@@ -149,6 +152,11 @@ impl BoardState {
     }
     pub(crate) fn select_project(self, project: i64) -> bool {
         if self.busy.get_untracked() {
+            return false;
+        }
+        if self.dragged.get_untracked().is_some() {
+            self.notice
+                .set("Drop or cancel this move before changing projects.".into());
             return false;
         }
         self.cancel();
@@ -213,6 +221,12 @@ impl BoardState {
                 }
                 if events.iter().any(|e| e.entity == "labels") {
                     let labels = all::<Label>("labels").await?;
+                    // A gesture can start while this read is in flight. Do not
+                    // replace Sortable's card nodes until it gives DOM ownership back.
+                    if self.busy.get_untracked() || self.dragged.get_untracked().is_some() {
+                        self.live_revision.update(|r| *r += 1);
+                        return Ok(());
+                    }
                     self.labels.set(labels.clone());
                     self.tickets.update(|tickets| {
                         for ticket in tickets {
@@ -272,6 +286,10 @@ impl BoardState {
                                 false,
                             );
                         }
+                    }
+                    if self.busy.get_untracked() || self.dragged.get_untracked().is_some() {
+                        self.live_revision.update(|r| *r += 1);
+                        return Ok(());
                     }
                     self.tickets.update(|ts| {
                         for t in ts {
@@ -385,7 +403,23 @@ impl BoardState {
         self.notice
             .set("Picked up ticket. Arrows move; Space drops; Escape cancels.".into());
     }
+    fn manual(self, s: Status) -> bool {
+        self.manual_order
+            .get()
+            .get(s.name())
+            .copied()
+            .unwrap_or(true)
+    }
     fn place(self, ticket: i64, s: Status, before: Option<i64>) {
+        if !self.manual(s) {
+            self.tickets.update(|tickets| {
+                if let Some(t) = tickets.iter_mut().find(|t| t.id == ticket) {
+                    t.status = s;
+                }
+            });
+            focus(ticket);
+            return;
+        }
         let mut column = self.column(s, false);
         column.retain(|t| id(t) != ticket);
         let at = before
@@ -544,6 +578,10 @@ impl BoardState {
                     (at + 1).min(last_column)
                 };
                 self.place(ticket, columns[next], None);
+            } else if !self.manual(s) {
+                self.notice
+                    .set("This column is sorted. Move left or right to change status.".into());
+                return;
             } else if let Some(target) = target
                 && target != ticket
             {
@@ -558,8 +596,23 @@ impl BoardState {
                 };
                 self.place(ticket, s, before);
             }
-            self.notice
-                .set("Position updated. Space to save; Escape to cancel.".into());
+            let current = self
+                .tickets
+                .get_untracked()
+                .into_iter()
+                .find(|t| t.id == ticket);
+            if let Some(t) = current {
+                let s = status(&t);
+                let column = self.column(s, true);
+                let position = column.iter().position(|t| t.id == ticket).unwrap_or(0) + 1;
+                self.notice.set(format!(
+                    "{}: {}, position {} of {}. Space to save; Escape to cancel.",
+                    t.key,
+                    s.name(),
+                    position,
+                    column.len()
+                ));
+            }
         } else if let Some(target) = target {
             focus(target);
         } else if key == "ArrowLeft" || key == "ArrowRight" {
@@ -684,6 +737,62 @@ pub(super) fn ColumnsMenu(
     </DropdownMenu>}
 }
 
+#[wasm_bindgen(module = "/node_modules/sortablejs/modular/sortable.complete.esm.js")]
+extern "C" {
+    #[wasm_bindgen(thread_local_v2, js_name = default)]
+    static SORTABLE: js_sys::Function;
+}
+#[wasm_bindgen(module = "/src/components/dom_drag_c97c58dae072cc25.js")]
+extern "C" {
+    fn install_board_drag(
+        root: &web_sys::HtmlElement,
+        sortable: &js_sys::Function,
+        start: &js_sys::Function,
+        finish: &js_sys::Function,
+    ) -> js_sys::Function;
+}
+fn use_board_drag(root: NodeRef<leptos::html::Div>, state: BoardState) {
+    Effect::new(move |_| {
+        if let Some(root) = root.get() {
+            let start = Closure::<dyn FnMut(f64)>::new(move |ticket| {
+                state.pickup(ticket as i64);
+                state
+                    .notice
+                    .set("Moving ticket. Release to drop; Escape to cancel.".into());
+            });
+            let finish = Closure::<dyn FnMut(f64, String, f64, bool)>::new(
+                move |ticket: f64, status: String, before: f64, canceled: bool| {
+                    let ticket = ticket as i64;
+                    if canceled {
+                        state.cancel();
+                        focus(ticket);
+                    } else if state.dragged.get_untracked() == Some(ticket) {
+                        state.move_to(
+                            ticket,
+                            Status::from_name(&status),
+                            (before > 0.).then_some(before as i64),
+                        );
+                    }
+                },
+            );
+            let stop = SORTABLE.with(|sortable| {
+                install_board_drag(
+                    &root,
+                    sortable,
+                    start.as_ref().unchecked_ref(),
+                    finish.as_ref().unchecked_ref(),
+                )
+            });
+            let callbacks = StoredValue::new_local((start, finish));
+            on_cleanup(move || {
+                let _ = stop.call0(&JsValue::NULL);
+                state.cancel();
+                callbacks.with_value(|_| ());
+            });
+        }
+    });
+}
+
 #[component]
 pub fn ApiBoard() -> impl IntoView {
     let state = expect_context::<BoardState>();
@@ -754,6 +863,7 @@ pub fn ApiBoard() -> impl IntoView {
     });
     on_cleanup(move || handle.remove());
     let reveal_root = NodeRef::<leptos::html::Div>::new();
+    use_board_drag(reveal_root, state);
     use_ascii_reveal(
         reveal_root,
         Signal::derive(move || state.loading.get()),
@@ -770,11 +880,11 @@ pub fn ApiBoard() -> impl IntoView {
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.project.get()==0><div class="empty-project"><div class="empty-state"><Icon name="project"/><h2>"No projects yet"</h2><a class="button button-primary" href="/projects">"Create project"</a></div></div></Show>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.project.get()!=0 && !state.tickets.get().iter().any(|t|t.project_id==state.project.get())><div class="empty-project"><EmptyState title="No tickets yet" description="Add the first ticket to this project." action="New ticket" icon="ticket" on_action=Callback::new(move|_|state.composer.set(Some(Status::Todo)))/></div></Show>
         <Show when=move||!state.loading.get() && state.error.get().is_empty() && state.tickets.get().iter().any(|t|t.project_id==state.project.get()) && !state.tickets.get().iter().any(|t|state.visible(t) && state.columns.visible.get().contains(&status(t)))><div class="board-message empty-state"><h2>"No tickets in this view"</h2><p>"Show more columns or clear your filters to find tickets."</p><Show when=move||!state.query.get().is_empty() || !state.label.get().is_empty() || !state.assignee.get().is_empty()><button class="button" on:click=move|_|{state.query.set(String::new());state.label.set(String::new());state.assignee.set(String::new());}>"Clear filters"</button></Show></div></Show>
-        <Show when=move||state.project.get()!=0><div node_ref=reveal_root class="board api-board" aria-label="Ticket board" aria-busy=move||(state.busy.get() || state.refreshing.get()).to_string()>{Status::ALL.into_iter().map(|s|view!{
+        <Show when=move||state.project.get()!=0><div node_ref=reveal_root class="board api-board" data-moving=move||state.dragged.get().is_some().to_string() data-busy=move||(state.busy.get() || state.loading.get()).to_string() aria-label="Ticket board" aria-busy=move||(state.busy.get() || state.refreshing.get()).to_string()>{Status::ALL.into_iter().map(|s|view!{
             <Show when=move|| state.columns.visible.get().contains(&s)>
-            <section class="board-column" aria-label=s.name() on:dragover=move|e|e.prevent_default() on:drop=move|e|{e.prevent_default();if let Some(ticket)=state.dragged.get_untracked(){state.move_to(ticket,s,None);}}>
+            <section class="board-column" aria-label=s.name()>
             <div class="column-heading"><StatusIcon status=s/><h2>{s.name()}</h2><span class="count">{move||state.column(s,true).len()}</span><button class="icon-button" aria-label=format!("Add ticket to {}",s.name()) disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/></button></div>
-            <div class="column-cards"><For each=move||state.column(s,true) key=|t| (id(t),format!("{t:?}")) children=move|ticket|view!{<ApiCard ticket/>}/></div><button class="add-card" disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/>"New ticket"</button></section>
+            <div class="column-cards" data-status=s.name() data-order=move||if state.manual(s){"manual"}else{"sorted"}><For each=move||state.column(s,true) key=|t| (id(t),format!("{t:?}")) children=move|ticket|view!{<ApiCard ticket/>}/></div><button class="add-card" disabled=move||state.busy.get() || state.project.get()==0 || state.loading.get() || state.dragged.get().is_some() on:click=move|_|state.composer.set(Some(s))><Icon name="plus"/>"New ticket"</button></section>
             </Show>
         }).collect_view()}</div></Show>
         <div class="view-footer" id="board-keys"><span hidden=move||state.loading.get()>{move||crate::count::count_label(state.tickets.get().iter().filter(|t|state.visible(t) && state.columns.visible.get().contains(&status(t))).count(), "ticket")}</span><span>"Space: pick up / drop · Arrows: move · Esc: cancel"</span></div>
@@ -808,16 +918,9 @@ fn ApiCard(ticket: BoardTicket) -> impl IntoView {
         let href = href.clone();
         move |_| navigate(&href, Default::default())
     });
-    // Keep the drag latch until the next pointer gesture: dragend clears board state,
-    // but must not turn a trailing click into navigation. TIK-51 can replace this
-    // alongside the drag implementation without a pointer-distance state machine.
-    let was_dragged = RwSignal::new(false);
-    view! {<article id=format!("ticket-{ticket_id}") class="ticket-card api-ticket" data-motion-key=format!("ticket-{ticket_id}") tabindex="0" aria-label=format!("{key}: {}",ticket.title.clone()) aria-describedby="board-keys" class:drag-over=move||state.dragged.get()==Some(ticket_id) draggable=move||(!state.busy.get()).to_string()
-        on:pointerdown=move|_|was_dragged.set(false)
-        on:click=move|e|{if !was_dragged.get_untracked() && state.dragged.get_untracked().is_none() && !ticket_interactive_target(e.target()){open.run(());}}
-        on:keydown=move|e|{if e.key()=="Enter" && !ticket_interactive_target(e.target()) && state.dragged.get_untracked().is_none(){e.prevent_default();open.run(());}else{state.keyboard(ticket_id,e);}}
-        on:dragstart=move|e|{was_dragged.set(true);state.pickup(ticket_id);if let Some(data)=e.data_transfer(){let _=data.set_data("text/plain",&ticket_id.to_string());}} on:dragend=move|_|state.cancel()
-        on:dragover=move|e|{e.prevent_default();e.stop_propagation();} on:drop=move|e|{e.prevent_default();e.stop_propagation();if let Some(moving)=state.dragged.get_untracked() && moving!=ticket_id{state.move_to(moving,s,Some(ticket_id));}}>
+    view! {<article id=format!("ticket-{ticket_id}") class="ticket-card api-ticket" data-ticket-id=ticket_id data-motion-key=format!("ticket-{ticket_id}") tabindex="0" aria-label=format!("{key}: {}",ticket.title.clone()) aria-describedby="board-keys" class:drag-over=move||state.dragged.get()==Some(ticket_id)
+        on:click=move|e|{if state.dragged.get_untracked().is_none() && !ticket_interactive_target(e.target()){open.run(());}}
+        on:keydown=move|e|{if e.key()=="Enter" && !ticket_interactive_target(e.target()) && state.dragged.get_untracked().is_none(){e.prevent_default();open.run(());}else{state.keyboard(ticket_id,e);}}>
         <div class="card-top"><span class="mono ticket-id">{key.clone()}</span><span class="card-indicators">{move||{let blockers=blocked();(!blockers.is_empty()).then(||view!{<BlockedIndicator blockers/>})}}<span title=priority.name()><PriorityIcon priority/></span>
             <span class="card-status" title=s.name()><SelectField label=format!("Move {key} to status") value=Signal::derive(move||s.name().to_string()) options=Signal::derive(move||Status::ALL.into_iter().map(SelectOption::status).collect()) on_change=Callback::new(move|next:String|state.move_to(ticket_id,Status::from_name(&next),None)) disabled=Signal::derive(move||state.busy.get() || state.dragged.get().is_some())/></span>
         </span></div><a class="card-title" href=href title=ticket.title.clone()>{ticket.title.clone()}</a>
