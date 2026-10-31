@@ -6,8 +6,9 @@ track and do work across all projects.
 - Backend: Rust on Cloudflare Workers (`workers-rs`) with D1.
 - Frontend: Rust (see `docs/adr/` for the framework decision).
 - Dogfooding: Tickets tracks its own work in Tickets; see `docs/DOGFOOD.md`.
+- Infrastructure: [Cloudflare configuration and drift checks](docs/INFRA.md).
 - v1 verification evidence: `docs/V1-VERIFICATION.md`.
-- Production target: `tickets.worldwidewebb.co` (Cloudflare Workers, free tier).
+- Production target: `tickets.worldwidewebb.co` (Cloudflare Workers Paid).
   Merges to `main` deploy automatically to https://tickets.worldwidewebb.co (behind login).
 
 Features: projects (linked to GitHub Projects), tickets with dependencies (blocks / blocked-by,

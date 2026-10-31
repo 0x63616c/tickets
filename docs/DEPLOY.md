@@ -50,15 +50,15 @@ cargo xtask build
 wrangler deploy --dry-run --env production --outdir /tmp/tickets-dry
 ```
 
-## Live updates (#16)
+## Live updates
 
-The Worker does not yet export a Durable Object class, so no active DO binding or
-class migration is configured. In #16, export the Rust class, add its binding under
-`env.production.durable_objects.bindings` (and the local binding for development),
-and introduce a uniquely tagged `[[env.production.migrations]]` entry using
-`new_sqlite_classes = ["<exported class name>"]`. Use SQLite storage and WebSocket
-hibernation to stay within Free allowances; do not use `new_classes` for the legacy
-key-value backend. This is separate from D1 SQL migrations.
+The Worker exports `BoardRoom`, bound as `BOARD_ROOMS` locally and in production.
+The `v1-board-room` Wrangler migration creates its SQLite namespace; it uses
+hibernating WebSockets for live updates. These class migrations are separate
+from D1 SQL migrations.
+
+See [Cloudflare infrastructure](INFRA.md) for the complete ownership audit,
+Workers Logs configuration, drift checks, API permissions and manual settings.
 
 ## Free-tier limits worth knowing
 
