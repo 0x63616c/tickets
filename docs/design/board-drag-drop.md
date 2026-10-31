@@ -58,24 +58,3 @@ reordering and accept cross-column status moves without changing manual ranks.
 Their pointer target is the column, not an apparent manual insertion position.
 The policy must govern pointer, keyboard and status-menu moves alike. Do not
 silently switch a sorted column back to manual order when dropping a card.
-
-## Pointer tracking and origin slot (TIK-92)
-
-The fallback preview is appended to `body`. Disable its transform transition at
-that scope: the ordinary card press transition otherwise interpolates Sortable's
-matrix updates. Sortable reads the computed matrix and adds the latest pointer
-delta, so interpolation loses accumulated travel rather than merely lagging.
-The centred page layout, fallback tolerance and pointer offsets are unrelated.
-
-The real card remains Sortable's destination indicator. A separate inert,
-`aria-hidden`, grayscale copy retains the source slot until drop/cancel. Exclude
-that copy from Sortable's draggable selector and remove duplicate IDs and motion
-keys. Remove the copy before restoring the real card and calling Rust. A release
-outside a board column cancels even after the pointer visited a valid column.
-
-`board-check` drives real Chromium mouse/touch input at 1440, 2560 and 390 pixels,
-asserts viewport-relative preview travel within 3px at each step, checks the
-source copy's dimensions/dimming/inertness, and checks tracking after nested
-vertical/horizontal autoscroll. It retains the existing keyboard, ordering,
-click-latch, persistence, rollback and cancellation checks. Review frames and
-geometry live in `docs/screenshots/TIK-92/`.

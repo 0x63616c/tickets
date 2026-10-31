@@ -259,11 +259,7 @@ its sequential isolated API/browser checks; each check still creates fresh D1 st
 - `CHROME_BIN=<headless-chromium> cargo xtask board-check` builds the app, starts
   an isolated local Worker/D1, seeds through the API, and verifies keyboard/mouse
   moves, ordering after reload, filters, pagination, rollback, focus, creation and
-  project isolation. TIK-92 also asserts mouse/touch preview tracking and a fixed,
-  dimmed origin slot, recording frames/geometry under `docs/screenshots/TIK-92/`.
-  `TICKETS_DRAG_BASELINE=1 TICKETS_SKIP_BUILD=1` records the same gesture against
-  existing unchanged baseline assets without asserting the repaired behavior.
-  Screenshots are written to `docs/screenshots/kanban/` at
+  project isolation. Screenshots are written to `docs/screenshots/kanban/` at
   1440×900 and 390×900. `board-before` captures the previous real `/` route on a
   running local Worker at port 8787 before changing frontend assets.
 

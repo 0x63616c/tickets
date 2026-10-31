@@ -102,20 +102,10 @@ export function watch_popup(trigger, panel) {
 export function install_board_drag(root, Sortable, start, finish) {
   const instances = new Map();
   let origin = null, active = false, canceled = false, suppressClick = false;
-  const decorative = el => {
-    el.inert = true;
-    el.setAttribute('aria-hidden', 'true');
-    for (const node of [el, ...el.querySelectorAll('[id], [data-motion-key], [data-ticket-id]')]) {
-      node.removeAttribute('id');
-      node.removeAttribute('data-motion-key');
-      node.removeAttribute('data-ticket-id');
-    }
-  };
   const reduced = () => document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches;
   const manual = list => list.dataset.order !== 'sorted';
   const blocked = () => root.dataset.busy === 'true' || root.dataset.moving === 'true';
   const restore = () => {
-    origin?.placeholder?.remove();
     if (origin?.parent.isConnected) origin.parent.insertBefore(origin.item, origin.next);
   };
   const end = event => {
@@ -163,20 +153,15 @@ export function install_board_drag(root, Sortable, start, finish) {
           active = true;
           suppressClick = true;
           root.dataset.pointerDrag = 'true';
-          // Keep a separate source slot: Sortable moves the real item to show
-          // the destination indicator, then we restore it before Rust updates.
-          const placeholder = event.item.cloneNode(true);
-          placeholder.classList.remove('api-ticket', 'board-drag-chosen', 'board-drop-placeholder', 'drag-over');
-          placeholder.classList.add('board-origin-placeholder');
-          placeholder.style.cssText = '';
-          decorative(placeholder);
-          origin.placeholder = placeholder;
-          origin.parent.insertBefore(placeholder, event.item);
           // Clones are decorative: no duplicate focus stops or accessible IDs.
           const preview = document.querySelector('.board-drag-preview');
           if (preview) {
-            decorative(preview);
+            preview.inert = true;
             preview.style.opacity = '1';
+            preview.setAttribute('aria-hidden', 'true');
+            preview.removeAttribute('id');
+            preview.removeAttribute('data-motion-key');
+            preview.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
           }
           for (const el of root.querySelectorAll('.api-ticket')) el.getAnimations().forEach(animation => animation.cancel());
           start(Number(event.item.dataset.ticketId));
@@ -212,13 +197,6 @@ export function install_board_drag(root, Sortable, start, finish) {
     if (event.key === 'Escape') { event.preventDefault(); cancel(); }
     event.stopImmediatePropagation();
   };
-  const release = event => {
-    if (!active) return;
-    const point = event.changedTouches?.[0] || event;
-    if (typeof point.clientX !== 'number') return;
-    const column = document.elementFromPoint(point.clientX, point.clientY)?.closest('.board-column');
-    if (!column || !root.contains(column)) canceled = true;
-  };
   const interrupted = event => { if (event.type !== 'visibilitychange' || document.hidden) cancel(); };
   const observer = new MutationObserver(sync);
   observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-order'] });
@@ -229,7 +207,6 @@ export function install_board_drag(root, Sortable, start, finish) {
   const media = matchMedia('(prefers-reduced-motion: reduce)');
   const motion = () => { for (const instance of instances.values()) instance.option('animation', reduced() ? 0 : parseFloat(getComputedStyle(root).getPropertyValue('--duration-move'))); };
   media.addEventListener('change', motion);
-  for (const type of ['pointerup', 'mouseup', 'touchend']) document.addEventListener(type, release, true);
   window.addEventListener('click', click, true);
   document.addEventListener('pointerdown', pointer, true);
   document.addEventListener('keydown', key, true);
@@ -241,7 +218,6 @@ export function install_board_drag(root, Sortable, start, finish) {
   return () => {
     observer.disconnect(); preference.disconnect();
     media.removeEventListener('change', motion);
-    for (const type of ['pointerup', 'mouseup', 'touchend']) document.removeEventListener(type, release, true);
     window.removeEventListener('click', click, true);
     document.removeEventListener('pointerdown', pointer, true);
     document.removeEventListener('keydown', key, true);
