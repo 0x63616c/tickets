@@ -881,17 +881,26 @@ of browser checks. Run the private copy from the workspace root; do not set a
 separate `CARGO_TARGET_DIR`. Verify the copy contains the issue's new task/check
 before relying on its results.
 
-## Startup splash (TIK-84, TIK-87, TIK-89)
+## Startup splash (TIK-84, TIK-87, TIK-89, TIK-91)
 
-`index.html` paints a full-screen ASCII Stub before the app mounts. Its small
+`index.html` paints a full-screen ASCII Stub before the app mounts.
+First paint (TIK-91): `style/tokens.css` and `style/splash.css` are inlined into
+`index.html` (`<link data-trunk rel="inline" type="css">`), and the app
+stylesheets are linked at the end of `<body>`, after the splash markup and its
+inline script. The browser can paint the splash before any external CSS, font,
+JS or wasm arrives, and the same element animates and tears off once the app is
+ready, so it never jumps in size or position. Keep the splash self-contained:
+it carries its own `.sr-only` rule and must not depend on app stylesheets. Its small
 inline canvas sampler uses the favicon's evenodd path, including notches and
 perforations, with fixed monospace cells: `--stub-edge` (#a78bfa) for a continuous
 one-cell purple contour (including notches and holes), `--stub-ink` for the body.
 Filled cells have at least 50% coverage; a filled cell with an empty four-neighbour
 is an edge. The sampled grid is rebuilt only on resize, never for motion.
-The mark enters over 550ms with an ease-out fade and 12px rise. CSS keeps the
+The mark is the loading state: fully visible in the first paint, with no entry
+fade or rise (TIK-91). It fits min(35.2% viewport width, 72% height), 80% of the
+TIK-89 size. CSS keeps the
 float on the compositor: vertical ±9px / 2.2s, horizontal ±6px / 3.4s and
-rotation ±1.6° / 3.8s (`.boot-mark` entry, `.boot-sway`, `.boot-grid` bob/tilt).
+rotation ±1.6° / 3.8s (`.boot-sway`, `.boot-grid` bob/tilt).
 Each of two full-grid piece wrappers has stacked edge/body `<pre>` layers with
 identical 0.6em advance and 1.2 line height; spaces register the pieces seamlessly.
 The purple contour is built once. Body Text.data updates at 30fps on rAF using

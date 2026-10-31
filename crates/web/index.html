@@ -33,16 +33,10 @@
   <link data-trunk rel="copy-dir" href="fonts">
   <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/Geist.woff2">
   <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/GeistMono.woff2">
-  <link data-trunk rel="css" href="style/tokens.css">
-  <link data-trunk rel="css" href="style/splash.css">
-  <link data-trunk rel="css" href="style.css">
-  <link data-trunk rel="css" href="style/foundation.css">
-  <link data-trunk rel="css" href="style/settings.css">
-  <link data-trunk rel="css" href="style/appearance.css">
-  <link data-trunk rel="css" href="style/home.css">
-  <link data-trunk rel="css" href="style/analytics.css">
-  <link data-trunk rel="css" href="style/mission.css">
-  <link data-trunk rel="css" href="style/palette.css">
+  <!-- TIK-91: tokens and splash are inlined so the ASCII Stub is in the first paint;
+       app stylesheets load after the splash (end of body) so they never delay it. -->
+  <link data-trunk rel="inline" type="css" href="style/tokens.css">
+  <link data-trunk rel="inline" type="css" href="style/splash.css">
 </head>
 <body>
   <div id="boot-splash">
@@ -164,9 +158,10 @@
         splash.style.setProperty("--boot-columns", columns);
         splash.style.setProperty("--boot-rows", rows);
         // Fixed 0.6em cell advance / 1.2em line height prevents font-swap reflow.
+        // TIK-91: 80% of the TIK-89 size (44% width / 90% height of the viewport).
         const fontSize = parseFloat(getComputedStyle(art).fontSize);
         splash.style.setProperty("--boot-scale",
-          Math.min(innerWidth * 0.44, innerHeight * 0.9) / (columns * fontSize * 0.6));
+          Math.min(innerWidth * 0.352, innerHeight * 0.72) / (columns * fontSize * 0.6));
       }
       // Reuse cell buffers; two body strings/Text.data writes per glyph frame.
       // The contour is written once, except for the short tear-line fray.
@@ -261,11 +256,18 @@
         window.addEventListener("resize", resize);
         document.addEventListener("visibilitychange", visibility);
         frame = requestAnimationFrame(tick);
-        // Float and fades are CSS on the compositor, so they keep moving while wasm compiles.
-        requestAnimationFrame(() => requestAnimationFrame(() => splash.classList.add("boot-in")));
+        // Float and fades are CSS on the compositor, so they keep moving while wasm compiles; the mark needs no entry class (TIK-91).
       } catch (_) { remove(); } // Unsupported canvas must never cover the app.
     })();
   </script>
+  <link data-trunk rel="css" href="style.css">
+  <link data-trunk rel="css" href="style/foundation.css">
+  <link data-trunk rel="css" href="style/settings.css">
+  <link data-trunk rel="css" href="style/appearance.css">
+  <link data-trunk rel="css" href="style/home.css">
+  <link data-trunk rel="css" href="style/analytics.css">
+  <link data-trunk rel="css" href="style/mission.css">
+  <link data-trunk rel="css" href="style/palette.css">
   <noscript><style>#boot-splash { display: none; }</style>Enable JavaScript to use Tickets.</noscript>
 </body>
 </html>
