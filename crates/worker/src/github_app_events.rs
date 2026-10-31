@@ -130,12 +130,3 @@ pub async fn save_ci<S: Store>(db: &S, repo: &str, suite: &Value) -> Result<()> 
     let _:Vec<Value>=db.query("INSERT INTO github_pull_request_checks(repo,number,head_sha,ci_status,ci_updated_at) SELECT ?,number,?,?,? FROM (SELECT json_extract(value,'$.number') AS number FROM json_each(?) WHERE json_extract(value,'$.number')>0 UNION SELECT number FROM github_pull_request_events WHERE repo=? AND head_sha=?) WHERE true ON CONFLICT(repo,number,head_sha) DO UPDATE SET ci_status=excluded.ci_status,ci_updated_at=excluded.ci_updated_at,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE excluded.ci_updated_at>coalesce(github_pull_request_checks.ci_updated_at,'')",vec![json!(repo),json!(sha),suite["conclusion"].clone(),json!(updated),json!(suite["pull_requests"].to_string()),json!(repo),json!(sha)]).await?;
     Ok(())
 }
-
-/// A completed suite can affect only links to this repository's current head.
-/// Unlinked and stale-head suites must not invalidate every open board.
-pub async fn ci_tickets<S: Store>(db: &S, repo: &str, sha: &str) -> Result<Vec<Value>> {
-    db.query(
-        "SELECT DISTINCT t.id,t.project_id FROM ticket_pull_requests pr JOIN tickets t ON t.id=pr.ticket_id WHERE pr.repo=? AND pr.head_sha=?",
-        vec![json!(repo),json!(sha)],
-    ).await
-}

@@ -69,22 +69,18 @@ pub async fn upgrade(req: Request, env: &Env, db: &D1Database, project: i64) -> 
         .await
 }
 
-pub async fn notify(env: &Env, db: &D1Database, change: crate::api::CommittedChange) -> Result<()> {
-    use crate::repository::Store;
+pub async fn notify(env: &Env, change: crate::api::CommittedChange) -> Result<()> {
     let crate::api::CommittedChange {
         entity,
         id,
         action,
         mut projects,
     } = change;
-    // Labels are global. Invalidate every project, including currently empty boards.
-    if projects.is_empty() || entity == "projects" {
-        projects = Store::query::<serde_json::Value>(db, "SELECT id FROM projects", vec![])
-            .await
-            .map_err(|_| Error::RustError("Project lookup failed".into()))?
-            .into_iter()
-            .filter_map(|p| p["id"].as_i64())
-            .collect();
+    // An empty scope means no affected rooms, never a workspace broadcast.
+    projects.sort_unstable();
+    projects.dedup();
+    if projects.is_empty() {
+        return Ok(());
     }
     let namespace = env.durable_object("BOARD_ROOMS")?;
     for project_id in projects {

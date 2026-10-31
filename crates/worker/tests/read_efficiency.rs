@@ -107,7 +107,7 @@ fn old_writer_relationship_and_history_changes_advance_version() {
 }
 
 #[test]
-fn ci_invalidations_are_limited_to_linked_current_heads() {
+fn ci_versions_are_limited_to_linked_current_heads() {
     block_on(async {
         let db = Sqlite::new();
         let version = || {
@@ -122,12 +122,6 @@ fn ci_invalidations_are_limited_to_linked_current_heads() {
         let before = version();
         db.0.execute_batch("INSERT INTO github_pull_request_checks(repo,number,head_sha,ci_status) VALUES('example/repo',1,'old','success');").unwrap();
         assert_eq!(version(), before, "unlinked CI must not invalidate lists");
-        assert!(
-            tickets_worker::github_app_events::ci_tickets(&db, "example/repo", "old")
-                .await
-                .unwrap()
-                .is_empty()
-        );
         db.0.execute_batch("INSERT INTO ticket_pull_requests(ticket_id,repo,number,url,title,state,closes,head_sha,updated_at) VALUES(1,'example/repo',1,'https://example.test/pr/1','Example','open',1,'current','2026-10-30T00:00:00.000Z');").unwrap();
         let linked = version();
         db.0.execute_batch(
@@ -141,21 +135,21 @@ fn ci_invalidations_are_limited_to_linked_current_heads() {
         );
         db.0.execute_batch("INSERT INTO github_pull_request_checks(repo,number,head_sha,ci_status) VALUES('example/repo',1,'current','success');").unwrap();
         assert!(version() > linked);
-        let tickets = tickets_worker::github_app_events::ci_tickets(&db, "example/repo", "current")
-            .await
-            .unwrap();
-        assert_eq!(
-            tickets,
-            json!([{"id":1,"project_id":1}])
-                .as_array()
-                .unwrap()
-                .to_vec()
-        );
-        assert!(
-            tickets_worker::github_app_events::ci_tickets(&db, "other/repo", "current")
-                .await
-                .unwrap()
-                .is_empty()
-        );
     });
+}
+
+#[test]
+fn project_activity_range_uses_project_updated_index_without_sorting() {
+    let db = Sqlite::new();
+    let mut statement = db.0.prepare("EXPLAIN QUERY PLAN SELECT id FROM tickets WHERE project_id=? AND updated_at>=? ORDER BY updated_at").unwrap();
+    let plan = statement
+        .query_map(rusqlite::params![1, "2026-01-01"], |row| {
+            row.get::<_, String>(3)
+        })
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap()
+        .join("\n");
+    assert!(plan.contains("tickets_project_updated_at"), "{plan}");
+    assert!(!plan.contains("TEMP B-TREE"), "{plan}");
 }

@@ -100,6 +100,9 @@ impl Browser {
         Ok(result["result"]["value"].clone())
     }
     pub(crate) fn wait(&mut self, expression: &str) -> Result<()> {
+        self.wait_for(expression, Duration::from_secs(15))
+    }
+    pub(crate) fn wait_for(&mut self, expression: &str, timeout: Duration) -> Result<()> {
         let start = Instant::now();
         loop {
             match self.eval(expression) {
@@ -118,7 +121,7 @@ impl Browser {
                         .any(|message| error.to_string().contains(message)) => {}
                 Err(error) => return Err(error),
             }
-            if start.elapsed() > Duration::from_secs(15) {
+            if start.elapsed() > timeout {
                 let _ = self.screenshot(Path::new("target/browser-failure.png"));
                 let context=self.eval("({url:location.href,title:document.title,body:document.body.innerText.slice(0,1200)})").unwrap_or_default();
                 return Err(format!("Timed out: {expression}; {context}").into());
@@ -570,25 +573,26 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent==='Blocked by TKT-1: Remember filters when switching views')")?;
     b.key("Escape", 27, 0)?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].every(e=>e.hidden)")?;
-    // Server writes invalidate the mounted board; never reload to clear a blocker.
+    // Server writes reconcile after a 5s batch and up to a 30s tab cooldown.
+    // Allow that window only for live assertions, never reload to clear blockers.
     b.eval(r#"(async()=>{await fetch('/api/v1/tickets/3/dependencies/2',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});return true})()"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.eval("document.querySelector('#ticket-2 .blocked-indicator').focus();true")?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent.includes('TKT-1: Remember filters') && e.textContent.includes('TKT-3: Move tickets between board columns'))")?;
     b.key("Escape", 27, 0)?;
     b.eval(r#"fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'done'})}).then(r=>r.ok)"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-3'", Duration::from_secs(40))?;
     b.eval(r#"fetch('/api/v1/tickets/3',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceled'})}).then(r=>r.ok)"#)?;
-    b.wait("!document.querySelector('#ticket-2 .blocked-indicator') && document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='Todo'")?;
+    b.wait_for("!document.querySelector('#ticket-2 .blocked-indicator') && document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='Todo'", Duration::from_secs(40))?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'backlog'],[3,'in_progress']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});return true})()"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
-    b.wait("document.querySelector('#list-ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#list-ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.eval("document.querySelector('#list-ticket-2 .blocked-indicator').focus();true")?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent.includes('TKT-1: Remember filters') && e.textContent.includes('TKT-3: Move tickets'))")?;
     b.key("Escape", 27, 0)?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'done'],[3,'canceled']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});return true})()"#)?;
-    b.wait("!document.querySelector('#list-ticket-2 .blocked-indicator') && document.querySelector('#list-ticket-2').closest('section').getAttribute('aria-label')==='Todo'")?;
+    b.wait_for("!document.querySelector('#list-ticket-2 .blocked-indicator') && document.querySelector('#list-ticket-2').closest('section').getAttribute('aria-label')==='Todo'", Duration::from_secs(40))?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'backlog'],[3,'in_progress']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});await fetch('/api/v1/tickets/3/dependencies/2',{method:'DELETE'});return true})()"#)?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1' && document.querySelectorAll('.ticket-card').length===7")?;
@@ -1465,6 +1469,11 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("window.fetch=window.savedFetch;true")?;
     b.go("http://127.0.0.1:8795/t/UNKNOWN-999999")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found') && [...document.querySelectorAll('button')].some(b=>b.textContent==='Edit ticket' && b.disabled)")?;
+    // Dispose the previous page's live reads before expiring authentication.
+    // Otherwise its late 401 can redirect back to the not-found route while
+    // this independent logged-out navigation is being checked.
+    b.call("Page.navigate", json!({"url":"about:blank"}))?;
+    b.wait("location.href==='about:blank'")?;
     b.call("Network.clearBrowserCookies", json!({}))?;
     b.go("http://127.0.0.1:8795/t/qua-87")?;
     b.wait("location.pathname==='/login' && new URLSearchParams(location.search).get('next')==='/t/qua-87'")?;

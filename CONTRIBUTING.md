@@ -399,6 +399,17 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
   session upgrades require matching Origin. Each project uses one `BoardRoom` keyed
   by its numeric ID, with SQLite migrations and hibernating WebSockets. Never poll
   from an alarm or retain socket lists in object memory.
+- Notify only affected project rooms; an empty scope never means broadcast.
+  PR scope comes from the atomic mutation snapshot (old/new links and dependency
+  neighbors); resolve label membership before deletion. Claim heartbeats and
+  CI-only check updates store history/metadata without sending live notices.
+- Automatic live reconciliation batches notices for 5 seconds and runs at most
+  once per 30 seconds per tab. Keep pending events through cooldown, hidden tabs
+  and edits; manual refresh and local writes remain immediate. Live browser checks
+  allow 40 seconds for a cooldown plus reconciliation.
+- Mission Control polls every 3 minutes while visible; focus/manual refresh remain
+  available. Home analytics and project counts retain the private 60-second edge
+  cache keyed by workspace version; writes invalidate it early.
 - Change events are typed invalidations, not ordered patches. D1 remains authoritative.
   Reconcile duplicate/own events and refetch after every reconnect. Defer incoming
   reconciliation during local board moves and detail writes/edits.
