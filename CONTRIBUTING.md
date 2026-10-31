@@ -901,17 +901,28 @@ Euclidean distance from its boundary, including notches and perforations. Sampli
 distances and cell phases are precomputed on resize. The dense `$`/`@` interior
 stays still; only a 2.6-cell boundary band shimmers. A uses ` .~+=x*%o@$`, white
 `--stub-ink` fill and a dim blue-grey `--stub-ring` (#718b9e) contour. Query-only
-`splash-look=A|B|C|D` studies share one renderer (default A).
+`splash-look=A|B|C|D|E` studies share one renderer (default A).
 Calum picked A; D is a limited-palette refinement pending his approval.
 D uses exactly ` ·=%@$` (light to dense), with `·=` fray; its two-tone tokens,
 speed, amplitude, geometry and lifecycle match A. A/B/C remain unchanged.
+E is pending Calum's approval; its procedural shading and fixed 31ms glyph cadence
+are inspired by [Ghostty's MIT-licensed website](https://github.com/ghostty-org/website)
+(no copied frames or art).
+It uses `$ @ = + * x % · o ~` plus space: a dense pale body and separate blue
+contour, with tone-local quantile shading matched to the measured glyph weights.
+The contour contains 20.79% of visible cells; `--stub-ghostty-ring` (#3551f3) and
+`--stub-ghostty-ink` (#c3c3c4) match Ghostty's dark-site tones. Only E insets the
+favicon field to leave air for the ring inside the same overall size. It steps
+on a 31ms accumulator (HomeContent overrides Ghostty's nominal 30fps default).
+The CSS float, spacing, tear, readiness, skips and reduced-motion contract stay
+shared; E fray uses only `·~ox`.
 B uses the same ramp in one white tone with a subtle travelling edge wave;
 C uses ` .,:;~-=+!x*%&oO8#@$` with more levels and slower shimmer.
 A/B/C use speed multipliers .85/.65/.38 and amplitudes .12/.09/.10.
 All layers use the self-contained `--font-stub` system monospace stack, measured
 cell advance and a shared compact line box (roughly .6:1 cells). Grid geometry
 preserves the favicon's 24:16 aspect, without font swaps or layer misregistration.
-The field advances on every rAF with elapsed time, a 110ms exponential smoothing
+For A–D, the field advances on every rAF with elapsed time, a 110ms exponential smoothing
 time constant and a .18-level hysteresis dead band beyond half-level thresholds.
 Reusable buffers update four existing Text nodes only when their strings change;
 there is no per-frame DOM construction or random scramble. Hidden tabs suspend

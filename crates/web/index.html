@@ -70,18 +70,26 @@
       };
       let readyAt = null;
       let frame = 0;
-      // Query-only visual studies; D awaits Calum's approval, A remains the default.
+      // Query-only visual studies; D/E await Calum's approval, A remains the default.
       const variants = {
         A: { ramp: " .~+=x*%o@$", speed: 0.85, amplitude: 0.12, wave: false, mono: false },
         B: { ramp: " .~+=x*%o@$", speed: 0.65, amplitude: 0.09, wave: true, mono: true },
         C: { ramp: " .,:;~-=+!x*%&oO8#@$", speed: 0.38, amplitude: 0.10, wave: false, mono: false },
         D: { ramp: " ·=%@$", fray: "·=", speed: 0.85, amplitude: 0.12, wave: false, mono: false },
+        // Measured tone-local weights from Ghostty's MIT site, not its art/frames.
+        E: { ramp: " ·~ox%*+=@$", fray: "·~ox", speed: 1, amplitude: 0.8,
+          wave: false, mono: false, frameMs: 31,
+          bodyWeights: [2313, 2707, 2709, 2712, 2750, 2880, 3626, 5981, 47878, 244478],
+          ringWeights: [960, 883, 2020, 6795, 3386, 12872, 24262, 32238, 40] },
       };
       const selectedLook = new URLSearchParams(location.search).get("splash-look");
       const look = Object.hasOwn(variants, selectedLook) ? variants[selectedLook] : variants.A;
       const frayRamp = look.fray ?? "·~,";
       splash.classList.toggle("boot-mono", look.mono);
+      splash.classList.toggle("boot-ghostty", !!look.frameMs);
       let fieldTime = 0;
+      let accumulator = 0;
+      let toneCells = [];
       let fieldFrame = null;
       let firstPaint = null;
       let exiting = false;
@@ -133,6 +141,12 @@
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) throw new Error("Canvas unavailable");
         ctx.scale(canvas.width / 24, canvas.height / 16);
+        if (look.frameMs) {
+          // Leave air between the pale favicon and its separate blue contour.
+          ctx.translate(12, 8);
+          ctx.scale(0.82, 0.82);
+          ctx.translate(-12, -8);
+        }
         ctx.translate(-4, -8);
         // crates/web/icons/favicon.svg, including its three evenodd perforations.
         const stub = new Path2D("M6.5 8H25.5A2.5 2.5 0 0 1 28 10.5V13A3 3 0 0 0 28 19V21.5A2.5 2.5 0 0 1 25.5 24H6.5A2.5 2.5 0 0 1 4 21.5V19A3 3 0 0 0 4 13V10.5A2.5 2.5 0 0 1 6.5 8ZM19 11h2v2h-2ZM19 15h2v2h-2ZM19 19h2v2h-2Z");
@@ -170,23 +184,57 @@
             x + dx < 0 || x + dx >= columns || y + dy < 0 || y + dy >= rows ||
             !filled[(y + dy) * columns + x + dx])) boundary.push([x, y]);
         });
-        coverage.forEach((value, i) => {
-          if (value < 0.08) return;
+        const distances = coverage.map((_, i) => {
           const x = i % columns, y = Math.floor(i / columns);
           let distance = Infinity;
           for (const [bx, by] of boundary) {
             distance = Math.min(distance, Math.hypot((x - bx) * aspect, y - by));
           }
-          const edge = distance < 0.65;
+          return distance;
+        });
+        // Flood only exterior air: perforations belong to the pale body, not the ring.
+        const exterior = new Set();
+        if (look.frameMs) {
+          const queue = [];
+          for (let i = 0; i < filled.length; i++) {
+            if (!filled[i] && (i < columns || i >= filled.length - columns ||
+                i % columns === 0 || i % columns === columns - 1)) {
+              exterior.add(i); queue.push(i);
+            }
+          }
+          for (let j = 0; j < queue.length; j++) {
+            const i = queue[j], x = i % columns, y = Math.floor(i / columns);
+            for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+              const nx = x + dx, ny = y + dy, next = ny * columns + nx;
+              if (nx >= 0 && nx < columns && ny >= 0 && ny < rows &&
+                  !filled[next] && !exterior.has(next)) {
+                exterior.add(next); queue.push(next);
+              }
+            }
+          }
+        }
+        const bodyCount = coverage.filter(value => value >= 0.08).length;
+        const ring = new Set(look.frameMs ? [...exterior]
+          .filter(i => coverage[i] < 0.08 && distances[i] > 0.65)
+          .sort((a, b) => Math.abs(distances[a] - 1.55) - Math.abs(distances[b] - 1.55))
+          .slice(0, Math.round(bodyCount * 0.2078657 / (1 - 0.2078657))) : []);
+        toneCells = [[], []];
+        coverage.forEach((value, i) => {
+          if (value < 0.08 && !ring.has(i)) return;
+          const x = i % columns, y = Math.floor(i / columns);
+          const distance = distances[i];
+          const edge = look.frameMs ? ring.has(i) : distance < 0.65;
           const base = edge ? 0.28 + value * 0.12 + 0.10 * Math.sin(x * 0.19 + y * 0.31) :
             Math.min(1, 0.52 + distance * 0.19);
           const piece = pieces[x < split ? 0 : 1];
           const index = y * (columns + 1) + x;
           const level = Math.round(base * (look.ramp.length - 1));
-          piece.cells.push({ index, edge, seam: x === split - 1 || x === split,
+          const cell = { index, edge, distance, x, y, score: 0, glyph: " ", seam: x === split - 1 || x === split,
             base, influence: Math.max(0, 1 - distance / 2.6), density: base, level,
             a: x * 0.19 + y * 0.31, b: x * 0.11 - y * 0.23,
-            phase: (y * 7 + x * 3) % 11 });
+            phase: (y * 7 + x * 3) % 11 };
+          piece.cells.push(cell);
+          if (look.frameMs) toneCells[edge ? 1 : 0].push(cell);
         });
         splash.style.setProperty("--boot-columns", columns);
         splash.style.setProperty("--boot-rows", rows);
@@ -195,11 +243,43 @@
         splash.style.setProperty("--boot-scale",
           Math.min(innerWidth * 0.352, innerHeight * 0.72) / (columns * advance));
       }
+      function sampleGhostty() {
+        // Quantile shading gives a dense stable $ core, an @ rim and thin gradients.
+        // Only scalar fields move; no random scramble or stored animation frames.
+        toneCells.forEach((cells, tone) => {
+          const weights = tone ? look.ringWeights : look.bodyWeights;
+          const glyphs = tone ? "·~ox%*+=$" : "o~x+=*%·@$";
+          for (const cell of cells) {
+            const wave = Math.sin(cell.a - fieldTime * 12) * 0.65 +
+              Math.sin(cell.b + fieldTime * 8.76) * 0.35;
+            cell.score = tone ? wave + Math.sin(cell.x * 0.27 + cell.y * 0.43 - fieldTime * 4.5) * 0.3 :
+              cell.distance + wave * look.amplitude * Math.exp(-cell.distance / 2.6);
+          }
+          cells.sort((a, b) => a.score - b.score || a.index - b.index);
+          const total = weights.reduce((sum, weight) => sum + weight, 0);
+          let cumulative = 0, start = 0;
+          weights.forEach((weight, level) => {
+            cumulative += weight;
+            const end = Math.floor(cumulative / total * cells.length);
+            for (let i = start; i < end; i++) cells[i].glyph = glyphs[level];
+            start = end;
+          });
+        });
+      }
       // Four reusable Text nodes; no layout reads or DOM construction per frame.
       function render(now = 0, fray = -1) {
-        const dt = fieldFrame === null ? 0 : Math.min(64, Math.max(0, now - fieldFrame));
+        const dt = fieldFrame === null ? 0 : Math.min(look.frameMs ? Infinity : 64, Math.max(0, now - fieldFrame));
         fieldFrame = now;
-        fieldTime += dt / 1000;
+        if (look.frameMs) {
+          accumulator += dt;
+          if (now !== 0 && accumulator < look.frameMs && fray < 0) return;
+          // Same fixed-step accumulator as Ghostty's homepage (1000 / 31 fps).
+          while (accumulator >= look.frameMs) {
+            fieldTime += look.frameMs / 1000;
+            accumulator -= look.frameMs;
+          }
+          sampleGhostty();
+        } else fieldTime += dt / 1000;
         const t = fieldTime * look.speed;
         const blend = 1 - Math.exp(-dt / 110);
         const maxLevel = look.ramp.length - 1;
@@ -210,6 +290,9 @@
               const dropout = cell.phase > 3 && fray > 0.45 + cell.phase / 20;
               piece.bodyBuffer[i] = " ";
               piece.edgeBuffer[i] = dropout ? " " : frayRamp[(Math.floor(fray * 5) + cell.phase) % frayRamp.length];
+            } else if (look.frameMs) {
+              piece.bodyBuffer[i] = cell.edge ? " " : cell.glyph;
+              piece.edgeBuffer[i] = cell.edge ? cell.glyph : " ";
             } else {
               const wave = cell.influence === 0 ? 0 : look.wave ? Math.sin(cell.a - t * 2) :
                 0.65 * Math.sin(cell.a - t) + 0.35 * Math.sin(cell.b + t * 0.73);
@@ -283,6 +366,7 @@
         frame = requestAnimationFrame(tick);
       }
       function visibility() {
+        accumulator = 0;
         fieldFrame = null; // Hidden time must not jump the living field.
         if (!document.hidden && !removed) frame = requestAnimationFrame(tick);
         else cancelAnimationFrame(frame);

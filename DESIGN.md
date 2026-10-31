@@ -170,3 +170,7 @@ match remaining findings and must never grow. See CONTRIBUTING.md for the ratche
 GitHub-related UI uses `<Icon name="github"/>` (octicons mark-github, MIT).
 The filled mark inherits `currentColor` and shares the 16px icon box; keep
 status indicators separate. Only brand external links whose host is `github.com`.
+
+Splash study E uses `--stub-ghostty-ring` for its separate blue contour and
+`--stub-ghostty-ink` for the pale body, inspired by Ghostty’s MIT site. Both are
+query-only pending approval; the default splash retains its current tokens.

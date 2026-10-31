@@ -83,6 +83,8 @@
 #boot-splash .boot-edge { color: var(--stub-ring); }
 #boot-splash.boot-mono .boot-edge { color: var(--stub-ink); }
 #boot-splash .boot-body { color: var(--stub-ink); }
+#boot-splash.boot-ghostty .boot-edge { color: var(--stub-ghostty-ring); }
+#boot-splash.boot-ghostty .boot-body { color: var(--stub-ghostty-ink); }
 /* Reduced motion: still outlined mark, opacity-only fades. */
 #boot-splash.boot-reduced .boot-grid,
 #boot-splash.boot-reduced .boot-sway { animation: none; translate: none; rotate: none; }
