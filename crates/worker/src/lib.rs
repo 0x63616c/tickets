@@ -98,7 +98,10 @@ pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         Request::new(url.as_str(), req.method())?
     };
     let mut response = env.assets("ASSETS")?.fetch_request(asset_request).await?;
-    if !public {
+    // wasm-bindgen snippet URLs keep the same path across deploys (the hash names the
+    // crate, not the content), so a browser cache can pair a new wasm bundle with an
+    // old snippet and fail to link. Never let browsers keep a copy of them.
+    if !public || path.starts_with("/snippets/") {
         // Binding responses have immutable headers; copy them before setting cache policy.
         let headers = Headers::new();
         for (name, value) in response.headers().entries() {
@@ -129,7 +132,7 @@ pub mod auth_queries;
 // Only build-produced assets are public; unknown paths (even with dots) are gated.
 #[cfg(any(target_arch = "wasm32", test))]
 fn is_public_asset(path: &str) -> bool {
-    // wasm-bindgen emits local modules under a generated snippet directory.
+    // wasm-bindgen emits local modules under a per-crate (not per-build) snippet path.
     // Only the drag adapter basename explicitly contains its source digest.
     // Trunk also preloads retained versions in its wasm-bindgen cache. Permit
     // this digest-named family, not arbitrary nested JavaScript paths.
