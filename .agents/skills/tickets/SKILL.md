@@ -458,3 +458,19 @@ curl -sS -X PUT "$TICKETS_URL/api/v1/mission/reports/skill-check" \
 # expect {"status":200,"body":{"reports":[{"source":"skill-check","stale":false,"report":{"jobs":[],"builds":[]}}]}}
 curl -sS "$TICKETS_URL/api/v1/mission" -H "Authorization: Bearer $TICKETS_TOKEN"
 ```
+
+## Profile photos
+
+Account responses include nullable, versioned `avatar_url`.
+GET `/api/v1/users` returns
+`{data:[{id,username,display_name,avatar_url}]}` for resolving assignees.
+Comment `avatar_url` follows durable user identity; bot/imported authors have none.
+
+GET `/api/v1/users/{id}/avatar` requires authentication and serves image bytes
+with a private revalidating cache and ETag; If-None-Match supports 304.
+
+PUT/POST/DELETE `/api/v1/me/avatar` require a browser session and matching
+Origin. Bearer tokens cannot change profile photos. Upload raw JPEG/PNG/WebP
+with matching Content-Type, at most 512 KiB. Oversized uploads return 413;
+unsupported or mismatched magic bytes return 415. Writes return the updated
+account. DELETE removes the photo and returns `avatar_url:null`.
