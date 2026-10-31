@@ -52,10 +52,16 @@ wrangler deploy --dry-run --env production --outdir /tmp/tickets-dry
 
 ## Live updates
 
-The Worker exports `BoardRoom`, bound as `BOARD_ROOMS` locally and in production.
-The `v1-board-room` Wrangler migration creates its SQLite namespace; it uses
-hibernating WebSockets for live updates. These class migrations are separate
-from D1 SQL migrations.
+The Worker exports the SQLite-backed `BoardRoom` Durable Object. `wrangler.toml`
+binds `BOARD_ROOMS` locally and in production, with the `v1-board-room` class
+migration using `new_sqlite_classes = ["BoardRoom"]`. Wrangler applies this class
+migration on deployment; it is separate from D1 SQL migrations. Rooms use
+hibernating WebSockets and keep D1 as the source of truth. See
+[ARCHITECTURE.md](ARCHITECTURE.md).
+
+Both environments run a cron every minute to sweep expired ticket leases (up to
+25 per tick). There is no GitHub issue reconciliation cron. Tickets uses no KV or
+R2 bindings. Fork provisioning is documented in [SELF-HOSTING.md](SELF-HOSTING.md).
 
 See [Cloudflare infrastructure](INFRA.md) for the complete ownership audit,
 Workers Logs configuration, drift checks, API permissions and manual settings.
@@ -103,3 +109,15 @@ Keep the five-attempts-per-IP-per-15-minutes limiter and constant-time compariso
 See [ADR 0003](adr/0003-auth.md) for the accepted tradeoff against OWASP's 600,000
 recommendation and the offline-guessing risk if a secret leaks. Verify production
 CPU telemetry during an authorized deployment; local wall time is not CPU evidence.
+
+## GitHub integration secrets
+
+The deploy workflow also maps `TICKETS_GITHUB_WEBHOOK_SECRET`,
+`TICKETS_GITHUB_APP_STORE_KEY` and `TICKETS_GITHUB_APP_SETUP_STATE` from the
+production GitHub environment to the corresponding Worker secrets without the
+`TICKETS_` prefix. The webhook secret is only for legacy repository hooks. App
+registration needs a random setup state and a store key (standard base64 of 32
+random bytes); ongoing App operation needs the original store key to decrypt
+credentials in D1. Remove the setup state after registration, including its CI
+source, to disable the callback. See [the App setup contract](API.md#github-app-registration-phase-1)
+and [the self-hosting secret table](SELF-HOSTING.md#5-set-secrets-and-optional-vars).

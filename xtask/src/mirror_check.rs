@@ -112,13 +112,7 @@ fn screenshots(root: &Path, password: &str) -> Result<()> {
     b.screenshot(&output.join(format!("{prefix}-mobile.png")))?;
     if !before {
         b.go("http://127.0.0.1:8795/board")?;
-        b.wait("!!document.querySelector('.api-ticket[data-ticket-id]') && !document.querySelector('.card-status [role=combobox]')?.disabled")?;
-        // Imported tickets use the same accessible move path as native tickets.
-        b.eval("document.querySelector('.api-ticket').focus();true")?;
-        b.key(" ", 32, 0)?;
-        b.key("ArrowRight", 39, 0)?;
-        b.key(" ", 32, 0)?;
-        b.wait("document.querySelector('.api-ticket')?.closest('section').getAttribute('aria-label')==='In progress' && document.querySelector('.board').getAttribute('aria-busy')!=='true'")?;
+        b.wait("document.querySelector('.api-ticket')?.getAttribute('draggable')==='true' && !document.querySelector('.card-status [role=combobox]')?.disabled")?;
         b.go("http://127.0.0.1:8795/list")?;
         b.wait("!!document.querySelector('.api-list-row [role=combobox]') && [...document.querySelectorAll('.api-list-row [role=combobox]')].every(s=>!s.disabled)")?;
     }

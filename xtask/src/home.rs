@@ -231,8 +231,12 @@ pub fn shots(root: &Path) -> super::Result {
     b.screenshot(&output.join("after-analytics-empty.png"))?;
     b.go(&format!("{}/design/home", server.url))?;
     b.wait("!!document.querySelector('.home-metric strong')")?;
-    b.key("g", 71, 0)?;
-    b.key("a", 65, 0)?;
+    let modifier = if b.eval("navigator.platform.includes('Mac')")? == true {
+        4
+    } else {
+        2
+    };
+    b.key("2", 50, modifier)?;
     b.wait(
         "location.pathname==='/design/analytics' && !!document.querySelector('.analytics-card')",
     )?;

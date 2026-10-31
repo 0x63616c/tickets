@@ -343,7 +343,7 @@ fn sidebar_shots(
     if !before && name == "user-menu" {
         check_menu_spacing(b)?;
         b.wait("document.querySelector('.account-dropdown .popup').dataset.side==='top' && getComputedStyle(document.querySelector('.account-dropdown .popup')).transformOrigin.startsWith('0px')")?;
-        b.wait("document.activeElement.textContent.trim()==='Settings'")?;
+        b.wait("document.activeElement.matches('[role=menuitem]') && document.activeElement.textContent.startsWith('Settings') && document.activeElement.querySelector('kbd')?.textContent===(navigator.platform.includes('Mac')?'⌘7':'Ctrl+7')")?;
         b.key("ArrowDown", 40, 0)?;
         b.wait("document.activeElement.textContent.includes('Keyboard shortcuts')")?;
         b.key(" ", 32, 0)?;
@@ -359,7 +359,7 @@ fn sidebar_shots(
     }
     if !before && name == "user-menu" {
         b.key("Enter", 13, 0)?;
-        b.wait("document.activeElement.textContent.trim()==='Settings'")?;
+        b.wait("document.activeElement.matches('[role=menuitem]') && document.activeElement.textContent.startsWith('Settings') && document.activeElement.querySelector('kbd')?.textContent===(navigator.platform.includes('Mac')?'⌘7':'Ctrl+7')")?;
         b.key("Enter", 13, 0)?;
         b.wait("location.pathname==='/design/settings/account'")?;
     }
