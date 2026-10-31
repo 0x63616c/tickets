@@ -66,6 +66,8 @@
   --duration-fast: 120ms; --duration-normal: 180ms; --duration-slow: 240ms;
   --duration-press: 120ms; --duration-popover: 180ms; --duration-modal: 240ms;
   --duration-splash-exit: 280ms;
+  /* Startup Stub tear travel and main-piece recoil, in screen pixels. */
+  --splash-tear-x: 22px; --splash-tear-y: 90px; --splash-recoil: 3px;
   --duration-exit: 120ms; --duration-tooltip: 125ms; --duration-move: 200ms;
   --ease-out: cubic-bezier(.23, 1, .32, 1);
   --ease-move: cubic-bezier(.77, 0, .175, 1);

@@ -67,20 +67,40 @@ waiting, then a fast decode reveal (about 300–500ms) as data arrives. Reduced 
 removes both effects: static skeletons and immediate content. Other interactions
 retain their short opacity and color feedback.
 
-The initial full-document startup (TIK-84, refined in TIK-87) uses the real Stub
+The initial full-document startup (TIK-84, refined in TIK-87 and TIK-89) uses the real Stub
 path as a two-tone ASCII mark on black: `--stub-ink` (#ededed, matching the favicon)
 for the body and `--stub-edge` (#a78bfa) for a continuous one-cell purple outline,
 including notches and perforation holes. The lighter purple keeps thin `+` edge
 glyphs legible against black without a glow. The grid is sampled once and on resize.
-A 550ms cubic ease-out opacity fade and 12px rise lead into a continuous sine-wave
-float (±9px vertically / 2.2s, ±6px horizontally / 3.4s, ±1.6° rotation / 3.8s).
-Only `translate`, `rotate` and opacity animate, as compositor-run CSS keyframes; scramble, shimmer and scattered
-dissolve are removed. After content is ready (900ms minimum from first paint),
-the mark fades and rises 16px over 400ms with an ease-in curve, then the black
-backdrop fades using `--duration-splash-exit` (280ms), for a 680ms exit. This quiet
-upward departure is a splash-only exception to the normal UI easing rule.
+The mark enters over 550ms with an ease-out fade and 12px rise. CSS keeps the
+float on the compositor: vertical ±9px / 2.2s, horizontal ±6px / 3.4s and
+rotation ±1.6° / 3.8s (`.boot-mark` entry, `.boot-sway`, `.boot-grid` bob/tilt).
+Each of two full-grid piece wrappers has stacked edge/body `<pre>` layers with
+identical 0.6em advance and 1.2 line height; spaces register the pieces seamlessly.
+The purple contour is built once. Body Text.data updates at 30fps on rAF using
+`ox+=*%$@`: density 0.52 plus three sine waves (amplitudes .19/.14/.08,
+time rates 1.15/.73/.47 radians/s, cell phases .28x+.36y, .13x−.31y,
+.39x+.12y), plus a diagonal highlight (width .22, strength .22, speed .16/s).
+Cell phases and reusable character buffers are precomputed; each piece joins its
+body buffer into one string per glyph frame. No per-frame DOM construction or
+random scramble. Hidden tabs suspend the glyph clock; removal cancels it.
+After `tickets:ready`, app aria-busy clears or reaches its 1.5s cap, with a 900ms
+minimum from first paint. The split is at SVG x=20 (two thirds of grid width).
+For 150ms the two seam columns fray through low-density `·~,` and staggered
+progressive dropout, in purple, tracing both new torn edges. CSS then rotates the
+right stub 12° about its lower tear corner (520ms, ease-out, so it tips as it
+releases) and moves it 22px right / 90px down (520ms ease-in fall; screen pixels,
+compensated for grid scale); it fades over the last 280ms (240ms delay).
+The main piece, the ticket that stays, recoils 3px left over 360ms and stays
+visible until the backdrop fade takes it.
+The black backdrop then fades for `--duration-splash-exit` (280ms): 900ms total.
+The fall's ease-in is a splash-only exception to normal UI easing. Independent
+phase timers and the 8s safety removal work even if rAF stalls. The tear travel
+and recoil use `--splash-tear-x`, `--splash-tear-y`, `--splash-recoil` tokens.
 Reduced motion uses the same static outlined mark, a 500ms minimum and opacity-only
-entry and exit. The readiness/busy wait, safety cap and skip rules are unchanged.
+entry and exit (400ms mark + 280ms backdrop), without glyph updates, float or tear.
+OS, localStorage `tickets.motion=reduce` and `html[data-motion=reduce]` apply.
+The readiness/busy wait, safety cap and skip rules are unchanged.
 In-app ascii-reveal starts after the splash is removed; component previews skip it.
 
 Shared Select/DropdownMenu/Combobox replace browser selects. Keep the compact
