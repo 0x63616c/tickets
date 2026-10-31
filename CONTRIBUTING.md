@@ -376,7 +376,8 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 ## Projects conventions
 
 - `CHROME_BIN=<headless-chromium> cargo xtask first-run-check` builds and starts
-  isolated local Wrangler/D1 with the complete migration chain and zero data.
+  isolated local Wrangler/D1 with the complete migration chain and no prior
+  authenticated or domain state, apart from migration-seeded reference data.
   It logs in through `/login`, then uses visible UI controls only to create a
   project, two tickets, a Kanban move, a new label and a dependency verified on
   both tickets. No API seeding or token creation is used. CI runs it sequentially
