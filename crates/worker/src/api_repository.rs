@@ -27,12 +27,18 @@ pub(crate) const TICKET_SELECT: &str = "tickets.*,
       ON checks.repo=pr.repo AND checks.number=pr.number AND checks.head_sha=pr.head_sha
     WHERE pr.ticket_id=tickets.id ORDER BY pr.repo,pr.number)) AS pull_requests";
 
+const COMMENT_SELECT: &str = "comments.*,
+ (SELECT '/api/v1/users/'||user_id||'/avatar?v='||version FROM user_avatars
+  WHERE CAST(user_id AS TEXT)=comments.author_id AND comments.author_kind='user') avatar_url";
+
 fn selection(entity: &str) -> String {
     if entity == "tickets" {
         TICKET_SELECT.replace(
             "(SELECT key_prefix FROM projects WHERE id=tickets.project_id)",
             "ticket_project.key_prefix",
         )
+    } else if entity == "comments" {
+        COMMENT_SELECT.into()
     } else if entity == "projects" {
         "projects.*, coalesce(counts.open_ticket_count,0) AS open_ticket_count, coalesce(counts.done_ticket_count,0) AS done_ticket_count, counts.last_activity_at".into()
     } else {
@@ -151,6 +157,19 @@ impl<S: Store> ApiRepository<'_, S> {
             if deleted {
                 v["body"] = json!("");
                 v["body_html"] = json!("");
+            }
+            // Reads carry the photo in their shared SELECT; mutation RETURNING rows
+            // need one lookup, never one lookup per comment in a page.
+            if v.get("avatar_url").is_none() {
+                let row = self
+                    .get(
+                        "comments",
+                        v["id"]
+                            .as_i64()
+                            .ok_or_else(|| Error::Storage("Invalid comment ID".into()))?,
+                    )
+                    .await?;
+                v["avatar_url"] = row["avatar_url"].clone();
             }
             v.as_object_mut().unwrap().remove("author_id");
         }

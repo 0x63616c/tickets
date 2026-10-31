@@ -295,7 +295,16 @@ impl Store for worker::D1Database {
                         Value::String(s) => JsValue::from_str(&s),
                         Value::Number(n) => JsValue::from_f64(n.as_f64().unwrap()),
                         Value::Bool(b) => JsValue::from_f64(if b { 1.0 } else { 0.0 }),
-                        _ => unreachable!("only scalar SQL arguments"),
+                        Value::Array(bytes) => js_sys::Uint8Array::from(
+                            bytes
+                                .iter()
+                                .map(|b| b.as_u64().expect("byte") as u8)
+                                .collect::<Vec<_>>()
+                                .as_slice(),
+                        )
+                        .buffer()
+                        .into(),
+                        _ => unreachable!("only scalar or binary SQL arguments"),
                     })
                     .collect();
                 self.prepare(&s.sql)
@@ -325,7 +334,16 @@ impl Store for worker::D1Database {
                 Value::String(s) => JsValue::from_str(&s),
                 Value::Number(n) => JsValue::from_f64(n.as_f64().unwrap()),
                 Value::Bool(b) => JsValue::from_f64(if b { 1.0 } else { 0.0 }),
-                _ => unreachable!("only scalar SQL arguments"),
+                Value::Array(bytes) => js_sys::Uint8Array::from(
+                    bytes
+                        .iter()
+                        .map(|b| b.as_u64().expect("byte") as u8)
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )
+                .buffer()
+                .into(),
+                _ => unreachable!("only scalar or binary SQL arguments"),
             })
             .collect();
         let result = self

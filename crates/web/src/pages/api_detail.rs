@@ -20,6 +20,8 @@ struct CommentRecord {
     #[serde(default)]
     author_kind: String,
     #[serde(default)]
+    avatar_url: Option<String>,
+    #[serde(default)]
     edited_at: Option<String>,
     #[serde(default)]
     deleted: bool,
@@ -599,7 +601,7 @@ fn ApiComment(comment: CommentRecord) -> impl IntoView {
     let comment_root = NodeRef::<leptos::html::Div>::new();
     // Unchanged comments retain their keyed nodes and never replay.
     use_ascii_reveal(comment_root, Signal::derive(|| false), comment.reveal);
-    view! {<div node_ref=comment_root class="comment" class:comment-deleted=deleted class:comment-pending=pending data-comment-id=id on:keydown=move|e|{if e.key()=="Escape" && confirming.get_untracked() && !state.busy.get_untracked(){e.prevent_default();e.stop_propagation();confirming.set(false);focus_thread(format!("[data-comment-id='{id}'] .comment-action-delete"));}} aria-busy=pending.to_string()><Avatar label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>().to_uppercase()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong>{is_bot.then(||view!{<span class="comment-bot">"Bot"</span>})}<ActivityTime iso=comment.created_at/>{edited.map(|time|view!{<ActivityTime iso=time edited=true/>})}{pending.then(||view!{<span role="status" class="muted">"Posting…"</span>})}<Show when=move||editable && !editing.get() && !confirming.get()><button type="button" class="button button-ghost comment-action comment-action-edit" disabled=move||state.busy.get() on:click=move|_|{confirming.set(false);editing.set(true);focus_thread(format!("[data-comment-id='{id}'] textarea"));}>"Edit"</button><button type="button" class="button button-ghost comment-action comment-action-delete" disabled=move||state.busy.get() on:click=move|_|{confirming.set(true);focus_thread(format!("[data-comment-id='{id}'] .comment-confirm button"));}>"Delete"</button></Show></div>
+    view! {<div node_ref=comment_root class="comment" class:comment-deleted=deleted class:comment-pending=pending data-comment-id=id on:keydown=move|e|{if e.key()=="Escape" && confirming.get_untracked() && !state.busy.get_untracked(){e.prevent_default();e.stop_propagation();confirming.set(false);focus_thread(format!("[data-comment-id='{id}'] .comment-action-delete"));}} aria-busy=pending.to_string()><Avatar url=Signal::derive(move||comment.avatar_url.clone()) lookup=false label=author.clone() initials={author.trim_start_matches('@').chars().take(1).collect::<String>().to_uppercase()}/><div class="comment-content"><div class="comment-heading"><strong>{author}</strong>{is_bot.then(||view!{<span class="comment-bot">"Bot"</span>})}<ActivityTime iso=comment.created_at/>{edited.map(|time|view!{<ActivityTime iso=time edited=true/>})}{pending.then(||view!{<span role="status" class="muted">"Posting…"</span>})}<Show when=move||editable && !editing.get() && !confirming.get()><button type="button" class="button button-ghost comment-action comment-action-edit" disabled=move||state.busy.get() on:click=move|_|{confirming.set(false);editing.set(true);focus_thread(format!("[data-comment-id='{id}'] textarea"));}>"Edit"</button><button type="button" class="button button-ghost comment-action comment-action-delete" disabled=move||state.busy.get() on:click=move|_|{confirming.set(true);focus_thread(format!("[data-comment-id='{id}'] .comment-confirm button"));}>"Delete"</button></Show></div>
     <Show when=move||confirming.get()><div class="comment-confirm" role="group" aria-label="Confirm comment deletion"><span>"Delete this comment?"</span><BusyButton kind="button" status_label="Deleting comment" variant="ghost" busy=Signal::derive(move||deleting.get() && state.busy.get()) disabled=state.busy on_click=Callback::new(move|_|{deleting.set(true);state.write("DELETE",format!("/api/v1/comments/{id}"),Value::Null,||{});})>"Confirm delete"</BusyButton><button type="button" class="button button-ghost" disabled=move||state.busy.get() on:click=move|_|{confirming.set(false);focus_thread(format!("[data-comment-id='{id}'] .comment-action-delete"));}>"Cancel"</button></div></Show>
     {if deleted {view!{<p class="muted">"Comment deleted"</p>}.into_any()} else {view!{<Show when=move||editing.get() fallback=move||view!{<Markdown source=display_body.get_value() project=state.ticket.get().and_then(|t|t.key.rsplit_once('-').map(|(p,_)|p.to_owned()))/>}><CommentEditor id=id initial=initial_body.get_value() close=Callback::new(move|_|{editing.set(false);focus_thread(format!("[data-comment-id='{id}'] .comment-action-edit"));})/></Show>}.into_any()}}</div></div>}
 }
@@ -638,6 +640,7 @@ fn CommentEditor(
                     body: text.clone(),
                     author: account.account.get_untracked().label(),
                     author_kind: "user".into(),
+                    avatar_url: account.account.get_untracked().avatar_url,
                     created_at: js_sys::Date::new_0()
                         .to_iso_string()
                         .as_string()

@@ -58,6 +58,9 @@ impl Store for Sqlite {
                             SqlValue::Real(n.as_f64().unwrap())
                         }
                     }
+                    Value::Array(bytes) => {
+                        SqlValue::Blob(bytes.iter().map(|b| b.as_u64().unwrap() as u8).collect())
+                    }
                     _ => panic!("unsupported parameter"),
                 })
                 .collect();
@@ -76,7 +79,7 @@ impl Store for Sqlite {
                             SqlValue::Integer(i) => i.into(),
                             SqlValue::Real(r) => r.into(),
                             SqlValue::Text(s) => s.into(),
-                            _ => panic!("blob"),
+                            SqlValue::Blob(bytes) => serde_json::json!(bytes),
                         },
                     );
                 }

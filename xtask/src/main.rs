@@ -145,6 +145,8 @@ fn main() -> Result {
         #[cfg(not(target_arch = "wasm32"))]
         Some("settings-check") => api_smoke::settings(root),
         #[cfg(not(target_arch = "wasm32"))]
+        Some("avatar-check") => api_smoke::avatars(root),
+        #[cfg(not(target_arch = "wasm32"))]
         Some("card-shots") => cards::shots(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("component-shot") => component::run(root,&args[1..]),

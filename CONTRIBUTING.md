@@ -898,3 +898,13 @@ and webdriver sessions skip the splash; add `?splash` to opt automated recording
 in (component previews always skip). Client-side navigation never recreates it.
 For local fixture viewing, build and serve `crates/web/dist` with SPA fallback,
 then open `/design/home?splash`. The splash uses no API or external assets.
+
+### Profile photo verification
+
+`CHROME_BIN=<headless-chromium> cargo xtask avatar-check` starts an isolated local
+Worker/D1, tests session-only photo writes, missing auth, bad types, oversized
+bodies, browser canvas processing, binary storage, conditional GET, replacement,
+removal and shared sidebar/comment/assignee avatars. PNGs default to
+`target/avatar-shots`; set `TICKETS_AVATAR_SHOTS` to choose an output directory.
+Like other API checks, it uses port 8795 and supports `TICKETS_SKIP_BUILD=1` after
+a verified build. Run `component-shot user-menu` for the fixture-only avatar shell.

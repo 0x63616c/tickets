@@ -1,3 +1,4 @@
+pub mod avatars;
 #[cfg(target_arch = "wasm32")]
 pub mod github_app;
 pub mod github_app_events;

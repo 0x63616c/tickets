@@ -8,6 +8,7 @@ use wasm_bindgen_futures::spawn_local;
 pub struct Account {
     pub username: String,
     pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
 }
 impl Account {
     pub fn label(&self) -> String {
@@ -28,6 +29,7 @@ pub struct AccountState {
     pub account: RwSignal<Account>,
     pub error: RwSignal<String>,
     pub loaded: RwSignal<bool>,
+    pub users: RwSignal<Vec<Account>>,
 }
 impl AccountState {
     pub fn new() -> Self {
@@ -35,7 +37,18 @@ impl AccountState {
             account: RwSignal::new(Account::default()),
             error: RwSignal::new(String::new()),
             loaded: RwSignal::new(false),
+            users: RwSignal::new(Vec::new()),
         }
+    }
+    pub fn load_users(self) {
+        spawn_local(async move {
+            if let Ok(value) = api("GET", "/api/v1/users", Value::Null).await
+                && let Ok(users) = serde_json::from_value(value["data"].clone())
+                && !self.users.is_disposed()
+            {
+                self.users.set(users);
+            }
+        });
     }
     pub fn load(self) {
         self.error.set(String::new());
@@ -45,6 +58,7 @@ impl AccountState {
             }) {
                 Ok(account) => {
                     self.account.set(account);
+                    self.load_users();
                     self.loaded.set(true);
                     self.error.set(String::new());
                 }
@@ -125,8 +139,9 @@ fn AccountSettings(fixture: bool) -> impl IntoView {
     let busy = RwSignal::new(false);
     let message = RwSignal::new(String::new());
     let error = RwSignal::new(String::new());
+    let saved_name = Memo::new(move |_| state.account.get().display_name.unwrap_or_default());
     Effect::new(move |_| {
-        name.set(state.account.get().display_name.unwrap_or_default());
+        name.set(saved_name.get());
     });
     let reveal_root = NodeRef::<leptos::html::Section>::new();
     use_ascii_reveal(
@@ -135,8 +150,9 @@ fn AccountSettings(fixture: bool) -> impl IntoView {
         true,
     );
     view! {<section node_ref=reveal_root class="settings-section"><h1>"Account"</h1><p class="settings-description">"Your profile and sign-in details."</p>
+        <crate::avatar_upload::PhotoSettings fixture/>
         <form on:submit=move|e|{e.prevent_default();if busy.get_untracked(){return;}busy.set(true);error.set(String::new());message.set(String::new());spawn_local(async move {
-            let result=if fixture {Ok(Account {username:"sample-user".into(),display_name:Some(name.get_untracked().trim().into())})} else {api("PATCH","/api/v1/me",json!({"display_name":name.get_untracked()})).await.and_then(|v|serde_json::from_value(v).map_err(|_|"Could not read saved account.".into()))};
+            let result=if fixture {Ok(Account {username:"sample-user".into(),avatar_url:state.account.get_untracked().avatar_url,display_name:Some(name.get_untracked().trim().into())})} else {api("PATCH","/api/v1/me",json!({"display_name":name.get_untracked()})).await.and_then(|v|serde_json::from_value(v).map_err(|_|"Could not read saved account.".into()))};
             match result {Ok(account)=>{state.account.set(account);if message.is_disposed(){return;}message.set("Changes saved.".into());},Err(e)=>{if error.is_disposed(){return;}error.set(e)}}busy.set(false);
         });}>
             <label class="field" for="display-name"><span>"Display name"</span><input id="display-name" aria-describedby="display-name-hint account-error" aria-invalid=move||(!error.get().is_empty()).to_string() autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" maxlength="80" placeholder="Add your name" disabled=move||!state.loaded.get() || busy.get() prop:value=name on:input=move|e|{name.set(event_target_value(&e));message.set(String::new());}/></label>
