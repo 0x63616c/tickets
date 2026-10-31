@@ -10,6 +10,8 @@ mod cards;
 mod cleanup;
 #[cfg(not(target_arch = "wasm32"))]
 mod component;
+#[cfg(not(target_arch = "wasm32"))]
+mod d1_usage;
 mod design_tokens;
 #[cfg(not(target_arch = "wasm32"))]
 mod fonts;
@@ -197,6 +199,8 @@ fn main() -> Result {
         Some("projects-check") => api_smoke::projects(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("project-repos-check") => project_repos::check(root),
+        #[cfg(not(target_arch = "wasm32"))]
+        Some("d1-usage-check") => d1_usage::check(),
         Some("mission-check") => api_smoke::mission(root),
         Some("first-run-check") => api_smoke::first_run(root),
         Some("build") => build(root),
@@ -264,7 +268,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <check design-tokens [--staged] [--css] [--report]|dev|build|migrate [--remote]|ci|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check|first-run-check>".into())
+            Err("usage: cargo xtask <check design-tokens [--staged] [--css] [--report]|dev|build|migrate [--remote]|ci|d1-usage-check|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check|first-run-check>".into())
         }
     }
 }

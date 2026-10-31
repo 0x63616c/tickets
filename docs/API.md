@@ -22,6 +22,11 @@ upserts return 200. Deletes return `{"ok":true}`. Errors have the form
 | 409 | Uniqueness conflict or dependency cycle/self/duplicate |
 | 422 | Invalid document, field value or reference |
 | 500 | Unexpected storage failure (details withheld) |
+| 503 | D1 quota/capacity/transient outage (`unavailable`) |
+
+D1 quota, overload and availability failures return HTTP 503 with
+`error.code = "unavailable"` and a safe message. Read back mutation state before
+retrying writes after any server failure. See [D1 operations](d1-operations.md).
 
 All domain lists return `{"data":[...],"next_cursor":"123"}`. `next_cursor` is
 null at the end. Pass it as `cursor` to fetch the next page. `limit` defaults to

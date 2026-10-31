@@ -25,6 +25,7 @@ type Result<T> = std::result::Result<T, Failure>;
 impl From<Error> for Failure {
     fn from(e: Error) -> Self {
         match e {
+            Error::Unavailable => Self(503, "unavailable", crate::d1_errors::MESSAGE.into()),
             Error::NotFound => Self(404, "not_found", "Resource not found".into()),
             Error::Validation(s) => Self(422, "validation", s),
             Error::Dependency(e) => {

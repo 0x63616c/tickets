@@ -32,11 +32,18 @@ pub async fn save<S: Store>(
     }
     // Content-addressed versions also distinguish rapid replacements within one millisecond.
     let version = tickets_core::auth::hash_token(&tickets_core::auth::hex(bytes));
-    let rows: Vec<Value> = store.query("INSERT INTO user_avatars(user_id,content_type,bytes,version) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET content_type=excluded.content_type,bytes=excluded.bytes,version=excluded.version,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') RETURNING user_id",vec![user.into(),mime.into(),json!(bytes),version.into()]).await.map_err(|_|500u16)?;
+    let rows: Vec<Value> = store.query("INSERT INTO user_avatars(user_id,content_type,bytes,version) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET content_type=excluded.content_type,bytes=excluded.bytes,version=excluded.version,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') RETURNING user_id",vec![user.into(),mime.into(),json!(bytes),version.into()]).await.map_err(storage_status)?;
     if rows.is_empty() {
         return Err(500);
     }
-    account(store, user).await.map_err(|_| 500)
+    account(store, user).await.map_err(storage_status)
+}
+fn storage_status(error: crate::repository::Error) -> u16 {
+    if error == crate::repository::Error::Unavailable {
+        503
+    } else {
+        500
+    }
 }
 pub async fn account<S: Store>(store: &S, user: i64) -> Result<Value> {
     let rows: Vec<Value> = store.query(ACCOUNT, vec![user.into()]).await?;
@@ -102,6 +109,9 @@ pub async fn upload(
 }
 #[cfg(target_arch = "wasm32")]
 fn reject(status: u16) -> worker::Result<worker::Response> {
+    if status == 503 {
+        return crate::auth::reply(json!({"error":crate::d1_errors::MESSAGE}), 503);
+    }
     crate::auth::reply(
         json!({"error":{"code":if status==413 {"payload_too_large"} else if status==415 {"unsupported_media_type"} else {"internal"},"message":match status {413=>"Processed photo must be 512 KB or smaller.",415=>"Choose a JPEG, PNG or WebP image.",_=>"Could not save photo. Try again."}}}),
         status,

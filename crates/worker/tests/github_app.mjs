@@ -463,3 +463,79 @@ test('credentials export enforces bearer auth and returns only stored encrypted 
     await request(tokenHeaders, 401);
   } finally { db.db.close(); }
 });
+
+test('D1 availability errors return 503 and SQL failures stay 500 through Worker boundaries', async () => {
+  const bearer = `tk_${'c'.repeat(64)}`;
+  const session = 'd'.repeat(64);
+  const details = [
+    'D1_ERROR: Your account has exceeded D1\'s free tier daily row read limit.',
+    'D1_ERROR: D1 DB is overloaded. Too many requests queued.',
+    'D1_ERROR: Cannot resolve D1 DB due to transient issue on remote node.',
+    'D1_ERROR: Network connection lost.',
+    'D1_EXEC_ERROR: near LIMIT: syntax error',
+    'D1_TYPE_ERROR: unavailable column',
+  ];
+  const originalConsole = console.error;
+  const originalCaches = globalThis.caches;
+  globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
+  const logs = [];
+  console.error = (...args) => logs.push(args.join(' '));
+  try {
+    for (const detail of details) {
+      const expected = detail.startsWith('D1_EXEC_ERROR') || detail.startsWith('D1_TYPE_ERROR') ? 500 : 503;
+      for (const mode of ['throw', 'cause', 'result']) {
+        for (const stage of ['auth', 'cache', 'query', 'batch', 'mission', 'avatar', 'navigation']) {
+          const db = new D1Database();
+          try {
+            db.db.exec("INSERT INTO users(id,username) VALUES(1,'fixture')");
+            const hash = value => createHash('sha256').update(value).digest('hex');
+            db.db.prepare("INSERT INTO api_tokens(user_id,name,token_hash) VALUES(1,'fixture',?)").run(hash(bearer));
+            db.db.prepare("INSERT INTO sessions(user_id,token_hash,expires_at) VALUES(1,?,strftime('%Y-%m-%dT%H:%M:%fZ','now','+1 day'))").run(hash(session));
+            const failure = () => {
+              const message = `${detail} private-upstream-marker`;
+              if (mode === 'throw') throw new Error(message);
+              if (mode === 'cause') throw new Error('D1_ERROR', { cause: new Error(message) });
+              return { success: false, error: message };
+            };
+            const prepare = db.prepare.bind(db);
+            let calls = 0;
+            db.prepare = sql => {
+              calls++;
+              const failAt = stage === 'query' ? 3 : stage === 'auth' || stage === 'navigation' ? 1 : 2;
+              if (calls === failAt && stage !== 'batch') {
+                return { bind() { return { async all() { return failure(); } }; } };
+              }
+              return prepare(sql);
+            };
+            if (stage === 'batch') db.batch = async () => mode !== 'result' ? failure() : [failure()];
+            const worker = new Worker({}, { DB: db });
+            const headers = stage === 'navigation' || stage === 'avatar'
+              ? { Cookie: `tickets_session=${session}`, Origin: 'https://fixture.invalid' }
+              : { Authorization: `Bearer ${bearer}` };
+            let path = '/api/v1/projects';
+            const options = { headers };
+            if (stage === 'batch') {
+              db.db.exec("INSERT INTO projects(id,name,key_prefix,color) VALUES(1,'Fixture','EX','#123456')");
+              path = '/api/v1/tickets'; options.method = 'POST';
+              options.body = JSON.stringify({project_id:1,title:'Fixture'});
+            }
+            if (stage === 'mission') { path = '/api/v1/mission/reports/fixture'; options.method = 'PUT'; options.body = '{}'; }
+            if (stage === 'avatar') { path = '/api/v1/me/avatar'; options.method = 'PUT'; headers['Content-Type']='image/png'; options.body=Buffer.from([137,80,78,71,13,10,26,10]); }
+            if (stage === 'navigation') path = '/board';
+            const result = await worker.fetch(new Request(`https://fixture.invalid${path}`, options));
+            assert.equal(result.status, expected, `${stage}/${mode}/${detail}`);
+            assert.equal(result.headers.get('Cache-Control'), 'no-store');
+            const body = await result.json();
+            assert.equal(body.error.code, expected === 503 ? 'unavailable' : 'internal');
+            if (expected === 503) assert.match(body.error.message, /Database temporarily unavailable/);
+            assert.ok(!JSON.stringify(body).includes('private-upstream-marker'));
+          } finally { db.db.close(); }
+        }
+      }
+    }
+    assert.ok(logs.some(line => line.includes('D1_ERROR')));
+    assert.ok(logs.some(line => line.includes('D1_EXEC_ERROR')));
+    assert.ok(logs.some(line => line.includes('D1_TYPE_ERROR')));
+    assert.ok(logs.every(line => !line.includes('private-upstream-marker')));
+  } finally { console.error = originalConsole; globalThis.caches = originalCaches; }
+});

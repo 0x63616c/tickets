@@ -273,7 +273,9 @@ curl -sS "$TICKETS_URL/api/v1/tickets/3/history?limit=101" -H "Authorization: Be
 Inspect HTTP status and `{"error":{"code":"...","message":"..."}}`, not just
 curl's exit code (`-sS` still exits zero for HTTP errors). 400 malformed request,
 401 authentication, 403 comment ownership or cookie Origin failure, 404 missing resource, 409 conflict,
-422 invalid fields/references, 500 storage failure. Correct invalid input before
+422 invalid fields/references, 500 storage failure, 503 `unavailable` for database
+quota/capacity/transient outages. A 503 message is safe to show to the user;
+wait before retrying reads. Correct invalid input before
 retrying. Before retrying a write after a transport/server failure, read back its
 state to avoid duplicate creates/comments; use external upsert for imports.
 

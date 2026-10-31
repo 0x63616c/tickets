@@ -7,12 +7,16 @@ use tickets_core::{dependency::DependencyGraph, domain::*, history::Actor};
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Storage(String),
+    Unavailable,
     Validation(String),
     Dependency(tickets_core::dependency::DependencyError),
     NotFound,
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if matches!(self, Self::Unavailable) {
+            return f.write_str(crate::d1_errors::MARKER);
+        }
         write!(f, "{self:?}")
     }
 }
@@ -309,18 +313,18 @@ impl Store for worker::D1Database {
                     .collect();
                 self.prepare(&s.sql)
                     .bind(&params)
-                    .map_err(|e| Error::Storage(e.to_string()))
+                    .map_err(crate::d1_errors::binding)
             })
             .collect::<Result<Vec<_>>>()?;
         worker::D1Database::batch(self, statements)
             .await
-            .map_err(|e| Error::Storage(e.to_string()))?
+            .map_err(crate::d1_errors::binding)?
             .into_iter()
             .map(|r| {
                 if !r.success() {
-                    return Err(Error::Storage(r.error().unwrap_or_default()));
+                    return Err(crate::d1_errors::storage(r.error().unwrap_or_default()));
                 }
-                r.results().map_err(|e| Error::Storage(e.to_string()))
+                r.results().map_err(crate::d1_errors::binding)
             })
             .collect()
     }
@@ -349,16 +353,16 @@ impl Store for worker::D1Database {
         let result = self
             .prepare(sql)
             .bind(&params)
-            .map_err(|e| Error::Storage(e.to_string()))?
+            .map_err(crate::d1_errors::binding)?
             .all()
             .await
-            .map_err(|e| Error::Storage(e.to_string()))?;
+            .map_err(crate::d1_errors::binding)?;
         if !result.success() {
-            return Err(Error::Storage(
+            return Err(crate::d1_errors::storage(
                 result.error().unwrap_or_else(|| "D1 query failed".into()),
             ));
         }
-        result.results().map_err(|e| Error::Storage(e.to_string()))
+        result.results().map_err(crate::d1_errors::binding)
     }
 }
 impl<S: Store> Store for &S {

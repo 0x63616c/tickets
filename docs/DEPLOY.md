@@ -2,8 +2,9 @@
 
 Production runs at `https://tickets.worldwidewebb.co` (Worker `tickets-production`,
 named `production` environment in `wrangler.toml`). Its workers.dev endpoint and
-preview URLs are disabled. Keep the account on Workers Free; do not enable paid
-services. Calum approved the production deploy and redeploy-on-merge on 2026-10-28.
+preview URLs are disabled. Calum approved moving to Workers Paid ($5/month)
+for TIK-88; the owner handles billing, and agents must not change plans. Calum
+approved the production deploy and redeploy-on-merge on 2026-10-28.
 
 ## Continuous deployment
 
@@ -62,8 +63,9 @@ key-value backend. This is separate from D1 SQL migrations.
 ## Free-tier limits worth knowing
 
 These are account allowances, shared with other workloads; check the linked
-Cloudflare documentation before setup as limits can change. Stay on Free so
-exceeding allowances fails operations rather than enabling paid overages.
+Cloudflare documentation before setup as limits can change. The following Free
+limits describe the original deployment; confirm the current plan with the owner.
+See [D1 operations](d1-operations.md) for the 3M daily read alert.
 
 | Service | Free allowance / limit |
 | --- | --- |

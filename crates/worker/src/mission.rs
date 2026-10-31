@@ -69,6 +69,7 @@ pub async fn put<S: Store>(store: &S, source: &str, raw: &str) -> Reply {
                     "validation",
                     message,
                 ),
+                Error::Unavailable => (503, "unavailable", crate::d1_errors::MESSAGE.into()),
                 _ => (500, "internal", "Could not store report".into()),
             };
             Reply {
