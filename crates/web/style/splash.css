@@ -13,8 +13,8 @@
 
 #boot-splash .boot-grid {
   position: relative;
-  width: calc(var(--boot-columns) * 0.6em);
-  height: calc(var(--boot-rows) * 1.2em);
+  width: calc(var(--boot-columns) * var(--boot-advance));
+  height: calc(var(--boot-rows) * var(--boot-line));
   font-size: var(--text-base);
   /* Individual translate/rotate apply before the scale, so the float is in screen px. */
   transform: scale(var(--boot-scale));
@@ -27,14 +27,14 @@
 /* Both pieces retain the full grid: spaces preserve exact layer registration. */
 #boot-splash pre {
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-stub);
   font-size: var(--text-base);
   font-weight: 400;
   font-variant-ligatures: none;
-  line-height: 1.2;
+  line-height: var(--boot-line);
   letter-spacing: 0;
-  width: calc(var(--boot-columns) * 0.6em);
-  height: calc(var(--boot-rows) * 1.2em);
+  width: calc(var(--boot-columns) * var(--boot-advance));
+  height: calc(var(--boot-rows) * var(--boot-line));
   white-space: pre;
   position: absolute;
   inset: 0;
@@ -80,7 +80,8 @@
 @keyframes boot-sway { from { translate: -6px 0; } to { translate: 6px 0; } }
 @keyframes boot-tilt { from { rotate: -1.6deg; } to { rotate: 1.6deg; } }
 
-#boot-splash .boot-edge { color: var(--stub-edge); }
+#boot-splash .boot-edge { color: var(--stub-ring); }
+#boot-splash.boot-mono .boot-edge { color: var(--stub-ink); }
 #boot-splash .boot-body { color: var(--stub-ink); }
 /* Reduced motion: still outlined mark, opacity-only fades. */
 #boot-splash.boot-reduced .boot-grid,

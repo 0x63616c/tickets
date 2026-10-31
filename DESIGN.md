@@ -67,30 +67,34 @@ waiting, then a fast decode reveal (about 300–500ms) as data arrives. Reduced 
 removes both effects: static skeletons and immediate content. Other interactions
 retain their short opacity and color feedback.
 
-The initial full-document startup (TIK-84, refined in TIK-87 and TIK-89) uses the real Stub
-path as a two-tone ASCII mark on black: `--stub-ink` (#ededed, matching the favicon)
-for the body and `--stub-edge` (#a78bfa) for a continuous one-cell purple outline,
-including notches and perforation holes. The lighter purple keeps thin `+` edge
-glyphs legible against black without a glow. The grid is sampled once and on resize.
+The initial full-document startup uses the real Stub evenodd favicon path.
 The mark is the loading state: fully visible in the first paint, with no entry
 fade or rise (TIK-91). It fits min(35.2% viewport width, 72% height), 80% of the
 TIK-89 size. CSS keeps the
 float on the compositor: vertical ±9px / 2.2s, horizontal ±6px / 3.4s and
 rotation ±1.6° / 3.8s (`.boot-sway`, `.boot-grid` bob/tilt).
-Each of two full-grid piece wrappers has stacked edge/body `<pre>` layers with
-identical 0.6em advance and 1.2 line height; spaces register the pieces seamlessly.
-The purple contour is built once. Body Text.data updates at 30fps on rAF using
-`ox+=*%$@`: density 0.52 plus three sine waves (amplitudes .19/.14/.08,
-time rates 1.15/.73/.47 radians/s, cell phases .28x+.36y, .13x−.31y,
-.39x+.12y), plus a diagonal highlight (width .22, strength .22, speed .16/s).
-Cell phases and reusable character buffers are precomputed; each piece joins its
-body buffer into one string per glyph frame. No per-frame DOM construction or
-random scramble. Hidden tabs suspend the glyph clock; removal cancels it.
+The Ghostty-inspired luminance field combines antialiased favicon coverage with
+Euclidean distance from its boundary, including notches and perforations. Sampling,
+distances and cell phases are precomputed on resize. The dense `$`/`@` interior
+stays still; only a 2.6-cell boundary band shimmers. A uses ` .~+=x*%o@$`, white
+`--stub-ink` fill and a dim blue-grey `--stub-ring` (#718b9e) contour. Query-only
+`splash-look=A|B|C` studies share one renderer, pending Calum's pick (default A).
+B uses the same ramp in one white tone with a subtle travelling edge wave;
+C uses ` .,:;~-=+!x*%&oO8#@$` with more levels and slower shimmer.
+A/B/C use speed multipliers .85/.65/.38 and amplitudes .12/.09/.10.
+All layers use the self-contained `--font-stub` system monospace stack, measured
+cell advance and a shared compact line box (roughly .6:1 cells). Grid geometry
+preserves the favicon's 24:16 aspect, without font swaps or layer misregistration.
+The field advances on every rAF with elapsed time, a 110ms exponential smoothing
+time constant and a .18-level hysteresis dead band beyond half-level thresholds.
+Reusable buffers update four existing Text nodes only when their strings change;
+there is no per-frame DOM construction or random scramble. Hidden tabs suspend
+the glyph clock; removal cancels it.
 After `tickets:ready`, app aria-busy clears or reaches its 1.5s cap, with a 900ms
 minimum from first paint. The split is at SVG x=20 (two thirds of grid width).
 For 150ms the two seam columns fray through low-density `·~,` and staggered
-progressive dropout, in purple, tracing both new torn edges. CSS then rotates the
-right stub 12° about its lower tear corner (520ms, ease-out, so it tips as it
+progressive dropout, in the contour tone, tracing both new torn edges. CSS then
+rotates the right stub 12° about its lower tear corner (520ms, ease-out, so it tips as it
 releases) and moves it 22px right / 90px down (520ms ease-in fall; screen pixels,
 compensated for grid scale); it fades over the last 280ms (240ms delay).
 The main piece, the ticket that stays, recoils 3px left over 360ms and stays

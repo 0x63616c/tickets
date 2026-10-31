@@ -70,7 +70,17 @@
       };
       let readyAt = null;
       let frame = 0;
-      let lastFrame = -Infinity;
+      // Query-only visual studies; A is the production default pending Calum's pick.
+      const variants = {
+        A: { ramp: " .~+=x*%o@$", speed: 0.85, amplitude: 0.12, wave: false, mono: false },
+        B: { ramp: " .~+=x*%o@$", speed: 0.65, amplitude: 0.09, wave: true, mono: true },
+        C: { ramp: " .,:;~-=+!x*%&oO8#@$", speed: 0.38, amplitude: 0.10, wave: false, mono: false },
+      };
+      const selectedLook = new URLSearchParams(location.search).get("splash-look");
+      const look = Object.hasOwn(variants, selectedLook) ? variants[selectedLook] : variants.A;
+      splash.classList.toggle("boot-mono", look.mono);
+      let fieldTime = 0;
+      let fieldFrame = null;
       let firstPaint = null;
       let exiting = false;
       let removed = false;
@@ -103,8 +113,17 @@
       if (window.__ticketsReady) ready();
 
       function build() {
-        columns = Math.max(36, Math.min(72, Math.round(innerWidth / 20)));
-        rows = Math.round(columns / 3); // 24:16 logo, 0.5 character-cell aspect.
+        columns = Math.max(48, Math.min(72, Math.round(innerWidth / 18)));
+        // Measure the first-paint system font, never the app's downloadable mono face.
+        const metrics = getComputedStyle(art);
+        const measure = document.createElement("canvas").getContext("2d");
+        measure.font = `${metrics.fontSize} ${metrics.fontFamily}`;
+        const advance = measure.measureText("0000000000").width / 10;
+        const fontSize = parseFloat(metrics.fontSize);
+        const aspect = advance / fontSize;
+        rows = Math.round(columns * aspect * 16 / 24);
+        splash.style.setProperty("--boot-advance", `${advance}px`);
+        splash.style.setProperty("--boot-line", `${columns * advance * 16 / 24 / rows}px`);
         const sample = 8;
         const canvas = document.createElement("canvas");
         canvas.width = columns * sample;
@@ -140,60 +159,79 @@
             piece.edgeBuffer[y * (columns + 1) - 1] = "\n";
           }
         });
+        // A real luminance field: antialiased coverage plus Euclidean distance to
+        // the favicon boundary. Sampling/distance work happens only here, on resize.
+        const boundary = [];
         filled.forEach((value, i) => {
           const x = i % columns, y = Math.floor(i / columns);
-          const edge = value && [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) =>
+          if (value && [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) =>
             x + dx < 0 || x + dx >= columns || y + dy < 0 || y + dy >= rows ||
-            !filled[(y + dy) * columns + x + dx]);
-          if (!value) return;
+            !filled[(y + dy) * columns + x + dx])) boundary.push([x, y]);
+        });
+        coverage.forEach((value, i) => {
+          if (value < 0.08) return;
+          const x = i % columns, y = Math.floor(i / columns);
+          let distance = Infinity;
+          for (const [bx, by] of boundary) {
+            distance = Math.min(distance, Math.hypot((x - bx) * aspect, y - by));
+          }
+          const edge = distance < 0.65;
+          const base = edge ? 0.28 + value * 0.12 + 0.10 * Math.sin(x * 0.19 + y * 0.31) :
+            Math.min(1, 0.52 + distance * 0.19);
           const piece = pieces[x < split ? 0 : 1];
           const index = y * (columns + 1) + x;
-          const seam = x === split - 1 || x === split;
-          const cell = { index, edge, seam, x: x / columns, y: y / rows,
-            a: x * 0.28 + y * 0.36, b: x * 0.13 - y * 0.31,
-            c: x * 0.39 + y * 0.12, phase: (y * 7 + x * 3) % 11 };
-          piece.cells.push(cell);
-          if (edge) piece.edgeBuffer[index] = "+";
+          const level = Math.round(base * (look.ramp.length - 1));
+          piece.cells.push({ index, edge, seam: x === split - 1 || x === split,
+            base, influence: Math.max(0, 1 - distance / 2.6), density: base, level,
+            a: x * 0.19 + y * 0.31, b: x * 0.11 - y * 0.23,
+            phase: (y * 7 + x * 3) % 11 });
         });
         splash.style.setProperty("--boot-columns", columns);
         splash.style.setProperty("--boot-rows", rows);
-        // Fixed 0.6em cell advance / 1.2em line height prevents font-swap reflow.
+        // Shared measured advance and line box keep all layers exactly registered.
         // TIK-91: 80% of the TIK-89 size (44% width / 90% height of the viewport).
-        const fontSize = parseFloat(getComputedStyle(art).fontSize);
         splash.style.setProperty("--boot-scale",
-          Math.min(innerWidth * 0.352, innerHeight * 0.72) / (columns * fontSize * 0.6));
+          Math.min(innerWidth * 0.352, innerHeight * 0.72) / (columns * advance));
       }
-      // Reuse cell buffers; two body strings/Text.data writes per glyph frame.
-      // The contour is written once, except for the short tear-line fray.
+      // Four reusable Text nodes; no layout reads or DOM construction per frame.
       function render(now = 0, fray = -1) {
-        const t = now / 1000;
-        const ramp = "ox+=*%$@";
-        const waveA = t * 1.15, waveB = t * 0.73, waveC = t * 0.47;
-        const highlight = (t * 0.16 + 0.45) % 2 - 0.5;
+        const dt = fieldFrame === null ? 0 : Math.min(64, Math.max(0, now - fieldFrame));
+        fieldFrame = now;
+        fieldTime += dt / 1000;
+        const t = fieldTime * look.speed;
+        const blend = 1 - Math.exp(-dt / 110);
+        const maxLevel = look.ramp.length - 1;
         for (const piece of pieces) {
           for (const cell of piece.cells) {
             const i = cell.index;
             if (fray >= 0 && cell.seam) {
-              // Deterministic stagger, with progressive dropout rather than random noise.
               const dropout = cell.phase > 3 && fray > 0.45 + cell.phase / 20;
-              const glyph = dropout ? " " : "·~,"[(Math.floor(fray * 5) + cell.phase) % 3];
               piece.bodyBuffer[i] = " ";
-              piece.edgeBuffer[i] = glyph;
-            } else if (!cell.edge) {
-              const band = Math.max(0, 1 - Math.abs(cell.x + cell.y * 0.28 - highlight) / 0.22);
-              const density = 0.52 + 0.19 * Math.sin(cell.a - waveA) +
-                0.14 * Math.sin(cell.b - waveB) + 0.08 * Math.sin(cell.c + waveC) + band * 0.22;
-              piece.bodyBuffer[i] = ramp[Math.max(0, Math.min(7, Math.floor(density * 8)))];
+              piece.edgeBuffer[i] = dropout ? " " : "·~,"[(Math.floor(fray * 5) + cell.phase) % 3];
+            } else {
+              const wave = cell.influence === 0 ? 0 : look.wave ? Math.sin(cell.a - t * 2) :
+                0.65 * Math.sin(cell.a - t) + 0.35 * Math.sin(cell.b + t * 0.73);
+              const target = Math.max(0, Math.min(1, cell.base + cell.influence * look.amplitude * wave));
+              cell.density += (target - cell.density) * blend;
+              const level = cell.density * maxLevel;
+              // Schmitt thresholds: crossing a boundary must clear a dead band.
+              if (level > cell.level + 0.68 || level < cell.level - 0.68) {
+                cell.level = Math.max(0, Math.min(maxLevel, Math.round(level)));
+              }
+              const glyph = look.ramp[cell.level];
+              piece.bodyBuffer[i] = cell.edge ? " " : glyph;
+              piece.edgeBuffer[i] = cell.edge ? glyph : " ";
             }
           }
           if (!piece.bodyText) {
             piece.bodyText = document.createTextNode("");
-            piece.edgeText = document.createTextNode(piece.edgeBuffer.join(""));
+            piece.edgeText = document.createTextNode("");
             piece.body.replaceChildren(piece.bodyText);
             piece.edge.replaceChildren(piece.edgeText);
           }
-          piece.bodyText.data = piece.bodyBuffer.join("");
-          if (fray >= 0) piece.edgeText.data = piece.edgeBuffer.join("");
+          const body = piece.bodyBuffer.join(""), edge = piece.edgeBuffer.join("");
+          if (piece.bodyText.data !== body) piece.bodyText.data = body;
+          if (piece.edgeText.data !== edge) piece.edgeText.data = edge;
         }
       }
       function resize() {
@@ -209,43 +247,41 @@
         if (document.hidden) return;
         firstPaint ??= now;
         const elapsed = now - firstPaint;
-        if (now - lastFrame >= 1000 / 30) {
-          lastFrame = now - (Number.isFinite(lastFrame) ? (now - lastFrame) % (1000 / 30) : 0);
-          const reduce = reduced();
-          splash.classList.toggle("boot-reduced", reduce);
-          if (exiting) {
-            if (tearAt !== null && !reduce) {
-              render(now, Math.min(1, (now - tearAt) / FRAY_MS));
-              if (now - tearAt < FRAY_MS) frame = requestAnimationFrame(tick);
-            }
-            return;
+        const reduce = reduced();
+        splash.classList.toggle("boot-reduced", reduce);
+        if (exiting) {
+          if (tearAt !== null && !reduce) {
+            render(now, Math.min(1, (now - tearAt) / FRAY_MS));
+            if (now - tearAt < FRAY_MS) frame = requestAnimationFrame(tick);
           }
-          if (!reduce) render(now);
-          const busy = document.querySelector('body > :not(#boot-splash) [aria-busy="true"], body > [aria-busy="true"]');
-          if (readyAt !== null && elapsed >= (reduced() ? 500 : 900) &&
-              (!busy || now - readyAt >= 1500)) {
-            exiting = true;
-            // Timers advance the exit even when rAF stalls or the tab is hidden.
-            if (!reduce) {
-              tearAt = now;
-              render(now, 0);
-              tearTimer = setTimeout(() => {
-                render(now + FRAY_MS, 1);
-                splash.classList.add("boot-torn");
-              }, FRAY_MS);
-            }
-            splash.classList.add("boot-leaving");
-            exitTimer = setTimeout(() => {
-              splash.classList.add("boot-exit");
-              exitTimer = setTimeout(remove, BACKDROP_EXIT_MS);
-            }, reduce ? 400 : MARK_EXIT_MS);
-            if (!reduce) frame = requestAnimationFrame(tick);
-            return;
+          return;
+        }
+        if (!reduce) render(now);
+        const busy = document.querySelector('body > :not(#boot-splash) [aria-busy="true"], body > [aria-busy="true"]');
+        if (readyAt !== null && elapsed >= (reduced() ? 500 : 900) &&
+            (!busy || now - readyAt >= 1500)) {
+          exiting = true;
+          // Timers advance the exit even when rAF stalls or the tab is hidden.
+          if (!reduce) {
+            tearAt = now;
+            render(now, 0);
+            tearTimer = setTimeout(() => {
+              render(now + FRAY_MS, 1);
+              splash.classList.add("boot-torn");
+            }, FRAY_MS);
           }
+          splash.classList.add("boot-leaving");
+          exitTimer = setTimeout(() => {
+            splash.classList.add("boot-exit");
+            exitTimer = setTimeout(remove, BACKDROP_EXIT_MS);
+          }, reduce ? 400 : MARK_EXIT_MS);
+          if (!reduce) frame = requestAnimationFrame(tick);
+          return;
         }
         frame = requestAnimationFrame(tick);
       }
       function visibility() {
+        fieldFrame = null; // Hidden time must not jump the living field.
         if (!document.hidden && !removed) frame = requestAnimationFrame(tick);
         else cancelAnimationFrame(frame);
       }
