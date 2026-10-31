@@ -8,7 +8,7 @@ Fork the repository, create a focused branch in your fork, and follow
 UI contributions also need dark before/after screenshots and the review steps below.
 
 Use a Conventional Commit PR title, for example `docs: clarify local setup`.
-Allowed types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci` and
+Allowed types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci`, `build` and
 `perf`; scope is optional and the subject must start with a non-whitespace character.
 
 The ticket-key convention below organizes maintainer work. The current
@@ -30,12 +30,12 @@ document the maintainer/agent workflow and project conventions.
   - `model:sol` – all implementation work. Run: `codex exec -m gpt-6.1-sol`.
 - Dependencies use native blocker → blocked edges; blocked state is derived until
   every blocker is done or canceled.
-- Type labels: `type:feat`, `type:fix`, `type:chore`.
+- Use the dedicated `type` and `scope` fields; legacy `type:<x>` labels are migration input.
 
 ## Pull requests
 - One focused PR per ticket. Branch name: `<key-lowercase>-<slug>`.
 - PR title in Conventional Commits form (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`,
-  `test:`, `ci:`, `perf:`).
+  `test:`, `ci:`, `build:`, `perf:`).
 - PR titles end with `[KEY-N]`; bodies contain `Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)`
   (or `Refs [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` for references),
   a summary, and test evidence.
@@ -1043,3 +1043,19 @@ Only the optional WAF check may skip on HTTP 403, with a visible warning. Never
 expand management to unrelated records or settings in the shared zone. When
 changing Worker secrets, update the names in `xtask/src/infra.rs` and the deploy
 step together; the fixture-only unit test enforces agreement without reading values.
+
+## Ticket classification and PR titles
+
+Ticket titles are plain (for example `Grid home`, never `feat(ui): Grid home`).
+Ticket `type` is nullable and must be exactly `feat`, `fix`, `chore`, `refactor`,
+`docs`, `perf`, `test`, `ci`, or `build`. Optional nullable `scope` is trimmed and
+lowercased and must match `[a-z0-9][a-z0-9._/-]{0,31}`; an empty string clears it.
+The shared `tickets_core::ticket_type::pr_title` helper uses the title verbatim:
+`<type>(<scope>): <title> [KEY-N]` with scope, or `<type>: <title> [KEY-N]`
+without scope. An unset type falls back to `chore`, including when scope is set.
+
+`cargo xtask component-shot ticket-type` captures fixture card/list/detail pages
+and create/edit dialogs at desktop/mobile sizes (2× dark PNGs). Use
+`--before-assets <baseline-dist>` for matching before evidence. The isolated
+classification preview is `/design/c/ticket-type`; long badge values retain full
+hover and accessible text. Scope-only tickets show “No type · scope”.

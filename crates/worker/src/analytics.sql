@@ -55,7 +55,7 @@ display AS (
  SELECT s.id AS subject_id,t.id AS ticket_id,p.key_prefix || '-' || t.number AS key,t.title,t.status,
  c.blocker_id,coalesce(c.blocker_count,0) AS blocker_count,
  (SELECT bp.key_prefix || '-' || bt.number FROM tickets bt JOIN projects bp ON bp.id=bt.project_id WHERE bt.id=c.blocker_id) AS blocker_key,
- json_object('subject_id',s.id,'ticket_id',t.id,'key',p.key_prefix || '-' || t.number,'title',t.title,'status',t.status,
+ json_object('subject_id',s.id,'ticket_id',t.id,'key',p.key_prefix || '-' || t.number,'title',t.title,'type',t.type,'scope',t.scope,'status',t.status,
  'blocker_id',c.blocker_id,'blocker_count',coalesce(c.blocker_count,0),
  'blocker_key',(SELECT bp.key_prefix || '-' || bt.number FROM tickets bt JOIN projects bp ON bp.id=bt.project_id WHERE bt.id=c.blocker_id)) AS row
  FROM ticket_subjects s LEFT JOIN tickets t ON t.id=s.ticket_id LEFT JOIN projects p ON p.id=t.project_id

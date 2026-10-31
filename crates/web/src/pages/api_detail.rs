@@ -355,6 +355,7 @@ fn DetailPage(selector: String) -> impl IntoView {
         <Show when=move||state.ticket.get().is_some()><div node_ref=reveal_root class="detail-layout" aria-busy=move||state.busy.get().to_string()>
             <article class="ticket-detail"><div class="detail-overline"><a href="/board" class="back-link"><Icon name="board"/>"Board"</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key)}</span></div>
             <h1>{move||state.ticket.get().map(|t|t.title)}</h1>
+            {move||state.ticket.get().map(|t|view!{<TypeBadge kind=t.r#type scope=t.scope/>})}
             {move||state.ticket.get().and_then(|t|{let identity=t.external_id?.strip_prefix("github:")?.to_owned();let(repo,number)=identity.rsplit_once(':')?;Some((format!("Imported from GitHub {repo}#{number}"),t.external_url?))}).map(|(label,url)|view!{<p class="muted github-import"><a class="subtle-link" href=url target="_blank" rel="noopener"><Icon name=if is_github_url(&url){"github"}else{"link"}/>{label}<Icon name="external"/></a></p>})}
             <aside class="properties" aria-label="Ticket properties" data-expanded=move||properties_expanded.get().to_string()><PropertiesHeading expanded=properties_expanded/><div id="ticket-properties-body">
             <For each=move||vec![state.revision.get()] key=|r|*r children=move|_|view!{<Properties/>}/>
@@ -507,8 +508,10 @@ fn EditTicket(close: Callback<()>) -> impl IntoView {
     let state = expect_context::<DetailState>();
     let t = state.ticket.get_untracked().expect("loaded ticket");
     let title = RwSignal::new(t.title);
+    let kind = RwSignal::new(t.r#type.unwrap_or_default());
+    let scope = RwSignal::new(t.scope.unwrap_or_default());
     let body = RwSignal::new(t.body);
-    view! {<Modal title="Edit ticket" locked=Signal::derive(move||state.busy.get()) on_close=close><form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move|e|{e.prevent_default();state.write("PATCH",format!("/api/v1/tickets/{}",state.id.get_untracked()),json!({"title":title.get_untracked(),"body":body.get_untracked()}),move||close.run(()));} ><div class="modal-body"><TextInput id="detail-title" label="Title" value=title/><MarkdownEditor body label="Description"/><p role="alert">{move||state.error.get()}</p></div><div class="modal-footer"><BusyButton busy=state.busy disabled=Signal::derive(move||title.get().trim().is_empty())>"Save ticket"</BusyButton></div></form></Modal>}
+    view! {<Modal title="Edit ticket" locked=Signal::derive(move||state.busy.get()) on_close=close><form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move|e|{e.prevent_default();state.write("PATCH",format!("/api/v1/tickets/{}",state.id.get_untracked()),json!({"title":title.get_untracked(),"body":body.get_untracked(),"type":(!kind.get_untracked().is_empty()).then(||kind.get_untracked()),"scope":scope.get_untracked()}),move||close.run(()));} ><div class="modal-body"><TextInput id="detail-title" label="Title" value=title/><TicketClassification kind scope/><MarkdownEditor body label="Description"/><p role="alert">{move||state.error.get()}</p></div><div class="modal-footer"><BusyButton busy=state.busy disabled=Signal::derive(move||title.get().trim().is_empty())>"Save ticket"</BusyButton></div></form></Modal>}
 }
 #[component]
 fn ActivityFeed() -> impl IntoView {

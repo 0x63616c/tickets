@@ -18,6 +18,8 @@ pub(crate) struct BoardTicket {
     pub project_id: i64,
     pub key: String,
     pub title: String,
+    pub r#type: Option<String>,
+    pub scope: Option<String>,
     pub status: Status,
     pub priority: Priority,
     pub assignee: Option<String>,
@@ -924,7 +926,7 @@ fn ApiCard(ticket: BoardTicket) -> impl IntoView {
         <div class="card-top"><span class="mono ticket-id">{key.clone()}</span><span class="card-indicators">{move||{let blockers=blocked();(!blockers.is_empty()).then(||view!{<BlockedIndicator blockers/>})}}<span title=priority.name()><PriorityIcon priority/></span>
             <span class="card-status" title=s.name()><SelectField label=format!("Move {key} to status") value=Signal::derive(move||s.name().to_string()) options=Signal::derive(move||Status::ALL.into_iter().map(SelectOption::status).collect()) on_change=Callback::new(move|next:String|state.move_to(ticket_id,Status::from_name(&next),None)) disabled=Signal::derive(move||state.busy.get() || state.dragged.get().is_some())/></span>
         </span></div><a class="card-title" href=href title=ticket.title.clone()>{ticket.title.clone()}</a>
-        <div class="card-bottom"><CardLabels labels=ticket.labels/><span class="card-meta">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<span class="comment-count" aria-label=crate::count::count_label(n,"comment")><Icon name="comment"/>{n}</span>})}</span></div>
+        <div class="card-bottom"><TypeBadge kind=ticket.r#type scope=ticket.scope/><CardLabels labels=ticket.labels/><span class="card-meta">{ticket.comment_count.filter(|n|*n>0).map(|n|view!{<span class="comment-count" aria-label=crate::count::count_label(n,"comment")><Icon name="comment"/>{n}</span>})}</span></div>
     </article>}
 }
 #[component]
@@ -950,6 +952,7 @@ pub(crate) fn BoardComposer(status: Status) -> impl IntoView {
                             .map(|t|t.sort_order).fold(0.0, f64::max) + 1024.;
                         let value = api("POST", "/api/v1/tickets", json!({
                             "project_id":draft.project_id, "title":draft.title, "body":draft.body,
+                            "type":draft.r#type, "scope":draft.scope,
                             "status":draft.status, "priority":draft.priority, "sort_order":rank
                         })).await?;
                         let ticket = serde_json::from_value::<BoardTicket>(value)

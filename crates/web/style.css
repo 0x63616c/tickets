@@ -684,3 +684,12 @@ main:has(.api-board) { height: 100dvh; min-height: 0; }
 .api-board[data-pointer-drag="true"] .ticket-card { transition: none; }
 /* Match the press selector so pickup geometry is never sampled mid-scale. */
 .api-board .ticket-card:active:not(.drag-over):not(:has(button:active)) { transform: none; }
+
+/* Dedicated ticket classification shares the dense metadata hierarchy. */
+.ticket-type { display: inline-block; flex: 0 1 auto; min-width: 0; max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; padding: 0 var(--space-1); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); color: var(--text-secondary); background: var(--surface-raised); font-size: var(--text-xs); font-weight: var(--weight-medium); }
+.row-title .ticket-type { margin-right: var(--space-2); max-width: 12ch; }
+.ticket-classification { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2) var(--space-3); margin-block: var(--space-3); }
+.ticket-classification > .composer-hint { grid-column: 1 / -1; }
+.ticket-classification .field { min-width: 0; }
+.card-bottom > .ticket-type { flex-shrink: 0; max-width: 10ch; }
+.ticket-detail > .ticket-type { margin-bottom: var(--space-3); }

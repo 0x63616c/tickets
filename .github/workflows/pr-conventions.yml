@@ -31,6 +31,7 @@ jobs:
             test
             ci
             perf
+            build
           requireScope: false
           subjectPattern: ^\S.*$
 

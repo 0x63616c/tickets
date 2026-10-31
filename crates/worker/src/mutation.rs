@@ -47,7 +47,7 @@ impl Scope {
         Self { sql:"SELECT ticket_id FROM ticket_pull_requests WHERE repo=? AND number=? UNION SELECT t.id FROM json_each(?) j JOIN projects p ON p.key_prefix=json_extract(j.value,'$.prefix') JOIN tickets t ON t.project_id=p.id AND t.number=json_extract(j.value,'$.number')".into(), params:vec![repo.into(),number.into(),links.into()] }
     }
 }
-const SNAPSHOT: &str = "json_object('status',t.status,'priority',t.priority,'assignee',t.assignee,'title',t.title,'body',t.body,
+const SNAPSHOT: &str = "json_object('status',t.status,'priority',t.priority,'assignee',t.assignee,'title',t.title,'body',t.body,'type',t.type,'scope',t.scope,
  'claim',json_object('owner',t.claimed_by,'id',t.claim_id,'expires_at',t.claim_expires_at,'heartbeat_at',t.claim_heartbeat_at,'action',t.claim_event,'version',t.claim_version),
  'project',json_object('id',p.id,'name',p.name,'key',p.key_prefix),
  'labels',json((SELECT json_group_array(json(v)) FROM (SELECT json_object('id',l.id,'name',l.name,'color',l.color) v FROM labels l JOIN ticket_labels tl ON tl.label_id=l.id WHERE tl.ticket_id=t.id ORDER BY l.id))),

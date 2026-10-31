@@ -115,6 +115,8 @@ pub struct Ticket {
     pub project_id: i64,
     pub number: i64,
     pub title: String,
+    pub r#type: Option<String>,
+    pub scope: Option<String>,
     pub body: String,
     pub status: Status,
     pub priority: Priority,

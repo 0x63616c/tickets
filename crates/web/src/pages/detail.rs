@@ -39,7 +39,7 @@ fn TicketContent(ticket: Ticket) -> impl IntoView {
         <div class="detail-layout">
             <article class="ticket-detail">
                 <div class="detail-overline"><A href="/design/board" attr:class="back-link"><Icon name="board"/>"Board"</A><span class="breadcrumb-slash">"/"</span><span class="mono">{format!("TKT-{id}")}</span></div>
-                <h1>{ticket.title}</h1>
+                <h1>{ticket.title}</h1><TypeBadge kind=ticket.r#type scope=ticket.scope/>
                 <aside class="properties" aria-label="Ticket properties">
                     <h2>"Properties"</h2>
                     <div class="property"><span>"Status"</span><div>{move || view! { <StatusIcon status=Status::from_name(&status.get())/> }}<Select label="Status" options=Status::ALL.map(Status::name).to_vec() value=status on_change=Callback::new(move |value: String| state.move_ticket(id, Status::from_name(&value)))/></div></div>
