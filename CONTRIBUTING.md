@@ -304,7 +304,7 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 - Scope detail async tasks to the keyed ticket page and cancel them on cleanup.
   Editor callbacks must not access child signals after an authoritative reload
   remounts those children. Browser checks print panic-hook console errors and fail
-  on exceptions; first-run-check holds live-read/save responses across dependency
+  on exceptions; first-run-check holds authoritative read/save responses across dependency
   navigation to exercise disposal without retries.
 - Save ticket title/description explicitly with Edit ticket. Property selects save
   immediately; assignee saves on change/Enter (blank clears it). Saved state
@@ -819,6 +819,25 @@ requires both builds to exist; rebuild after source changes before using it.
   the JS imported by wasm-bindgen and cause a release Wasm rebuild for every
   browser check. Other npm commands pass through; local xtask behavior is unchanged.
 
+## D1 read-efficiency verification
+
+`cargo xtask perf-check` replays a documented Home → Board → List → ticket →
+Home/Analytics session, five idle minute ticks, and three live updates against
+isolated local D1. It obtains actual `meta.rows_read` from a disposable loopback
+Worker because wrangler's CLI strips that metadata. It writes SQL, query plans
+and `report.json` under `target/d1-perf-<pid>/`. The baseline is commit `b42be78`;
+fetch repository history before running it. This deterministic request-schedule
+replay is not a browser timing measurement or production CPU measurement.
+
+`CHROME_BIN=<headless-chromium> cargo xtask perf-browser-check` separately checks
+one shared collection across SPA navigation, targeted live patches, hidden-tab
+catch-up and one Home project request. It uses the isolated API smoke lifecycle
+(port 8795) and fixture-only screenshots under `docs/screenshots/TIK-71/`.
+`api-smoke` additionally checks private edge caching, conditional 304, auth before
+cache, invalidation and validation. Cached list requests add one version lookup
+(one auth + one version read on a hit; three calls on a miss). Existing mutation
+budgets and the shared dispatch statement budgets are unchanged.
+
 ## Font preference verification
 
 After building, `CHROME_BIN=<headless-chromium> cargo xtask font-check` checks all
@@ -842,6 +861,13 @@ It saves dark Settings/Board evidence in `docs/screenshots/TIK-83`; set
 - PNG sequences go to ignored `target/TIK-75/`; held/settled PNGs, sample JSON
   and `transitions.txt` go to `docs/screenshots/TIK-75/`. Copy review evidence to
   the ticket's external screenshot directory before opening the PR.
+
+Concurrent issue worktrees share Cargo artifacts. If another job replaces the
+common xtask executable, force a fresh `RUSTC_WRAPPER= cargo build -p xtask` and
+copy that executable into this worktree's ignored `target/` before a long series
+of browser checks. Run the private copy from the workspace root; do not set a
+separate `CARGO_TARGET_DIR`. Verify the copy contains the issue's new task/check
+before relying on its results.
 
 ## Startup splash (TIK-84)
 

@@ -11,6 +11,8 @@ mod github_prs;
 #[cfg(target_arch = "wasm32")]
 mod live;
 #[cfg(target_arch = "wasm32")]
+mod read_cache;
+#[cfg(target_arch = "wasm32")]
 pub use live::BoardRoom;
 mod search;
 // Cloudflare entry point; all private API routes pass through the auth gate.

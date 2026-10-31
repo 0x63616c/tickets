@@ -68,7 +68,7 @@ pub fn ApiProjects() -> impl IntoView {
         <div node_ref=reveal_root class="projects-page">
             <div class="projects-heading"><h1>"Projects"</h1><span class="muted" hidden=move||board.loading.get()>{move||crate::count::count_label(board.projects.get().iter().filter(|p|archived.get() || !p.archived).count(), "project")}</span><label class="canceled-toggle"><input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  type="checkbox" prop:checked=archived on:change=move|_|archived.update(|v|*v = !*v)/>"Show archived"</label></div>
             <Show when=move||board.loading.get()><LoadingSkeleton layout="projects"/></Show>
-            <Show when=move||!board.error.get().is_empty()><p role="alert">{move||board.error.get()}" "<button class="button" on:click=move|_|board.refresh()>"Retry"</button></p></Show>
+            <Show when=move||!board.error.get().is_empty()><p role="alert">{move||board.error.get()}" "<button class="button" on:click=move|_|board.catch_up()>"Retry"</button></p></Show>
             <Show when=move||!board.loading.get() && board.error.get().is_empty()>
                 <div class="projects-table repository-table"><div class="projects-table-head"><span>"Name"</span><span>"Tickets"</span><span>"Repository"</span><span>"Last activity"</span></div>
                 {move||board.projects.get().into_iter().filter(|p|archived.get() || !p.archived).map(|p| {

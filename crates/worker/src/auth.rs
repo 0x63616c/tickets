@@ -212,6 +212,10 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
         return crate::live::upgrade(req, &env, &db, project).await;
     }
     match (method,path.as_str()) {
+        (Method::Get,"/api/v1/version")=> {
+            let rows=query(&db,"SELECT version FROM workspace_version WHERE id=1",vec![]).await?;
+            reply(rows[0].clone(),200)
+        },
         (Method::Get,"/api/v1/me")=> {
             let account=query(&db,crate::auth_queries::ACCOUNT,vec![user_id.into()]).await?;
             reply(json!({"authenticated":true,"username":account[0]["username"],"display_name":account[0]["display_name"]}),200)
@@ -257,12 +261,15 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
             } else {Value::Null};
             let mut actor=authenticated[0]["token_id"].as_i64().map(tickets_core::history::Actor::api_token).unwrap_or_else(||tickets_core::history::Actor::user(user_id));
             if let Some(label)=authenticated[0]["actor_label"].as_str(){actor.label=label.to_owned();}
+            let cache = crate::read_cache::ReadCache::lookup(&req, &db).await?;
+            if let Some(cache) = &cache && let Some(response) = cache.response().await? { return Ok(response); }
             let response=crate::api::handle_as(&db,&actor,req.method().as_ref(),&path,&query,body).await;
             if let Some(change) = response.change {
                 // Best effort after D1 commit: notification cannot roll back or fail a write.
                 if crate::live::notify(&env, &db, change).await.is_err() { console_error!("Live notification failed"); }
             }
-            reply(response.body,response.status)
+            let response = reply(response.body,response.status)?;
+            if let Some(cache) = cache { cache.save(response).await } else { Ok(response) }
         }
     }
 }

@@ -27,13 +27,26 @@ pub(crate) const TICKET_SELECT: &str = "tickets.*,
       ON checks.repo=pr.repo AND checks.number=pr.number AND checks.head_sha=pr.head_sha
     WHERE pr.ticket_id=tickets.id ORDER BY pr.repo,pr.number)) AS pull_requests";
 
-fn selection(entity: &str) -> &str {
+fn selection(entity: &str) -> String {
     if entity == "tickets" {
-        TICKET_SELECT
+        TICKET_SELECT.replace(
+            "(SELECT key_prefix FROM projects WHERE id=tickets.project_id)",
+            "ticket_project.key_prefix",
+        )
     } else if entity == "projects" {
-        "projects.*, (SELECT count(*) FROM tickets WHERE project_id=projects.id AND status NOT IN ('done','canceled')) AS open_ticket_count, (SELECT count(*) FROM tickets WHERE project_id=projects.id AND status='done') AS done_ticket_count, (SELECT max(updated_at) FROM tickets WHERE project_id=projects.id) AS last_activity_at"
+        "projects.*, coalesce(counts.open_ticket_count,0) AS open_ticket_count, coalesce(counts.done_ticket_count,0) AS done_ticket_count, counts.last_activity_at".into()
     } else {
-        "*"
+        "*".into()
+    }
+}
+
+fn source(entity: &str) -> String {
+    if entity == "projects" {
+        "projects LEFT JOIN (SELECT project_id, sum(CASE WHEN status NOT IN ('done','canceled') THEN n ELSE 0 END) AS open_ticket_count, sum(CASE WHEN status='done' THEN n ELSE 0 END) AS done_ticket_count, max(activity) AS last_activity_at FROM (SELECT project_id,status,count(*) AS n,max(updated_at) AS activity FROM tickets GROUP BY project_id,status) GROUP BY project_id) counts ON counts.project_id=projects.id".into()
+    } else if entity == "tickets" {
+        "tickets JOIN projects ticket_project ON ticket_project.id=tickets.project_id".into()
+    } else {
+        entity.into()
     }
 }
 
@@ -92,7 +105,11 @@ impl<S: Store> ApiRepository<'_, S> {
     }
     pub async fn get(&self, entity: &str, id: i64) -> Result<Value> {
         self.one(
-            &format!("SELECT {} FROM {entity} WHERE id=?", selection(entity)),
+            &format!(
+                "SELECT {} FROM {} WHERE {entity}.id=?",
+                selection(entity),
+                source(entity)
+            ),
             vec![id.into()],
         )
         .await
@@ -149,8 +166,11 @@ impl<S: Store> ApiRepository<'_, S> {
         let mut values: Vec<_> = obj.values().cloned().collect();
         let mut expressions = vec!["?".to_owned(); fields.len()];
         if entity == "tickets" {
-            self.get("projects", obj["project_id"].as_i64().unwrap())
-                .await?;
+            self.one(
+                "SELECT id FROM projects WHERE id=?",
+                vec![obj["project_id"].clone()],
+            )
+            .await?;
             fields.push("number".into());
             expressions.push("(SELECT next_ticket_number FROM projects WHERE id=?)".into());
             values.push(obj["project_id"].clone());
@@ -189,7 +209,8 @@ impl<S: Store> ApiRepository<'_, S> {
         tickets_core::api::validate(entity, input).map_err(Error::Validation)?;
         let obj = input.as_object().unwrap();
         if let Some(p) = obj.get("project_id") {
-            self.get("projects", p.as_i64().unwrap()).await?;
+            self.one("SELECT id FROM projects WHERE id=?", vec![p.clone()])
+                .await?;
         }
         let mut set = vec![];
         let mut values = vec![];
@@ -315,7 +336,7 @@ impl<S: Store> ApiRepository<'_, S> {
         limit: i64,
         cursor: i64,
     ) -> Result<Value> {
-        let mut clauses = vec!["id>?".to_owned()];
+        let mut clauses = vec![format!("{entity}.id>?")];
         let mut args = vec![cursor.into()];
         if let Some(ticket) = ticket {
             clauses.push("ticket_id=?".into());
@@ -326,16 +347,16 @@ impl<S: Store> ApiRepository<'_, S> {
                 "project" => "project_id=?",
                 "status" => "status=?",
                 "assignee" => "assignee=?",
-                "label" => {
-                    "EXISTS(SELECT 1 FROM ticket_labels l WHERE l.ticket_id=tickets.id AND l.label_id=?)"
-                }
+                "label" => "tickets.id IN (SELECT ticket_id FROM ticket_labels WHERE label_id=?)",
                 "blocked" if v == "true" => {
                     "EXISTS(SELECT 1 FROM ticket_dependencies d JOIN tickets b ON b.id=d.blocker_id WHERE d.blocked_id=tickets.id AND b.status NOT IN ('done','canceled'))"
                 }
                 "blocked" => {
                     "NOT EXISTS(SELECT 1 FROM ticket_dependencies d JOIN tickets b ON b.id=d.blocker_id WHERE d.blocked_id=tickets.id AND b.status NOT IN ('done','canceled'))"
                 }
-                "q" => "id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH ?)",
+                "q" => {
+                    "tickets.id IN (SELECT rowid FROM tickets_search WHERE tickets_search MATCH ?)"
+                }
                 _ => unreachable!("validated filter"),
             };
             match key.as_str() {
@@ -350,8 +371,9 @@ impl<S: Store> ApiRepository<'_, S> {
         let mut data = self
             .rows(
                 &format!(
-                    "SELECT {} FROM {entity} WHERE {} ORDER BY id LIMIT ?",
+                    "SELECT {} FROM {} WHERE {} ORDER BY {entity}.id LIMIT ?",
                     selection(entity),
+                    source(entity),
                     clauses.join(" AND ")
                 ),
                 args,
