@@ -449,8 +449,9 @@ A persisted per-PR snapshot prevents stale events from restoring removed links.
 Newer GitHub timestamps win; equal timestamps prefer merged, closed, open, draft
 in that order. Equal-time conflicting edits of the same state retain the first
 snapshot. Exact redeliveries produce no writes/activity. Stale/replayed snapshots return 202. Ingestion uses one atomic
-D1 statement with eight parameters, plus one project lookup for live invalidation;
-it does not query per key. Signed malformed PR payloads return 400.
+mutation batch with eight PR parameters. Affected project IDs (old/new links and
+relationship neighbors) return in the same batch; there is no global project
+lookup or query per key. Signed malformed PR payloads return 400.
 
 ### Project icons
 
@@ -621,7 +622,13 @@ The web app shares its ticket collection for the shell's lifetime, deduplicates
 project/label/analytics/search requests, and patches affected ticket records on
 live events. It subscribes to every workspace project across route changes so
 inactive boards remain coherent. Healthy focus and idle tabs do not reload lists;
-hidden-tab events queue until visible. A reconnect reloads authoritative state
+hidden-tab events queue until visible. Automatic notice/reconnect reconciliation
+batches for 5 seconds with at most one reconciliation per 30 seconds per tab.
+Notices target affected projects only; an empty scope does not broadcast. Label
+edits notify projects using that label; unused/new labels and new projects become
+visible elsewhere on the next metadata refresh. Claim heartbeats and CI-only
+check updates send no notices; CI metadata appears on the next normal or manual
+refresh. A reconnect reloads authoritative state
 and can reuse the edge response cache. Mutations invalidate cached reads; explicit
 Reload/Retry actions force reconciliation.
 

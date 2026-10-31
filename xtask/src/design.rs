@@ -100,6 +100,9 @@ impl Browser {
         Ok(result["result"]["value"].clone())
     }
     pub(crate) fn wait(&mut self, expression: &str) -> Result<()> {
+        self.wait_for(expression, Duration::from_secs(15))
+    }
+    pub(crate) fn wait_for(&mut self, expression: &str, timeout: Duration) -> Result<()> {
         let start = Instant::now();
         loop {
             match self.eval(expression) {
@@ -118,7 +121,7 @@ impl Browser {
                         .any(|message| error.to_string().contains(message)) => {}
                 Err(error) => return Err(error),
             }
-            if start.elapsed() > Duration::from_secs(15) {
+            if start.elapsed() > timeout {
                 let _ = self.screenshot(Path::new("target/browser-failure.png"));
                 let context=self.eval("({url:location.href,title:document.title,body:document.body.innerText.slice(0,1200)})").unwrap_or_default();
                 return Err(format!("Timed out: {expression}; {context}").into());
@@ -269,6 +272,7 @@ impl Browser {
         ))
     }
     fn pointer_start(&mut self, selector: &str, touch: bool) -> Result<Value> {
+        self.wait("!document.querySelector('[data-ar-t]')")?;
         self.wait(&format!(
             "!document.querySelector({}).animated",
             serde_json::to_string(selector)?
@@ -293,7 +297,7 @@ impl Browser {
         self.wait("!!document.querySelector('.board-drag-preview') && document.querySelector('.api-board').dataset.pointerDrag==='true'")?;
         Ok(source)
     }
-    fn pointer_move(&mut self, x: f64, y: f64, touch: bool) -> Result<()> {
+    fn pointer_input(&mut self, x: f64, y: f64, touch: bool) -> Result<()> {
         if touch {
             self.call(
                 "Input.dispatchTouchEvent",
@@ -305,6 +309,10 @@ impl Browser {
                 json!({"type":"mouseMoved","x":x,"y":y,"button":"left","buttons":1}),
             )?;
         }
+        Ok(())
+    }
+    fn pointer_move(&mut self, x: f64, y: f64, touch: bool) -> Result<()> {
+        self.pointer_input(x, y, touch)?;
         self.eval("new Promise(r=>setTimeout(()=>r(true),40))")?;
         Ok(())
     }
@@ -532,6 +540,9 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     }
     b.go("http://127.0.0.1:8795/board")?;
     b.wait("document.querySelectorAll('.ticket-card').length===6")?;
+    if env::var_os("TICKETS_DRAG_BASELINE").is_some() {
+        return check_drag_tracking(root, &mut b);
+    }
     if env::var_os("TICKETS_BEFORE_ASSETS").is_some() {
         let output = root.join("docs/screenshots/TIK-51");
         fs::create_dir_all(&output)?;
@@ -540,6 +551,7 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
         b.screenshot(&output.join("before-board-mobile.png"))?;
         return Ok(());
     }
+    check_drag_tracking(root, &mut b)?;
     check_pointer_drag(root, &mut b)?;
     // The body, not only the title link, opens the ticket; Enter does too.
     b.click("#ticket-1 .ticket-id")?;
@@ -561,25 +573,26 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent==='Blocked by TKT-1: Remember filters when switching views')")?;
     b.key("Escape", 27, 0)?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].every(e=>e.hidden)")?;
-    // Server writes invalidate the mounted board; never reload to clear a blocker.
+    // Server writes reconcile after a 5s batch and up to a 30s tab cooldown.
+    // Allow that window only for live assertions, never reload to clear blockers.
     b.eval(r#"(async()=>{await fetch('/api/v1/tickets/3/dependencies/2',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});return true})()"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.eval("document.querySelector('#ticket-2 .blocked-indicator').focus();true")?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent.includes('TKT-1: Remember filters') && e.textContent.includes('TKT-3: Move tickets between board columns'))")?;
     b.key("Escape", 27, 0)?;
     b.eval(r#"fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'done'})}).then(r=>r.ok)"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-3'", Duration::from_secs(40))?;
     b.eval(r#"fetch('/api/v1/tickets/3',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'canceled'})}).then(r=>r.ok)"#)?;
-    b.wait("!document.querySelector('#ticket-2 .blocked-indicator') && document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='Todo'")?;
+    b.wait_for("!document.querySelector('#ticket-2 .blocked-indicator') && document.querySelector('#ticket-2').closest('section').getAttribute('aria-label')==='Todo'", Duration::from_secs(40))?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'backlog'],[3,'in_progress']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});return true})()"#)?;
-    b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.go("http://127.0.0.1:8795/list?project=1")?;
-    b.wait("document.querySelector('#list-ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'")?;
+    b.wait_for("document.querySelector('#list-ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1, TKT-3'", Duration::from_secs(40))?;
     b.eval("document.querySelector('#list-ticket-2 .blocked-indicator').focus();true")?;
     b.wait("[...document.querySelectorAll('[role=tooltip]')].some(e=>!e.hidden && e.textContent.includes('TKT-1: Remember filters') && e.textContent.includes('TKT-3: Move tickets'))")?;
     b.key("Escape", 27, 0)?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'done'],[3,'canceled']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});return true})()"#)?;
-    b.wait("!document.querySelector('#list-ticket-2 .blocked-indicator') && document.querySelector('#list-ticket-2').closest('section').getAttribute('aria-label')==='Todo'")?;
+    b.wait_for("!document.querySelector('#list-ticket-2 .blocked-indicator') && document.querySelector('#list-ticket-2').closest('section').getAttribute('aria-label')==='Todo'", Duration::from_secs(40))?;
     b.eval(r#"(async()=>{for(const [id,status] of [[1,'backlog'],[3,'in_progress']])await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});await fetch('/api/v1/tickets/3/dependencies/2',{method:'DELETE'});return true})()"#)?;
     b.go("http://127.0.0.1:8795/board?canceled=true")?;
     b.wait("document.querySelector('#ticket-2 .blocked-indicator')?.getAttribute('aria-label')==='Blocked by TKT-1' && document.querySelectorAll('.ticket-card').length===7")?;
@@ -703,6 +716,110 @@ pub fn board_check(root: &Path, password: &str, mode: &str) -> super::Result {
     Ok(())
 }
 
+// Real sensor input: sample before the press transition could settle. Sortable
+// reads the computed matrix at each move, so a transform transition loses travel.
+fn check_drag_tracking(root: &Path, b: &mut Browser) -> super::Result {
+    let baseline = env::var_os("TICKETS_DRAG_BASELINE").is_some();
+    let phase = if baseline { "before" } else { "after" };
+    let output = root.join("docs/screenshots/TIK-92");
+    fs::create_dir_all(&output)?;
+    let mut samples = Vec::new();
+    for (width, touch) in [(1440, false), (2560, false), (390, true)] {
+        b.viewport(width, 900)?;
+        b.eval("document.querySelector('.board').scrollLeft=0;true")?;
+        b.call(
+            "Emulation.setTouchEmulationEnabled",
+            json!({"enabled":touch,"maxTouchPoints":1}),
+        )?;
+        let original =
+            b.eval("document.querySelector('#ticket-1').getBoundingClientRect().toJSON()")?;
+        let source = b.pointer_start("#ticket-1", touch)?;
+        let x = source["x"].as_f64().unwrap();
+        let y = source["y"].as_f64().unwrap();
+        for step in 0..20 {
+            let dx = 20. + f64::from(step) * 4.;
+            let dy = 10. + f64::from(step) * 3.;
+            b.pointer_input(x + dx, y + dy, touch)?;
+            b.eval("new Promise(r=>requestAnimationFrame(()=>r(true)))")?;
+            // Headless captures omit the OS cursor. A decorative ring records
+            // the actual CDP pointer position without affecting hit testing.
+            b.eval(&format!("(()=>{{let p=document.querySelector('[data-drag-test-pointer]');if(!p){{p=document.createElement('div');p.dataset.dragTestPointer='';document.body.append(p)}}Object.assign(p.style,{{position:'fixed',left:'{}px',top:'{}px',width:'12px',height:'12px',border:'2px solid white',borderRadius:'50%',transform:'translate(-50%,-50%)',pointerEvents:'none',zIndex:'2147483647'}});return true}})()", x+dx, y+dy))?;
+            let geometry = b.eval(r#"(()=>{
+                const ghost=document.querySelector('.board-drag-preview');
+                const slot=document.querySelector('.board-origin-placeholder');
+                const style=getComputedStyle(ghost);
+                return {ghost:ghost.getBoundingClientRect().toJSON(), transition:style.transition,
+                    origin:slot ? {rect:slot.getBoundingClientRect().toJSON(),opacity:Number(getComputedStyle(slot).opacity),filter:getComputedStyle(slot).filter,inert:slot.inert,hidden:slot.getAttribute('aria-hidden'),column:slot.closest('section').getAttribute('aria-label')} : null};
+            })()"#)?;
+            let error_x =
+                geometry["ghost"]["x"].as_f64().unwrap() - original["x"].as_f64().unwrap() - dx;
+            let error_y =
+                geometry["ghost"]["y"].as_f64().unwrap() - original["y"].as_f64().unwrap() - dy;
+            samples.push(json!({"width":width,"touch":touch,"step":step,"pointer":{"x":x+dx,"y":y+dy},"error":{"x":error_x,"y":error_y},"geometry":geometry}));
+            if [0, 6, 12, 19].contains(&step) {
+                b.screenshot(&output.join(format!("{phase}-{width}-step-{step}.png")))?;
+            }
+            if !baseline {
+                let slot = &geometry["origin"];
+                if error_x.abs() > 3. || error_y.abs() > 3. {
+                    return Err(format!(
+                        "Drag tracking error at {width}/{step}: {error_x}, {error_y}; {geometry}"
+                    )
+                    .into());
+                }
+                if slot["inert"] != true
+                    || slot["hidden"] != "true"
+                    || slot["column"] != "Backlog"
+                    || slot["opacity"].as_f64().is_none_or(|n| n > 0.5 || n <= 0.)
+                    || slot["filter"] != "grayscale(1)"
+                {
+                    return Err(format!("Missing/damaged origin placeholder: {geometry}").into());
+                }
+                for dimension in ["x", "y", "width", "height"] {
+                    if (slot["rect"][dimension].as_f64().unwrap_or(0.)
+                        - original[dimension].as_f64().unwrap())
+                    .abs()
+                        > 1.
+                    {
+                        return Err(format!("Origin slot changed {dimension}: {geometry}").into());
+                    }
+                }
+            }
+        }
+        b.eval("document.querySelector('[data-drag-test-pointer]')?.remove();true")?;
+        b.key("Escape", 27, 0)?;
+        b.pointer_end(x + 100., y + 65., touch)?;
+        b.wait("!document.querySelector('.board-drag-preview, .board-origin-placeholder, .board-drop-placeholder') && document.querySelector('#ticket-1').closest('section').getAttribute('aria-label')==='Backlog'")?;
+        // Dropping outside after crossing a valid column must cancel that move.
+        if !baseline && !touch {
+            b.pointer_start("#ticket-1", false)?;
+            let target = b.drag_point("#ticket-2")?;
+            b.pointer_move(
+                target["x"].as_f64().unwrap(),
+                target["y"].as_f64().unwrap(),
+                false,
+            )?;
+            b.wait("document.querySelector('[aria-label=Todo] .board-drop-placeholder')?.id==='ticket-1'")?;
+            b.pointer_move(20., 60., false)?;
+            b.pointer_end(20., 60., false)?;
+            b.eval(
+                "new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(true))))",
+            )?;
+            b.wait("!document.querySelector('.board-drag-preview, .board-origin-placeholder') && document.querySelector('.api-board').dataset.busy==='false' && document.querySelector('.api-board').dataset.moving==='false' && document.querySelector('#ticket-1').closest('section').getAttribute('aria-label')==='Backlog'")?;
+        }
+    }
+    fs::write(
+        output.join(format!("{phase}-tracking.json")),
+        serde_json::to_vec_pretty(&samples)?,
+    )?;
+    b.call(
+        "Emulation.setTouchEmulationEnabled",
+        json!({"enabled":false}),
+    )?;
+    b.viewport(1440, 900)?;
+    Ok(())
+}
+
 fn check_pointer_drag(root: &Path, b: &mut Browser) -> super::Result {
     let output = root.join("docs/screenshots/TIK-51");
     fs::create_dir_all(&output)?;
@@ -769,6 +886,8 @@ fn check_pointer_drag(root: &Path, b: &mut Browser) -> super::Result {
         target["y"].as_f64().unwrap() + 32.,
         false,
     )?;
+    b.wait("document.querySelector('.board-origin-placeholder[inert]')?.closest('section').getAttribute('aria-label')==='Backlog'")?;
+    b.screenshot(&root.join("docs/screenshots/TIK-92/after-cross-column.png"))?;
     b.screenshot(&output.join("after-pointer-placeholder.png"))?;
     // A project change cannot replace a list currently owned by the pointer sensor.
     b.eval("document.querySelectorAll('.project-nav')[1].click();true")?;
@@ -825,6 +944,24 @@ fn check_pointer_drag(root: &Path, b: &mut Browser) -> super::Result {
     Ok(())
 }
 
+fn check_tracking_after_scroll(b: &mut Browser, x: f64, y: f64, touch: bool) -> super::Result {
+    let before =
+        b.eval("document.querySelector('.board-drag-preview').getBoundingClientRect().toJSON()")?;
+    b.pointer_move(x - 24., y - 16., touch)?;
+    let after =
+        b.eval("document.querySelector('.board-drag-preview').getBoundingClientRect().toJSON()")?;
+    for (axis, delta) in [("x", -24.), ("y", -16.)] {
+        let travel = after[axis].as_f64().unwrap() - before[axis].as_f64().unwrap();
+        if (travel - delta).abs() > 3. {
+            return Err(
+                format!("Ghost lost tracking after scroll on {axis}: {travel} != {delta}").into(),
+            );
+        }
+    }
+    b.wait("!!document.querySelector('.board-origin-placeholder[inert]')")?;
+    Ok(())
+}
+
 fn check_board_autoscroll(root: &Path, b: &mut Browser) -> super::Result {
     b.viewport(1440, 900)?;
     b.eval("document.querySelector('.board').scrollLeft=0;true")?;
@@ -836,6 +973,13 @@ fn check_board_autoscroll(root: &Path, b: &mut Browser) -> super::Result {
         false,
     )?;
     b.wait("document.querySelector('#ticket-9').closest('section').scrollTop>0")?;
+    check_tracking_after_scroll(
+        b,
+        column["x"].as_f64().unwrap(),
+        column["y"].as_f64().unwrap(),
+        false,
+    )?;
+    b.screenshot(&root.join("docs/screenshots/TIK-92/after-column-autoscroll.png"))?;
     b.screenshot(&root.join("docs/screenshots/TIK-51/after-column-autoscroll.png"))?;
     b.key("Escape", 27, 0)?;
     b.pointer_end(
@@ -857,6 +1001,13 @@ fn check_board_autoscroll(root: &Path, b: &mut Browser) -> super::Result {
         true,
     )?;
     b.wait("document.querySelector('.board').scrollLeft>0")?;
+    check_tracking_after_scroll(
+        b,
+        edge["x"].as_f64().unwrap(),
+        edge["y"].as_f64().unwrap(),
+        true,
+    )?;
+    b.screenshot(&root.join("docs/screenshots/TIK-92/after-board-autoscroll.png"))?;
     b.screenshot(&root.join("docs/screenshots/TIK-51/after-board-autoscroll.png"))?;
     b.call(
         "Input.dispatchTouchEvent",
@@ -1318,8 +1469,9 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("window.fetch=window.savedFetch;true")?;
     b.go("http://127.0.0.1:8795/t/UNKNOWN-999999")?;
     b.wait("document.querySelector('[role=alert]')?.textContent.toLowerCase().includes('not found') && [...document.querySelectorAll('button')].some(b=>b.textContent==='Edit ticket' && b.disabled)")?;
-    // Dispose the previous app before removing auth: its background requests can
-    // otherwise race the next navigation with a login redirect for the old URL.
+    // Dispose the previous page's live reads before expiring authentication.
+    // Otherwise its late 401 can redirect back to the not-found route while
+    // this independent logged-out navigation is being checked.
     b.call("Page.navigate", json!({"url":"about:blank"}))?;
     b.wait("location.href==='about:blank'")?;
     b.call("Network.clearBrowserCookies", json!({}))?;

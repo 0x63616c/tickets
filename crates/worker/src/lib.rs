@@ -254,7 +254,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
                 action: "update".into(),
                 projects,
             };
-            if live::notify(&env, &db, change).await.is_err() {
+            if live::notify(&env, change).await.is_err() {
                 console_error!("Claim expiry notification failed");
             }
         }

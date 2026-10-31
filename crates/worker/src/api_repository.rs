@@ -58,6 +58,16 @@ fn source(entity: &str) -> String {
 
 pub(crate) struct ApiRepository<'a, S>(pub &'a S, pub &'a Actor);
 impl<S: Store> ApiRepository<'_, S> {
+    pub async fn label_projects(&self, id: i64) -> Result<Vec<i64>> {
+        let rows: Vec<Value> = self.0.query(
+            "SELECT DISTINCT t.project_id FROM ticket_labels tl JOIN tickets t ON t.id=tl.ticket_id WHERE tl.label_id=?",
+            vec![id.into()],
+        ).await?;
+        Ok(rows
+            .iter()
+            .filter_map(|v| v["project_id"].as_i64())
+            .collect())
+    }
     pub async fn ticket_projects(&self, id: i64) -> Result<Vec<i64>> {
         let related: Vec<Value> = self.0.query("SELECT DISTINCT project_id FROM tickets WHERE id IN (SELECT blocked_id FROM ticket_dependencies WHERE blocker_id=? UNION SELECT blocker_id FROM ticket_dependencies WHERE blocked_id=?)", vec![id.into(), id.into()]).await?;
         Ok(related

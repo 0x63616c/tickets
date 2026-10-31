@@ -942,7 +942,24 @@ fn committed_changes_keep_project_scope_including_moves_and_dependencies() {
             json!({"name":"Bug","color":"#123456"}),
         )
         .await;
-        assert!(label.change.unwrap().projects.is_empty()); // Global label invalidation.
+        assert!(label.change.unwrap().projects.is_empty()); // An unused label affects no project rooms.
+        call(&db, "POST", "/api/v1/tickets/1/labels/1", Value::Null, 200).await;
+        for method in ["PATCH", "DELETE"] {
+            let change = handle(
+                &db,
+                method,
+                "/api/v1/labels/1",
+                &[],
+                if method == "PATCH" {
+                    json!({"name":"Renamed"})
+                } else {
+                    Value::Null
+                },
+            )
+            .await;
+            assert_eq!(change.status, 200, "{}", change.body);
+            assert_eq!(change.change.unwrap().projects, vec![2]);
+        }
         let rejected = handle(
             &db,
             "PATCH",

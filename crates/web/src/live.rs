@@ -67,6 +67,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
         }
     });
     let scheduled = RwSignal::new(false);
+    let last_reload = StoredValue::new_local(None::<u64>);
     Effect::new(move |_| {
         let active = [
             "/",
@@ -93,8 +94,15 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
         {
             scheduled.set(true);
             spawn_local(async move {
-                TimeoutFuture::new(350).await;
+                // Coalesce bursts for 5s, and allow at most one automatic live
+                // reconciliation per 30s per tab. Pending notices stay queued.
+                let delay = tickets_core::live::refresh_delay_ms(
+                    js_sys::Date::now() as u64,
+                    last_reload.get_value(),
+                );
+                TimeoutFuture::new(delay).await;
                 if online.get_untracked()
+                    && board.signed_in.get_untracked()
                     && ([
                         "/",
                         "/home",
@@ -114,6 +122,7 @@ pub(crate) fn subscribe(board: BoardState, path: Memo<String>) {
                     && board.composer.get_untracked().is_none()
                     && !board.refreshing.get_untracked()
                 {
+                    last_reload.set_value(Some(js_sys::Date::now() as u64));
                     dirty.set(false);
                     let pending = events.get_untracked().into_values().collect::<Vec<_>>();
                     events.update(|e| e.clear());

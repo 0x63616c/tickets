@@ -1,0 +1,250 @@
+{
+  "after": {
+    "d1_duration_ms": 10.0,
+    "rows_read": 27328,
+    "statements": 49
+  },
+  "baseline": "b42be78",
+  "before": {
+    "d1_duration_ms": 23.0,
+    "rows_read": 90270,
+    "statements": 110
+  },
+  "fixture_tickets": 240,
+  "note": "Deterministic request-schedule replay; not browser elapsed time or Worker CPU. Three live updates; five idle minute ticks elided after. Includes cold analytics after each update.",
+  "plans": [
+    {
+      "meta": {
+        "changed_db": false,
+        "changes": 0,
+        "duration": 0,
+        "last_row_id": 0,
+        "rows_read": 0,
+        "rows_written": 0,
+        "served_by": "miniflare.db",
+        "served_by_primary": true,
+        "size_after": 471040,
+        "timings": {
+          "sql_duration_ms": 0
+        },
+        "total_attempts": 1
+      },
+      "results": [
+        {
+          "detail": "MATERIALIZE counts",
+          "id": 3,
+          "notused": 0,
+          "parent": 0
+        },
+        {
+          "detail": "CO-ROUTINE (subquery-1)",
+          "id": 5,
+          "notused": 0,
+          "parent": 3
+        },
+        {
+          "detail": "SCAN tickets USING COVERING INDEX tickets_project_status_activity",
+          "id": 11,
+          "notused": 211,
+          "parent": 5
+        },
+        {
+          "detail": "SCAN (subquery-1)",
+          "id": 51,
+          "notused": 82,
+          "parent": 3
+        },
+        {
+          "detail": "USE TEMP B-TREE FOR GROUP BY",
+          "id": 54,
+          "notused": 0,
+          "parent": 3
+        },
+        {
+          "detail": "SEARCH projects USING INTEGER PRIMARY KEY (rowid>?)",
+          "id": 120,
+          "notused": 196,
+          "parent": 0
+        },
+        {
+          "detail": "BLOOM FILTER ON counts (project_id=?)",
+          "id": 126,
+          "notused": 0,
+          "parent": 0
+        },
+        {
+          "detail": "SEARCH counts USING AUTOMATIC COVERING INDEX (project_id=?) LEFT-JOIN",
+          "id": 138,
+          "notused": 47,
+          "parent": 0
+        }
+      ],
+      "success": true
+    },
+    {
+      "meta": {
+        "changed_db": false,
+        "changes": 0,
+        "duration": 1,
+        "last_row_id": 0,
+        "rows_read": 0,
+        "rows_written": 0,
+        "served_by": "miniflare.db",
+        "served_by_primary": true,
+        "size_after": 471040,
+        "timings": {
+          "sql_duration_ms": 1
+        },
+        "total_attempts": 1
+      },
+      "results": [
+        {
+          "detail": "SEARCH tickets USING INTEGER PRIMARY KEY (rowid>?)",
+          "id": 5,
+          "notused": 196,
+          "parent": 0
+        },
+        {
+          "detail": "SEARCH ticket_project USING INTEGER PRIMARY KEY (rowid=?)",
+          "id": 7,
+          "notused": 45,
+          "parent": 0
+        },
+        {
+          "detail": "CORRELATED SCALAR SUBQUERY 1",
+          "id": 32,
+          "notused": 0,
+          "parent": 0
+        },
+        {
+          "detail": "SEARCH comments USING INDEX comments_visible_ticket (ticket_id=?)",
+          "id": 38,
+          "notused": 60,
+          "parent": 32
+        },
+        {
+          "detail": "CORRELATED SCALAR SUBQUERY 3",
+          "id": 55,
+          "notused": 0,
+          "parent": 0
+        },
+        {
+          "detail": "CO-ROUTINE (subquery-2)",
+          "id": 58,
+          "notused": 0,
+          "parent": 55
+        },
+        {
+          "detail": "SEARCH tl USING COVERING INDEX sqlite_autoindex_ticket_labels_1 (ticket_id=?)",
+          "id": 62,
+          "notused": 56,
+          "parent": 58
+        },
+        {
+          "detail": "SEARCH l USING INTEGER PRIMARY KEY (rowid=?)",
+          "id": 66,
+          "notused": 45,
+          "parent": 58
+        },
+        {
+          "detail": "USE TEMP B-TREE FOR ORDER BY",
+          "id": 77,
+          "notused": 0,
+          "parent": 58
+        },
+        {
+          "detail": "SCAN (subquery-2)",
+          "id": 87,
+          "notused": 97,
+          "parent": 55
+        },
+        {
+          "detail": "CORRELATED SCALAR SUBQUERY 5",
+          "id": 100,
+          "notused": 0,
+          "parent": 0
+        },
+        {
+          "detail": "CO-ROUTINE (subquery-4)",
+          "id": 103,
+          "notused": 0,
+          "parent": 100
+        },
+        {
+          "detail": "SEARCH ticket_dependencies USING COVERING INDEX sqlite_autoindex_ticket_dependencies_1 (blocker_id=?)",
+          "id": 106,
+          "notused": 56,
+          "parent": 103
+        },
+        {
+          "detail": "SCAN (subquery-4)",
+          "id": 116,
+          "notused": 97,
+          "parent": 100
+        },
+        {
+          "detail": "CORRELATED SCALAR SUBQUERY 7",
+          "id": 128,
+          "notused": 0,
+          "parent": 0
+        },
+        {
+          "detail": "CO-ROUTINE (subquery-6)",
+          "id": 131,
+          "notused": 0,
+          "parent": 128
+        },
+        {
+          "detail": "SEARCH ticket_dependencies USING INDEX dependencies_blocked (blocked_id=?)",
+          "id": 135,
+          "notused": 62,
+          "parent": 131
+        },
+        {
+          "detail": "USE TEMP B-TREE FOR ORDER BY",
+          "id": 144,
+          "notused": 0,
+          "parent": 131
+        },
+        {
+          "detail": "SCAN (subquery-6)",
+          "id": 154,
+          "notused": 97,
+          "parent": 128
+        },
+        {
+          "detail": "CORRELATED SCALAR SUBQUERY 9",
+          "id": 166,
+          "notused": 0,
+          "parent": 0
+        },
+        {
+          "detail": "CO-ROUTINE (subquery-8)",
+          "id": 169,
+          "notused": 0,
+          "parent": 166
+        },
+        {
+          "detail": "SEARCH pr USING INDEX sqlite_autoindex_ticket_pull_requests_1 (ticket_id=?)",
+          "id": 175,
+          "notused": 62,
+          "parent": 169
+        },
+        {
+          "detail": "SEARCH checks USING INDEX sqlite_autoindex_github_pull_request_checks_1 (repo=? AND number=? AND head_sha=?) LEFT-JOIN",
+          "id": 180,
+          "notused": 47,
+          "parent": 169
+        },
+        {
+          "detail": "SCAN (subquery-8)",
+          "id": 217,
+          "notused": 97,
+          "parent": 166
+        }
+      ],
+      "success": true
+    }
+  ],
+  "projected_rows_per_day": 987411.1601196411
+}

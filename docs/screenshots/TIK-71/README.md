@@ -9,3 +9,16 @@ this PR changes data loading and recovery. The merged upstream TIK-83 changes th
 See `docs/performance/TIK-71.md` for measured D1 rows, caller audit and CPU limits.
 The first-run, Home loading, and Board/List loading checks separately verify that
 refreshes retain content and do not replay the initial skeleton/reveal.
+
+PR #115 continuation: `after-home*.png` and `requests.json` were regenerated from
+`359b588` with the current synthetic local-D1 perf-browser fixture. Both desktop
+and mobile captures were inspected. The historical `before-home*.png` remain the
+TIK-65 reference described above; they are not matched-fixture captures of this
+follow-up. No markup, layout, styles or tokens change in this continuation.
+`perf-browser-check`, empty-D1 `first-run-check`, and `component-shot all` pass.
+The component gallery evidence is retained under ignored
+`target/TIK-71-validation/components/`; full local check logs are alongside it.
+
+The local browser has a mandatory SOCKS policy that blocks loopback. These
+captures use a temporary direct-proxy policy bind-mounted only in each browser's
+private user/mount namespace. Shared browser policies were not changed.

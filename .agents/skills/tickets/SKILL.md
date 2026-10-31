@@ -293,8 +293,11 @@ text event, refetch the relevant REST data. Link IDs identify the originating
 ticket; labels are global. Events are best effort invalidations, may duplicate,
 and have no replay. Reconnect with backoff plus jitter and refetch after reconnect.
 Do not send application messages. See the API reference for cookie/Origin rules.
-Ordinary REST mutations automatically notify watchers; no separate publish call
-is required, and notification failures never fail a committed mutation.
+Ticket-affecting REST mutations notify only affected project rooms; claim
+heartbeats and CI-only check updates send no notice. No separate publish call is
+required, and notification failures never fail a committed mutation. Browser tabs
+batch automatic reconciliation for 5 seconds with a 30-second cooldown; external
+watchers should also coalesce invalidations rather than refetch for every event.
 
 ## GitHub migration provenance
 

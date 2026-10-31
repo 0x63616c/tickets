@@ -9,27 +9,39 @@ buckets(n,start,end) AS (
 ),
 active_projects AS (SELECT * FROM projects WHERE archived=0),
 -- Match Board/List presentation without rewriting the stored status or history.
-inventory AS (
- SELECT t.*,CASE WHEN t.status='todo' AND EXISTS(
+inventory AS NOT MATERIALIZED (
+ SELECT t.id,t.project_id,t.number,t.title,t.status,t.priority,CASE WHEN t.status='todo' AND EXISTS(
   SELECT 1 FROM ticket_labels tl JOIN labels l ON l.id=tl.label_id
   WHERE tl.ticket_id=t.id AND l.name='later' COLLATE NOCASE
- ) THEN 'backlog' ELSE t.status END AS display_status FROM tickets t
+ ) THEN 'backlog' ELSE t.status END AS display_status
+ FROM tickets t
+ WHERE t.status NOT IN ('done','canceled')
 ),
-current AS (
+-- Materialize only scoped open tickets before reusing blocker/label work in
+-- counts, queues and cohorts. Aggregate each ticket's edges once for both count
+-- and first blocker. Keep empty/resolved-only edges via LEFT JOIN. Inventory stays
+-- inline so project counts can use covering indexes.
+current AS MATERIALIZED (
  SELECT s.id AS subject_id,t.id AS ticket_id,t.project_id,p.key_prefix || '-' || t.number AS key,t.title,t.display_status AS status,t.priority,
- (SELECT count(*) FROM ticket_dependencies d JOIN tickets blocker ON blocker.id=d.blocker_id
-  WHERE d.blocked_id=t.id AND blocker.status NOT IN ('done','canceled')) AS blocker_count,
- (SELECT min(blocker.id) FROM ticket_dependencies d JOIN tickets blocker ON blocker.id=d.blocker_id
-  WHERE d.blocked_id=t.id AND blocker.status NOT IN ('done','canceled')) AS blocker_id
+ count(blocker.id) AS blocker_count,min(blocker.id) AS blocker_id
  FROM inventory t JOIN active_projects p ON p.id=t.project_id JOIN ticket_subjects s ON s.ticket_id=t.id
+ LEFT JOIN ticket_dependencies d ON d.blocked_id=t.id
+ LEFT JOIN tickets blocker ON blocker.id=d.blocker_id AND blocker.status NOT IN ('done','canceled')
  WHERE (?1=0 OR t.project_id=?1) AND t.status NOT IN ('done','canceled')
+ GROUP BY t.id
+),
+-- Restrict history before expanding it into weekly buckets. Imported/deleted
+-- subjects retain their historical counts, with active-project scope applied here.
+filtered_events AS NOT MATERIALIZED (
+ SELECT e.subject_id,e.recorded_at,CASE WHEN e.kind='status' THEN 'completed' ELSE e.kind END AS metric
+ FROM ticket_events e JOIN active_projects p ON p.id=e.project_id
+ WHERE e.recorded_at>=(SELECT first_week FROM clock) AND e.recorded_at<=(SELECT as_of FROM clock)
+ AND (?1=0 OR e.project_id=?1)
+ AND (e.kind IN ('created','imported') OR (e.kind='status' AND e.new_value='done'))
 ),
 flow AS (
- SELECT DISTINCT b.n,e.subject_id,CASE WHEN e.kind='status' THEN 'completed' ELSE e.kind END AS metric
- FROM buckets b JOIN ticket_events e ON e.recorded_at>=b.start AND e.recorded_at<b.end
- JOIN active_projects p ON p.id=e.project_id CROSS JOIN clock
- WHERE e.recorded_at<=clock.as_of AND (?1=0 OR e.project_id=?1)
- AND (e.kind IN ('created','imported') OR (e.kind='status' AND e.new_value='done'))
+ SELECT DISTINCT b.n,e.subject_id,e.metric
+ FROM filtered_events e JOIN buckets b ON e.recorded_at>=b.start AND e.recorded_at<b.end
 ),
 cohort_ids AS (
  SELECT subject_id FROM current WHERE

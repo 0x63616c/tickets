@@ -312,7 +312,8 @@ async fn dispatch<S: Store>(
             })?;
         return Ok(Reply {
             status: 200,
-            change: Some(CommittedChange {
+            // Renewals are durable history, but do not change board content.
+            change: (*action != "heartbeat").then(|| CommittedChange {
                 entity: "tickets".into(),
                 id,
                 action: "update".into(),
@@ -462,6 +463,10 @@ async fn dispatch<S: Store>(
                     .get("tickets", existing["ticket_id"].as_i64().unwrap())
                     .await?;
                 projects.extend(ticket["project_id"].as_i64());
+            }
+            if entity == "labels" && method != "GET" {
+                // Resolve before deletion cascades remove label membership.
+                projects.extend(r.label_projects(n).await?);
             }
             if entity == "tickets" && method != "GET" {
                 projects.extend(r.ticket_projects(n).await?);

@@ -79,13 +79,18 @@ fn lifecycle_fencing_history_and_manual_status() {
         .await;
         assert_eq!(other.status, 409);
         for _ in 0..2 {
-            ok(
+            let renewed = call(
                 &db,
                 "POST",
                 "/api/v1/tickets/EX-1/claim/heartbeat",
                 lease.clone(),
             )
             .await;
+            assert_eq!(renewed.status, 200);
+            assert!(
+                renewed.change.is_none(),
+                "heartbeats must not notify live rooms"
+            );
         }
         assert_eq!(
             fields(&db)

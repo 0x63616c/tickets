@@ -303,7 +303,7 @@ pub async fn handle(mut req: Request, env: Env) -> Result<Response> {
             let response=crate::api::handle_as(&db,&actor,req.method().as_ref(),&path,&query,body).await;
             if let Some(change) = response.change {
                 // Best effort after D1 commit: notification cannot roll back or fail a write.
-                if crate::live::notify(&env, &db, change).await.is_err() { console_error!("Live notification failed"); }
+                if crate::live::notify(&env, change).await.is_err() { console_error!("Live notification failed"); }
             }
             let response = reply(response.body,response.status)?;
             if let Some(cache) = cache { cache.save(response).await } else { Ok(response) }
