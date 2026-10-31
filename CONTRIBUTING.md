@@ -869,7 +869,7 @@ of browser checks. Run the private copy from the workspace root; do not set a
 separate `CARGO_TARGET_DIR`. Verify the copy contains the issue's new task/check
 before relying on its results.
 
-## Startup splash (TIK-84)
+## Startup splash (TIK-84, TIK-87, TIK-89)
 
 `index.html` paints a full-screen ASCII Stub before the app mounts. Its small
 inline canvas sampler uses the favicon's evenodd path, including notches and
@@ -877,23 +877,37 @@ perforations, with fixed monospace cells: `--stub-edge` (#a78bfa) for a continuo
 one-cell purple contour (including notches and holes), `--stub-ink` for the body.
 Filled cells have at least 50% coverage; a filled cell with an empty four-neighbour
 is an edge. The sampled grid is rebuilt only on resize, never for motion.
-The mark fades in over 550ms with cubic ease-out while rising 12px into a sine-wave
-float: vertical ±9px / 2.2s, horizontal ±6px / 3.4s, rotation ±1.6° / 3.8s.
-The float and fades are CSS keyframes/transitions on `translate`, `rotate` and
-`opacity` (`.boot-mark` fade/drift, `.boot-sway` sway, `pre` bob and tilt), so they
-run on the compositor and keep moving while the wasm compiles; JS only toggles
-`boot-in`, `boot-leaving`, `boot-exit` and `boot-reduced`. There is no scramble,
-shimmer or glyph dissolve. The black backdrop is present at first paint.
-After the next-frame `tickets:ready` mount signal, it waits for app `aria-busy`
-to clear (up to 1.5s) and holds at least 900ms from first paint. The mark then
-fades out and rises another 16px over 400ms with an ease-in curve (a splash-only
-exception to normal UI exit easing), followed by a 280ms black backdrop fade:
-680ms total. An independent 8s timer removes it even if startup fails.
+The mark enters over 550ms with an ease-out fade and 12px rise. CSS keeps the
+float on the compositor: vertical ±9px / 2.2s, horizontal ±6px / 3.4s and
+rotation ±1.6° / 3.8s (`.boot-mark` entry, `.boot-sway`, `.boot-grid` bob/tilt).
+Each of two full-grid piece wrappers has stacked edge/body `<pre>` layers with
+identical 0.6em advance and 1.2 line height; spaces register the pieces seamlessly.
+The purple contour is built once. Body Text.data updates at 30fps on rAF using
+`ox+=*%$@`: density 0.52 plus three sine waves (amplitudes .19/.14/.08,
+time rates 1.15/.73/.47 radians/s, cell phases .28x+.36y, .13x−.31y,
+.39x+.12y), plus a diagonal highlight (width .22, strength .22, speed .16/s).
+Cell phases and reusable character buffers are precomputed; each piece joins its
+body buffer into one string per glyph frame. No per-frame DOM construction or
+random scramble. Hidden tabs suspend the glyph clock; removal cancels it.
+After `tickets:ready`, app aria-busy clears or reaches its 1.5s cap, with a 900ms
+minimum from first paint. The split is at SVG x=20 (two thirds of grid width).
+For 150ms the two seam columns fray through low-density `·~,` and staggered
+progressive dropout, in purple, tracing both new torn edges. CSS then rotates the
+right stub 12° about its lower tear corner (520ms, ease-out, so it tips as it
+releases) and moves it 22px right / 90px down (520ms ease-in fall; screen pixels,
+compensated for grid scale); it fades over the last 280ms (240ms delay).
+The main piece, the ticket that stays, recoils 3px left over 360ms and stays
+visible until the backdrop fade takes it.
+The black backdrop then fades for `--duration-splash-exit` (280ms): 900ms total.
+The fall's ease-in is a splash-only exception to normal UI easing. Independent
+phase timers and the 8s safety removal work even if rAF stalls. The tear travel
+and recoil use `--splash-tear-x`, `--splash-tear-y`, `--splash-recoil` tokens.
 Package-owned content reveals begin after removal.
 
-OS reduced motion or `tickets.motion=reduce` shows the same static outlined mark
-for at least 500ms, with opacity-only entry and exit fades and no translation or
-rotation. Component previews (`/design/c/*`)
+OS reduced motion, `html[data-motion=reduce]` or `tickets.motion=reduce` shows the
+same static outlined mark for at least 500ms, with opacity-only entry and exit
+fades and no translation, rotation, living glyph field or tear (400ms mark fade
++ 280ms backdrop fade). Component previews (`/design/c/*`)
 and webdriver sessions skip the splash; add `?splash` to opt automated recordings
 in (component previews always skip). Client-side navigation never recreates it.
 For local fixture viewing, build and serve `crates/web/dist` with SPA fallback,
