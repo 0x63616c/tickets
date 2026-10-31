@@ -408,7 +408,12 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 - `/projects` uses the `/design/projects` table and shared Modal, fields and icon.
   Project color tints its initial badge; show its key prefix in muted mono when no description exists. Keep row actions at the right edge, revealed on hover/focus (always visible on touch). The header contains the sole project count. Archive hides sidebar entries only;
   Show archived permits editing/restoring them. Tickets remain accessible.
-- Project dialogs use compact swatches from the shared color tokens. Use one GitHub Project field for a URL or owner/number; show owner type only for short input and the prefix-change hint only while editing.
+- Project dialogs use named native radio rows from the shared `--project-*` palette
+  (including Graphite), with custom hex entry under Custom.
+  `cargo xtask project-colors-shot` captures fixture-only before/after desktop/mobile
+  editors and checks keyboard selection, custom colors and Graphite contrast.
+  Use one GitHub Project field for a URL or owner/number; show owner type only for
+  short input and the prefix-change hint only while editing.
 - Projects show repository links from `github_owner` + `github_repo`, independently
   of `github_project_number`. Counts come from the project API across all tickets;
   done excludes canceled, and last activity is the latest ticket update (all statuses).
