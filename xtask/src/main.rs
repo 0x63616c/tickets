@@ -199,6 +199,8 @@ fn main() -> Result {
         #[cfg(not(target_arch = "wasm32"))]
         Some("polish-check") => api_smoke::polish(root),
         #[cfg(not(target_arch = "wasm32"))]
+        Some("cleanup-check") => api_smoke::cleanup(root),
+        #[cfg(not(target_arch = "wasm32"))]
         Some("palette-check") => api_smoke::palette(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("contrast-check") => api_smoke::contrast(root),
@@ -278,7 +280,7 @@ fn main() -> Result {
             run(root, "cargo", &["test", "--workspace", "--locked"])
         }
         _ => {
-            Err("usage: cargo xtask <check design-tokens [--staged] [--css] [--report]|dev|build|migrate [--remote]|ci|infra-check|d1-usage-check|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|list-check|detail-check|first-run-check>".into())
+            Err("usage: cargo xtask <check design-tokens [--staged] [--css] [--report]|dev|build|migrate [--remote]|ci|infra-check|d1-usage-check|api-smoke|skill-check|live-check|import-github --repo <owner/repo> --project <KEY> [--url <base-url>] [--allow-remote] [--dry-run]|import-check|auth-hash|auth-bench|auth-verify|auth-screenshots|design-check|board-before|board-check|cleanup-check|list-check|detail-check|first-run-check>".into())
         }
     }
 }

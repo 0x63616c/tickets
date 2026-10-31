@@ -270,6 +270,13 @@ its sequential isolated API/browser checks; each check still creates fresh D1 st
   completed writes and restore the local snapshot; if compensation fails, ask
   the user to reload and reconcile with the server. #16 should defer incoming
   events during a local move, then refetch authoritative state.
+- `crates/web/src/board_move.rs` owns each move session, destination ranking,
+  changed-row selection and compensating writes. Pass the full unfiltered
+  collection as move rows; the browser keeps its full ticket snapshot for local
+  restoration. `OrderWriter::patch_order` has authenticated browser and scripted
+  host-test adapters. Run `cargo test -p tickets-web board_move` for deterministic
+  ranking and persistence outcomes; retain `board-check` and `polish-check` for
+  gestures, focus, status selection and legacy `later` presentation.
 - Cards use the compact Dots layout: key, priority and icon-only status select;
   two-line title; label dots and up to three short names, with full labels in the
   hover title. Hide priority metadata labels without changing stored data.
@@ -737,7 +744,9 @@ project icon schema changes additive and validate values in core.
   Created/Updated include UTC time. GitHub provenance appears in Activity without
   inventing an import timestamp; repeated leading model metadata is presentation only.
 - `polish-check` also verifies TIK-45 fixture cases and writes matching before/after
-  list/detail captures to `docs/screenshots/TIK-45/`.
+  list/detail captures to `docs/screenshots/TIK-45/`. `cargo xtask cleanup-check`
+  runs those same TIK-45 assertions independently, using fresh local Worker/D1
+  fixtures; the broad `polish-check` retains all of its existing assertions.
 - Shared Cargo artifacts can retain another worktree's compiled-in directory.
   Resolve xtask's workspace from its runtime working directory and inherit the
   caller's `CARGO_TARGET_DIR` (source `.job.env`); do not override it in subprocesses.
