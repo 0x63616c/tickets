@@ -183,3 +183,34 @@ pub fn PrCheckStatus(
     };
     view! {<span class=format!("pr-check-status {tone}")><span aria-hidden="true"><Icon name=icon/></span>{format!("{label}: {state}")}</span>}
 }
+
+/// The same compact rows are used by live ticket properties and fixture previews.
+#[component]
+pub(crate) fn LinkedPullRequests(requests: Vec<crate::pages::board::PullRequest>) -> impl IntoView {
+    (!requests.is_empty()).then(|| view! {
+        <section class="property-section linked-pull-requests" aria-label="Pull requests">
+            <h2>"Pull requests"</h2>
+            <ul class="pr-list">{requests.into_iter().map(|pr| {
+                let state = match pr.state.as_str() {
+                    "open" => "Open", "draft" => "Draft", "merged" => "Merged", _ => "Closed",
+                };
+                let ci = match pr.ci_status.as_deref() {
+                    Some("success") => "Passing",
+                    Some("failure" | "error" | "timed_out" | "action_required" | "startup_failure") => "Failing",
+                    Some("queued" | "in_progress" | "pending") => "Pending",
+                    _ => "None",
+                };
+                view! {
+                    <li class="pr-sidebar-row" title=format!("{} · Tickets check: {}", if pr.closes {"Closes ticket"} else {"Reference"}, pr.tickets_check.as_deref().unwrap_or("Not reported"))>
+                        <a class="pr-sidebar-link" href=pr.url target="_blank" rel="noopener noreferrer"
+                            aria-label=format!("{}#{}: {} (opens in new tab)", pr.repo, pr.number, pr.title)>
+                            <span class="pr-repository"><Icon name="github"/><span title=format!("{}#{}", pr.repo, pr.number)>{format!("{}#{}", pr.repo, pr.number)}</span><Icon name="external"/></span>
+                            <span class="pr-title" title=pr.title.clone()>{pr.title.clone()}</span>
+                        </a>
+                        <div class="pr-sidebar-status"><span class=format!("label-chip pr-state pr-state-{}", pr.state)><span>{state}</span></span><span class="pr-ci" title=pr.ci_status.unwrap_or_else(||"No CI reported for this head".into())>{format!("CI: {ci}")}</span></div>
+                    </li>
+                }
+            }).collect_view()}</ul>
+        </section>
+    })
+}

@@ -30,6 +30,7 @@ pub const COMPONENTS: &[&str] = &[
     "ticket-type",
     "mission",
     "pr-check-status",
+    "linked-pull-requests",
     "pickup-rules",
     "history",
     "palette",
@@ -73,6 +74,15 @@ fn ComponentSample(name: &'static str, variant: String) -> impl IntoView {
     let show = RwSignal::new(false);
     let tabs = RwSignal::new("Write".to_string());
     match name {
+        "linked-pull-requests" => {
+            let requests = ["open", "draft", "merged", "closed"].into_iter().enumerate().map(|(i, state)| {
+                serde_json::from_value(serde_json::json!({"repo":"example/tickets", "number":115+i,
+                    "url":format!("https://github.com/example/tickets/pull/{}",115+i),
+                    "title":"Show linked pull requests with a deliberately long title in the ticket sidebar",
+                    "state":state,"closes":true,"ci_status":([Some("success"),Some("pending"),None,Some("failure")][i])})).unwrap()
+            }).collect();
+            view!{<div class="pr-sidebar-preview"><LinkedPullRequests requests/></div>}.into_any()
+        },
         "ticket-type" => {
             let kind = RwSignal::new("feat".to_string());
             let scope = RwSignal::new("ui".to_string());

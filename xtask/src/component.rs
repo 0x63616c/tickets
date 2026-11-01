@@ -17,6 +17,7 @@ use std::{
 const NAMES: &[&str] = &[
     "ticket-type",
     "pr-check-status",
+    "linked-pull-requests",
     "mission",
     "pickup-rules",
     "history",

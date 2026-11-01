@@ -400,6 +400,21 @@ test('app PRs share status sync; JWT verifies; checks and CI persist per head; f
     await signed(worker,'check_suite',{...prPayload(),action:'completed',check_suite:{...suite,conclusion:'failure',updated_at:'2026-10-30T12:00:00Z'}},204);
     assert.equal(db.db.prepare('SELECT ci_status FROM github_pull_request_checks').get().ci_status,'success');
     await signed(worker,'check_suite',{...prPayload(),action:'completed',check_suite:{...suite,app:{id:42}}},202);
+    const ci = () => db.db.prepare('SELECT ci_status FROM github_pull_request_checks').get().ci_status;
+    const run = {...suite, conclusion:null, updated_at:undefined, started_at:'2026-10-30T12:00:02Z'};
+    await signed(worker,'check_run',{...prPayload(),action:'created',check_run:run},204);
+    assert.equal(ci(),'pending');
+    await signed(worker,'check_run',{...prPayload(),action:'completed',check_run:{...run,conclusion:'failure',completed_at:'2026-10-30T12:00:03Z'}},204);
+    assert.equal(ci(),'failure');
+    await signed(worker,'check_run',{...prPayload(),action:'completed',check_run:{...run,app:{id:42},conclusion:'success'}},202);
+    assert.equal(ci(),'failure');
+    for (const [state, expected, second] of [['pending','pending',4],['error','failure',5],['success','success',6]]) {
+      await signed(worker,'status',{...prPayload(),sha:suite.head_sha,state,updated_at:`2026-10-30T12:00:0${second}Z`},204);
+      assert.equal(ci(),expected);
+    }
+    await signed(worker,'status',{...prPayload(),sha:'old-head',state:'failure',updated_at:'2026-10-30T12:00:07Z'},204);
+    assert.equal(ci(),'success');
+
     await signed(worker,'pull_request',prPayload('edited',{title:'Unknown [TIK-999]',body:null,updated_at:'2026-10-30T12:00:02Z'}),202);
     assert.equal(runs.at(-1).output.title,'Unknown ticket key');
     await signed(worker,'pull_request',prPayload('edited',{title:'No key',body:null,updated_at:'2026-10-30T12:00:03Z'}),202);

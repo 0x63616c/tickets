@@ -69,8 +69,8 @@ pub fn check(root: &std::path::Path) -> super::Result {
     }
     b.viewport(1440, 900)?;
     b.go(&format!("{}/t/TKT-42", server.url))?;
-    b.wait("document.querySelectorAll('.pr-link-row a').length===2")?;
-    b.wait("document.querySelector('.pr-link-row a').getAttribute('href')==='https://github.com/example/tickets/pull/123' && document.querySelector('[aria-label=\"Pull requests\"]').textContent.includes('Closes ticket') && document.querySelector('[aria-label=\"Pull requests\"]').textContent.includes('Reference')")?;
+    b.wait("document.querySelectorAll('.properties [aria-label=\"Pull requests\"] .pr-sidebar-row a').length===2")?;
+    b.wait("Array.from(document.querySelectorAll('.properties [aria-label=\"Pull requests\"] .pr-sidebar-row')).every((row,i)=>row.querySelector('a').getAttribute('href')===['https://github.com/example/tickets/pull/123','https://github.com/example/tickets/pull/121'][i] && row.title.includes(['Closes ticket','Reference'][i]))")?;
     for (size, width) in [("desktop", 1440), ("mobile", 390)] {
         b.viewport(width, 900)?;
         b.wait("document.documentElement.scrollWidth<=innerWidth")?;

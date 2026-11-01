@@ -681,12 +681,12 @@ exceptions must still fail immediately; never replay writes to recover navigatio
   errors. Override `GITHUB_API_BASE_URL` only for local test servers. Check posting
   must not fail a committed PR status sync. Migration 0015 stores check results
   separately by repo/PR/head SHA, avoiding ticket status triggers on CI writes.
-  Check suite CI status means latest other-app conclusion, not aggregate CI.
+  CI status means the latest other-app suite/run/commit-status event, not aggregate CI.
   The fixture-only `/design/c/pr-check-status` previews CI/Tickets indicators.
   RSA PEMs under `crates/core/tests/fixtures/github-app-test-*` are disposable
   generated test keys, never application credentials.
 - `cargo xtask mirror-check` also runs signed PR acceptance and captures before/after
-  dark desktop/mobile evidence under `docs/screenshots/32`. Set
+  dark desktop/mobile PR sidebar evidence under `docs/screenshots/TIK-115`. Set
   `TICKETS_BEFORE_ASSETS` to base-commit assets for before captures.
 
 ## Component review (TIK-38)
@@ -1109,6 +1109,16 @@ Only the optional WAF check may skip on HTTP 403, with a visible warning. Never
 expand management to unrelated records or settings in the shared zone. When
 changing Worker secrets, update the names in `xtask/src/infra.rs` and the deploy
 step together; the fixture-only unit test enforces agreement without reading values.
+
+## Linked pull request sidebar
+
+- Ticket details reuse the ordered `pull_requests` read aggregate. Hide the sidebar
+  section when empty; use the shared `LinkedPullRequests` rows for fixture previews.
+  PR draft state is stored as `state=draft`; CI is scoped to the current head and
+  uses the existing checks table. Do not add per-row API requests.
+- `component-shot linked-pull-requests` captures all four PR states and CI states.
+  `mirror-check` verifies signed links, sidebar location, safe external links,
+  empty-section removal, and desktop/mobile layout; use base assets for before PNGs.
 
 ## Ticket classification and PR titles
 

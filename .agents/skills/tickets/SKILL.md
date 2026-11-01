@@ -421,7 +421,7 @@ documented in docs/API.md. Sessions receive 403; an unregistered App returns 404
 Ticket reads' `pull_requests` include nullable `tickets_check` and `ci_status`
 conclusions for the current PR head SHA. `tickets_check` is success when linked
 tickets exist, neutral for missing/unknown keys. `ci_status` is the latest observed
-completed suite from another app, not an aggregate of providers. Null means no
+CI event from another app (suite, run or commit status), not an aggregate of providers. `pending` means a check is running or queued. Null means no
 report for this head; do not treat it as passed. Use `Closes KEY-N` or `Refs KEY-N`
 and `[KEY-N]` title links as before. Nullable `tickets_check_run_id` and
 `checks_updated_at` provide the current head's stored check metadata.

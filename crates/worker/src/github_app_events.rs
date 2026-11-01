@@ -119,7 +119,8 @@ pub async fn save_check<S: Store>(
     Ok(())
 }
 
-/// One snapshot per PR/head; old-head completions never appear on a new head.
+/// Latest observed external CI event per PR/head, never an aggregate of providers.
+/// Pending events clear the previous conclusion; old heads remain isolated.
 pub async fn save_ci<S: Store>(db: &S, repo: &str, suite: &Value) -> Result<()> {
     let sha = suite["head_sha"]
         .as_str()
@@ -127,6 +128,7 @@ pub async fn save_ci<S: Store>(db: &S, repo: &str, suite: &Value) -> Result<()> 
     let updated = suite["updated_at"]
         .as_str()
         .ok_or_else(|| Error::Validation("Missing CI timestamp".into()))?;
-    let _:Vec<Value>=db.query("INSERT INTO github_pull_request_checks(repo,number,head_sha,ci_status,ci_updated_at) SELECT ?,number,?,?,? FROM (SELECT json_extract(value,'$.number') AS number FROM json_each(?) WHERE json_extract(value,'$.number')>0 UNION SELECT number FROM github_pull_request_events WHERE repo=? AND head_sha=?) WHERE true ON CONFLICT(repo,number,head_sha) DO UPDATE SET ci_status=excluded.ci_status,ci_updated_at=excluded.ci_updated_at,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE excluded.ci_updated_at>coalesce(github_pull_request_checks.ci_updated_at,'')",vec![json!(repo),json!(sha),suite["conclusion"].clone(),json!(updated),json!(suite["pull_requests"].to_string()),json!(repo),json!(sha)]).await?;
+    let conclusion = suite["conclusion"].as_str().unwrap_or("pending");
+    let _:Vec<Value>=db.query("INSERT INTO github_pull_request_checks(repo,number,head_sha,ci_status,ci_updated_at) SELECT ?,number,?,?,? FROM (SELECT json_extract(value,'$.number') AS number FROM json_each(?) WHERE json_extract(value,'$.number')>0 UNION SELECT number FROM github_pull_request_events WHERE repo=? AND head_sha=?) WHERE true ON CONFLICT(repo,number,head_sha) DO UPDATE SET ci_status=excluded.ci_status,ci_updated_at=excluded.ci_updated_at,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE excluded.ci_updated_at>coalesce(github_pull_request_checks.ci_updated_at,'') OR (excluded.ci_updated_at=github_pull_request_checks.ci_updated_at AND github_pull_request_checks.ci_status='pending' AND excluded.ci_status<>'pending')",vec![json!(repo),json!(sha),json!(conclusion),json!(updated),json!(suite["pull_requests"].to_string()),json!(repo),json!(sha)]).await?;
     Ok(())
 }
