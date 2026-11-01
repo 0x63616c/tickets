@@ -317,3 +317,5 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
 }
 
 pub mod mission;
+
+pub mod pipeline;

@@ -56,3 +56,5 @@ pub mod pickup;
 pub mod github_app_checks;
 
 pub mod mission;
+
+pub mod pipeline;

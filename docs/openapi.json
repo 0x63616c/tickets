@@ -62,6 +62,9 @@
     },
     {
       "name": "GitHub"
+    },
+    {
+      "name": "Pipeline"
     }
   ],
   "paths": {
@@ -4651,6 +4654,539 @@
           }
         }
       }
+    },
+    "/api/v1/runs/{key}": {
+      "put": {
+        "operationId": "enqueueRun",
+        "summary": "Enqueue a durable pipeline run",
+        "tags": [
+          "Pipeline"
+        ],
+        "description": "Returns existing active run unchanged (200), or creates queued run (201) with a created event. intent defaults to merge; repo and owner default to null. Active excludes awaiting_review, done, canceled. Unknown ticket is 404; invalid input is 400.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Ticket key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": false,
+            "description": "Must match request origin for session-cookie mutations. Bearer mutations do not require it.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          },
+          "201": {
+            "description": "Created queued run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineRun"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunEnqueue"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs": {
+      "get": {
+        "operationId": "listRuns",
+        "summary": "List pipeline runs",
+        "tags": [
+          "Pipeline"
+        ],
+        "description": "Ascending run IDs. No cursor; at most limit records. due=true selects active runs with null next_check_at or next_check_at <= server time. Unknown, duplicate non-state, or malformed filters return 400.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "description": "Repeatable or comma-separated state list.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/RunState"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "required": false,
+            "description": "Exact repository.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": false,
+            "description": "Exact stored ticket key.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "description": "true selects active; false selects terminal.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "due",
+            "in": "query",
+            "required": false,
+            "description": "Only true is supported; selects due active runs.",
+            "schema": {
+              "type": "boolean",
+              "enum": [
+                true
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Default 50; maximum 100.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{id}": {
+      "get": {
+        "operationId": "getRun",
+        "summary": "Read a pipeline run",
+        "tags": [
+          "Pipeline"
+        ],
+        "description": "Authenticated run read.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Run ID.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchRun",
+        "summary": "Update a run with optimistic concurrency",
+        "tags": [
+          "Pipeline"
+        ],
+        "description": "expected_version is required. Success increments version and updated_at; state changes set entered_at. One atomic event per PATCH contains from/to state and changed fields. Omitted fields are preserved; null clears nullable fields. Terminal states cannot change state; use PUT to enqueue a new run. Invalid input is 400.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Run ID.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": false,
+            "description": "Must match request origin for session-cookie mutations. Bearer mutations do not require it.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "description": "Version conflict returns error and current run; terminal transition returns terminal_run error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "$ref": "#/components/schemas/Error/properties/error"
+                    },
+                    "current": {
+                      "$ref": "#/components/schemas/PipelineRun"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunPatch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{id}/events": {
+      "get": {
+        "operationId": "getRunEvents",
+        "summary": "Read append-only run events",
+        "tags": [
+          "Pipeline"
+        ],
+        "description": "All events in ascending ID order. Unknown run is 404. Actor is the safe authenticated kind:id; detail is parsed JSON.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Run ID.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunEvents"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        }
+      }
+    },
+    "/api/v1/tickets/{ticket}/claim": {
+      "post": {
+        "operationId": "claimTicket",
+        "summary": "Claim a specific eligible ticket",
+        "tags": [
+          "Pickup"
+        ],
+        "description": "Uses the same eligibility, lease, cap and atomic history as next/claim, limited to this ticket. 409 claim_conflict if claimed or ineligible; 404 if unknown. Response is {ticket,reason}; renew/release via the existing claim endpoints.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "path",
+            "required": true,
+            "description": "Ticket key or numeric ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": false,
+            "description": "Must match request origin for session-cookie mutations. Bearer mutations do not require it.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextTicket"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error422"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6989,6 +7525,312 @@
           "updated_at",
           "ci_status"
         ]
+      },
+      "RunState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "claimed",
+          "implementing",
+          "pr_open",
+          "checks",
+          "fixing",
+          "syncing",
+          "merging",
+          "awaiting_review",
+          "stuck",
+          "waiting_on_calum",
+          "done",
+          "canceled"
+        ]
+      },
+      "RunIntent": {
+        "type": "string",
+        "enum": [
+          "merge",
+          "draft",
+          "no_merge"
+        ]
+      },
+      "RunEnqueue": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/RunIntent"
+          },
+          "repo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "RunPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_version"
+        ],
+        "properties": {
+          "repo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "claim_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "head_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_check_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC YYYY-MM-DDTHH:MM:SS.sssZ; null clears it."
+          },
+          "escalated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC YYYY-MM-DDTHH:MM:SS.sssZ; null clears it."
+          },
+          "intent": {
+            "$ref": "#/components/schemas/RunIntent"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RunState"
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pr": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PipelineRun": {
+        "type": "object",
+        "required": [
+          "repo",
+          "owner",
+          "claim_id",
+          "head_sha",
+          "last_error",
+          "next_check_at",
+          "escalated_at",
+          "intent",
+          "state",
+          "attempts",
+          "pr",
+          "id",
+          "ticket_id",
+          "key",
+          "version",
+          "entered_at",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "repo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "claim_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "head_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_check_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC YYYY-MM-DDTHH:MM:SS.sssZ; null clears it."
+          },
+          "escalated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC YYYY-MM-DDTHH:MM:SS.sssZ; null clears it."
+          },
+          "intent": {
+            "$ref": "#/components/schemas/RunIntent"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RunState"
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pr": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "id": {
+            "type": "integer"
+          },
+          "ticket_id": {
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "entered_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RunEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "run_id": {
+            "type": "integer"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "from_state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "queued",
+              "claimed",
+              "implementing",
+              "pr_open",
+              "checks",
+              "fixing",
+              "syncing",
+              "merging",
+              "awaiting_review",
+              "stuck",
+              "waiting_on_calum",
+              "done",
+              "canceled",
+              null
+            ]
+          },
+          "to_state": {
+            "$ref": "#/components/schemas/RunState"
+          },
+          "detail": {
+            "type": "object",
+            "description": "Created event: action=created. PATCH: changed fields mapped to {old,new}; empty for no-op PATCH."
+          }
+        }
+      },
+      "RunList": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineRun"
+            }
+          }
+        }
+      },
+      "RunEvents": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunEvent"
+            }
+          }
+        }
       }
     },
     "securitySchemes": {
