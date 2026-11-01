@@ -382,6 +382,13 @@ pub fn CommandPalette() -> impl IntoView {
                     create,
                     Row::command(
                         "Commands",
+                        "Go to API reference",
+                        "code",
+                        "",
+                        Action::Navigate("/api-docs".into()),
+                    ),
+                    Row::command(
+                        "Commands",
                         "Go to home",
                         "home",
                         navigation_shortcut(1),

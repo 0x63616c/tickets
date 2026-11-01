@@ -1,3 +1,4 @@
+pub mod api_docs;
 pub(crate) mod board;
 mod detail;
 pub mod gallery;

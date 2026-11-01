@@ -554,3 +554,51 @@ test('D1 availability errors return 503 and SQL failures stay 500 through Worker
     assert.ok(logs.every(line => !line.includes('private-upstream-marker')));
   } finally { console.error = originalConsole; globalThis.caches = originalCaches; }
 });
+
+test('compiled OpenAPI endpoint is static, public and makes zero binding/D1 calls', async () => {
+  let reads = 0;
+  const env = new Proxy({}, { get() { reads++; throw new Error('Spec touched a binding'); } });
+  const worker = new Worker({}, env);
+  for (const headers of [{}, { Authorization: 'Bearer invalid' }, { Cookie: 'tickets_session=invalid' }]) {
+    const result = await worker.fetch(new Request('https://fixture.invalid/api/openapi.json', { headers }));
+    assert.equal(result.status, 200);
+    assert.match(result.headers.get('Content-Type'), /^application\/json/);
+    assert.equal(result.headers.get('Cache-Control'), 'public, max-age=3600');
+    const document = await result.json();
+    assert.equal(document.openapi, '3.1.0');
+    assert.deepEqual(document, JSON.parse(readFileSync(new URL('docs/openapi.json', root), 'utf8')));
+  }
+  assert.equal(reads, 0);
+});
+
+test('compiled auth routes in the spec reach their real handlers', async () => {
+  const db = new D1Database();
+  const session = 'ab'.repeat(32);
+  db.db.prepare("INSERT INTO users(id,username) VALUES(1,'fixture')").run();
+  db.db.prepare("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES(?,1,'2999-01-01T00:00:00.000Z')")
+    .run(createHash('sha256').update(session).digest('hex'));
+  db.db.prepare("INSERT INTO api_tokens(user_id,name,token_hash) VALUES(1,'fixture','fixture-hash')").run();
+  const worker = new Worker({}, { DB: db });
+  const spec = JSON.parse(readFileSync(new URL('docs/openapi.json', root), 'utf8'));
+  const cases = [
+    ['GET','/api/health',200], ['POST','/api/v1/login',403],
+    ['GET','/api/v1/me',200], ['PATCH','/api/v1/me',200,{display_name:'Fixture'}],
+    ['GET','/api/v1/users',200], ['GET','/api/v1/version',200],
+    ['GET','/api/v1/tokens',200], ['POST','/api/v1/tokens',201,{name:'Temporary fixture'}],
+    ['DELETE','/api/v1/tokens/1',200],
+    ['PUT','/api/v1/me/avatar',415,'invalid-image'], ['POST','/api/v1/me/avatar',415,'invalid-image'],
+    ['DELETE','/api/v1/me/avatar',200], ['GET','/api/v1/users/1/avatar',404],
+    ['GET','/api/v1/live/1',404], ['POST','/api/v1/logout',200],
+  ];
+  try {
+    for (const [method,path,status,body] of cases) {
+      const template = path.replace('/tokens/1','/tokens/{id}').replace('/users/1/','/users/{id}/').replace('/live/1','/live/{project_id}');
+      assert.ok(spec.paths[template]?.[method.toLowerCase()], `undocumented ${method} ${template}`);
+      const headers = { Cookie: `tickets_session=${session}`, Origin:'https://fixture.invalid', 'Content-Type':'application/json' };
+      if (path.endsWith('/login')) delete headers.Origin;
+      const response = await worker.fetch(new Request(`https://fixture.invalid${path}`, {method,headers,body:body===undefined?undefined:typeof body==='string'?body:JSON.stringify(body)}));
+      assert.equal(response.status,status,`${method} ${path}`);
+      if (status===404) assert.ok(!(await response.text()).includes('Resource not found'), `missing handler ${path}`);
+    }
+  } finally { db.db.close(); }
+});

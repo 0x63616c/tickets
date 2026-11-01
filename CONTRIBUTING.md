@@ -1100,6 +1100,21 @@ failing at 3M account rows read in the UTC day or when monitoring is unavailable
 The scheduled Actions workflow reuses existing production credentials. See
 [docs/d1-operations.md](docs/d1-operations.md) for alert delivery and acceptance.
 
+## OpenAPI reference
+
+Every new or changed `/api` operation must update `docs/openapi.json` (OpenAPI
+3.1) and the canonical method/path/handler table in `crates/worker/src/routes.rs`.
+The Worker dispatch gate uses that table; undocumented operations cannot dispatch.
+`cargo test --workspace` compares the exact method/path sets, validates document
+structure and local refs, and probes every domain handler to reject stale entries.
+Preserve each operation's auth, parameters, mutation validation, response envelopes
+and special binary/HTML/empty responses. Keep the JSON endpoint public and static,
+with zero D1 reads. The native reader is `/api-docs`, outside the Worker's `/api`
+prefix. After building, `CHROME_BIN=/usr/bin/google-chrome TICKETS_SKIP_BUILD=1
+cargo xtask api-docs-check` checks real local session requests and saves dark desktop,
+mobile and expanded evidence to `docs/screenshots/TIK-97/`. Use
+`TICKETS_BEFORE_ASSETS=<baseline-dist>` for matching before captures.
+
 ## Cloudflare infrastructure drift
 
 Keep Tickets-owned deploy settings in `wrangler.toml`; see [docs/INFRA.md](docs/INFRA.md)

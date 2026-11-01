@@ -184,6 +184,7 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
             <Tooltip text="Home" shortcut=navigation_shortcut(1)><A href=home attr:class=move||if location.pathname.get()=="/home"{"nav-item active"}else{"nav-item"} exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
             <Tooltip text="Analytics" shortcut=navigation_shortcut(2)><A href=analytics attr:class="nav-item" exact=true><Icon name="analytics"/><span>"Analytics"</span></A></Tooltip>
             <Tooltip text="Mission Control" shortcut=navigation_shortcut(5)><A href=mission attr:class="nav-item"><Icon name="grid"/><span>"Mission Control"</span></A></Tooltip>
+            <A href="/api-docs" attr:class="nav-item"><Icon name="code"/><span>"API reference"</span></A>
             <button class="nav-item search-trigger" on:click=move|_|{state.dialog.set(DialogKind::Command);if let Some(cb)=on_navigate{cb.run(());}}><Icon name="search"/><span>"Search tickets"</span><Shortcut>"⌘ K"</Shortcut></button>
             <SidebarSection title="Projects" storage="tickets.sidebar.projects" id="sidebar-projects">
                 <Tooltip text="All projects" shortcut=navigation_shortcut(6)><A href=projects attr:class="nav-item" on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="project"/><span>"All projects"</span></A></Tooltip>

@@ -1,3 +1,5 @@
+#[cfg(not(target_arch = "wasm32"))]
+mod api_docs;
 mod api_smoke;
 mod auth;
 mod auth_verify;
@@ -217,6 +219,8 @@ fn main() -> Result {
         #[cfg(not(target_arch = "wasm32"))]
         Some("d1-usage-check") => d1_usage::check(),
         #[cfg(not(target_arch = "wasm32"))]
+        Some("api-docs-check") => api_docs::check(root),
+        #[cfg(not(target_arch = "wasm32"))]
         Some("infra-check") => infra::check(root),
         Some("mission-check") => api_smoke::mission(root),
         #[cfg(not(target_arch = "wasm32"))]
@@ -248,7 +252,8 @@ fn main() -> Result {
             ),
             Some(other) => Err(format!("unknown migrate flag {other}; expected --remote").into()),
         },
-        Some("autofill-check") => autofill::check(root),        Some("ci") => {
+        Some("autofill-check") => autofill::check(root),
+        Some("ci") => {
             web_dependencies(root)?;
             autofill::check(root)?;
             raw_colors::check(root)?;
