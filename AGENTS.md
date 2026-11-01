@@ -24,6 +24,11 @@ Read `CONTRIBUTING.md` first; everything there applies.
 - Use design-system tokens for UI spacing, radius, colour, font size and shadow.
   Run `cargo xtask check design-tokens` and `npm run lint:css --prefix crates/web`;
   remove fixed debt from `xtask/lint-allowlist.json`, never grow it. See DESIGN.md.
+- Colors come only from `crates/web/style/tokens.css`, including SVG/JS and
+  Worker-rendered HTML. Run `cargo xtask check raw-colors` (also in `ci`). Add
+  new palette roles deliberately; use `crate::colors::value` for fixed hex API
+  choices. Genuine browser-asset/test exceptions require exact counts and reasons
+  in `xtask/raw-color-allowlist.json`. See `docs/color-palette.md`.
 - Before opening a PR run: `cargo fmt --all --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 - UI changes: default to `cargo xtask component-shot <name>` after building;
@@ -64,3 +69,13 @@ prefix. After building, `CHROME_BIN=/usr/bin/google-chrome TICKETS_SKIP_BUILD=1
 cargo xtask api-docs-check` checks real local session requests and saves dark desktop,
 mobile and expanded evidence to `docs/screenshots/TIK-97/`. Use
 `TICKETS_BEFORE_ASSETS=<baseline-dist>` for matching before captures.
+
+## Ticket classification and PR titles
+
+Ticket titles are plain (for example `Grid home`, never `feat(ui): Grid home`).
+Ticket `type` is nullable and must be exactly `feat`, `fix`, `chore`, `refactor`,
+`docs`, `perf`, `test`, `ci`, or `build`. Optional nullable `scope` is trimmed and
+lowercased and must match `[a-z0-9][a-z0-9._/-]{0,31}`; an empty string clears it.
+The shared `tickets_core::ticket_type::pr_title` helper uses the title verbatim:
+`<type>(<scope>): <title> [KEY-N]` with scope, or `<type>: <title> [KEY-N]`
+without scope. An unset type falls back to `chore`, including when scope is set.

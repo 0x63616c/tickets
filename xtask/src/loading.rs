@@ -16,7 +16,9 @@ pub fn check(root: &std::path::Path) -> super::Result {
     let assets = before
         .map(PathBuf::from)
         .unwrap_or_else(|| root.join("crates/web/dist"));
-    let output = root.join("docs/screenshots/TIK-47");
+    let output = env::var_os("TICKETS_LOADING_SHOTS")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.join("docs/screenshots/TIK-47"));
     fs::create_dir_all(&output)?;
     let seed: Value = serde_json::from_str(include_str!("../../docs/fixtures/home-api.json"))?;
     let home: Value = serde_json::from_str(include_str!("../../docs/fixtures/home.json"))?;
@@ -38,6 +40,18 @@ pub fn check(root: &std::path::Path) -> super::Result {
             json!({"data":seed["tickets"],"next_cursor":null}),
         ),
         ("/api/v1/analytics/home".into(), home),
+        (
+            "/api/v1/mission".into(),
+            json!({"generated_at":"2026-10-31T00:00:00Z","reports":[],"waiting_on_calum":[],"in_review":[],"recently_done":[]}),
+        ),
+        (
+            "/api/v1/pickup-rules".into(),
+            json!({"source":"workspace","rules":tickets_core::pickup::Rules::default()}),
+        ),
+        (
+            "/api/v1/github/app".into(),
+            json!({"registered":false,"app_slug":null,"app_name":null,"html_url":null,"installations":[]}),
+        ),
     ]);
     for ticket in seed["tickets"].as_array().unwrap() {
         fixtures.insert(
@@ -49,9 +63,6 @@ pub fn check(root: &std::path::Path) -> super::Result {
     let server = FixtureServer::start_with_api(&assets, fixtures)?;
     let mut b = Browser::start_named(root, "loading")?;
     cold_overflow(root, &server.url, phase)?;
-    if phase == "before" {
-        return Ok(());
-    }
     // Hold responses (including sequential reads) until explicitly released. Watch
     // library-owned DOM markers so a static lookalike cannot satisfy the check.
     b.call("Page.addScriptToEvaluateOnNewDocument", json!({"source":r#"
@@ -71,63 +82,87 @@ pub fn check(root: &std::path::Path) -> super::Result {
             if (document.querySelector('[data-ar-t]')) window.decodeSeen = true;
         }).observe(document, {subtree:true, childList:true, attributes:true, attributeFilter:['data-ar-t']});
     "#}))?;
-    for (name, route, ready) in [
-        (
-            "board",
-            "/board",
-            "document.querySelector('.api-ticket .card-title')",
-        ),
-        (
-            "detail",
-            "/t/TKT-1",
-            "document.querySelector('.ticket-detail h1')",
-        ),
-        ("list", "/list", "document.querySelector('.row-title')"),
-        (
-            "projects",
-            "/projects",
-            "document.querySelector('.api-project-row')",
-        ),
-        ("home", "/", "document.querySelector('.home-metric strong')"),
-        (
-            "account",
-            "/settings/account",
-            "document.body.textContent.includes('sample-user')",
-        ),
-        (
-            "tokens",
-            "/settings/api-tokens",
-            "document.querySelector('.token-empty')",
-        ),
-        (
-            "project-settings",
-            "/settings/projects",
-            "document.querySelector('.settings-project')",
-        ),
-    ] {
-        b.go(&format!("{}{route}", server.url))?;
-        b.wait("window.loadingWaiters.length > 0")?;
-        if phase == "after" {
-            b.wait("!!document.querySelector('.ars canvas')")?;
-            // Canvas output must change while the response is held.
-            b.eval("window.sweepFrame=document.querySelector('.ars canvas').toDataURL();true")?;
-            b.wait("document.querySelector('.ars canvas').toDataURL()!==window.sweepFrame")?;
-        }
-        if matches!(name, "board" | "detail")
-            || (phase == "after" && matches!(name, "list" | "projects"))
-        {
+    for (width, height) in [(1440, 900), (390, 844)] {
+        b.viewport(width, height)?;
+        for (name, route, ready) in [
+            (
+                "board",
+                "/board",
+                "document.querySelector('.api-ticket .card-title')",
+            ),
+            (
+                "detail",
+                "/t/TKT-1",
+                "document.querySelector('.ticket-detail h1')",
+            ),
+            ("list", "/list", "document.querySelector('.row-title')"),
+            (
+                "projects",
+                "/projects",
+                "document.querySelector('.api-project-row')",
+            ),
+            (
+                "pickup-settings",
+                "/settings/pickup-rules",
+                "document.querySelector('.pickup-settings input')",
+            ),
+            ("home", "/", "document.querySelector('.home-metric strong')"),
+            (
+                "analytics",
+                "/analytics",
+                "document.querySelector('.analytics-card svg')",
+            ),
+            (
+                "mission",
+                "/mission",
+                "document.querySelector('.mission-section')",
+            ),
+            (
+                "account",
+                "/settings/account",
+                "document.body.textContent.includes('sample-user') && !!document.querySelector('.settings-github a')",
+            ),
+            (
+                "tokens",
+                "/settings/api-tokens",
+                "document.querySelector('.token-empty')",
+            ),
+            (
+                "project-settings",
+                "/settings/projects",
+                "document.querySelector('.settings-project')",
+            ),
+        ] {
+            b.go(&format!("{}{route}", server.url))?;
+            b.wait("window.loadingWaiters.length > 0")?;
+            if phase == "after" {
+                b.wait("!!document.querySelector('.ars canvas')")?;
+                // Canvas output must change while the response is held.
+                b.eval("window.sweepFrame=document.querySelector('.ars canvas').toDataURL();true")?;
+                b.wait("document.querySelector('.ars canvas').toDataURL()!==window.sweepFrame")?;
+            }
+            b.eval("document.fonts.ready.then(()=>true)")?;
             b.eval("new Promise(r=>setTimeout(()=>r(true),700))")?;
-            b.screenshot(&output.join(format!("{phase}-{name}.png")))?;
-        }
-        b.eval("window.releaseLoading();true")?;
-        b.wait(&format!("!!({ready})"))?;
-        if phase == "after" {
-            b.wait("window.decodeSeen")?;
-            b.wait(
-                "!document.querySelector('.ars canvas') && !document.querySelector('[data-ar-t]')",
-            )?;
+            if phase == "after" {
+                assert_surfaces(&mut b)?;
+            }
+            b.screenshot(&output.join(format!("{phase}-{name}-{width}.png")))?;
+            b.eval("window.releaseLoading();true")?;
+            b.wait(&format!("!!({ready})"))?;
+            if phase == "after" {
+                if name != "pickup-settings" {
+                    b.wait("window.decodeSeen")?;
+                }
+                b.wait(
+                    "!document.querySelector('.ars canvas') && !document.querySelector('[data-ar-t]')",
+                )?;
+            }
         }
     }
+    if phase == "before" {
+        return Ok(());
+    }
+    b.viewport(1440, 900)?;
     // Search uses the same package for its result skeleton and newly arrived
     // ticket text, while the user's input keeps focus throughout the transition.
     b.go(&format!("{}/board", server.url))?;
@@ -140,6 +175,8 @@ pub fn check(root: &std::path::Path) -> super::Result {
     b.wait(
         "!!document.querySelector('.command-empty .ars canvas') && window.loadingWaiters.length>0",
     )?;
+    assert_surfaces(&mut b)?;
+    b.screenshot(&output.join("after-search.png"))?;
     b.eval("window.releaseLoading();true")?;
     b.wait("window.decodeSeen && !!document.querySelector('.command-option')")?;
     b.wait("!document.querySelector('[data-ar-t]') && !document.querySelector('.ars canvas') && document.activeElement.matches('.command-search input')")?;
@@ -156,6 +193,7 @@ pub fn check(root: &std::path::Path) -> super::Result {
         b.click(".busy-button")?;
         b.wait("document.querySelector('.busy-button').disabled && !!document.querySelector('.ars canvas')")?;
         b.wait("Math.abs(document.querySelector('.busy-button').getBoundingClientRect().width-window.busyWidth)<1")?;
+        assert_surfaces(&mut b)?;
         b.wait("window.decodeSeen && !document.querySelector('.busy-button').disabled")?;
         b.wait("!document.querySelector('[data-ar-t]') && !document.querySelector('.ars canvas')")?;
     }
@@ -173,6 +211,16 @@ pub fn check(root: &std::path::Path) -> super::Result {
             )?;
         }
         b.wait("!!document.querySelector('.ars') && !document.querySelector('.ars canvas')")?;
+        assert_surfaces(&mut b)?;
+        let still = b.eval("document.querySelector('.loading-skeleton').innerHTML")?;
+        b.eval("new Promise(r=>setTimeout(()=>r(true),250))")?;
+        if b.eval("document.querySelector('.loading-skeleton').innerHTML")? != still {
+            return Err("Reduced-motion skeleton changed while held".into());
+        }
+        b.screenshot(&output.join(format!(
+            "after-board-reduced-{}.png",
+            if in_app { "app" } else { "os" }
+        )))?;
         b.eval("window.releaseLoading();true")?;
         b.wait("!!document.querySelector('.api-ticket .card-title')")?;
         b.wait("!window.decodeSeen && !document.querySelector('[data-ar-t]')")?;
@@ -207,7 +255,9 @@ pub fn check(root: &std::path::Path) -> super::Result {
 /// Compare with settled extents, allowing the page's legitimate vertical scrolling
 /// and the board's intentional horizontal scrolling without allowing loader growth.
 fn cold_overflow(root: &std::path::Path, url: &str, phase: &str) -> super::Result {
-    let output = root.join("docs/screenshots/TIK-62");
+    let output = env::var_os("TICKETS_LOADING_SHOTS")
+        .map(|p| PathBuf::from(p).join("cold"))
+        .unwrap_or_else(|| root.join("docs/screenshots/TIK-62"));
     fs::create_dir_all(&output)?;
     let mut reports = Vec::new();
     let mut failures = Vec::new();
@@ -311,6 +361,35 @@ fn cold_overflow(root: &std::path::Path, url: &str, phase: &str) -> super::Resul
     )?;
     if phase != "before" && !failures.is_empty() {
         return Err(format!("Transient loading overflow: {}", failures.join(", ")).into());
+    }
+    Ok(())
+}
+
+/// Check the package's rendered palette, including its injected stylesheet.
+/// Transparent glyph hosts must expose the enclosing page/card/button surface.
+fn assert_surfaces(b: &mut Browser) -> super::Result {
+    let report = b.eval(r#"(() => {
+        const failures=[];
+        const clear=el=>getComputedStyle(el).backgroundColor==='rgba(0, 0, 0, 0)';
+        for(const el of document.querySelectorAll('.ascii-skeleton, .ars, .ars-line, .ars-block, .ars-base, .loading-skeleton, .home-loading, .analytics-loading, .loading-indicator')) {
+            if(!clear(el)) failures.push({class:el.className,background:getComputedStyle(el).backgroundColor});
+        }
+        const ink=document.createElement('canvas').getContext('2d');
+        const color=value=>{ink.fillStyle=value;return ink.fillStyle;};
+        for(const el of document.querySelectorAll('.skeleton-card')) {
+            const s=getComputedStyle(el);
+            if(color(s.backgroundColor)!==color(s.getPropertyValue('--surface').trim()))
+                failures.push({class:el.className,reason:'card surface differs from --surface'});
+        }
+        for(const el of document.querySelectorAll('.ars')) {
+            const s=getComputedStyle(el);
+            if(parseFloat(s.getPropertyValue('--ars-wave'))>.25 || parseFloat(s.getPropertyValue('--ars-base'))>.15)
+                failures.push({class:el.className,reason:'high-contrast glyphs'});
+        }
+        return failures;
+    })()"#)?;
+    if report.as_array().is_none_or(|a| !a.is_empty()) {
+        return Err(format!("Loading surface mismatch: {report}").into());
     }
     Ok(())
 }

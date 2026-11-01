@@ -77,9 +77,9 @@ pub(super) fn fixture_account(account: crate::pages::settings::AccountState) {
     account.loaded.set(true);
     let board = expect_context::<crate::pages::board::BoardState>();
     board.projects.set(serde_json::from_value(serde_json::json!([
-        {"id":1,"name":"Tickets","key_prefix":"TKT","color":"#5e6ad2","icon":"ticket","archived":false,"github_owner":"example","github_repo":"tickets","github_project_kind":"users","github_project_number":null,"next_ticket_number":1,"open_ticket_count":12},
-        {"id":2,"name":"Quantum","key_prefix":"QUA","color":"#4ea7fc","icon":"box","archived":false,"github_owner":"example","github_repo":"quantum","github_project_kind":"users","github_project_number":null,"next_ticket_number":1,"open_ticket_count":8},
-        {"id":3,"name":"Apps","key_prefix":"APP","color":"#27a644","icon":"grid","archived":false,"github_owner":null,"github_repo":null,"github_project_kind":"users","github_project_number":null,"next_ticket_number":1,"open_ticket_count":3}
+        {"id":1,"name":"Tickets","key_prefix":"TKT","color":crate::colors::value("--project-default"),"icon":"ticket","archived":false,"github_owner":"example","github_repo":"tickets","github_project_kind":"users","github_project_number":null,"next_ticket_number":1,"open_ticket_count":12},
+        {"id":2,"name":"Quantum","key_prefix":"QUA","color":crate::colors::value("--label-infra"),"icon":"box","archived":false,"github_owner":"example","github_repo":"quantum","github_project_kind":"users","github_project_number":null,"next_ticket_number":1,"open_ticket_count":8},
+        {"id":3,"name":"Apps","key_prefix":"APP","color":crate::colors::value("--success"),"icon":"grid","archived":false,"github_owner":null,"github_repo":null,"github_project_kind":"users","github_project_number":null,"next_ticket_number":1,"open_ticket_count":3}
     ])).expect("valid project fixtures"));
     board.loading.set(false);
 }
@@ -320,7 +320,7 @@ pub(crate) fn focus_project_action(id: i64) {
         .flatten()
         .or_else(|| {
             document()
-                .query_selector("#sidebar-projects > a")
+                .query_selector("#sidebar-projects a.nav-item")
                 .ok()
                 .flatten()
         });

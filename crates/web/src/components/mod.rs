@@ -1,5 +1,7 @@
 mod ascii_reveal;
 pub use ascii_reveal::*;
+mod classification;
+pub use classification::*;
 mod composer;
 pub use composer::*;
 mod feedback;

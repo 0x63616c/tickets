@@ -93,6 +93,59 @@ pub fn ApiProjects() -> impl IntoView {
     }
 }
 
+// CSS is the palette authority; only resolved hex strings cross the API boundary.
+fn project_palette() -> Vec<(&'static str, String)> {
+    let root = document().document_element().expect("document root");
+    let computed = window().get_computed_style(&root).unwrap().unwrap();
+    [
+        "Indigo", "Purple", "Red", "Blue", "Pink", "Green", "Yellow", "Graphite",
+    ]
+    .into_iter()
+    .map(|name| {
+        let value = computed
+            .get_property_value(&format!("--project-{}", name.to_lowercase()))
+            .unwrap();
+        (name, value.trim().to_string())
+    })
+    .collect()
+}
+
+#[component]
+fn ProjectColorPicker(
+    color: RwSignal<String>,
+    palette: Vec<(&'static str, String)>,
+) -> impl IntoView {
+    let custom = RwSignal::new(
+        !palette
+            .iter()
+            .any(|(_, value)| value.eq_ignore_ascii_case(&color.get_untracked())),
+    );
+    view! {
+        <fieldset class="project-colors"><legend>"Icon color"</legend>
+            <div class="project-color-list">
+                {palette.into_iter().map(|(name,value)| {
+                    let selected_value=value.clone();
+                    view! {
+                        <label class="project-color-row">
+                            <input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" type="radio" name="project-palette" value=name
+                                prop:checked=move||!custom.get() && color.get().eq_ignore_ascii_case(&selected_value)
+                                on:change=move|_|{color.set(value.clone());custom.set(false);}/>
+                            <span class=format!("project-swatch project-swatch-{}",name.to_lowercase()) aria-hidden="true"/>
+                            <span>{name}</span><span class="project-color-check"><Icon name="check"/></span>
+                        </label>
+                    }
+                }).collect_view()}
+                <label class="project-color-row">
+                    <input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" type="radio" name="project-palette" value="Custom" prop:checked=custom on:change=move|_|custom.set(true)/>
+                    <span class="project-swatch project-swatch-custom" aria-hidden="true"/>
+                    <span>"Custom"</span><span class="project-color-check"><Icon name="check"/></span>
+                </label>
+            </div>
+            <Show when=move||custom.get()><div class="project-custom-color"><TextInput id="project-color" label="Custom hex color" placeholder="#RRGGBB" value=color/></div></Show>
+        </fieldset>
+    }
+}
+
 #[component]
 pub(crate) fn ProjectEditor(
     project: Option<Project>,
@@ -119,11 +172,13 @@ pub(crate) fn ProjectEditor(
             .map(|p| p.key_prefix.clone())
             .unwrap_or_default(),
     );
+    let palette = project_palette();
+    let default_color = palette[0].1.clone();
     let color = RwSignal::new(
         project
             .as_ref()
             .map(|p| p.color.clone())
-            .unwrap_or("#5e6ad2".into()),
+            .unwrap_or(default_color),
     );
     let owner = RwSignal::new(
         project
@@ -188,8 +243,7 @@ pub(crate) fn ProjectEditor(
         <div class="modal-body"><TextInput id="project-title" label="Name" value=name/>
         <TextInput id="project-prefix" label="Key prefix" placeholder="TKT" value=prefix/>
         <Show when=move||id.is_some()><p class="muted">"Changing the prefix updates existing ticket keys."</p></Show>
-        <ProjectIconPicker value=icon color name/><fieldset class="project-colors"><legend>"Icon color"</legend><div class="project-swatches">{[("#5e6ad2","Accent","--accent"),("#8b82d9","Feature","--label-feature"),("#eb5757","Bug","--label-bug"),("#4ea7fc","Infrastructure","--label-infra"),("#c6a1b9","Design","--label-design"),("#27a644","Green","--success"),("#f0bf00","Yellow","--warning")].into_iter().map(|(value,label,token)|view!{<button type="button" class="project-swatch" aria-label=format!("{label} color") aria-pressed=move||(color.get()==value).to_string() style=format!("--swatch:var({token})") on:click=move|_|color.set(value.into())/>}).collect_view()}</div></fieldset>
-        <TextInput id="project-color" label="Color" placeholder="#RRGGBB" value=color/>
+        <ProjectIconPicker value=icon color name/><ProjectColorPicker color palette/>
         <TextInput id="project-owner" label="GitHub Project" placeholder="github.com/orgs/example/projects/1 or example/1" value=owner/>
         <Show when=move||{let value=owner.get(); !value.trim().is_empty() && !value.contains("github.com/") && !value.contains("://")}><label class="field">"Owner type"<SelectField label="Owner type" value=Signal::derive(move||kind.get()) options=Signal::derive(move||vec![SelectOption::new("users","User"),SelectOption::new("orgs","Organization")]) on_change=Callback::new(move|next:String|kind.set(next))/></label></Show>
         <TextInput id="project-repo" label="GitHub repository (optional)" placeholder="https://github.com/owner/repo" value=repo/>

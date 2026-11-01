@@ -355,6 +355,7 @@ fn DetailPage(selector: String) -> impl IntoView {
         <Show when=move||state.ticket.get().is_some()><div node_ref=reveal_root class="detail-layout" aria-busy=move||state.busy.get().to_string()>
             <article class="ticket-detail"><div class="detail-overline"><a href="/board" class="back-link"><Icon name="board"/>"Board"</a><span class="breadcrumb-slash">"/"</span><span class="mono">{move||state.ticket.get().map(|t|t.key)}</span></div>
             <h1>{move||state.ticket.get().map(|t|t.title)}</h1>
+            {move||state.ticket.get().map(|t|view!{<TypeBadge kind=t.r#type scope=t.scope/>})}
             {move||state.ticket.get().and_then(|t|{let identity=t.external_id?.strip_prefix("github:")?.to_owned();let(repo,number)=identity.rsplit_once(':')?;Some((format!("Imported from GitHub {repo}#{number}"),t.external_url?))}).map(|(label,url)|view!{<p class="muted github-import"><a class="subtle-link" href=url target="_blank" rel="noopener"><Icon name=if is_github_url(&url){"github"}else{"link"}/>{label}<Icon name="external"/></a></p>})}
             <aside class="properties" aria-label="Ticket properties" data-expanded=move||properties_expanded.get().to_string()><PropertiesHeading expanded=properties_expanded/><div id="ticket-properties-body">
             <For each=move||vec![state.revision.get()] key=|r|*r children=move|_|view!{<Properties/>}/>
@@ -363,12 +364,6 @@ fn DetailPage(selector: String) -> impl IntoView {
             {move||state.ticket.get().map(|t|{let empty=t.blocks.is_empty() && t.blocked_by.is_empty();view!{ {empty.then(||view!{<p class="muted dependency-empty">"No dependencies"</p>})}
                 {t.blocked_by.into_iter().map(|related|view!{<DependencyRow related incoming=true/>}).collect_view()}{t.blocks.into_iter().map(|related|view!{<DependencyRow related incoming=false/>}).collect_view()}
             }})}</section>
-            {move||state.ticket.get().filter(|t|!t.pull_requests.is_empty()).map(|t|view!{
-                <section class="dependencies" aria-label="Pull requests"><div class="section-heading"><h2>"Pull requests"</h2></div>
-                {t.pull_requests.into_iter().map(|pr|view!{
-                    <div class="pr-link-row"><a class="subtle-link" href=pr.url target="_blank" rel="noopener noreferrer"><Icon name=if is_github_url(&pr.url){"github"}else{"link"}/><span>{format!("{}#{} · {}",pr.repo,pr.number,pr.title)}</span><Icon name="external"/></a><PrCheckStatus conclusion=pr.ci_status/><PrCheckStatus label="Tickets" conclusion=pr.tickets_check/><span class="muted">{format!("{} · {}",match pr.state.as_str(){"open"=>"Open","draft"=>"Draft","merged"=>"Merged","closed"=>"Closed",state=>state},if pr.closes{"Closes ticket"}else{"Reference"})}</span></div>
-                }).collect_view()}</section>
-            })}
             <section class="activity" aria-label="Comments and activity"><div class="section-heading"><h2>"Activity"</h2></div>{move||state.ticket.get().filter(|t|t.external_id.as_deref().is_some_and(|id|id.starts_with("github:"))).map(|t|view!{<div class="import-activity"><Icon name="github"/><span>"Imported from GitHub"</span>{t.external_url.map(|url|view!{<a class="subtle-link" href=url target="_blank" rel="noopener noreferrer">"Source issue"<Icon name="external"/></a>})}</div>})}<ActivityFeed/><Show when=move||!state.comment_error.get().is_empty()><p class="comment-error" role="alert">{move||state.comment_error.get()}</p></Show><CommentEditor/></section>
             </article></div></Show>
         <Presence show=edit><EditTicket close=Callback::new(move|_|edit.set(false))/></Presence>
@@ -388,6 +383,7 @@ fn Properties() -> impl IntoView {
         <form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="property assignee-editor" on:submit=move|e|{e.prevent_default();let name=assignee.get_untracked().trim().to_string();state.patch(json!({"assignee":if name.is_empty(){None}else{Some(name)}}));}><span>"Assignee"</span><div>{move||{let a=assignee.get();view!{<Avatar label=if a.is_empty(){"No assignee".into()}else{a.clone()} initials={a.chars().take(1).collect::<String>()}/>}}}<input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Assignee" disabled=move||state.busy.get() prop:value=move||assignee.get() on:input=move|e|assignee.set(event_target_value(&e)) on:change=move|e|{let _=event_target::<web_sys::HtmlInputElement>(&e).form().map(|f|f.request_submit());}/></div></form>
         <div class="property-section"><h2>"Labels"</h2><div class="property-labels">{t.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</div><LabelPicker/></div>
         <div class="property-section"><h2>"Project"</h2><div class="property"><div><SelectField label="Project" value=Signal::derive(move||t.project_id.to_string()) options=Signal::derive(move||board.projects.get().into_iter().map(SelectOption::project).collect()) on_change=Callback::new(move|next:String|{if let Ok(id)=next.parse::<i64>(){state.patch(json!({"project_id":id}));}}) disabled=Signal::derive(move||state.busy.get())/></div></div></div>
+        {move||state.ticket.get().map(|ticket|view!{<LinkedPullRequests requests=ticket.pull_requests/>})}
         {t.external_url.clone().map(|url|view!{<div class="property-section"><h2>"Links"</h2><a class="subtle-link" href=url target="_blank" rel="noopener noreferrer"><Icon name=if is_github_url(&url){"github"}else{"link"}/>{if is_github_url(&url){"GitHub issue"}else{"External link"}}<Icon name="external"/></a></div>})}<div class="property-section property-dates"><span>"Created "<time datetime=t.created_at.clone() title=t.created_at.clone()>{date_time(&t.created_at)}</time></span><span>"Updated "<time datetime=t.updated_at.clone() title=t.updated_at.clone()>{date_time(&t.updated_at)}</time></span></div>
     }})
 }
@@ -426,7 +422,12 @@ fn LabelPicker() -> impl IntoView {
                     label.id
                 } else {
                     // The four label hues from tokens.css, stable across sessions.
-                    let palette = ["#8b82d9", "#eb5757", "#4ea7fc", "#c6a1b9"];
+                    let palette = [
+                        crate::colors::value("--label-feature"),
+                        crate::colors::value("--label-bug"),
+                        crate::colors::value("--label-infra"),
+                        crate::colors::value("--label-design"),
+                    ];
                     let hash = name
                         .to_lowercase()
                         .bytes()
@@ -507,8 +508,10 @@ fn EditTicket(close: Callback<()>) -> impl IntoView {
     let state = expect_context::<DetailState>();
     let t = state.ticket.get_untracked().expect("loaded ticket");
     let title = RwSignal::new(t.title);
+    let kind = RwSignal::new(t.r#type.unwrap_or_default());
+    let scope = RwSignal::new(t.scope.unwrap_or_default());
     let body = RwSignal::new(t.body);
-    view! {<Modal title="Edit ticket" locked=Signal::derive(move||state.busy.get()) on_close=close><form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move|e|{e.prevent_default();state.write("PATCH",format!("/api/v1/tickets/{}",state.id.get_untracked()),json!({"title":title.get_untracked(),"body":body.get_untracked()}),move||close.run(()));} ><div class="modal-body"><TextInput id="detail-title" label="Title" value=title/><MarkdownEditor body label="Description"/><p role="alert">{move||state.error.get()}</p></div><div class="modal-footer"><BusyButton busy=state.busy disabled=Signal::derive(move||title.get().trim().is_empty())>"Save ticket"</BusyButton></div></form></Modal>}
+    view! {<Modal title="Edit ticket" locked=Signal::derive(move||state.busy.get()) on_close=close><form autocomplete="off" data-1p-ignore="true" data-form-type="other" on:submit=move|e|{e.prevent_default();state.write("PATCH",format!("/api/v1/tickets/{}",state.id.get_untracked()),json!({"title":title.get_untracked(),"body":body.get_untracked(),"type":(!kind.get_untracked().is_empty()).then(||kind.get_untracked()),"scope":scope.get_untracked()}),move||close.run(()));} ><div class="modal-body"><TextInput id="detail-title" label="Title" value=title/><TicketClassification kind scope/><MarkdownEditor body label="Description"/><p role="alert">{move||state.error.get()}</p></div><div class="modal-footer"><BusyButton busy=state.busy disabled=Signal::derive(move||title.get().trim().is_empty())>"Save ticket"</BusyButton></div></form></Modal>}
 }
 #[component]
 fn ActivityFeed() -> impl IntoView {

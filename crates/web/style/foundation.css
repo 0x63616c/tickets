@@ -57,6 +57,10 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 [data-ascii-root] { min-width: 0; max-width: 100%; }
 [data-ascii-root] > .ar-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; max-width: 100%; max-height: 100%; }
 [data-ascii-root] > .ar-overlay > canvas { position: absolute; pointer-events: none; display: block; }
+/* Keep the package's decorative scan quiet on the enclosing token surface.
+   Scope above its injected variant rules; block fills must not tint that surface. */
+.ascii-skeleton .ars { --ars-base: .12; --ars-wave: .22; }
+.ascii-skeleton .ars-block { background: transparent; }
 .ascii-skeleton { display: block; min-width: 0; width: 100%; max-width: 100%; overflow: clip; }
 .skeleton-column, .skeleton-row { min-width: 0; max-width: 100%; }
 .loading-indicator { display: inline-block; width: 32px; height: 16px; flex: 0 0 32px; overflow: hidden; }
@@ -154,6 +158,22 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .pr-check-status.failed > span { color: var(--danger); }
 .pr-check-status.pending > span { color: var(--warning); }
 
-.pr-link-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block: var(--space-2); }
-.pr-link-row > a { flex-basis: 100%; max-width: 100%; }
-.pr-link-row > a > span { overflow-wrap: anywhere; }
+/* Linked PRs share sidebar section rules and the existing label badge treatment. */
+.pr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.pr-sidebar-row { min-width: 0; }
+.pr-sidebar-link { display: grid; gap: var(--space-1); min-width: 0; color: var(--text-secondary); border-radius: var(--radius-sm); }
+.pr-repository { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); }
+.pr-repository > span, .pr-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pr-repository > span { flex: 1; }
+.pr-repository > .icon { flex-shrink: 0; }
+.pr-title { font-size: var(--text-sm); }
+.pr-sidebar-status { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-1); }
+.pr-state-open { --c: var(--success); }
+.pr-state-merged { --c: var(--status-done); }
+.pr-state-closed { --c: var(--danger); }
+.pr-state-draft { --c: var(--text-muted); }
+.pr-ci { color: var(--text-muted); font-size: var(--text-xs); }
+@media (hover: hover) and (pointer: fine) { .pr-sidebar-link:hover { color: var(--text); } }
+@media (max-width: 760px) { .pr-sidebar-link { min-height: 44px; align-content: center; } }
+
+.pr-sidebar-preview { width: 224px; }

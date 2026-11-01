@@ -3132,6 +3132,7 @@ dependencies = [
  "httpdate",
  "pbkdf2",
  "proc-macro2",
+ "regex",
  "reqwest",
  "serde_json",
  "sha2 0.10.9",

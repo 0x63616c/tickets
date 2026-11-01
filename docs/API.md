@@ -96,7 +96,7 @@ curl -sS -X PATCH "$TICKETS_URL/api/v1/projects/1" -H "Authorization: Bearer $TI
 | DELETE | `/tickets/{id-or-key}` | Deletes ticket, comments, label links and dependency edges |
 | PUT | `/tickets/by-external?id={external-id}` | Atomic external-ID upsert; requires `project_id`, `title` |
 
-Editable fields: `title` (nonblank), `body` (raw Markdown), `status`, `priority`,
+Editable fields: `type`, `scope`, `title` (nonblank, plain text without a Conventional Commit prefix), `body` (raw Markdown), `status`, `priority`,
 `project_id`, nullable `assignee`, finite `sort_order`, nullable `external_url`
 (HTTP/S URL) and `external_id` (namespaced string such as `github:org/repo:12`).
 The external upsert's query ID is authoritative. It creates a ticket or updates
@@ -350,8 +350,8 @@ The App replaces per-repository hooks. Set the manifest `hook_attributes.url` to
 `https://tickets.worldwidewebb.co/api/v1/github/app/webhook`, grant **Checks: write**,
 **Pull requests: read**, and **Metadata: read** for PR/check handling. The generated
 manifest additionally requests **Issues: read**, **Commit statuses: write** and
-**Contents: read**, and subscribes to `pull_request`, `check_suite`, `check_run`
-and `push` (push is ignored; installation events are automatic). Install via the
+**Contents: read**, and subscribes to `pull_request`, `check_suite`, `check_run`,
+`status` and `push` (push is ignored; installation events are automatic). Install via the
 callback page's link or `https://github.com/apps/<app-slug>/installations/new`.
 Keep `GITHUB_PR_OWNERS` configured as a comma-separated owner allowlist. After
 verifying the App, remove the old per-repository hooks; the legacy
@@ -374,9 +374,10 @@ statuses and Closes/Refs intent. Check-post failures log a fixed non-secret
 message and preserve the successful status-sync response. Check suite requests
 and rerequests recompute checks (fetching PR details as needed); check run
 rerequests are handled only for this App's **Tickets** run. Standalone recompute
-failures return 502 so GitHub can retry. Other apps' completed suites record the
-latest observed CI conclusion for that head (this is not an aggregate across all
-CI providers). Older suite timestamps cannot overwrite newer conclusions.
+failures return 502 so GitHub can retry. External suites/runs and commit statuses
+record the latest observed CI event for that head (not an aggregate across
+providers), including pending events. Older timestamps cannot overwrite newer
+results; a completion can replace pending at the same timestamp.
 
 Worker authentication signs short-lived RS256 App JWTs via WebCrypto, accepting
 PKCS#1 or PKCS#8 PEM, and exchanges them for installation tokens. Tokens/keys
@@ -438,11 +439,23 @@ Ticket responses (including `GET /api/v1/tickets/{key}` for the box job CLI) con
 `closes` (boolean), `head_sha` and `updated_at`. Order is repository then number.
 
 Linked ticket `pull_requests` entries include nullable `tickets_check` (the Tickets
-check conclusion) and `ci_status` (latest other-app CI suite conclusion). Both
+check conclusion) and `ci_status` (latest observed other-app CI conclusion/status). Both
 are scoped to the current `head_sha`; a new head has null values until reported.
 Historical heads never supply current results. `tickets_check_run_id` and
 `checks_updated_at` are also nullable and scoped to that head. Conclusions include
-`success`, `failure`, `neutral`, `cancelled`, `timed_out`, or `skipped`. Null means unreported.
+`success`, `failure`, `neutral`, `cancelled`, `timed_out`, `skipped`, or `pending`.
+Null means unreported. The App webhook stores completed external `check_suite`
+and `check_run` conclusions, records pending suite requests and created/in-progress
+runs, and handles commit `status` events (`error` maps to `failure`). Subscribe
+existing installations to `status` to receive commit statuses. This is the latest
+observed provider event by GitHub timestamp, not an aggregate across checks;
+stale/duplicate deliveries cannot overwrite newer metadata (completion wins a
+pending/completed timestamp tie). CI writes do not change ticket status or emit live notices. The legacy PR webhook only ingests PRs.
+
+The ticket detail sidebar shows these links under **Pull requests**, hiding the
+section for an empty array. Draft is represented by `state: "draft"`; no separate
+draft column is needed. CI conclusions are shown as passing, failing, pending,
+or none (neutral/skipped/canceled/unreported are not presented as passing).
 
 Open PRs move backlog/todo/in_progress tickets to in_review; drafts move
 backlog/todo to in_progress. Neither moves in_review backwards or changes done
@@ -506,7 +519,7 @@ are stable and no credentials are copied.
 History actor fields cannot be supplied in mutation documents.
 
 Fields: `created`, `deleted`, `status`, `priority`, `assignee`, `title`,
-`description`, `project`, `label_added`, `label_removed`, `blocker_added`,
+`description`, `type`, `scope`, `project`, `label_added`, `label_removed`, `blocker_added`,
 `blocker_removed`, `blocks_added`, `blocks_removed`. `claim`, `heartbeat`, `expiry`
 and `release` record the pickup lease lifecycle described below. Old/new values
 are JSON scalars for ordinary fields, `{id,name,key}` for projects,
@@ -673,3 +686,33 @@ normal `error.code` / `error.message` envelope. Images are BLOBs in D1 migration
 `0019_user_avatars.sql`; no R2 binding is needed. The account UI accepts originals
 up to 5 MB, decodes and center-crops to 256×256 with canvas, then encodes WebP
 (JPEG fallback), targeting less than 100 KiB before upload.
+
+## Ticket classification (TIK-109)
+
+Ticket titles are plain (for example `Grid home`, never `feat(ui): Grid home`).
+Ticket `type` is nullable and must be exactly `feat`, `fix`, `chore`, `refactor`,
+`docs`, `perf`, `test`, `ci`, or `build`. Optional nullable `scope` is trimmed and
+lowercased and must match `[a-z0-9][a-z0-9._/-]{0,31}`; an empty string clears it.
+The shared `tickets_core::ticket_type::pr_title` helper uses the title verbatim:
+`<type>(<scope>): <title> [KEY-N]` with scope, or `<type>: <title> [KEY-N]`
+without scope. An unset type falls back to `chore`, including when scope is set.
+
+POST `/tickets`, PATCH `/tickets/{id-or-key}` and PUT `/tickets/by-external`
+accept these fields. Both default to null. Omitted update fields are preserved;
+explicit null clears them. Invalid values (including non-string values) return
+422 `validation` with `error.message` identifying the field. Type is case
+sensitive; only scope is normalized. Scope can be set independently of type.
+Full ticket reads/mutations, list/search rows and pickup tickets include `type`
+and `scope`. Full ticket responses include `pr_title`; both GET `/next` and POST
+`/next/claim` return it inside `ticket`, alongside `type` and `scope`.
+Type/scope changes, including clears and the migration backfill, are recorded atomically in ticket history.
+
+Migration `0021_ticket_type_scope.sql` adds nullable columns and backfills allowed
+case-insensitive `type(scope): rest`, `type: rest` and breaking `!` prefixes.
+It trims separating spaces, preserves subject casing and subsequent colons, and
+normalizes valid scopes. Unknown/invalid prefixes retain their original titles.
+Unprefixed, untyped tickets use a valid legacy `type:<x>` label (lowest label ID
+wins). Unknown prefix-like titles are left untyped even if labeled. Already-typed tickets are never changed by the backfill, so rerunning the
+backfill is safe. Schema DDL runs once through D1 migrations in CI. FTS updates
+through existing triggers; the cache schema version is advanced. No remote
+manual migration step is required.

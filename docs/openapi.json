@@ -4927,6 +4927,40 @@
               }
             ],
             "description": "HTTP(S) URL."
+          },
+          "type": {
+            "enum": [
+              "feat",
+              "fix",
+              "chore",
+              "refactor",
+              "docs",
+              "perf",
+              "test",
+              "ci",
+              "build",
+              null
+            ],
+            "description": "Nullable ticket classification; null clears it.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "description": "Trimmed and lowercased before validation against [a-z0-9][a-z0-9._/-]{0,31}. Empty or whitespace-only strings and null clear it.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -4990,6 +5024,40 @@
               }
             ],
             "description": "HTTP(S) URL."
+          },
+          "type": {
+            "enum": [
+              "feat",
+              "fix",
+              "chore",
+              "refactor",
+              "docs",
+              "perf",
+              "test",
+              "ci",
+              "build",
+              null
+            ],
+            "description": "Nullable ticket classification; null clears it.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "description": "Trimmed and lowercased before validation against [a-z0-9][a-z0-9._/-]{0,31}. Empty or whitespace-only strings and null clear it.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -5437,6 +5505,45 @@
           },
           "claim_version": {
             "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "feat",
+              "fix",
+              "chore",
+              "refactor",
+              "docs",
+              "perf",
+              "test",
+              "ci",
+              "build",
+              null
+            ],
+            "description": "Nullable ticket classification; null clears it.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "description": "Nullable normalized ticket scope.",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._/-]{0,31}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pr_title": {
+            "type": "string",
+            "description": "Generated Conventional Commit PR title using type (chore when unset), optional scope, verbatim title and ticket key."
           }
         },
         "required": [
@@ -5465,7 +5572,10 @@
           "claim_expires_at",
           "claim_heartbeat_at",
           "claim_event",
-          "claim_version"
+          "claim_version",
+          "type",
+          "scope",
+          "pr_title"
         ]
       },
       "Comment": {
@@ -6101,6 +6211,41 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "type": {
+            "enum": [
+              "feat",
+              "fix",
+              "chore",
+              "refactor",
+              "docs",
+              "perf",
+              "test",
+              "ci",
+              "build",
+              null
+            ],
+            "description": "Nullable ticket classification; null clears it.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "description": "Nullable normalized ticket scope.",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._/-]{0,31}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -6112,7 +6257,9 @@
           "external_url",
           "id",
           "key",
-          "updated_at"
+          "updated_at",
+          "type",
+          "scope"
         ]
       },
       "SearchResults": {
@@ -6499,6 +6646,41 @@
             "items": {
               "$ref": "#/components/schemas/MissionPullRequest"
             }
+          },
+          "type": {
+            "enum": [
+              "feat",
+              "fix",
+              "chore",
+              "refactor",
+              "docs",
+              "perf",
+              "test",
+              "ci",
+              "build",
+              null
+            ],
+            "description": "Nullable ticket classification; null clears it.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scope": {
+            "description": "Nullable normalized ticket scope.",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._/-]{0,31}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -6509,7 +6691,9 @@
           "status",
           "updated_at",
           "labels",
-          "pull_requests"
+          "pull_requests",
+          "type",
+          "scope"
         ]
       },
       "Mission": {

@@ -154,7 +154,7 @@ fn CreateTicket() -> impl IntoView {
                 let value = title.get_untracked().trim().to_string();
                 if value.is_empty() { return; }
                 let id = state.tickets.get_untracked().iter().map(|t| t.id).max().unwrap_or(0) + 1;
-                state.tickets.update(|tickets| { tickets.push(Ticket { id, title: value, status: Status::from_name(&status.get_untracked()), priority: Priority::None, label: "Feature", comments: 0, blocked: false, description: description.get_untracked(), project: state.current_project.get_untracked(), extra_labels: vec![], added_comments: vec![], blocked_by: vec![] }); });
+                state.tickets.update(|tickets| { tickets.push(Ticket { id, title: value, r#type: None, scope: None, status: Status::from_name(&status.get_untracked()), priority: Priority::None, label: "Feature", comments: 0, blocked: false, description: description.get_untracked(), project: state.current_project.get_untracked(), extra_labels: vec![], added_comments: vec![], blocked_by: vec![] }); });
                 state.dialog.set(DialogKind::None); state.toast.set(format!("TKT-{id} created"));
                 navigate(&format!("/design/ticket?id={id}"), Default::default());
             }>

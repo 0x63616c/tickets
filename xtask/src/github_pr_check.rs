@@ -50,7 +50,7 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     assert_eq!(history[0]["new_value"], "in_review");
 
     // Repositories are accepted by their configured owner alone.
-    let output = root.join("docs/screenshots/32");
+    let output = root.join("docs/screenshots/TIK-115");
     std::fs::create_dir_all(&output)?;
     let before = std::env::var_os("TICKETS_BEFORE_ASSETS").is_some();
     let mut b = Browser::start_named(root, "pr-browser")?;
@@ -66,13 +66,17 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
         "!!document.querySelector('.ticket-detail h1') && !!document.querySelector('.comment')",
     )?;
     if !before {
-        b.wait("!!document.querySelector('[aria-label=\"Pull requests\"] a') && document.querySelector('[aria-label=\"Pull requests\"]').innerText.includes('Open · Closes ticket')")?;
+        b.wait("!!document.querySelector('.properties [aria-label=\"Pull requests\"] a') && document.querySelector('.pr-state').textContent==='Open'")?;
+        b.eval("const a=document.querySelector('.pr-sidebar-link');if(a.target!=='_blank'||!a.rel.includes('noopener'))throw Error('Unsafe PR link');if(!document.querySelector('.pr-ci').textContent.includes('None'))throw Error('Missing CI');true")?;
         b.eval("document.querySelector('[aria-label=\"Pull requests\"] a').focus();true")?;
     }
+    // Package-owned reveal runs on rAF and does not appear in getAnimations().
+    b.wait("document.fonts.status==='loaded' && !document.querySelector('[data-ar-t], [data-ar-m], [data-ar-s], [data-ar-f]')")?;
     let prefix = if before { "before" } else { "after" };
     b.screenshot(&output.join(format!("{prefix}-desktop.png")))?;
     b.viewport(390, 900)?;
-    b.eval("document.querySelector('.dependencies').scrollIntoView();true")?;
+    b.click(".properties-toggle")?;
+    b.eval("document.querySelector('.properties').scrollIntoView();true")?;
     b.screenshot(&output.join(format!("{prefix}-mobile.png")))?;
     b.eval("if(document.documentElement.scrollWidth>innerWidth)throw Error('Horizontal overflow');true")?;
     p["action"] = json!("closed");
@@ -91,6 +95,10 @@ pub fn check(root: &Path, password: &str, api: &Api) -> Result<()> {
     p["pull_request"]["updated_at"] = json!("2026-10-29T13:00:00Z");
     send("pull_request", p, true, 202)?;
     assert!(get()?["pull_requests"].as_array().unwrap().is_empty());
+    if !before {
+        b.go(&format!("http://127.0.0.1:8795/t/{key}"))?;
+        b.wait("!!document.querySelector('.ticket-detail h1') && !document.querySelector('[aria-label=\"Pull requests\"]')")?;
+    }
     let unlinked_history = api.list(&history_path)?;
     send("pull_request", payload(key), true, 202)?;
     assert!(get()?["pull_requests"].as_array().unwrap().is_empty());

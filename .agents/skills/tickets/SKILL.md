@@ -432,7 +432,7 @@ documented in docs/API.md. Sessions receive 403; an unregistered App returns 404
 Ticket reads' `pull_requests` include nullable `tickets_check` and `ci_status`
 conclusions for the current PR head SHA. `tickets_check` is success when linked
 tickets exist, neutral for missing/unknown keys. `ci_status` is the latest observed
-completed suite from another app, not an aggregate of providers. Null means no
+CI event from another app (suite, run or commit status), not an aggregate of providers. `pending` means a check is running or queued. Null means no
 report for this head; do not treat it as passed. Use `Closes KEY-N` or `Refs KEY-N`
 and `[KEY-N]` title links as before. Nullable `tickets_check_run_id` and
 `checks_updated_at` provide the current head's stored check metadata.
@@ -490,3 +490,31 @@ Origin. Bearer tokens cannot change profile photos. Upload raw JPEG/PNG/WebP
 with matching Content-Type, at most 512 KiB. Oversized uploads return 413;
 unsupported or mismatched magic bytes return 415. Writes return the updated
 account. DELETE removes the photo and returns `avatar_url:null`.
+
+## Ticket classification and PR titles
+
+Ticket titles are plain (for example `Grid home`, never `feat(ui): Grid home`).
+Ticket `type` is nullable and must be exactly `feat`, `fix`, `chore`, `refactor`,
+`docs`, `perf`, `test`, `ci`, or `build`. Optional nullable `scope` is trimmed and
+lowercased and must match `[a-z0-9][a-z0-9._/-]{0,31}`; an empty string clears it.
+The shared `tickets_core::ticket_type::pr_title` helper uses the title verbatim:
+`<type>(<scope>): <title> [KEY-N]` with scope, or `<type>: <title> [KEY-N]`
+without scope. An unset type falls back to `chore`, including when scope is set.
+
+POST /tickets, PATCH /tickets/{id-or-key}, and PUT /tickets/by-external accept
+these fields; omission preserves existing values on update and null clears them.
+Invalid values return 422 with a clear error.message. All full ticket responses
+include type, scope, and pr_title. Preview/claim return them inside `ticket`;
+use that ready-made pr_title for the PR. History records type and scope changes.
+
+```sh
+# expect {"status":200,"body":{"id":3,"type":"feat","scope":"ui","pr_title":"feat(ui): Updated import [EX-3]"}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/tickets/3" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"type":"feat","scope":" UI "}'
+# expect {"status":422,"body":{"error":{"code":"validation"}}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/tickets/3" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"type":"Feature"}'
+# expect {"status":200,"body":{"type":null,"scope":null,"pr_title":"chore: Updated import [EX-3]"}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/tickets/3" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"type":null,"scope":""}'
+```
