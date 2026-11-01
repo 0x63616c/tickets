@@ -1,0 +1,90 @@
+{
+  "crates/core/src/github_app.rs|#000000": {
+    "count": 1,
+    "reason": "HTML renderer test asserts the embedded authoritative palette value."
+  },
+  "crates/web/icons/build.py|#000000": {
+    "count": 1,
+    "reason": "Browser icon/manifest metadata and its generator assertions cannot inherit page CSS variables."
+  },
+  "crates/web/icons/build.py|#2A2A2A": {
+    "count": 1,
+    "reason": "Browser icon/manifest metadata and its generator assertions cannot inherit page CSS variables."
+  },
+  "crates/web/icons/build.py|#EDEDED": {
+    "count": 1,
+    "reason": "Browser icon/manifest metadata and its generator assertions cannot inherit page CSS variables."
+  },
+  "crates/web/icons/favicon.svg|#000000": {
+    "count": 1,
+    "reason": "Browser icon/manifest metadata and its generator assertions cannot inherit page CSS variables."
+  },
+  "crates/web/icons/favicon.svg|#2A2A2A": {
+    "count": 1,
+    "reason": "Browser icon/manifest metadata and its generator assertions cannot inherit page CSS variables."
+  },
+  "crates/web/icons/favicon.svg|#EDEDED": {
+    "count": 1,
+    "reason": "Browser icon/manifest metadata and its generator assertions cannot inherit page CSS variables."
+  },
+  "crates/web/icons/site.webmanifest|#000000": {
+    "count": 2,
+    "reason": "Browser icon/manifest metadata and its generator assertions cannot inherit page CSS variables."
+  },
+  "crates/web/icons/version.py|#000000": {
+    "count": 1,
+    "reason": "Browser icon/manifest metadata and its generator assertions cannot inherit page CSS variables."
+  },
+  "crates/web/index.html|#000000": {
+    "count": 2,
+    "reason": "Browser icon/manifest metadata and its generator assertions cannot inherit page CSS variables."
+  },
+  "crates/web/lint/value-policy.test.mjs|#0003": {
+    "count": 1,
+    "reason": "Negative policy fixture: verifies this raw color is rejected."
+  },
+  "crates/web/lint/value-policy.test.mjs|#fff": {
+    "count": 4,
+    "reason": "Negative policy fixture: verifies this raw color is rejected."
+  },
+  "crates/web/lint/value-policy.test.mjs|hsl(0 0% 0%)": {
+    "count": 1,
+    "reason": "Negative policy fixture: verifies this raw color is rejected."
+  },
+  "crates/web/lint/value-policy.test.mjs|red": {
+    "count": 1,
+    "reason": "Negative policy fixture: verifies this raw color is rejected."
+  },
+  "crates/web/lint/value-policy.test.mjs|rgb(0 0 0)": {
+    "count": 1,
+    "reason": "Negative policy fixture: verifies this raw color is rejected."
+  },
+  "crates/web/src/pages/projects.rs|Blue": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Green": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Indigo": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Pink": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Purple": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Red": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  },
+  "crates/web/src/pages/projects.rs|Yellow": {
+    "count": 1,
+    "reason": "Visible swatch name (text copy), not a CSS color value."
+  }
+}

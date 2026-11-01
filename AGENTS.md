@@ -24,6 +24,11 @@ Read `CONTRIBUTING.md` first; everything there applies.
 - Use design-system tokens for UI spacing, radius, colour, font size and shadow.
   Run `cargo xtask check design-tokens` and `npm run lint:css --prefix crates/web`;
   remove fixed debt from `xtask/lint-allowlist.json`, never grow it. See DESIGN.md.
+- Colors come only from `crates/web/style/tokens.css`, including SVG/JS and
+  Worker-rendered HTML. Run `cargo xtask check raw-colors` (also in `ci`). Add
+  new palette roles deliberately; use `crate::colors::value` for fixed hex API
+  choices. Genuine browser-asset/test exceptions require exact counts and reasons
+  in `xtask/raw-color-allowlist.json`. See `docs/color-palette.md`.
 - Before opening a PR run: `cargo fmt --all --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 - UI changes: default to `cargo xtask component-shot <name>` after building;

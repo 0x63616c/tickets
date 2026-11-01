@@ -23,26 +23,31 @@
   --text-secondary: #d0d6e0;
   --text-muted: #8a8f98;
   --text-faint: #797d86;
-  --accent: #5e6ad2;
+  /* Fixed choices stay independent of the selected UI accent. */
+  --palette-indigo: #5e6ad2;
+  --project-default: var(--palette-indigo);
+  --white: #ffffff;
+  --accent: var(--palette-indigo);
   --accent-hover: #6d79df;
   /* Filled actions keep light text readable in every state. */
   --action-fill: #535fc4;
   --action-hover: #4854b8;
   --action-active: #414dab;
   --action-disabled: #343b70;
-  --action-text: #f7f8f8;
+  --action-text: var(--text);
   --accent-surface: #0d0e1f;
-  --focus: #5e6ad2;
-  --status-backlog: #8a8f98;
-  --status-todo: #d0d6e0;
-  --status-progress: #f0bf00;
-  --status-review: #27a644;
-  --status-done: #5e6ad2;
-  --status-canceled: #8a8f98;
-  --priority-urgent: #eb5757;
-  --priority-high: #d0d6e0;
-  --priority-medium: #8a8f98;
-  --priority-low: #8a8f98;
+  --focus: var(--accent);
+  --status-backlog: var(--text-muted);
+  --status-todo: var(--text-secondary);
+  --status-progress: var(--warning);
+  --status-review: var(--success);
+  --status-done: var(--palette-indigo);
+  --status-canceled: var(--text-muted);
+  --priority-none: var(--text-muted);
+  --priority-urgent: var(--danger);
+  --priority-high: var(--text-secondary);
+  --priority-medium: var(--text-muted);
+  --priority-low: var(--text-muted);
   --success: #27a644;
   --warning: #f0bf00;
   --danger: #eb5757;
@@ -57,8 +62,9 @@
   --project-yellow: #f0bf00;
   --project-graphite: #8a8f98;
   --label-feature: #8b82d9;
-  --label-bug: #eb5757;
+  --label-bug: var(--danger);
   --label-infra: #4ea7fc;
+  --info: var(--label-infra);
   --label-design: #c6a1b9;
   /* Tinted chips: fill and border are the hue at low alpha, text a lighter tint. */
   --tint-fill: 14%; --tint-border: 26%; --tint-text: 55%;
