@@ -84,6 +84,8 @@ impl PriorityPresentation for Priority {
 pub struct Ticket {
     pub id: u32,
     pub title: String,
+    pub r#type: Option<String>,
+    pub scope: Option<String>,
     pub status: Status,
     pub priority: Priority,
     pub label: &'static str,
@@ -233,6 +235,8 @@ pub fn tickets() -> Vec<Ticket> {
         |(id, title, status, priority, label, comments, blocked)| Ticket {
             id,
             title: title.into(),
+            r#type: Some("feat".into()),
+            scope: Some("ui".into()),
             status,
             priority,
             label,

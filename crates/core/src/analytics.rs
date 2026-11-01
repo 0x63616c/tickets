@@ -48,6 +48,8 @@ pub struct HomeTicket {
     pub ticket_id: Option<i64>,
     pub key: Option<String>,
     pub title: Option<String>,
+    pub r#type: Option<String>,
+    pub scope: Option<String>,
     pub status: Option<String>,
     pub blocker_id: Option<i64>,
     pub blocker_key: Option<String>,

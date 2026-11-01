@@ -17,6 +17,8 @@ pub fn validate(entity: &str, input: &Value) -> Result<(), String> {
         ],
         "tickets" => &[
             "title",
+            "type",
+            "scope",
             "body",
             "status",
             "priority",
@@ -36,6 +38,20 @@ pub fn validate(entity: &str, input: &Value) -> Result<(), String> {
         }
         match key.as_str() {
             "name" | "title" => validate_name(v.as_str().ok_or("expected string")?)?,
+            "type" => {
+                if !v.is_null() {
+                    crate::ticket_type::validate_type(
+                        v.as_str().ok_or("type must be a string or null")?,
+                    )?;
+                }
+            }
+            "scope" => {
+                if !v.is_null() {
+                    crate::ticket_type::normalize_scope(
+                        v.as_str().ok_or("scope must be a string or null")?,
+                    )?;
+                }
+            }
             "body" => {
                 let s = v.as_str().ok_or("body must be a string")?;
                 if entity == "comments" {

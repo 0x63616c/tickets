@@ -54,3 +54,7 @@ Temporary browser/server processes were stopped after measurement.
 At desktop 1440px and mobile 390px, document scrollWidth equals viewport width.
 Links measure 224×40 and 224×44 respectively. The real detail captures also verify
 sidebar placement and keyboard focus; empty links remove the section after reload.
+
+Post-merge captures and complete local CI command/exit results are documented in
+[merge-validation.md](merge-validation.md). The after PNGs now use the merged
+application; the before PNGs retain the baseline identified above.

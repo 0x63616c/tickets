@@ -109,7 +109,7 @@ pub fn HistoryEvent(entry: Entry) -> impl IntoView {
     };
     let show_values = matches!(
         field.as_str(),
-        "status" | "priority" | "assignee" | "project"
+        "status" | "priority" | "assignee" | "project" | "type" | "scope"
     );
     let expandable = matches!(field.as_str(), "description" | "title");
     let old_text = entry.old_value.as_str().unwrap_or("").to_owned();

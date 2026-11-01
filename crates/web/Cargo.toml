@@ -4,13 +4,15 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[dependencies]
+tickets-core = { path = "../core" }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-net = "0.7.0"
 console_error_panic_hook = "0.1"
 gloo-timers = { version = "0.3", features = ["futures"] }
 futures-util = "0.3"
 js-sys = "0.3"
-tickets-core = { path = "../core" }
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = "0.8"
 serde = { version = "1", features = ["derive"] }

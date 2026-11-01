@@ -67,6 +67,8 @@ pub const SCALARS: &[(&str, &str)] = &[
     ("priority", "priority"),
     ("assignee", "assignee"),
     ("title", "title"),
+    ("type", "type"),
+    ("scope", "scope"),
     ("description", "body"),
     ("project", "project"),
     ("claim", "claim"),

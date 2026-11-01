@@ -6,6 +6,8 @@ use tickets_core::domain::{Label, Project};
 #[derive(Clone)]
 pub struct TicketDraft {
     pub title: String,
+    pub r#type: Option<String>,
+    pub scope: Option<String>,
     pub body: String,
     pub project_id: i64,
     pub status: Status,
@@ -28,6 +30,8 @@ pub fn TicketComposer(
 ) -> impl IntoView {
     let title = RwSignal::new(String::new());
     let body = RwSignal::new(String::new());
+    let kind = RwSignal::new(String::new());
+    let scope = RwSignal::new(String::new());
     let project = RwSignal::new(project_id.to_string());
     let status = RwSignal::new(status.name().to_string());
     let priority = RwSignal::new("No priority".to_string());
@@ -89,6 +93,8 @@ pub fn TicketComposer(
         on_submit.run(TicketDraft {
             title: title.get_untracked().trim().into(),
             body: body.get_untracked(),
+            r#type: (!kind.get_untracked().is_empty()).then(|| kind.get_untracked()),
+            scope: Some(scope.get_untracked()),
             project_id: project.get_untracked().parse().unwrap_or(project_id),
             status: Status::from_name(&status.get_untracked()),
             priority: crate::fixtures::Priority::ALL
@@ -129,6 +135,7 @@ pub fn TicketComposer(
                         <label class="field"><span>"Status"</span><SelectField label="New ticket status" value=status options=Signal::derive(||Status::ALL.into_iter().map(SelectOption::status).collect()) on_change=Callback::new(move|v|status.set(v))/></label>
                         <label class="field"><span>"Priority"</span><SelectField label="New ticket priority" value=priority options=Signal::derive(||crate::fixtures::Priority::ALL.into_iter().map(SelectOption::priority).collect()) on_change=Callback::new(move|v|priority.set(v))/></label>
                     </div>
+                    <TicketClassification kind scope/>
                     <div class="composer-labels"><Combobox label="Labels" input_id="composer-label-filter" options=Signal::derive(move||labels.get().into_iter().filter(|l|super::controls::visible_label(&l.name)).map(|l|SelectOption{color:l.color,..SelectOption::new(l.id,l.name)}).collect()) selected on_toggle=Callback::new(move|v:String|selected.update(|s|{if s.contains(&v){s.retain(|l|l!=&v);}else{s.push(v);}}))/>
                         {move||labels.get().into_iter().filter(|l|selected.get().contains(&l.id.to_string())).map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}
                     </div>

@@ -8,7 +8,7 @@ Fork the repository, create a focused branch in your fork, and follow
 UI contributions also need dark before/after screenshots and the review steps below.
 
 Use a Conventional Commit PR title, for example `docs: clarify local setup`.
-Allowed types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci` and
+Allowed types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci`, `build` and
 `perf`; scope is optional and the subject must start with a non-whitespace character.
 
 The ticket-key convention below organizes maintainer work. The current
@@ -30,12 +30,12 @@ document the maintainer/agent workflow and project conventions.
   - `model:sol` – all implementation work. Run: `codex exec -m gpt-6.1-sol`.
 - Dependencies use native blocker → blocked edges; blocked state is derived until
   every blocker is done or canceled.
-- Type labels: `type:feat`, `type:fix`, `type:chore`.
+- Use the dedicated `type` and `scope` fields; legacy `type:<x>` labels are migration input.
 
 ## Pull requests
 - One focused PR per ticket. Branch name: `<key-lowercase>-<slug>`.
 - PR title in Conventional Commits form (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`,
-  `test:`, `ci:`, `perf:`).
+  `test:`, `ci:`, `build:`, `perf:`).
 - PR titles end with `[KEY-N]`; bodies contain `Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)`
   (or `Refs [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` for references),
   a summary, and test evidence.
@@ -65,6 +65,28 @@ document the maintainer/agent workflow and project conventions.
   screenshot is an explicitly labelled empty dark baseline.
 
 ## Design-token lint
+
+Every app color must come from `crates/web/style/tokens.css`: use `var(--role)`
+in CSS, inline styles and SVG. This also applies to JS snippets and Worker HTML.
+Reuse semantic roles; add new colors deliberately to that file only, documenting
+their role in DESIGN.md or the design-system docs. Tickets remains dark only.
+For fixed project/label choices that must reach the API as `#RRGGBB`, use
+`crate::colors::value("--role")`, which reads the same default palette rather
+than duplicating literals or persisting a browser accent override. Arbitrary
+user colors are validated API data.
+
+`cargo xtask check raw-colors` checks all app source formats and runs in
+`cargo xtask ci`, independently of the existing design-token debt baseline.
+Its errors suggest existing tokens. Browser assets/metadata and negative test
+fixtures require exact literal counts and reasons in
+`xtask/raw-color-allowlist.json`; don't allowlist new app styling. Stale exceptions
+fail too. The inventory and scope are in [docs/color-palette.md](docs/color-palette.md).
+
+For a palette-preservation change, build the original assets and run
+`TICKETS_BEFORE_ASSETS=<original-dist> cargo xtask color-check`, then rebuild and
+run `cargo xtask color-check`. This compares computed colors (including SVG and
+chips) on desktop/mobile fixtures and saves paired PNGs/JSON under
+`target/TIK-136/colors`. Baseline files must be from the real previous UI.
 
 Run `npm ci --prefix crates/web`, then:
 
@@ -139,6 +161,11 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
 `git config --unset core.hooksPath`. Skipping local hooks does not skip CI.
 
 ## Data model conventions
+
+Use [the domain glossary](GLOSSARY.md) for canonical Tickets vocabulary. Reuse its
+terms when naming future modules and their interfaces; keep implementation
+conventions here and existing decisions in the ADRs.
+
 - Store timestamps as UTC ISO 8601 text (`YYYY-MM-DDTHH:MM:SS.sssZ`). Repository
   updates set `updated_at`; creation timestamps are immutable. Explicit API project
   moves allocate a fresh destination number atomically and advance its counter;
@@ -175,6 +202,21 @@ Skip once with `git commit --no-verify` or `git push --no-verify`. Disable with
   Checks using that port must be serialized across worktrees too, or run inside
   separate local network namespaces. Browser policies must permit loopback access;
   isolate any test-only policy override to the child process, never shared settings.
+
+Local Worker checks share `LocalWorker::start(root, LaunchOptions)`. A returned
+session owns a healthy child and fresh fully migrated local D1, with no prior
+login, token creation or domain seeding. Startup makes only unauthenticated
+health reads after migrations. First-run, settings and avatar checks obtain this
+untouched session directly; the smoke coordinator authenticates only after start.
+Options retain build reuse, baseline assets, the Worker-only baseline build,
+login's port 8787 and mirror fixtures; other Worker checks use port 8795.
+Dropping a session terminates its private process group and reaps its child on
+success or error. Generated credentials/configuration/state and Worker logs remain
+under ignored `target/api-smoke-*/`; migration output is retained there in
+`migrations.log`. Startup failures identify the relevant retained log.
+Wrangler is a local-substitutable dependency: private executable fixtures and a
+loopback health responder exercise launch/drop without application builds.
+Executable and deadline injection stays private to the module.
 
 For a browser/runtime-only retry after a successful local build, set
 `TICKETS_SKIP_BUILD=1` on api-smoke/skill-check/browser checks. This still creates
@@ -377,7 +419,8 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 ## Projects conventions
 
 - `CHROME_BIN=<headless-chromium> cargo xtask first-run-check` builds and starts
-  isolated local Wrangler/D1 with the complete migration chain and zero data.
+  isolated local Wrangler/D1 with the complete migration chain and no prior
+  authenticated or domain state, apart from migration-seeded reference data.
   It logs in through `/login`, then uses visible UI controls only to create a
   project, two tickets, a Kanban move, a new label and a dependency verified on
   both tickets. No API seeding or token creation is used. CI runs it sequentially
@@ -387,7 +430,12 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 - `/projects` uses the `/design/projects` table and shared Modal, fields and icon.
   Project color tints its initial badge; show its key prefix in muted mono when no description exists. Keep row actions at the right edge, revealed on hover/focus (always visible on touch). The header contains the sole project count. Archive hides sidebar entries only;
   Show archived permits editing/restoring them. Tickets remain accessible.
-- Project dialogs use compact swatches from the shared color tokens. Use one GitHub Project field for a URL or owner/number; show owner type only for short input and the prefix-change hint only while editing.
+- Project dialogs use named native radio rows from the shared `--project-*` palette
+  (including Graphite), with custom hex entry under Custom.
+  `cargo xtask project-colors-shot` captures fixture-only before/after desktop/mobile
+  editors and checks keyboard selection, custom colors and Graphite contrast.
+  Use one GitHub Project field for a URL or owner/number; show owner type only for
+  short input and the prefix-change hint only while editing.
 - Projects show repository links from `github_owner` + `github_repo`, independently
   of `github_project_number`. Counts come from the project API across all tickets;
   done excludes canceled, and last activity is the latest ticket update (all statuses).
@@ -434,6 +482,12 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
   once per 30 seconds per tab. Keep pending events through cooldown, hidden tabs
   and edits; manual refresh and local writes remain immediate. Live browser checks
   allow 40 seconds for a cooldown plus reconciliation.
+- `crates/web/src/reconciliation.rs` owns the in-process notice queue, recovery
+  precedence and cooldown. Browser events and deterministic host traces use
+  `Reconciler::advance` with explicit time and readiness; the browser adapter only
+  samples signals/DOM and executes actions. Editing gates timer completion, not
+  scheduling. Keep policy tests on this interface (`cargo test -p tickets-web
+  reconciliation`), and retain browser checks for event wiring and DOM edit detection.
 - Mission Control polls every 3 minutes while visible; focus/manual refresh remain
   available. Home analytics and project counts retain the private 60-second edge
   cache keyed by workspace version; writes invalidate it early.
@@ -483,8 +537,9 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
 
 ## Live catch-up conventions
 
-- Browser visibility, focus, online and a 60-second visible-tab interval share the
-  live invalidation debounce. Hidden tabs make no catch-up requests. Refreshes keep
+- Browser visibility, focus recovery and online events share the live invalidation
+  debounce. Healthy connected sockets need no focus catch-up or interval polling.
+  Hidden tabs make no catch-up requests. Refreshes keep
   saved content visible and defer while moving tickets, editing fields or holding
   comment drafts. Recheck before applying responses so an edit begun during a read
   is preserved. Existing paginated REST reads retain the per-invocation D1 budget;
@@ -918,7 +973,9 @@ It saves dark Settings/Board evidence in `docs/screenshots/TIK-83`; set
   skeleton/content visibility every 50ms for four seconds. It covers cold/slow
   Board, Home navigation (including empty project and mobile), List, explicit
   refresh and live focus catch-up. Refresh must preserve card counts and board
-  position. Before mode (`TICKETS_BEFORE_ASSETS=<base-dist>`) records violations;
+  position. Wait for the destination page after SPA clicks before capturing its
+  content root or geometry, so continuity samples measure the settled route.
+  Before mode (`TICKETS_BEFORE_ASSETS=<base-dist>`) records violations;
   after mode fails on overlap or lost refresh continuity.
 - PNG sequences go to ignored `target/TIK-75/`; held/settled PNGs, sample JSON
   and `transitions.txt` go to `docs/screenshots/TIK-75/`. Copy review evidence to
@@ -1053,3 +1110,19 @@ step together; the fixture-only unit test enforces agreement without reading val
 - `component-shot linked-pull-requests` captures all four PR states and CI states.
   `mirror-check` verifies signed links, sidebar location, safe external links,
   empty-section removal, and desktop/mobile layout; use base assets for before PNGs.
+
+## Ticket classification and PR titles
+
+Ticket titles are plain (for example `Grid home`, never `feat(ui): Grid home`).
+Ticket `type` is nullable and must be exactly `feat`, `fix`, `chore`, `refactor`,
+`docs`, `perf`, `test`, `ci`, or `build`. Optional nullable `scope` is trimmed and
+lowercased and must match `[a-z0-9][a-z0-9._/-]{0,31}`; an empty string clears it.
+The shared `tickets_core::ticket_type::pr_title` helper uses the title verbatim:
+`<type>(<scope>): <title> [KEY-N]` with scope, or `<type>: <title> [KEY-N]`
+without scope. An unset type falls back to `chore`, including when scope is set.
+
+`cargo xtask component-shot ticket-type` captures fixture card/list/detail pages
+and create/edit dialogs at desktop/mobile sizes (2× dark PNGs). Use
+`--before-assets <baseline-dist>` for matching before evidence. The isolated
+classification preview is `/design/c/ticket-type`; long badge values retain full
+hover and accessible text. Scope-only tickets show “No type · scope”.

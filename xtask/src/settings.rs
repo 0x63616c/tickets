@@ -67,20 +67,23 @@ pub fn shots(root: &Path) -> super::Result {
     Ok(())
 }
 
-pub fn check(root: &Path, password: &str) -> super::Result {
+pub fn check(root: &Path) -> super::Result {
+    let worker = crate::local_worker::LocalWorker::start(root, Default::default())?;
+    let password = worker.password();
+    let url = worker.url();
     let mut b = Browser::start_named(root, "settings-check")?;
     b.viewport(1440, 900)?;
-    b.go("http://127.0.0.1:8795/login")?;
+    b.go(&format!("{url}/login"))?;
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
     b.wait("location.pathname==='/' && !!document.querySelector('.user-menu')")?;
-    b.go("http://127.0.0.1:8795/settings")?;
+    b.go(&format!("{url}/settings"))?;
     b.wait("location.pathname==='/settings/account' && !document.querySelector('#display-name')?.disabled")?;
     b.text("#display-name", "Sample User")?;
     b.click(".settings-save button")?;
     b.wait("document.querySelector('.settings-save').textContent.includes('Changes saved.')")?;
-    b.go("http://127.0.0.1:8795/settings/account")?;
+    b.go(&format!("{url}/settings/account"))?;
     b.wait("document.querySelector('#display-name')?.value==='Sample User'")?;
     b.click(".user-menu .account-trigger")?;
     b.wait("document.querySelector('.user-menu .account-trigger').getAttribute('aria-expanded')==='true' && document.querySelector('.account-trigger').textContent.includes('Sample User')")?;
@@ -89,10 +92,10 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.activeElement.matches('.user-menu .account-trigger')")?;
     b.click("[aria-controls=sidebar-projects]")?;
     b.wait("document.querySelector('#sidebar-projects').hidden")?;
-    b.go("http://127.0.0.1:8795/settings/account")?;
+    b.go(&format!("{url}/settings/account"))?;
     b.wait("document.querySelector('#sidebar-projects')?.hidden===true")?;
     b.click("[aria-controls=sidebar-projects]")?;
-    b.go("http://127.0.0.1:8795/settings/tokens")?;
+    b.go(&format!("{url}/settings/tokens"))?;
     b.wait("location.pathname==='/settings/api-tokens' && !document.querySelector('#token-label')?.disabled")?;
     b.click(".token-create")?;
     b.text("#token-label", "Settings check")?;
@@ -131,11 +134,11 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("document.querySelector('.token-result').textContent.includes('Revoked Settings check') && !document.querySelector('.tokens li')")?;
     b.click(".token-history input")?;
     b.wait("document.querySelector('.tokens').textContent.includes('Revoked')")?;
-    b.go("http://127.0.0.1:8795/settings/appearance")?;
+    b.go(&format!("{url}/settings/appearance"))?;
     b.wait("!!document.querySelector('[aria-label=Motion]')")?;
     b.choose("[aria-label=Motion]", "reduce")?;
     b.wait("document.documentElement.dataset.motion==='reduce'")?;
-    b.go("http://127.0.0.1:8795/settings/appearance")?;
+    b.go(&format!("{url}/settings/appearance"))?;
     b.wait("document.documentElement.dataset.motion==='reduce' && document.querySelector('[aria-label=Motion]')?.textContent.includes('Reduce motion')")?;
     b.wait("!document.querySelector('[aria-label=Theme]') && getComputedStyle(document.documentElement).colorScheme==='dark'")?;
     // Retired preferences must be removed on startup, whatever their old value.
@@ -143,10 +146,10 @@ pub fn check(root: &Path, password: &str) -> super::Result {
         b.eval(&format!(
             "localStorage.setItem('tickets.theme', '{legacy}');true"
         ))?;
-        b.go("http://127.0.0.1:8795/settings/appearance")?;
+        b.go(&format!("{url}/settings/appearance"))?;
         b.wait("!!document.querySelector('[aria-label=Motion]') && localStorage.getItem('tickets.theme')===null && getComputedStyle(document.documentElement).colorScheme==='dark'")?;
     }
-    b.go("http://127.0.0.1:8795/home")?;
+    b.go(&format!("{url}/home"))?;
     b.wait("!!document.querySelector('.home-empty')")?;
     b.eval("document.activeElement.blur();true")?;
     let modifier = if b.eval("navigator.platform.includes('Mac')")? == true {
@@ -162,7 +165,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.wait("!!document.querySelector('dialog[open]') && document.querySelector('dialog').textContent.includes('Keyboard shortcuts')")?;
     b.key("Escape", 27, 0)?;
     b.viewport(390, 844)?;
-    b.go("http://127.0.0.1:8795/settings/account")?;
+    b.go(&format!("{url}/settings/account"))?;
     b.wait("!!document.querySelector('#display-name')")?;
     b.wait("document.documentElement.scrollWidth<=innerWidth")?;
     b.click("[aria-label='Toggle sidebar']")?;
@@ -170,7 +173,7 @@ pub fn check(root: &Path, password: &str) -> super::Result {
     b.key("Escape", 27, 0)?;
     b.wait("document.activeElement.getAttribute('aria-label')==='Toggle sidebar'")?;
     super::pickup::check(&mut b)?;
-    github_check(root, &mut b)?;
+    github_check(root, &mut b, url)?;
     b.sign_out()?;
     b.wait("location.pathname==='/login'")?;
     println!(
@@ -193,7 +196,7 @@ pub(crate) fn visible_page(b: &mut Browser, path: &Path) -> super::Result {
     Ok(())
 }
 
-fn github_check(root: &Path, b: &mut Browser) -> super::Result {
+fn github_check(root: &Path, b: &mut Browser, url: &str) -> super::Result {
     let output = root.join("docs/screenshots/TIK-70");
     fs::create_dir_all(&output)?;
     // Capture the real previous Settings surface from explicitly supplied base assets.
@@ -222,7 +225,7 @@ fn github_check(root: &Path, b: &mut Browser) -> super::Result {
         }
     }
     b.viewport(1440, 900)?;
-    b.go("http://127.0.0.1:8795/settings/appearance")?;
+    b.go(&format!("{url}/settings/appearance"))?;
     b.wait("!!document.querySelector('[aria-label=Motion]')")?;
     b.eval("window.githubFetch=window.fetch;window.githubReply={registered:false,app_slug:null,app_name:null,html_url:null,installations:[]};window.fetch=(url,options)=>(url.url || String(url)).endsWith('/github/app') ? new Promise(resolve=>{window.githubResolve=()=>resolve(new Response(JSON.stringify(window.githubReply),{status:window.githubStatus || 200,headers:{'Content-Type':'application/json'}}));if(!window.githubHold)window.githubResolve();}) : window.githubFetch(url,options);window.githubHold=true;true")?;
     b.click(".settings-nav a[href='/settings/account']")?;
@@ -242,7 +245,7 @@ fn github_check(root: &Path, b: &mut Browser) -> super::Result {
     b.eval("window.githubSpaMarker=true;true")?;
     b.click(".settings-github a.button")?;
     b.wait("location.pathname==='/github/app/register' && !window.githubSpaMarker && !!document.querySelector('main')")?;
-    b.go("http://127.0.0.1:8795/settings/appearance")?;
+    b.go(&format!("{url}/settings/appearance"))?;
     b.wait("!!document.querySelector('[aria-label=Motion]')")?;
     b.eval("window.githubFetch=window.fetch;window.githubReply={registered:true,app_slug:'tickets-fixture',app_name:'Tickets Fixture',html_url:'https://github.com/apps/tickets-fixture',installations:[]};window.fetch=(url,options)=>(url.url || String(url)).endsWith('/github/app') ? Promise.resolve(new Response(JSON.stringify(window.githubReply),{status:window.githubStatus || 200,headers:{'Content-Type':'application/json'}})) : window.githubFetch(url,options);true")?;
     b.click(".settings-nav a[href='/settings/account']")?;
@@ -336,19 +339,22 @@ fn github_crop(b: &mut Browser, selector: &str, path: &Path) -> super::Result {
 }
 
 /// Actual browser processing plus authenticated Worker/D1 binary roundtrips.
-pub fn avatar_check(root: &Path, password: &str) -> super::Result {
+pub fn avatar_check(root: &Path) -> super::Result {
+    let worker = crate::local_worker::LocalWorker::start(root, Default::default())?;
+    let password = worker.password();
+    let url = worker.url();
     let output = std::env::var_os("TICKETS_AVATAR_SHOTS")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| root.join("target/avatar-shots"));
     fs::create_dir_all(&output)?;
     let mut b = Browser::start_named(root, "avatar-check")?;
     b.viewport(1440, 900)?;
-    b.go("http://127.0.0.1:8795/login")?;
+    b.go(&format!("{url}/login"))?;
     b.text("#username", "fixture")?;
     b.text("#password", password)?;
     b.click("button[type=submit]")?;
     b.wait("location.pathname==='/' && !!document.querySelector('.user-menu')")?;
-    b.go("http://127.0.0.1:8795/settings/account")?;
+    b.go(&format!("{url}/settings/account"))?;
     b.wait("!!document.querySelector('#profile-photo-file') && !document.querySelector('#profile-photo-file').disabled")?;
     b.eval("document.fonts.ready.then(()=>true)")?;
     visible_page(&mut b, &output.join("account-initials.png"))?;
@@ -395,12 +401,12 @@ pub fn avatar_check(root: &Path, password: &str) -> super::Result {
       await fetch('/api/v1/tickets/'+ticket.id+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:'Profile photo saved and visible on comments.'})});
       return true;
     })()"#)?;
-    b.go("http://127.0.0.1:8795/t/AV-1")?;
+    b.go(&format!("{url}/t/AV-1"))?;
     b.wait("document.body.innerText.includes('Profile photo saved and visible on comments.') && document.querySelector('.comment .avatar img')?.naturalWidth===256 && document.querySelector('.assignee-editor .avatar img')?.naturalWidth===256")?;
     // Let the ascii-reveal loading animation settle before capturing.
     b.eval("new Promise(r=>setTimeout(()=>r(true),2500))")?;
     visible_page(&mut b, &output.join("comment-assignee-avatar.png"))?;
-    b.go("http://127.0.0.1:8795/settings/account")?;
+    b.go(&format!("{url}/settings/account"))?;
     b.wait("document.querySelector('.profile-photo img')?.naturalWidth===256")?;
     // Simulate a browser without a WebP encoder and exercise the JPEG fallback.
     b.eval(r#"(async()=>{
@@ -431,7 +437,7 @@ pub fn avatar_check(root: &Path, password: &str) -> super::Result {
       if((await fetch(before.avatar_url)).status!==404)throw Error('removed bytes still served');
       return true;
     })()"#)?;
-    b.go("http://127.0.0.1:8795/settings/account")?;
+    b.go(&format!("{url}/settings/account"))?;
     b.wait("document.querySelector('.profile-photo-actions button')?.textContent==='Upload photo' && !document.querySelector('.profile-photo img')")?;
     b.viewport(390, 844)?;
     b.wait("document.documentElement.scrollWidth<=innerWidth")?;
@@ -440,5 +446,86 @@ pub fn avatar_check(root: &Path, password: &str) -> super::Result {
         "PASS avatars: browser validation/canvas upload, auth, type/size limits, binary/cache roundtrip, replacement, removal, sidebar/comment/assignee; PNGs in {}",
         output.display()
     );
+    Ok(())
+}
+
+/// The real project editor with fixture data; no account or API credentials.
+pub fn project_colors_shots(root: &Path) -> super::Result {
+    let before = std::env::var_os("TICKETS_BEFORE_ASSETS");
+    let assets = before
+        .as_ref()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.join("crates/web/dist"));
+    let phase = if before.is_some() { "before" } else { "after" };
+    let output = root.join("docs/screenshots/TIK-135");
+    fs::create_dir_all(&output)?;
+    let server = FixtureServer::start(&assets)?;
+    let mut b = Browser::start_named(root, "project-colors")?;
+    b.viewport(1440, 1000)?;
+    b.go(&format!("{}/design/board", server.url))?;
+    b.wait("!!document.querySelector('.project-more-trigger')")?;
+    b.click(".project-more-trigger")?;
+    b.wait("document.activeElement.textContent.includes('Edit project')")?;
+    b.key("Enter", 13, 0)?;
+    b.wait("!!document.querySelector('.project-colors')")?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    if before.is_none() {
+        b.wait("document.querySelectorAll('.project-colors input[type=radio]').length===9")?;
+        b.eval("document.querySelector('.project-colors input').focus();true")?;
+        b.key("ArrowDown", 40, 0)?;
+        b.wait("document.activeElement.value==='Purple' && document.activeElement.checked")?;
+        b.key("ArrowUp", 38, 0)?;
+        b.wait("document.activeElement.value==='Indigo' && document.activeElement.checked")?;
+        b.click(".project-colors input[value=Graphite]")?;
+        b.key("ArrowUp", 38, 0)?;
+        b.key("ArrowDown", 40, 0)?;
+        b.wait("document.querySelector('.project-colors input[value=Graphite]').checked")?;
+        b.wait("getComputedStyle(document.querySelector('.project-color-row:has(input:focus-visible)')).outlineStyle==='solid'")?;
+        b.eval(r#"(()=>{
+            const icon=document.querySelector('.project-icon-picker .project-mark');
+            const style=getComputedStyle(icon);
+            const channels=s=>s.match(/[\d.]+/g).slice(-3).map(v=>Number(v)*(s.startsWith('color(')?255:1));
+            const luminance=rgb=>rgb.map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((v,c,i)=>v+c*[.2126,.7152,.0722][i],0);
+            const fg=luminance(channels(style.color)),bg=luminance(channels(style.backgroundColor));
+            const ratio=(Math.max(fg,bg)+.05)/(Math.min(fg,bg)+.05);
+            if(ratio<4.5)throw Error('Graphite icon contrast '+ratio);
+            return {foreground:style.color,background:style.backgroundColor,ratio};
+        })()"#).map(|pairs|println!("Graphite contrast: {pairs}"))?;
+    }
+    for (size, width, height) in [("desktop", 1440, 1000), ("mobile", 390, 844)] {
+        b.viewport(width, height)?;
+        b.eval("document.querySelector('.project-colors').scrollIntoView({block:'center'});true")?;
+        b.screenshot(&output.join(format!("{phase}-{size}.png")))?;
+        visible_crop(
+            &mut b,
+            ".project-colors",
+            &output.join(format!("{phase}-picker-{size}.png")),
+        )?;
+    }
+    if before.is_none() {
+        b.click(".project-colors input[value=Custom]")?;
+        b.text("#project-color", "#aabbcc")?;
+        b.screenshot(&output.join("after-custom.png"))?;
+        b.viewport(1440, 1000)?;
+        b.click("dialog button[type=submit]")?;
+        b.wait("!document.querySelector('dialog')")?;
+        b.click(".project-more-trigger")?;
+        b.wait("document.activeElement.textContent.includes('Edit project')")?;
+        b.key("Enter", 13, 0)?;
+        b.wait("document.querySelector('.project-colors input[value=Custom]')?.checked && document.querySelector('#project-color')?.value==='#aabbcc'")?;
+        b.text("#project-color", "#4EA7FC")?;
+        b.click("dialog button[type=submit]")?;
+        b.wait("!document.querySelector('dialog')")?;
+        b.click(".project-more-trigger")?;
+        b.wait("document.activeElement.textContent.includes('Edit project')")?;
+        b.key("Enter", 13, 0)?;
+        b.wait("document.querySelector('.project-colors input[value=Blue]')?.checked && !document.querySelector('#project-color')")?;
+    }
+    println!("PASS project color picker {phase}: desktop/mobile screenshots");
+    if before.is_none() {
+        println!(
+            "PASS named radios, arrow keys, visible focus, Graphite contrast, custom round trip and case-insensitive palette matching"
+        );
+    }
     Ok(())
 }

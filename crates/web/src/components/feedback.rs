@@ -22,13 +22,13 @@ pub fn BusyButton(
 pub fn ProjectIcon(
     #[prop(into)] name: String,
     #[prop(default=String::new(),into)] icon: String,
-    #[prop(default="#5e6ad2".into(),into)] color: String,
+    #[prop(default=crate::colors::value("--project-default").into(),into)] color: String,
     #[prop(default = "")] size: &'static str,
 ) -> impl IntoView {
     let color = if tickets_core::domain::validate_color(&color).is_ok() {
         color
     } else {
-        "#5e6ad2".into()
+        crate::colors::value("--project-default").into()
     };
     let initial = name
         .chars()

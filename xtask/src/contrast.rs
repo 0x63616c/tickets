@@ -260,7 +260,21 @@ pub fn check(root: &Path, password: &str) -> super::Result {
 mod tests {
     fn token(name: &str) -> [f64; 3] {
         let css = include_str!("../../crates/web/style/tokens.css");
-        let hex = css.split(&format!("--{name}: #")).nth(1).unwrap();
+        let value = css
+            .split(&format!("--{name}: "))
+            .nth(1)
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .trim();
+        if let Some(alias) = value
+            .strip_prefix("var(--")
+            .and_then(|s| s.strip_suffix(')'))
+        {
+            return token(alias);
+        }
+        let hex = value.strip_prefix('#').expect("hex color or palette alias");
         std::array::from_fn(|i| u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).unwrap() as f64)
     }
     fn luminance(c: [f64; 3]) -> f64 {

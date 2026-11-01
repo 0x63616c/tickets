@@ -1,5 +1,7 @@
 #[cfg(target_arch = "wasm32")]
 mod avatar_upload;
+#[cfg(any(target_arch = "wasm32", test))]
+mod colors;
 #[cfg(target_arch = "wasm32")]
 mod components;
 #[cfg(any(target_arch = "wasm32", test))]
@@ -12,6 +14,8 @@ mod live;
 mod login;
 #[cfg(target_arch = "wasm32")]
 mod pages;
+#[cfg(any(target_arch = "wasm32", test))]
+mod reconciliation;
 #[cfg(target_arch = "wasm32")]
 mod ui;
 

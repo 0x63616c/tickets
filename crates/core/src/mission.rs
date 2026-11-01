@@ -63,6 +63,8 @@ pub struct Ticket {
     pub id: i64,
     pub key: String,
     pub title: String,
+    pub r#type: Option<String>,
+    pub scope: Option<String>,
     pub project: String,
     pub status: String,
     pub updated_at: String,

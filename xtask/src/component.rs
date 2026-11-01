@@ -15,6 +15,7 @@ use std::{
     time::Duration,
 };
 const NAMES: &[&str] = &[
+    "ticket-type",
     "pr-check-status",
     "linked-pull-requests",
     "mission",
@@ -162,6 +163,10 @@ pub fn run(root: &Path, args: &[String]) -> super::Result {
     } else {
         vec![name]
     } {
+        if name == "ticket-type" {
+            classification_shots(&mut b, &server.url, &output, before.is_some(), &assets)?;
+            continue;
+        }
         if name == "project-switcher" {
             project_switcher_shots(root, &assets, &output, before.is_some())?;
             continue;
@@ -881,5 +886,99 @@ fn project_switcher_shots(
     println!(
         "PASS project switcher: fixture icons, shared spacing, selection, keyboard and responsive layout"
     );
+    Ok(())
+}
+
+/// TIK-109: the same fixture tickets before/after, plus the real shared composer.
+fn classification_shots(
+    b: &mut Browser,
+    base: &str,
+    output: &Path,
+    before: bool,
+    assets: &Path,
+) -> super::Result {
+    let phase = if before { "before" } else { "after" };
+    let ticket = json!({"id":9,"project_id":1,"key":"TKT-9","title":"Create and edit tickets","type":"feat","scope":"ui","status":"todo","priority":2,"assignee":null,"sort_order":0,"labels":[],"blocked_by":[],"blocks":[],"comment_count":0,"created_at":"2026-10-31T12:00:00.000Z","updated_at":"2026-10-31T12:00:00.000Z","body":"Keep ticket titles plain."});
+    let fixtures = std::collections::HashMap::from([
+        (
+            "/api/v1/tickets".into(),
+            json!({"data":[ticket.clone()],"next_cursor":null}),
+        ),
+        ("/api/v1/tickets/TKT-9".into(), ticket.clone()),
+        ("/api/v1/tickets/9".into(), ticket),
+    ]);
+    let api_server = FixtureServer::start_with_api(assets, fixtures)?;
+    for (width, height, size) in [(1440, 900, "desktop"), (390, 844, "mobile")] {
+        b.call(
+            "Emulation.setDeviceMetricsOverride",
+            json!({"width":width,"height":height,"deviceScaleFactor":2,"mobile":false}),
+        )?;
+        for (route, selector, name) in [
+            ("/design/board", ".ticket-card", "card"),
+            ("/design/list", ".ticket-row", "row"),
+            ("/design/ticket?id=9", ".ticket-detail", "detail"),
+        ] {
+            b.go(&format!("{base}{route}"))?;
+            b.wait(&format!("!!document.querySelector('{}')", selector))?;
+            b.eval("document.fonts.ready.then(()=>new Promise(r=>setTimeout(()=>r(true),400)))")?;
+            crop(
+                b,
+                selector,
+                &output.join(format!("{phase}-{name}-{size}.png")),
+            )?;
+            crop(
+                b,
+                "body",
+                &output.join(format!("{phase}-{name}-{size}-page.png")),
+            )?;
+            if !before {
+                b.wait("!!document.querySelector('.ticket-type')")?;
+            }
+        }
+        b.go(&format!("{}/t/TKT-9", api_server.url))?;
+        b.wait("!!document.querySelector('.ticket-detail h1')")?;
+        b.click(".topbar .button-secondary")?;
+        b.wait("document.querySelector('dialog')?.dataset.state==='open'")?;
+        b.eval("document.fonts.ready.then(()=>true)")?;
+        crop(
+            b,
+            "dialog",
+            &output.join(format!("{phase}-edit-{size}.png")),
+        )?;
+        b.go(&format!("{base}/design/c/modal"))?;
+        b.wait("!!document.querySelector('.component-stage > button')")?;
+        b.click(".component-stage > button")?;
+        b.wait("document.querySelector('dialog')?.dataset.state==='open'")?;
+        b.eval("document.fonts.ready.then(()=>true)")?;
+        crop(
+            b,
+            "dialog",
+            &output.join(format!("{phase}-create-{size}.png")),
+        )?;
+        if !before {
+            b.click("[aria-label='Ticket type']")?;
+            b.wait("!!document.querySelector('[role=option]')")?;
+            b.eval("[...document.querySelectorAll('[role=option]')].find(e=>e.textContent.trim()==='feat').click();true")?;
+            b.wait("document.querySelector('[aria-label=\"Ticket type\"]').textContent.includes('feat')")?;
+            b.eval("const s=document.querySelector('[aria-label=\"Ticket scope\"]');s.value=' UI ';s.dispatchEvent(new Event('input',{bubbles:true}));true")?;
+            crop(
+                b,
+                "dialog",
+                &output.join(format!("{phase}-create-classified-{size}.png")),
+            )?;
+            // A valid maximum-length scope with surrounding whitespace must reach
+            // API normalization intact, including when pasted through the browser.
+            b.eval("document.querySelector('[aria-label=\"Ticket scope\"]').focus();document.querySelector('[aria-label=\"Ticket scope\"]').select();true")?;
+            b.call(
+                "Input.insertText",
+                json!({"text":format!(" {} ","A".repeat(32))}),
+            )?;
+            b.wait("document.querySelector('[aria-label=\"Ticket scope\"]').value===' '+ 'A'.repeat(32)+' '")?;
+            b.click("[aria-label='Ticket type']")?;
+            b.wait("document.querySelector('[aria-label=\"Ticket type\"]').getAttribute('aria-expanded')==='true'")?;
+            b.eval("document.getElementById(document.querySelector('[aria-label=\"Ticket type\"]').getAttribute('aria-controls')).querySelector('[data-value=\"\"]').click();true")?;
+            b.wait("document.querySelector('[aria-label=\"Ticket type\"]').textContent.includes('No type')")?;
+        }
+    }
     Ok(())
 }
