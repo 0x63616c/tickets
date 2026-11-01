@@ -181,13 +181,13 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
     view! {<aside class="sidebar" id="workspace-sidebar" aria-label="Workspace">
         <div class="workspace workspace-brand"><Icon name="logo"/><strong>"Tickets"</strong></div>
         <nav class="sidebar-nav" aria-label="Main navigation" on:click=move|e: web_sys::MouseEvent|{if e.target().and_then(|t|t.dyn_into::<web_sys::Element>().ok()).is_some_and(|t|t.closest("a").ok().flatten().is_some()) && let Some(cb)=on_navigate {cb.run(());}}>
-            <Tooltip text="Home" shortcut=navigation_shortcut(1)><A href=home attr:class=move||if location.pathname.get()=="/home"{"nav-item active"}else{"nav-item"} exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
-            <Tooltip text="Analytics" shortcut=navigation_shortcut(2)><A href=analytics attr:class="nav-item" exact=true><Icon name="analytics"/><span>"Analytics"</span></A></Tooltip>
-            <Tooltip text="Mission Control" shortcut=navigation_shortcut(5)><A href=mission attr:class="nav-item"><Icon name="grid"/><span>"Mission Control"</span></A></Tooltip>
+            <Tooltip navigation_hint=true text="Home" shortcut=navigation_shortcut(1)><A href=home attr:class=move||if location.pathname.get()=="/home"{"nav-item active"}else{"nav-item"} exact=true on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="home"/><span>"Home"</span></A></Tooltip>
+            <Tooltip navigation_hint=true text="Analytics" shortcut=navigation_shortcut(2)><A href=analytics attr:class="nav-item" exact=true><Icon name="analytics"/><span>"Analytics"</span></A></Tooltip>
+            <Tooltip navigation_hint=true text="Mission Control" shortcut=navigation_shortcut(5)><A href=mission attr:class="nav-item"><Icon name="grid"/><span>"Mission Control"</span></A></Tooltip>
             <A href="/api-docs" attr:class="nav-item"><Icon name="code"/><span>"API reference"</span></A>
             <button class="nav-item search-trigger" on:click=move|_|{state.dialog.set(DialogKind::Command);if let Some(cb)=on_navigate{cb.run(());}}><Icon name="search"/><span>"Search tickets"</span><Shortcut>"⌘ K"</Shortcut></button>
             <SidebarSection title="Projects" storage="tickets.sidebar.projects" id="sidebar-projects">
-                <Tooltip text="All projects" shortcut=navigation_shortcut(6)><A href=projects attr:class="nav-item" on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="project"/><span>"All projects"</span></A></Tooltip>
+                <Tooltip navigation_hint=true text="All projects" shortcut=navigation_shortcut(6)><A href=projects attr:class="nav-item" on:click=move|_|{if let Some(cb)=on_navigate{cb.run(());}}><Icon name="project"/><span>"All projects"</span></A></Tooltip>
                 {move||board.projects.get().into_iter().filter(|p|!p.archived).map(|p|{let id=p.id;let edit=p.clone();let arch=p.clone();let repo=crate::pages::projects::repository(&p);let name=p.name.clone();let active=Signal::derive(move||if fixture {state.current_project.get()==name && ["/design/board","/design/empty"].contains(&location.pathname.get().as_str())}else{board.project.get()==id && location.pathname.get()=="/board"});view!{
                     <div class="sidebar-project-row" data-project-id=id><a href=if fixture {if id!=1 {"/design/empty".to_string()}else{board_path.to_string()}}else{format!("/board?project={id}")} class="nav-item project-nav" class:active=move||active.get() aria-current=move||active.get().then_some("page") aria-label=format!("{}, {} open tickets",p.name,p.open_ticket_count)
                         on:click=move|ev|{if fixture{state.current_project.set(p.name.clone());}else if !board.select_project(id){ev.prevent_default();return;}
@@ -205,8 +205,8 @@ pub fn Sidebar(#[prop(optional)] on_navigate: Option<Callback<()>>) -> impl Into
                 <a class="nav-item quiet" href=if fixture {"/design/projects"}else{"/projects?new=true"} on:click=move|e|{if fixture{e.prevent_default();state.dialog.set(DialogKind::Project);}}><Icon name="plus"/><span>"New project"</span></a>
             </SidebarSection>
             <SidebarSection title="Views" storage="tickets.sidebar.views" id="sidebar-views">
-                <Tooltip text="Board" shortcut=navigation_shortcut(3)><A href=board_path exact=true attr:class="nav-item"><Icon name="board"/><span>"Board"</span></A></Tooltip>
-                <Tooltip text="List" shortcut=navigation_shortcut(4)><A href=list attr:class="nav-item"><Icon name="list"/><span>"List"</span></A></Tooltip>
+                <Tooltip navigation_hint=true text="Board" shortcut=navigation_shortcut(3)><A href=board_path exact=true attr:class="nav-item"><Icon name="board"/><span>"Board"</span></A></Tooltip>
+                <Tooltip navigation_hint=true text="List" shortcut=navigation_shortcut(4)><A href=list attr:class="nav-item"><Icon name="list"/><span>"List"</span></A></Tooltip>
             </SidebarSection>
         </nav>
         <div class="sidebar-bottom">{fixture.then(||view!{<div class="preview-note"><span>"Design preview"</span><span>"Sample data"</span></div>})}

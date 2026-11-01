@@ -7,7 +7,24 @@ export function position_popup(trigger, panel) {
   const r = trigger.getBoundingClientRect();
   const gap = 4, edge = 8;
   panel.style.maxWidth = `${innerWidth - edge * 2}px`;
-  panel.style.minWidth = `${Math.min(r.width, innerWidth - edge * 2)}px`;
+  const tooltip = panel.classList.contains('tooltip');
+  panel.style.minWidth = tooltip ? '0' : `${Math.min(r.width, innerWidth - edge * 2)}px`;
+  if (tooltip && trigger.closest('.sidebar')) {
+    // Keep hints beside the row, including in a clipped/scrolling mobile drawer.
+    // Constrain to the roomier side when neither side can fit the natural width.
+    const right = Math.max(0, innerWidth - r.right - gap - edge);
+    const left = Math.max(0, r.left - gap - edge);
+    const width = panel.getBoundingClientRect().width;
+    const flip = right < width && left > right;
+    panel.dataset.side = flip ? 'left' : 'right';
+    panel.style.maxWidth = `${flip ? left : right}px`;
+    panel.style.maxHeight = `${innerHeight - edge * 2}px`;
+    const p = panel.getBoundingClientRect();
+    panel.style.left = `${flip ? r.left - gap - p.width : r.right + gap}px`;
+    panel.style.top = `${Math.max(edge, Math.min(r.top + (r.height - p.height) / 2, innerHeight - p.height - edge))}px`;
+    panel.style.transformOrigin = `${flip ? 'right' : 'left'} center`;
+    return;
+  }
   const below = innerHeight - r.bottom - gap - edge, above = r.top - gap - edge;
   const up = trigger.classList.contains('account-trigger') || (below < Math.min(panel.scrollHeight, 280) && above > below);
   panel.dataset.side = up ? 'top' : 'bottom';
@@ -94,4 +111,21 @@ export function watch_popup(trigger, panel) {
   window.addEventListener('scroll',update,true);
   window.addEventListener('resize',update);
   return () => { window.removeEventListener('scroll',update,true); window.removeEventListener('resize',update); };
+}
+
+// Rust owns tooltip state/timers; capture dismissal even during the hover delay.
+export function watch_tooltip(dismiss) {
+  const escape = event => { if (event.key === 'Escape') dismiss(); };
+  window.addEventListener('scroll', dismiss, true);
+  window.addEventListener('resize', dismiss);
+  window.addEventListener('pointerdown', dismiss, true);
+  window.addEventListener('click', dismiss, true);
+  window.addEventListener('keydown', escape, true);
+  return () => {
+    window.removeEventListener('scroll', dismiss, true);
+    window.removeEventListener('resize', dismiss);
+    window.removeEventListener('pointerdown', dismiss, true);
+    window.removeEventListener('click', dismiss, true);
+    window.removeEventListener('keydown', escape, true);
+  };
 }
