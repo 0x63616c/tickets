@@ -12,8 +12,9 @@ const EFFECTIVE: &str = "coalesce((SELECT rules FROM pickup_rules WHERE scope_id
 const UNBLOCKS: &str = "(SELECT json_group_array(key) FROM (SELECT p.key_prefix||'-'||b.number key FROM ticket_dependencies d JOIN tickets b ON b.id=d.blocked_id JOIN projects p ON p.id=b.project_id WHERE d.blocker_id=tickets.id AND b.status NOT IN ('done','canceled') ORDER BY b.id))";
 
 /// Same selector for preview and locked claim, with one optional project parameter.
-fn selector() -> String {
+fn selector(ticket: Option<i64>) -> String {
     let order = tickets_core::pickup::ORDER_SQL;
+    let specific = ticket.map(|_| " AND id=?3").unwrap_or("");
     format!("SELECT id FROM (SELECT tickets.*,p.archived,{EFFECTIVE} rules,
  EXISTS(SELECT 1 FROM ticket_dependencies d JOIN tickets b ON b.id=d.blocker_id WHERE d.blocked_id=tickets.id AND b.status NOT IN ('done','canceled')) blocked,
  EXISTS(SELECT 1 FROM ticket_pull_requests pr WHERE pr.ticket_id=tickets.id AND pr.state IN ('open','draft')) open_pr,
@@ -25,7 +26,7 @@ fn selector() -> String {
  AND (NOT json_extract(rules,'$.skip_open_pr') OR NOT open_pr)
  AND in_flight<json_extract(rules,'$.concurrency_cap')
  AND NOT EXISTS(SELECT 1 FROM ticket_labels tl JOIN labels l ON l.id=tl.label_id JOIN json_each(c.rules,'$.excluded_labels') e ON l.name=e.value COLLATE NOCASE WHERE tl.ticket_id=c.id)
- ORDER BY {order} LIMIT 1")
+ {specific} ORDER BY {order} LIMIT 1")
 }
 fn returning() -> String {
     format!(
@@ -59,7 +60,28 @@ pub(crate) async fn next<S: Store>(
     project: Option<i64>,
     claim: bool,
 ) -> Result<Option<Value>> {
-    let select = selector();
+    pick(r, project, claim, None).await
+}
+pub(crate) async fn specific<S: Store>(
+    r: &ApiRepository<'_, S>,
+    ticket: i64,
+) -> Result<Option<Value>> {
+    pick(r, None, true, Some(ticket)).await
+}
+async fn pick<S: Store>(
+    r: &ApiRepository<'_, S>,
+    project: Option<i64>,
+    claim: bool,
+    ticket: Option<i64>,
+) -> Result<Option<Value>> {
+    let select = selector(ticket);
+    let mut selection_params = vec![json!(project)];
+    let mut claim_params = vec![json!(project), owner(r.1).into()];
+    if let Some(ticket) = ticket {
+        // ?2 is reserved for the authenticated owner in the shared UPDATE.
+        selection_params.extend([Value::Null, ticket.into()]);
+        claim_params.push(ticket.into());
+    }
     let rows: Vec<Value> = if claim {
         let sql=format!("UPDATE tickets SET claimed_by=?2,claim_id=lower(hex(randomblob(16))),
  claim_expires_at=strftime('%Y-%m-%dT%H:%M:%fZ',{NOW},'+'||json_extract({EFFECTIVE},'$.lease_seconds')||' seconds'),
@@ -68,9 +90,9 @@ pub(crate) async fn next<S: Store>(
         mutation::execute(
             r.0,
             r.1,
-            Scope::selection(select, vec![json!(project)]),
+            Scope::selection(select, selection_params),
             &sql,
-            vec![json!(project), owner(r.1).into()],
+            claim_params,
         )
         .await?
     } else {
