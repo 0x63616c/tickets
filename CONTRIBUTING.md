@@ -390,6 +390,13 @@ fixture menu/edit/Escape behavior; `projects-check` covers persistence and archi
   immediately; assignee saves on change/Enter (blank clears it). Saved state
   stays visible on failure. The dependency dialog displays the API's exact error
   inline and remains open after a rejected addition.
+- Type and scope are inline Properties pickers. Type uses the canonical fixed list
+  with descriptions and a muted “Set type” for null. Scope accepts free text,
+  suggests sorted unique scopes from this project’s loaded tickets, and clears
+  explicitly or on an empty save. Both use the standard PATCH/reload/history path;
+  restore keyboard focus to the property after success or rejection.
+  `detail-check` covers these flows and saves paired desktop/mobile evidence in
+  `docs/screenshots/TIK-149/` (use `TICKETS_BEFORE_ASSETS` for the before build).
 - Description/comment previews and saved bodies use the shared sanitized Markdown
   component. Comments offer Write/Preview for both creation and editing; whitespace
   cannot submit. No activity events are fabricated from ticket timestamps.
