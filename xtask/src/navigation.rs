@@ -181,6 +181,7 @@ pub fn sidebar_tooltips(root: &Path) -> super::Result {
             b.viewport(390, 844)?;
             b.click("[aria-label='Toggle sidebar']")?;
             b.wait("!!document.querySelector('.sidebar-open')")?;
+            b.wait("document.activeElement.matches('.sidebar a')")?;
             b.eval("document.activeElement.blur();new Promise(r=>setTimeout(r,800))")?;
         }
         let point = b.eval("(()=>{const r=document.querySelector('.sidebar .tooltip-trigger').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
@@ -221,6 +222,7 @@ pub fn sidebar_tooltips(root: &Path) -> super::Result {
             b.wait(geometry)?;
             visible_page(&mut b, &output.join("after-mobile-long.png"))?;
         }
+        println!("sidebar tooltips: {mode} pointer dismissal");
         // Leaving alone also dismisses, without waiting for an exit animation.
         b.call(
             "Input.dispatchMouseEvent",
@@ -232,7 +234,14 @@ pub fn sidebar_tooltips(root: &Path) -> super::Result {
             json!({"type":"mouseMoved","x":point["x"],"y":point["y"]}),
         )?;
         b.wait(&format!("!!({open})"))?;
+        println!("sidebar tooltips: {mode} Escape dismissal");
         // Escape must dismiss pointer-open tooltips even without trigger focus.
+        if mode == "mobile" {
+            // Earlier blur leaves focus on body, outside AppShell's key handler.
+            // Keep keyboard input inside the drawer without focusing a tooltip trigger.
+            b.eval("document.querySelector('.sidebar .nav-section-toggle').focus();true")?;
+            b.wait(&format!("!!({open})"))?;
+        }
         b.key("Escape", 27, 0)?;
         b.wait(closed)?;
         if mode == "mobile" {
@@ -240,12 +249,17 @@ pub fn sidebar_tooltips(root: &Path) -> super::Result {
             b.wait("!document.querySelector('.sidebar-open')")?;
             b.click("[aria-label='Toggle sidebar']")?;
             b.wait("!!document.querySelector('.sidebar-open')")?;
+            // Opening schedules focus on the first link in the next animation frame.
+            // Wait for that focus before clearing it for the explicit Tab sequence.
+            b.wait("document.activeElement.matches('.sidebar a')")?;
+            b.eval("document.activeElement.blur();true")?;
         }
         b.call(
             "Input.dispatchMouseEvent",
             json!({"type":"mouseMoved","x":1000,"y":800}),
         )?;
         b.wait(closed)?;
+        println!("sidebar tooltips: {mode} keyboard focus");
         // Tab, rather than programmatic mouse focus, exercises focus-visible.
         b.eval("document.activeElement.blur();document.querySelector('.sidebar .tooltip-trigger a').focus();true")?;
         b.key("Tab", 9, 0)?;
@@ -257,6 +271,7 @@ pub fn sidebar_tooltips(root: &Path) -> super::Result {
         b.wait(closed)?;
         b.key("Tab", 9, 8)?;
         b.wait(&format!("!!({open})"))?;
+        println!("sidebar tooltips: {mode} click dismissal");
         // A click on the current route must dismiss without depending on unmounting.
         b.click(".sidebar .tooltip-trigger a")?;
         b.wait(closed)?;

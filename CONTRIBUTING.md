@@ -60,6 +60,9 @@ document the maintainer/agent workflow and project conventions.
 - Keep `crates/core` free of wasm dependencies. Gate runtime-specific Worker and web
   code/dependencies on wasm32 so workspace host tests remain runnable.
 - Run clippy on wasm32 as well as the host to cover runtime-specific implementations.
+- Native-only xtask modules and their command match arms must both use
+  `#[cfg(not(target_arch = "wasm32"))]`. The workspace WASM Clippy check compiles
+  xtask too; an unguarded browser command fails even when host checks pass.
 - Use `cargo xtask build`, `cargo xtask dev`, and `cargo xtask ci`; see `docs/DEVELOPMENT.md`.
 - For the initial scaffold only, with no pre-existing runnable UI, the before
   screenshot is an explicitly labelled empty dark baseline.
