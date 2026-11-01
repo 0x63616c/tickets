@@ -210,6 +210,13 @@ impl DetailState {
         if self.busy.get_untracked() {
             return;
         }
+        let classification_focus = if body.get("type").is_some() && body.get("title").is_none() {
+            Some("[aria-label='Type']".to_string())
+        } else if body.get("scope").is_some() && body.get("title").is_none() {
+            Some("[aria-label='Scope']".to_string())
+        } else {
+            None
+        };
         self.busy.set(true);
         let comment_write = path.contains("/comments/");
         if comment_write {
@@ -247,6 +254,9 @@ impl DetailState {
                 }
             }
             self.busy.set(false);
+            if let Some(selector) = classification_focus {
+                focus_thread(selector);
+            }
         });
     }
     fn patch(self, body: Value) {
@@ -380,6 +390,12 @@ fn Properties() -> impl IntoView {
         <div class="property"><span>"Status"</span><div><StatusIcon status/><SelectField label="Status" value=Signal::derive(move||status.name().to_string()) options=Signal::derive(move||options(&Status::ALL.map(Status::name))) on_change=Callback::new(move|next:String|state.patch(json!({"status":Status::from_name(&next)}))) disabled=Signal::derive(move||state.busy.get())/></div></div>
         {move||state.ticket.get().map(|ticket|{let keys=ticket.blocked_by.iter().filter_map(|id|board.tickets.get().into_iter().find(|t|t.id==*id && !matches!(t.status,Status::Done|Status::Canceled))).map(|t|t.key).collect::<Vec<_>>();(!keys.is_empty()).then(||view!{<div class="property"><span>"Dependency"</span><div class="row-blocked" title=format!("Blocked by {}",keys.join(", "))><Icon name="blocked"/>"Blocked"</div></div>})})}
         <div class="property"><span>"Priority"</span><div><PriorityIcon priority=t.priority/><SelectField label="Priority" value=Signal::derive(move||t.priority.name().to_string()) options=Signal::derive(move||options(&Priority::ALL.map(Priority::name))) on_change=Callback::new(move|next:String|{if let Some(p)=Priority::ALL.into_iter().find(|p|p.name()==next){state.patch(json!({"priority":p}));}}) disabled=Signal::derive(move||state.busy.get())/></div></div>
+        <div class="property type-property" class:unset-property=t.r#type.is_none()><span>"Type"</span><div><SelectField label="Type" value=Signal::derive(move||state.ticket.get().and_then(|t|t.r#type).unwrap_or_default()) options=Signal::derive(type_options) on_change=Callback::new(move|next:String|state.patch(json!({"type":if next.is_empty(){None}else{Some(next)}}))) disabled=Signal::derive(move||state.busy.get())/></div></div>
+        <div class="property"><span>"Scope"</span><div><ScopePicker value=Signal::derive(move||state.ticket.get().and_then(|t|t.scope).unwrap_or_default()) suggestions=Signal::derive(move||{
+            let project=state.ticket.get().map(|t|t.project_id);
+            let scopes=board.tickets.get().into_iter().filter(|t|Some(t.project_id)==project).filter_map(|t|t.scope).collect::<std::collections::BTreeSet<_>>();
+            scopes.into_iter().collect()
+        }) on_change=Callback::new(move|next:String|state.patch(json!({"scope":next}))) disabled=Signal::derive(move||state.busy.get())/></div></div>
         <form autocomplete="off" data-1p-ignore="true" data-form-type="other" class="property assignee-editor" on:submit=move|e|{e.prevent_default();let name=assignee.get_untracked().trim().to_string();state.patch(json!({"assignee":if name.is_empty(){None}else{Some(name)}}));}><span>"Assignee"</span><div>{move||{let a=assignee.get();view!{<Avatar label=if a.is_empty(){"No assignee".into()}else{a.clone()} initials={a.chars().take(1).collect::<String>()}/>}}}<input autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other"  aria-label="Assignee" disabled=move||state.busy.get() prop:value=move||assignee.get() on:input=move|e|assignee.set(event_target_value(&e)) on:change=move|e|{let _=event_target::<web_sys::HtmlInputElement>(&e).form().map(|f|f.request_submit());}/></div></form>
         <div class="property-section"><h2>"Labels"</h2><div class="property-labels">{t.labels.into_iter().map(|l|view!{<LabelChip name=l.name color=l.color/>}).collect_view()}</div><LabelPicker/></div>
         <div class="property-section"><h2>"Project"</h2><div class="property"><div><SelectField label="Project" value=Signal::derive(move||t.project_id.to_string()) options=Signal::derive(move||board.projects.get().into_iter().map(SelectOption::project).collect()) on_change=Callback::new(move|next:String|{if let Ok(id)=next.parse::<i64>(){state.patch(json!({"project_id":id}));}}) disabled=Signal::derive(move||state.busy.get())/></div></div></div>
@@ -764,4 +780,24 @@ fn focus_thread(selector: String) {
             let _ = element.focus();
         }
     });
+}
+
+fn type_options() -> Vec<SelectOption> {
+    std::iter::once(SelectOption::new("", "Set type").with_description("Clear the ticket type"))
+        .chain(tickets_core::ticket_type::TYPES.iter().map(|kind| {
+            let description = match *kind {
+                "feat" => "A new feature",
+                "fix" => "A bug fix",
+                "chore" => "Routine maintenance",
+                "refactor" => "Restructure existing code",
+                "docs" => "Documentation changes",
+                "perf" => "Performance improvements",
+                "test" => "Add or update tests",
+                "ci" => "Continuous integration changes",
+                "build" => "Build system or dependencies",
+                _ => unreachable!("canonical ticket type"),
+            };
+            SelectOption::new(kind, kind).with_description(description)
+        }))
+        .collect()
 }

@@ -518,3 +518,73 @@ curl -sS -X PATCH "$TICKETS_URL/api/v1/tickets/3" -H "Authorization: Bearer $TIC
 curl -sS -X PATCH "$TICKETS_URL/api/v1/tickets/3" -H "Authorization: Bearer $TICKETS_TOKEN" \
   -H 'Content-Type: application/json' -d '{"type":null,"scope":""}'
 ```
+
+## Durable coding pipeline runs
+
+Use `PUT /api/v1/runs/{key}` with `{intent?,repo?,owner?}` to enqueue. Intent is
+`merge` (default), `draft` or `no_merge`. Existing active runs return unchanged
+(200); new queued runs return 201. Only `awaiting_review`, `done`, `canceled` are
+terminal. `stuck` and `waiting_on_calum` still hold the active slot.
+
+List with `GET /api/v1/runs`: optional repeatable/comma-separated `state`, exact
+`repo`, exact `key`, `active=true|false`, `due=true`, and `limit` (50 default,
+100 maximum). Due means active and next_check_at null or <= server time.
+Read `/runs/{id}` and `/runs/{id}/events` for reconciliation and audit history.
+PATCH `/runs/{id}` requires the last `expected_version` and accepts `state`,
+`owner`, `claim_id`, `pr`, `head_sha`, `attempts`, `last_error`, `next_check_at`,
+`escalated_at`, `intent`. Nullable fields clear with null; timestamps are UTC
+`YYYY-MM-DDTHH:MM:SS.sssZ`. Every successful PATCH increments version and appends
+an event. On 409 `version_conflict`, inspect `current` and reconcile ownership
+before retrying. Terminal runs cannot change state; PUT creates a fresh run.
+Invalid input/state/intent is 400. The OpenAPI document lists the complete enums.
+
+To acquire the exact queued ticket, use POST `/tickets/{key}/claim` with `{}`.
+It shares `/next/claim` rules, cap, authenticated lease and history. 409 means
+claimed or ineligible; 404 means unknown. Retain the returned ticket's claim_id
+for the existing heartbeat/release routes. Run owner is reconciler metadata;
+claim ownership still derives from authentication. Reconcile uncertain claims
+before retrying and fence every run update with its returned version.
+
+The disposable walkthrough continues using the imported `EX-3` ticket:
+
+```sh
+# expect {"status":201,"body":{"id":1,"key":"EX-3","state":"queued","intent":"merge","version":1}}
+curl -sS -X PUT "$TICKETS_URL/api/v1/runs/EX-3" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"repo":"example","owner":"box"}'
+# expect {"status":200,"body":{"id":1,"intent":"merge","owner":"box","version":1}}
+curl -sS -X PUT "$TICKETS_URL/api/v1/runs/EX-3" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"intent":"draft","owner":"other"}'
+# expect {"status":200,"body":{"id":1,"state":"checks","version":2}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/runs/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"expected_version":1,"state":"checks"}'
+# expect {"status":409,"body":{"error":{"code":"version_conflict"},"current":{"id":1,"version":2}}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/runs/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"expected_version":1,"state":"done"}'
+# expect {"status":200,"body":{"data":[{"id":1,"state":"checks"}]}}
+curl -sS "$TICKETS_URL/api/v1/runs?due=true&state=queued,checks" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":200,"body":{"data":[{"from_state":null,"to_state":"queued","detail":{"action":"created"}},{"from_state":"queued","to_state":"checks","detail":{"state":{"old":"queued","new":"checks"}}}]}}
+curl -sS "$TICKETS_URL/api/v1/runs/1/events" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":200,"body":{"id":1,"state":"done","version":3}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/runs/1" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"expected_version":2,"state":"done"}'
+# expect {"status":201,"body":{"key":"EX-3","state":"queued","intent":"draft","version":1}}
+curl -sS -X PUT "$TICKETS_URL/api/v1/runs/EX-3" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"intent":"draft"}'
+# expect {"status":404,"body":{"error":{"code":"not_found"}}}
+curl -sS -X POST "$TICKETS_URL/api/v1/tickets/EX-999/claim" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{}'
+```
+
+```sh
+# expect {"status":200,"body":{"id":1,"state":"done","version":3}}
+curl -sS "$TICKETS_URL/api/v1/runs/1" -H "Authorization: Bearer $TICKETS_TOKEN"
+# expect {"status":200,"body":{"key":"EX-3","status":"todo"}}
+curl -sS -X PATCH "$TICKETS_URL/api/v1/tickets/EX-3" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"status":"todo"}'
+# expect {"status":200,"body":{"ticket":{"key":"EX-3","status":"in_progress"}}}
+curl -sS -X POST "$TICKETS_URL/api/v1/tickets/EX-3/claim" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{}'
+# expect {"status":409,"body":{"error":{"code":"claim_conflict"}}}
+curl -sS -X POST "$TICKETS_URL/api/v1/tickets/EX-3/claim" -H "Authorization: Bearer $TICKETS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{}'
+```

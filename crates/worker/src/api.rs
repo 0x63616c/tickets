@@ -20,8 +20,8 @@ pub struct CommittedChange {
     pub projects: Vec<i64>,
 }
 #[derive(Debug)]
-struct Failure(u16, &'static str, String);
-type Result<T> = std::result::Result<T, Failure>;
+pub(crate) struct Failure(pub u16, pub &'static str, pub String);
+pub(crate) type Result<T> = std::result::Result<T, Failure>;
 impl From<Error> for Failure {
     fn from(e: Error) -> Self {
         match e {
@@ -68,7 +68,7 @@ fn row_id(value: &Value) -> Result<i64> {
         .as_i64()
         .ok_or_else(|| Error::Storage("Invalid resource ID".into()).into())
 }
-fn bad(message: impl Into<String>) -> Failure {
+pub(crate) fn bad(message: impl Into<String>) -> Failure {
     Failure(400, "bad_request", message.into())
 }
 fn id(s: &str) -> Result<i64> {
@@ -115,7 +115,11 @@ pub async fn handle_as<S: Store>(
         },
     }
 }
-async fn resource<S: Store>(r: &ApiRepository<'_, S>, entity: &str, key: &str) -> Result<Value> {
+pub(crate) async fn resource<S: Store>(
+    r: &ApiRepository<'_, S>,
+    entity: &str,
+    key: &str,
+) -> Result<Value> {
     if entity == "tickets"
         && let Some((prefix, number)) = key.rsplit_once('-')
     {
@@ -182,6 +186,9 @@ async fn dispatch<S: Store>(
     let parts: Vec<_> = path.trim_matches('/').split('/').collect();
     if parts.len() < 3 || parts[..2] != ["api", "v1"] {
         return Err(Error::NotFound.into());
+    }
+    if parts[2] == "runs" {
+        return crate::pipeline::dispatch(r, method, &parts[3..], q, body).await;
     }
     if method == "GET" && parts == ["api", "v1", "github", "app", "credentials"] {
         // The auth gate derives this actor from a validated bearer token or session.
@@ -286,6 +293,32 @@ async fn dispatch<S: Store>(
                 body: Value::Null,
             }),
         };
+    }
+    if let ("POST", [_, _, "tickets", key, "claim"]) = (method, parts.as_slice()) {
+        if !q.is_empty() || !(body.is_null() || body == json!({})) {
+            return Err(bad("Direct claim accepts only an empty document"));
+        }
+        let ticket = resource(r, "tickets", key).await?;
+        let ticket_id = row_id(&ticket)?;
+        let body = crate::pickup::specific(r, ticket_id)
+            .await?
+            .ok_or_else(|| {
+                Failure(
+                    409,
+                    "claim_conflict",
+                    "Ticket is claimed or ineligible under pickup rules".into(),
+                )
+            })?;
+        return Ok(Reply {
+            status: 200,
+            change: Some(CommittedChange {
+                entity: "tickets".into(),
+                id: ticket_id,
+                action: "update".into(),
+                projects: vec![body["ticket"]["project_id"].as_i64().unwrap()],
+            }),
+            body,
+        });
     }
     if let ("POST", [_, _, "tickets", key, "claim", action]) = (method, parts.as_slice()) {
         if !["heartbeat", "release"].contains(action) {

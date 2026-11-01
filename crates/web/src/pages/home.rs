@@ -165,11 +165,12 @@ pub(super) fn OverviewPage(analytics: bool) -> impl IntoView {
     use_ascii_reveal(reveal_root, Signal::derive(move || !settled.get()), true);
     view! {
         <header class="topbar"><h1 class="home-title">{page_name}</h1><div class="topbar-actions"><button class="button button-primary" disabled=move||!fixture && board.projects.get().is_empty() on:click=move|_|create.run(())><Icon name="plus"/>"New ticket"</button></div></header>
+        <LoadingAnnouncement label=if analytics {"Loading Analytics"}else{"Loading Home"} pending=busy.into()/>
         <div node_ref=reveal_root class="home-page" class:analytics-page=analytics aria-busy=move||busy.get().to_string()>
             <div class="home-toolbar"><SelectField label=if analytics {"Analytics project"}else{"Home project"} value=scope options=Signal::derive(move||{
                 let mut items=vec![SelectOption::new("","All active projects").with_glyph("project")];
                 items.extend(board.projects.get().into_iter().filter(|p|!p.archived).map(SelectOption::project));items
-            }) on_change=change_scope/>{analytics.then(||view!{<span class="home-period">"8 weeks · UTC"</span>})}<span class="home-freshness">{move||response.get().map(|h|format!("Updated {} UTC",h.as_of.get(11..16).unwrap_or("")))}</span><Show when=move||busy.get()><LoadingIndicator label=if analytics {"Refreshing Analytics"}else{"Refreshing Home"}/></Show><IconButton label=refresh_label icon="refresh" on_click=Callback::new(move|_|{crate::ui::invalidate_reads();revision.update(|r|*r+=1)}) disabled=Signal::derive(move||busy.get())/></div>
+            }) on_change=change_scope/>{analytics.then(||view!{<span class="home-period">"8 weeks · UTC"</span>})}<span class="home-freshness">{move||response.get().map(|h|format!("Updated {} UTC",h.as_of.get(11..16).unwrap_or("")))}</span><Show when=move||busy.get()><LoadingIndicator announce=false/></Show><IconButton label=refresh_label icon="refresh" on_click=Callback::new(move|_|{crate::ui::invalidate_reads();revision.update(|r|*r+=1)}) disabled=Signal::derive(move||busy.get())/></div>
             <Show when=move||!error.get().is_empty()><div class="home-error" role="alert"><span>{move||if response.get().is_some(){format!("Couldn’t refresh. Showing the last update. {}",error.get())}else{error.get()}}</span><button class="button button-secondary" on:click=move|_|{crate::ui::invalidate_reads();revision.update(|r|*r+=1)}>"Retry"</button></div></Show>
             {move||response.get().map(|home|view!{<HomeContent home scope=rendered_scope.get() metric=rendered_metric.get() base analytics/>}.into_any()).unwrap_or_else(||if busy.get() || error.get().is_empty() {if analytics {view!{<super::analytics::AnalyticsSkeleton/>}.into_any()} else {view!{<HomeSkeleton/>}.into_any()}}else{().into_any()})}
         </div>
@@ -266,5 +267,5 @@ fn TicketRows(items: Vec<HomeTicket>, fixture: bool, empty: &'static str) -> imp
 
 #[component]
 fn HomeSkeleton() -> impl IntoView {
-    view! {<div class="home-loading" role="status" aria-label="Loading Home"><div class="home-metrics">{(0..3).map(|_|view!{<div class="home-metric"><AsciiSkeleton lines=1 class="skeleton-short"/><AsciiSkeleton lines=1 class="skeleton-heading"/><AsciiSkeleton lines=1 class="skeleton-meta"/></div>}).collect_view()}</div><div class="home-queues">{(0..2).map(|_|view!{<div><AsciiSkeleton lines=1 class="skeleton-heading"/>{(0..5).map(|_|view!{<div class="home-ticket-row"><AsciiSkeleton lines=1/></div>}).collect_view()}</div>}).collect_view()}</div></div>}
+    view! {<div class="home-loading" aria-hidden="true"><div class="home-metrics">{(0..3).map(|_|view!{<div class="home-metric"><AsciiSkeleton lines=1 class="skeleton-short"/><AsciiSkeleton lines=1 class="skeleton-heading"/><AsciiSkeleton lines=1 class="skeleton-meta"/></div>}).collect_view()}</div><div class="home-queues">{(0..2).map(|_|view!{<div><AsciiSkeleton lines=1 class="skeleton-heading"/>{(0..5).map(|_|view!{<div class="home-ticket-row"><AsciiSkeleton lines=1/></div>}).collect_view()}</div>}).collect_view()}</div></div>}
 }

@@ -191,9 +191,9 @@ fn PickupEditor(
         });
     };
     let disabled = Signal::derive(move || busy.get() || saved.get().is_none());
-    view! {<div class="pickup-editor">
+    view! {<LoadingAnnouncement label="Loading pickup rules" pending=Signal::derive(move||saved.get().is_none() && busy.get())/><div class="pickup-editor" aria-busy=move||busy.get().to_string()>
         <p class="field-hint pickup-inheritance">{move||if scope==0 {"Default for projects without an override."}else if saved.get().is_some_and(|s|s.source=="project"){ "This project has its own rules." }else{"Using workspace rules. Save to create a project override."}}</p>
-        <Show when=move||saved.get().is_none() && busy.get()><LoadingIndicator label="Loading pickup rules"/></Show>
+        <Show when=move||saved.get().is_none() && busy.get()><LoadingIndicator announce=false/></Show>
         <form on:submit=move|e|{e.prevent_default();save("PUT");}>
             <fieldset disabled=disabled><legend>"Eligibility"</legend>
                 <div class="pickup-fixed"><span>"Ticket status"</span><span class="icon-label"><StatusIcon status=crate::fixtures::Status::Todo/>"Todo only"</span></div>

@@ -716,3 +716,48 @@ wins). Unknown prefix-like titles are left untyped even if labeled. Already-type
 backfill is safe. Schema DDL runs once through D1 migrations in CI. FTS updates
 through existing triggers; the cache schema version is advanced. No remote
 manual migration step is required.
+
+## Durable pipeline runs (TIK-151)
+
+Run endpoints use the standard bearer/session authentication gate. One ticket can
+have at most one active run, enforced by D1. States are `queued`, `claimed`,
+`implementing`, `pr_open`, `checks`, `fixing`, `syncing`, `merging`,
+`awaiting_review`, `stuck`, `waiting_on_calum`, `done`, `canceled`.
+Only `awaiting_review`, `done`, `canceled` are terminal; stuck and waiting remain
+active. Intents are `merge` (default), `draft`, `no_merge`. Invalid state, intent,
+unknown fields or malformed run input return 400.
+
+- `PUT /api/v1/runs/{key}` takes `{intent?,repo?,owner?}`. Returns the active run
+  unchanged (200), or creates a queued run (201) and a `created` event. Unknown
+  ticket is 404. Repo and owner default to null; owner is reconciler metadata.
+- `GET /api/v1/runs` returns `{data:[...]}` in ascending ID order. Filters:
+  `state` (repeatable or comma-separated), exact `repo`, exact stored `key`,
+  `active=true|false`, `due=true`, `limit` (default 50, range 1–100). Due selects
+  active runs with null `next_check_at` or a timestamp <= server time. Duplicate
+  non-state parameters and unknown/invalid filters return 400.
+- `GET /api/v1/runs/{id}` returns the run; unknown IDs return 404.
+- `GET /api/v1/runs/{id}/events` returns `{data:[...]}`, ordered by event ID.
+  Events contain `id,run_id,at,actor,from_state,to_state,detail`. Actor is safe
+  authenticated `kind:id`. Detail is JSON: `{action:"created"}` on creation,
+  otherwise changed fields mapped to `{old,new}` (empty on a no-op PATCH).
+- `PATCH /api/v1/runs/{id}` requires integer `expected_version`; optional fields
+  are `state,owner,claim_id,pr,head_sha,attempts,last_error,next_check_at,
+  escalated_at,intent`. Omission preserves a field, null clears nullable fields.
+  Attempts is nonnegative; PR and expected_version are positive integers.
+  Times use UTC `YYYY-MM-DDTHH:MM:SS.sssZ`. Success increments version, updates
+  `updated_at`, sets `entered_at` on state changes, and appends one event atomically.
+  A stale version returns 409 `version_conflict` with the current run in `current`.
+  Leaving a terminal state returns 409 `terminal_run`; enqueue a fresh run with PUT.
+
+Runs also contain `id,ticket_id,key,repo,intent,state,owner,claim_id,pr,head_sha,
+attempts,last_error,entered_at,next_check_at,escalated_at,created_at,updated_at,
+version`. IDs are durable; new runs start at version 1. Event rows are append-only.
+Run owner/version metadata supports one reconciler; workers must fence updates
+with the returned version and reconcile uncertain responses before side effects.
+
+`POST /api/v1/tickets/{id-or-key}/claim` accepts `{}` or an empty body and returns
+`{ticket,reason}` (200). It uses exactly the same eligibility rules, lease,
+capacity, authenticated ownership and atomic history as `/next/claim`, restricted
+to the requested ticket. A claimed or otherwise ineligible ticket returns 409
+`claim_conflict`; unknown ticket is 404. Heartbeat and release use the existing
+claim routes and returned `claim_id`. No claim query parameters are accepted.

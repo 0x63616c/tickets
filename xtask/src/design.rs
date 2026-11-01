@@ -1247,6 +1247,7 @@ fn detail_check(root: &Path, b: &mut Browser) -> super::Result {
     })()"#)?;
     b.go("http://127.0.0.1:8795/ticket?id=1")?;
     b.wait("document.querySelector('.ticket-detail h1')?.textContent==='Remember filters when switching views' && !!document.querySelector('[role=listbox][aria-label=Project] [role=option]')")?;
+    classification_sidebar_check(root, b)?;
     // Same fixture and saved changes for both real asset versions.
     b.eval("(async()=>{const t=await fetch('/api/v1/tickets/1').then(r=>r.json());for(const patch of [{priority:1,status:'in_progress'}, {priority:t.priority,status:t.status}]) {const r=await fetch('/api/v1/tickets/1',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});if(!r.ok)throw Error('history fixture failed');}return true})()")?;
     b.go("http://127.0.0.1:8795/ticket?id=1")?;
@@ -1568,5 +1569,101 @@ fn check_composer(b: &mut Browser) -> Result<()> {
     println!(
         "PASS composer: all six API statuses persisted; column/Todo defaults; keyboard flow and submit; busy lock; label retry without duplicate creation"
     );
+    Ok(())
+}
+
+fn classification_sidebar_check(root: &Path, b: &mut Browser) -> super::Result {
+    let output = root.join("docs/screenshots/TIK-149");
+    fs::create_dir_all(&output)?;
+    let before = env::var_os("TICKETS_BEFORE_ASSETS").is_some();
+    let phase = if before { "before" } else { "after" };
+    if !before {
+        // The shared seed spans pages and projects; suggest only this project’s scopes.
+        b.eval(r#"(async()=>{
+            const patch=async(id,body)=>{const r=await fetch('/api/v1/tickets/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error('scope seed');};
+            await patch(2,{scope:'ui'}); await patch(3,{scope:'ui'}); await patch(8,{scope:'quantum'});
+            return true;
+        })()"#)?;
+        b.go("http://127.0.0.1:8795/ticket?id=1")?;
+        b.wait("!!document.querySelector('[aria-label=Type]') && !document.querySelector('[aria-label=Type]').disabled")?;
+        b.wait("document.querySelector('[aria-label=Type]').textContent.includes('Set type')")?;
+        b.eval("document.querySelector('[aria-label=Type]').focus();true")?;
+        b.key("ArrowDown", 40, 0)?;
+        b.wait(
+            "document.querySelector('[aria-label=Type]').getAttribute('aria-expanded')==='true'",
+        )?;
+        b.wait("document.querySelectorAll('[role=listbox][aria-label=Type] .option-description').length===10")?;
+        b.key("Escape", 27, 0)?;
+        b.wait("document.activeElement===document.querySelector('[aria-label=Type]')")?;
+        select_value(b, "Type", "feat")?;
+        b.wait("document.querySelector('[aria-label=Type]').textContent.includes('feat') && !document.querySelector('[aria-label=Type]').disabled")?;
+        b.wait("document.activeElement===document.querySelector('[aria-label=Type]')")?;
+        b.click("[aria-label=Scope]")?;
+        b.wait("document.activeElement===document.querySelector('[aria-label=\"Ticket scope\"]')")?;
+        b.wait("[...document.querySelectorAll('[aria-label=\"Project scopes\"] [role=option]')].map(e=>e.textContent).join(',')==='ui'")?;
+        b.key("ArrowDown", 40, 0)?;
+        b.key("Enter", 13, 0)?;
+        b.wait("document.querySelector('[aria-label=Scope]').textContent.includes('ui') && !document.querySelector('[aria-label=Scope]').disabled")?;
+        b.click("[aria-label=Scope]")?;
+        b.text("[aria-label='Ticket scope']", " UI/Api ")?;
+        b.key("Enter", 13, 0)?;
+        b.wait("document.querySelector('[aria-label=Scope]').textContent.includes('ui/api') && !document.querySelector('[aria-label=Scope]').disabled")?;
+        b.wait("document.activeElement===document.querySelector('[aria-label=Scope]')")?;
+        b.eval(r#"(async()=>{const t=await fetch('/api/v1/tickets/1').then(r=>r.json());if(t.type!=='feat'||t.scope!=='ui/api'||t.pr_title!==`feat(ui/api): ${t.title} [${t.key}]`)throw Error('classification round trip');const h=await fetch('/api/v1/tickets/1/history').then(r=>r.json());if(!h.data.some(e=>e.field==='type'&&e.old_value===null&&e.new_value==='feat')||!h.data.some(e=>e.field==='scope'&&e.old_value==='ui'&&e.new_value==='ui/api'))throw Error('classification history');return true})()"#)?;
+    }
+    b.eval("document.querySelector('[aria-label=\"Dismiss notification\"]')?.click();true")?;
+    for (width, height, size) in [(1440, 900, "desktop"), (390, 844, "mobile")] {
+        b.viewport(width, height)?;
+        if width == 390 {
+            b.eval("{const t=document.querySelector('.properties-toggle');if(t?.getAttribute('aria-expanded')==='false')t.click();}window.scrollTo(0,0);true")?;
+        }
+        b.eval("document.fonts.ready.then(()=>true)")?;
+        b.wait("!document.querySelector('[data-ar-t]')")?;
+        b.full_screenshot(&output.join(format!("{phase}-{size}.png")))?;
+        if !before {
+            b.click("[aria-label=Type]")?;
+            b.wait("document.querySelector('[aria-label=Type]').getAttribute('aria-expanded')==='true'")?;
+            b.wait("(()=>{const e=document.getElementById(document.querySelector('[aria-label=Type]').getAttribute('aria-controls'));return e.matches(':popover-open') && getComputedStyle(e).opacity==='1' && e.getAnimations().every(a=>a.playState!=='running')})()")?;
+            super::component::visible_crop(
+                b,
+                "[role=listbox][aria-label=Type]",
+                &output.join(format!("{phase}-type-{size}.png")),
+            )?;
+            b.key("Escape", 27, 0)?;
+            b.click("[aria-label=Scope]")?;
+            b.wait("document.querySelector('[aria-label=Scope]').getAttribute('aria-expanded')==='true'")?;
+            b.wait("(()=>{const e=document.getElementById(document.querySelector('[aria-label=Scope]').getAttribute('aria-controls'));return e.matches(':popover-open') && getComputedStyle(e).opacity==='1' && e.getAnimations().every(a=>a.playState!=='running')})()")?;
+            super::component::visible_crop(
+                b,
+                ".scope-picker .popup",
+                &output.join(format!("{phase}-scope-{size}.png")),
+            )?;
+            b.key("Escape", 27, 0)?;
+            b.wait("document.documentElement.scrollWidth<=innerWidth")?;
+        }
+    }
+    b.eval("{const t=document.querySelector('.properties-toggle');if(t?.getAttribute('aria-expanded')==='true')t.click();}true")?;
+    b.viewport(1440, 900)?;
+    if !before {
+        b.click("[aria-label=Scope]")?;
+        b.text("[aria-label='Ticket scope']", "invalid scope!")?;
+        b.key("Enter", 13, 0)?;
+        b.wait("!!document.querySelector('.scope-error') && document.querySelector('[aria-label=Scope]').textContent.includes('ui/api')")?;
+        b.key("Escape", 27, 0)?;
+        b.click("[aria-label=Scope]")?;
+        b.eval("[...document.querySelectorAll('.scope-picker [role=menuitem]')].find(e=>e.textContent.includes('Clear scope')).click();true")?;
+        b.wait("document.querySelector('[aria-label=Scope]').textContent.includes('Set scope') && !document.querySelector('[aria-label=Scope]').disabled")?;
+        select_value(b, "Type", "")?;
+        b.wait("document.querySelector('[aria-label=Type]').textContent.includes('Set type') && !document.querySelector('[aria-label=Type]').disabled")?;
+        b.eval(r#"(async()=>{const t=await fetch('/api/v1/tickets/1').then(r=>r.json());if(t.type!==null||t.scope!==null||t.pr_title!==`chore: ${t.title} [${t.key}]`)throw Error('classification clearing');const h=await fetch('/api/v1/tickets/1/history').then(r=>r.json());if(!h.data.some(e=>e.field==='scope'&&e.old_value==='ui/api'&&e.new_value===null)||!h.data.some(e=>e.field==='type'&&e.old_value==='feat'&&e.new_value===null))throw Error('clear history');return true})()"#)?;
+        // A rejected mutation keeps authoritative values and keyboard focus.
+        b.eval("window.classificationFetch=window.fetch;window.fetch=(url,opts)=>(url instanceof Request?url.url:String(url)).endsWith('/tickets/1')&&(url instanceof Request?url.method:opts?.method)==='PATCH'?Promise.resolve(new Response(JSON.stringify({error:{message:'Classification save rejected'}}),{status:422,headers:{'Content-Type':'application/json'}})):window.classificationFetch(url,opts);true")?;
+        select_value(b, "Type", "fix")?;
+        b.wait("document.querySelector('.board-message')?.textContent.includes('Classification save rejected') && document.querySelector('[aria-label=Type]').textContent.includes('Set type') && !document.querySelector('[aria-label=Type]').disabled")?;
+        b.wait("document.activeElement===document.querySelector('[aria-label=Type]')")?;
+        b.eval("window.fetch=window.classificationFetch;true")?;
+        b.go("http://127.0.0.1:8795/ticket?id=1")?;
+        b.wait("document.querySelector('.detail-layout')?.getAttribute('aria-busy')==='false'")?;
+    }
     Ok(())
 }

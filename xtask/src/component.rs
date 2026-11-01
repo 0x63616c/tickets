@@ -524,7 +524,7 @@ fn capture_before(b: &mut Browser, base: &str, name: &str, output: &Path) -> sup
             ".modal-footer"
         }
         "loader" | "skeletons" => {
-            b.wait("!!document.querySelector('.loading-skeleton') || document.querySelector('.board-message')?.textContent.includes('Loading')===true")?;
+            b.wait("!!document.querySelector('.loading-skeleton')")?;
             ".loading-skeleton, .board-message"
         }
         "tooltip" => ".specimen .icon-button",

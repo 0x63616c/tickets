@@ -948,7 +948,7 @@ pub fn CommandPalette() -> impl IntoView {
                         }).collect_view()
                     }}
                     <Show when=move||rows.get().is_empty() && !loading.get() && error.get().is_empty()><div class="command-empty" role="status"><strong>"No results"</strong><p>{move||if mode.get()==Mode::Search{"Try a ticket key, fewer words, or a different filter."}else{"Clear your search to see all choices."}}</p></div></Show>
-                    <Show when=move||loading.get() && rows.get().is_empty()><div class="command-empty" role="status" aria-label="Searching tickets"><AsciiSkeleton lines=4/></div></Show>
+                    <Show when=move||loading.get() && rows.get().is_empty()><div class="command-empty" aria-hidden="true"><AsciiSkeleton lines=4/></div></Show>
                 </div>
                 <div class="command-footer"><span><Shortcut>"↑ ↓"</Shortcut>" Navigate"</span><Show when=move||!rows.get().is_empty()><span><Shortcut>"↵"</Shortcut>{enter_label}</span></Show><span><Shortcut>"esc"</Shortcut>{move||if mode.get()==Mode::Search{" Close"}else{" Back"}}</span><Show when=move||mode.get()==Mode::Search && rows.get().get(active.get()).is_some_and(|r|r.ticket.is_some())><button class="command-actions" on:click=move|_|actions.run(())>"Actions"<Shortcut>{action_hint}</Shortcut></button></Show></div>
             </div>

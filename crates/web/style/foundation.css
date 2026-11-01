@@ -71,6 +71,10 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 .tooltip[data-instant="true"] { animation: none; }
 .busy-button[aria-busy="true"] { opacity: 1; cursor: progress; }
 .loading-caption { display: flex; align-items: center; gap: var(--space-2); color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4); }
+/* Retain caption footprints so hiding redundant copy never moves the skeleton. */
+.loading-caption[aria-hidden="true"], .loading-caption > [aria-hidden="true"] { visibility: hidden; }
+/* Preserve the auth-page status margins without using ARIA roles for layout. */
+.auth-page .loading-caption, .auth-page .loading-indicator { margin-top: var(--space-3); }
 .loading-skeleton { padding: var(--space-6) var(--page-gutter); min-width: 0; width: 100%; max-width: 100%; overflow: clip; }
 .skeleton-heading { width: 40%; margin-bottom: var(--space-4); }
 .skeleton-meta { width: 48px; }
@@ -177,3 +181,10 @@ button, a, summary, [role="button"] { transition: scale var(--duration-press) va
 @media (max-width: 760px) { .pr-sidebar-link { min-height: 44px; align-content: center; } }
 
 .pr-sidebar-preview { width: 224px; }
+
+.option-copy { display: flex; flex-direction: column; min-width: 0; }
+.option-description { color: var(--text-muted); font-size: var(--text-xs); }
+.unset-property .select-value { color: var(--text-muted); }
+.scope-hint, .scope-error { padding: var(--space-2) var(--space-3); margin: 0; font-size: var(--text-xs); }
+.scope-hint { color: var(--text-muted); }
+.scope-error { color: var(--danger); }

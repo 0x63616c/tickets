@@ -15,6 +15,36 @@ pub struct Route {
 }
 pub const ROUTES: &[Route] = &[
     Route {
+        method: "PUT",
+        path: "/api/v1/runs/{key}",
+        handler: Handler::Domain,
+    },
+    Route {
+        method: "GET",
+        path: "/api/v1/runs",
+        handler: Handler::Domain,
+    },
+    Route {
+        method: "GET",
+        path: "/api/v1/runs/{id}",
+        handler: Handler::Domain,
+    },
+    Route {
+        method: "GET",
+        path: "/api/v1/runs/{id}/events",
+        handler: Handler::Domain,
+    },
+    Route {
+        method: "PATCH",
+        path: "/api/v1/runs/{id}",
+        handler: Handler::Domain,
+    },
+    Route {
+        method: "POST",
+        path: "/api/v1/tickets/{ticket}/claim",
+        handler: Handler::Domain,
+    },
+    Route {
         method: "GET",
         path: "/api/openapi.json",
         handler: Handler::Spec,
