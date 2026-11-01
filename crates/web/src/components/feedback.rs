@@ -70,6 +70,9 @@ static LAST_TOOLTIP: AtomicU64 = AtomicU64::new(0);
 pub fn Tooltip(
     #[prop(into)] text: String,
     #[prop(optional)] shortcut: &'static str,
+    // Navigation hints dismiss on interaction and open only for visible focus.
+    // Informational tooltips also open on pointer/programmatic focus.
+    #[prop(optional)] navigation_hint: bool,
     children: Children,
 ) -> impl IntoView {
     let open = RwSignal::new(false);
@@ -86,7 +89,7 @@ pub fn Tooltip(
     );
 
     let show = Callback::new(move |keyboard: bool| {
-        active.set(true);
+        active.set(navigation_hint);
         if let Some(t) = timer.get_value() {
             t.clear();
         }
@@ -150,6 +153,14 @@ pub fn Tooltip(
             on_cleanup(move || {
                 let _ = cleanup.call0(&wasm_bindgen::JsValue::NULL);
             });
+        } else if !navigation_hint
+            && presence.mounted.get()
+            && let (Some(t), Some(p)) = (trigger.get(), panel.get())
+        {
+            let cleanup = watch_popup(&t, &p);
+            on_cleanup(move || {
+                let _ = cleanup.call0(&wasm_bindgen::JsValue::NULL);
+            });
         }
     });
     on_cleanup(move || {
@@ -157,7 +168,7 @@ pub fn Tooltip(
             t.clear();
         }
     });
-    view! {<span class="tooltip-trigger" node_ref=trigger on:pointerenter=move|e:web_sys::PointerEvent|{if e.pointer_type()!="touch" && open.try_get_untracked().is_some(){show.run(false);}} on:pointerleave=move|_|{if open.try_get_untracked().is_some(){hide.run(());}} on:focusin=move|e:web_sys::FocusEvent|{if open.try_get_untracked().is_some() && e.target().and_then(|t|t.dyn_into::<web_sys::Element>().ok()).is_some_and(|t|t.matches(":focus-visible").unwrap_or(false)){show.run(true);}} on:focusout=move|_|{if open.try_get_untracked().is_some(){hide.run(());}} on:keydown=move|e:web_sys::KeyboardEvent|{if e.key()=="Escape"{hide.run(());}}>{children()}<div node_ref=panel id=tooltip_id class="popup tooltip" data-instant=move||instant.get().to_string() role="tooltip" popover="manual" data-state=move||presence.state() hidden=move||!open.get()>{text}{(!shortcut.is_empty()).then(||view!{<span>" "<Shortcut>{shortcut}</Shortcut></span>})}</div></span>}
+    view! {<span class="tooltip-trigger" node_ref=trigger on:pointerenter=move|e:web_sys::PointerEvent|{if e.pointer_type()!="touch" && open.try_get_untracked().is_some(){show.run(false);}} on:pointerleave=move|_|{if open.try_get_untracked().is_some(){hide.run(());}} on:focusin=move|e:web_sys::FocusEvent|{if open.try_get_untracked().is_some() && (!navigation_hint || e.target().and_then(|t|t.dyn_into::<web_sys::Element>().ok()).is_some_and(|t|t.matches(":focus-visible").unwrap_or(false))){show.run(true);}} on:focusout=move|_|{if open.try_get_untracked().is_some(){hide.run(());}} on:keydown=move|e:web_sys::KeyboardEvent|{if e.key()=="Escape"{hide.run(());}}>{children()}<div node_ref=panel id=tooltip_id class="popup tooltip" data-instant=move||instant.get().to_string() role="tooltip" popover="manual" data-state=move||presence.state() hidden=move||!open.get()>{text}{(!shortcut.is_empty()).then(||view!{<span>" "<Shortcut>{shortcut}</Shortcut></span>})}</div></span>}
 }
 
 /// Equal-width segments, roving tab stop, immediate keyboard selection, transform indicator.
