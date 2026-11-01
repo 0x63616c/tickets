@@ -173,9 +173,21 @@ pub fn AsciiReveal(children: Children, #[prop(default = "")] class: &'static str
     view! { <div node_ref=root class=class>{children()}</div> }
 }
 
+/// Keep announcements outside busy regions, whose updates may be deferred by AT.
 #[component]
-pub fn LoadingIndicator(#[prop(default = "Loading")] label: &'static str) -> impl IntoView {
-    view! { <span class="loading-indicator" role="status" aria-live="polite"><AsciiSkeleton lines=1/><span class="sr-only">{label}</span></span> }
+pub fn LoadingAnnouncement(
+    label: &'static str,
+    #[prop(default = Signal::derive(|| true))] pending: Signal<bool>,
+) -> impl IntoView {
+    view! { <span class="sr-only" role="status" aria-live="polite">{move || pending.get().then_some(label)}</span> }
+}
+
+#[component]
+pub fn LoadingIndicator(
+    #[prop(default = "Loading")] label: &'static str,
+    #[prop(default = true)] announce: bool,
+) -> impl IntoView {
+    view! { <span class="loading-indicator" aria-busy="true"><AsciiSkeleton lines=1/></span>{announce.then(||view!{<LoadingAnnouncement label/>})} }
 }
 
 #[component]
@@ -185,7 +197,7 @@ pub fn LoadingSkeleton(#[prop(default = "board")] layout: &'static str) -> impl 
         "projects" => "Loading projects…",
         _ => "Loading tickets…",
     };
-    view! {<div class=format!("loading-skeleton loading-{layout}") role="status" aria-label=label aria-busy="true"><div class="loading-caption">{label}</div><div class="skeleton-layout" aria-hidden="true">{match layout {
+    view! {<LoadingAnnouncement label/><div class=format!("loading-skeleton loading-{layout}") aria-label=label aria-busy="true"><div class="loading-caption" aria-hidden="true">{label}</div><div class="skeleton-layout" aria-hidden="true">{match layout {
         "board"=>(0..4).map(|_|view!{<div class="skeleton-column"><AsciiSkeleton lines=1 class="skeleton-heading"/>{(0..3).map(|_|view!{<div class="skeleton-card"><AsciiSkeleton lines=3/></div>}).collect_view()}</div>}).collect_view().into_any(),
         "detail"=>view!{<div class="skeleton-detail detail-layout"><div class="ticket-detail"><AsciiSkeleton lines=1 class="skeleton-heading"/><AsciiSkeleton lines=4/><div class="skeleton-section"><AsciiSkeleton lines=4/></div></div><aside class="properties"><AsciiSkeleton lines=6/></aside></div>}.into_any(),
         _=>(0..7).map(|_|view!{<div class="skeleton-row"><AsciiSkeleton lines=1/></div>}).collect_view().into_any(),

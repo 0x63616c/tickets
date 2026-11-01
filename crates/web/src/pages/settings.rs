@@ -151,7 +151,8 @@ fn AccountSettings(fixture: bool) -> impl IntoView {
     );
     view! {<section node_ref=reveal_root class="settings-section"><h1>"Account"</h1><p class="settings-description">"Your profile and sign-in details."</p>
         <crate::avatar_upload::PhotoSettings fixture/>
-        <form on:submit=move|e|{e.prevent_default();if busy.get_untracked(){return;}busy.set(true);error.set(String::new());message.set(String::new());spawn_local(async move {
+        <LoadingAnnouncement label="Loading account" pending=Signal::derive(move||!state.loaded.get() && state.error.get().is_empty())/>
+        <form aria-busy=move||(!state.loaded.get() && state.error.get().is_empty()).to_string() on:submit=move|e|{e.prevent_default();if busy.get_untracked(){return;}busy.set(true);error.set(String::new());message.set(String::new());spawn_local(async move {
             let result=if fixture {Ok(Account {username:"sample-user".into(),avatar_url:state.account.get_untracked().avatar_url,display_name:Some(name.get_untracked().trim().into())})} else {api("PATCH","/api/v1/me",json!({"display_name":name.get_untracked()})).await.and_then(|v|serde_json::from_value(v).map_err(|_|"Could not read saved account.".into()))};
             match result {Ok(account)=>{state.account.set(account);if message.is_disposed(){return;}message.set("Changes saved.".into());},Err(e)=>{if error.is_disposed(){return;}error.set(e)}}busy.set(false);
         });}>
@@ -159,7 +160,7 @@ fn AccountSettings(fixture: bool) -> impl IntoView {
             <p id="display-name-hint" class="field-hint">"Shown in your account menu. Leave blank to use your username."</p>
             <div class="settings-save"><BusyButton busy disabled=Signal::derive(move||!state.loaded.get() || name.get().trim()==state.account.get().display_name.unwrap_or_default())>"Save changes"</BusyButton><span role="status">{message}</span></div>
             <p id="account-error" class="settings-error" role="alert">{error}{move||state.error.get()}</p>
-            <Show when=move||!state.loaded.get() && state.error.get().is_empty()><p class="loading-caption" role="status"><LoadingIndicator label="Loading account"/>"Loading account…"</p></Show>
+            <Show when=move||!state.loaded.get() && state.error.get().is_empty()><p class="loading-caption"><LoadingIndicator announce=false/><span aria-hidden="true">"Loading account…"</span></p></Show>
             <Show when=move||!state.error.get().is_empty()><button type="button" class="button button-secondary" on:click=move|_|state.load()>"Retry loading account"</button></Show>
         </form>
         <GitHubSettings fixture/>
@@ -241,9 +242,9 @@ fn GitHubSettings(fixture: bool) -> impl IntoView {
         });
     };
     load();
-    view! {<section class="settings-group settings-github" aria-labelledby="github-heading">
+    view! {<LoadingAnnouncement label="Loading GitHub connection" pending=loading.into()/><section class="settings-group settings-github" aria-labelledby="github-heading" aria-busy=move||loading.get().to_string()>
         <h2 id="github-heading"><Icon name="github"/>"GitHub"</h2>
-        <Show when=move || loading.get()><p class="loading-caption" role="status"><LoadingIndicator label="Loading GitHub connection"/>"Loading GitHub connection…"</p></Show>
+        <Show when=move || loading.get()><p class="loading-caption"><LoadingIndicator announce=false/><span aria-hidden="true">"Loading GitHub connection…"</span></p></Show>
         <Show when=move || !error.get().is_empty()>
             <p class="settings-error" role="alert">{error}</p>
             <button type="button" class="button button-secondary" on:click=move |_| load()>"Retry loading GitHub"</button>
