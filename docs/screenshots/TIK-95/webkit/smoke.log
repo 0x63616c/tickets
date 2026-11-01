@@ -1,0 +1,27 @@
+Playwright WebKit: 27.2; executable: /home/box/.cache/ms-playwright/webkit-2370/pw_run.sh
+Release app; isolated local Wrangler/D1; generated fixture credentials; 1440x900 dark viewport.
+PASS /login: Wasm mounted login form
+Local HTTP fixture auth: installed returned session cookie with secure:false in this context only; production Secure cookie unchanged.
+PASS / 1440: 3 held API requests; 90 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS / 1440: released real local API responses; loading cleaned up
+PASS /analytics 1440: 3 held API requests; 66 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS /analytics 1440: released real local API responses; loading cleaned up
+PASS /board 1440: 2 held API requests; 113 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS /board 1440: released real local API responses; loading cleaned up
+PASS /list 1440: 2 held API requests; 29 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS /list 1440: released real local API responses; loading cleaned up
+PASS /mission 1440: 2 held API requests; 5 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS /mission 1440: released real local API responses; loading cleaned up
+PASS /login 1440: mounted form and held pending submit captured; no browser errors
+PASS / 390: 3 held API requests; 90 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS / 390: released real local API responses; loading cleaned up
+PASS /analytics 390: 3 held API requests; 66 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS /analytics 390: released real local API responses; loading cleaned up
+PASS /board 390: 2 held API requests; 113 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS /board 390: released real local API responses; loading cleaned up
+PASS /list 390: 2 held API requests; 29 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS /list 390: released real local API responses; loading cleaned up
+PASS /mission 390: 2 held API requests; 5 transparent hosts; card surfaces match --surface; base .12 / peak .22; moving canvas sweep; no browser errors
+PASS /mission 390: released real local API responses; loading cleaned up
+PASS /login 390: mounted form and held pending submit captured; no browser errors
+PASS: all six routes at 1440 and 390; zero pageerrors and zero console errors.
