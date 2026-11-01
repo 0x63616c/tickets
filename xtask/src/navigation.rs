@@ -209,11 +209,38 @@ pub fn sidebar_tooltips(root: &Path) -> super::Result {
             json!({"type":"mouseMoved","x":point["x"],"y":point["y"]}),
         )?;
         b.eval("new Promise(r=>setTimeout(r,80))")?;
-        b.wait("!!document.querySelectorAll('.sidebar .tooltip-trigger')[1].querySelector('[role=tooltip][data-state=open]')")?;
+        b.wait_for("!!document.querySelectorAll('.sidebar .tooltip-trigger')[1].querySelector('[role=tooltip][data-state=open]')", std::time::Duration::from_millis(150))?;
         b.wait(geometry)?;
+        if mode == "mobile" {
+            let long = b.eval("(()=>{const r=document.querySelectorAll('.sidebar .tooltip-trigger')[2].getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
+            b.call(
+                "Input.dispatchMouseEvent",
+                json!({"type":"mouseMoved","x":long["x"],"y":long["y"]}),
+            )?;
+            b.wait(&format!("!!({open})"))?;
+            b.wait(geometry)?;
+            visible_page(&mut b, &output.join("after-mobile-long.png"))?;
+        }
+        // Leaving alone also dismisses, without waiting for an exit animation.
+        b.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":1000,"y":800}),
+        )?;
+        b.wait(closed)?;
+        b.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":point["x"],"y":point["y"]}),
+        )?;
+        b.wait(&format!("!!({open})"))?;
         // Escape must dismiss pointer-open tooltips even without trigger focus.
         b.key("Escape", 27, 0)?;
         b.wait(closed)?;
+        if mode == "mobile" {
+            // Escape also closes the mobile drawer; reopen it for the keyboard path.
+            b.wait("!document.querySelector('.sidebar-open')")?;
+            b.click("[aria-label='Toggle sidebar']")?;
+            b.wait("!!document.querySelector('.sidebar-open')")?;
+        }
         b.call(
             "Input.dispatchMouseEvent",
             json!({"type":"mouseMoved","x":1000,"y":800}),
@@ -236,6 +263,28 @@ pub fn sidebar_tooltips(root: &Path) -> super::Result {
         b.eval("document.activeElement.blur();true")?;
         if mode == "mobile" {
             b.wait("!document.querySelector('.sidebar-open')")?;
+            b.click("[aria-label='Toggle sidebar']")?;
+            b.wait("!!document.querySelector('.sidebar-open')")?;
+            b.call(
+                "Emulation.setTouchEmulationEnabled",
+                json!({"enabled":true}),
+            )?;
+            let point = b.eval("(()=>{const r=document.querySelector('.sidebar .tooltip-trigger a').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
+            b.call(
+                "Input.dispatchTouchEvent",
+                json!({"type":"touchStart","touchPoints":[{"x":point["x"],"y":point["y"]}]}),
+            )?;
+            b.call(
+                "Input.dispatchTouchEvent",
+                json!({"type":"touchEnd","touchPoints":[]}),
+            )?;
+            b.eval("new Promise(r=>setTimeout(r,600))")?;
+            b.wait(closed)?;
+            b.wait("!document.querySelector('.sidebar-open')")?;
+            b.call(
+                "Emulation.setTouchEmulationEnabled",
+                json!({"enabled":false}),
+            )?;
         }
     }
     if before.is_none() {
@@ -248,6 +297,27 @@ pub fn sidebar_tooltips(root: &Path) -> super::Result {
         b.wait("document.querySelector('.sidebar [role=tooltip][data-state=open]').dataset.side==='left'")?;
         b.wait(geometry)?;
         visible_page(&mut b, &output.join("after-flipped.png"))?;
+        b.key("Escape", 27, 0)?;
+        b.eval("document.activeElement.blur();document.querySelector('.sidebar').style.cssText='';true")?;
+        // Dismissal while still waiting must cancel the timer, too.
+        for dismiss in [
+            "document.querySelector('.sidebar-nav').dispatchEvent(new Event('scroll'))",
+            "window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))",
+            "window.dispatchEvent(new MouseEvent('click'))",
+        ] {
+            b.call(
+                "Input.dispatchMouseEvent",
+                json!({"type":"mouseMoved","x":1000,"y":800}),
+            )?;
+            b.eval("new Promise(r=>setTimeout(r,800))")?;
+            let point = b.eval("(()=>{const r=document.querySelector('.sidebar .tooltip-trigger').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
+            b.call(
+                "Input.dispatchMouseEvent",
+                json!({"type":"mouseMoved","x":point["x"],"y":point["y"]}),
+            )?;
+            b.eval(&format!("{dismiss};new Promise(r=>setTimeout(r,650))"))?;
+            b.wait(closed)?;
+        }
         println!(
             "PASS sidebar tooltips: no nav overlap, centered right/left placement, delay, warm handoff, keyboard focus, Escape/click/scroll dismissal, collapsed sections and mobile drawer"
         );

@@ -721,6 +721,17 @@ project icon schema changes additive and validate values in core.
   checks both platform modifiers, every navigation destination, editable/palette
   focus, event cancellation and consistent hints. Dark desktop/mobile evidence
   goes to `docs/screenshots/TIK-94/`; `TICKETS_BEFORE_ASSETS` captures the baseline.
+- Sidebar shortcut tooltips sit to the right of their row, vertically centered with
+  a small offset; flip left when space is constrained. Use the existing dark
+  popup tokens. Pointer hover waits 500ms, with immediate handoff between hints;
+  keyboard focus-visible opens immediately. Leave, blur, click, scroll, resize
+  and Escape dismiss, including while a hover timer is pending. Touch taps
+  navigate without opening a hover hint.
+- `CHROME_BIN=<headless-chromium> cargo xtask sidebar-tooltip-check` checks
+  tooltip/nav rectangle separation, centering, flipping, timing and dismissal
+  on desktop, collapsed sections and the mobile drawer. It also runs inside
+  `navigation-check`. Before/after screenshots go to `docs/screenshots/TIK-146/`;
+  use `TICKETS_BEFORE_ASSETS=<baseline-dist>` to capture the original UI.
 - Account identity comes from `/api/v1/me`, with nullable `display_name` falling
   back to the authenticated username. Never substitute a literal You/Y avatar.
 - `/settings` redirects to `/settings/account`; sections are `account`,

@@ -10,6 +10,7 @@ const _: &str = include_str!("dom_drag_c97c58dae072cc25.js");
 extern "C" {
     pub fn position_popup(trigger: &web_sys::Element, panel: &web_sys::Element);
     pub fn watch_popup(trigger: &web_sys::Element, panel: &web_sys::Element) -> js_sys::Function;
+    pub fn watch_tooltip(dismiss: &js_sys::Function) -> js_sys::Function;
     pub fn hide_popup(panel: &web_sys::Element);
 }
 
