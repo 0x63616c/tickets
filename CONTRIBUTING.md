@@ -846,6 +846,11 @@ project icon schema changes additive and validate values in core.
   `use_ascii_reveal` at the data-ready boundary. BusyButton owns both phases for
   submit controls. Destroy controllers and stop skeletons on cleanup; honor OS
   reduced motion and the in-app override. Keep refresh data visible.
+- Skeletons and indicators communicate loading visually; keep loading copy in a
+  visually hidden polite status outside the busy region. Mark that region with
+  `aria-busy`, and preserve existing caption space when hiding redundant copy.
+  `loading-check` verifies announcements, absence of visible loading copy, and
+  identical loading geometry when `before-geometry.json` exists in its output.
 - `/design/c/skeletons?variant=board|list|detail|projects` and `/design/c/reveal`
   are fixture-only. `cargo xtask component-shot reveal` captures the latter.
   `CHROME_BIN=<headless-chromium> cargo xtask loading-check` holds fixture API

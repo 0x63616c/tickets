@@ -229,7 +229,7 @@ fn github_check(root: &Path, b: &mut Browser, url: &str) -> super::Result {
     b.wait("!!document.querySelector('[aria-label=Motion]')")?;
     b.eval("window.githubFetch=window.fetch;window.githubReply={registered:false,app_slug:null,app_name:null,html_url:null,installations:[]};window.fetch=(url,options)=>(url.url || String(url)).endsWith('/github/app') ? new Promise(resolve=>{window.githubResolve=()=>resolve(new Response(JSON.stringify(window.githubReply),{status:window.githubStatus || 200,headers:{'Content-Type':'application/json'}}));if(!window.githubHold)window.githubResolve();}) : window.githubFetch(url,options);window.githubHold=true;true")?;
     b.click(".settings-nav a[href='/settings/account']")?;
-    b.wait("document.querySelector('.settings-github')?.textContent.includes('Loading GitHub connection') && !document.querySelector('.settings-github a')")?;
+    b.wait("document.querySelector('.settings-github[aria-busy=true] .loading-indicator') && [...document.querySelectorAll('.sr-only[role=status][aria-live=polite]')].some(el=>el.textContent==='Loading GitHub connection' && !el.closest('[aria-busy=true]')) && !document.querySelector('.settings-github a')")?;
     b.eval("window.githubHold=false;window.githubResolve();true")?;
     b.wait("document.querySelector('.settings-github a.button')?.textContent==='Connect GitHub'")?;
     b.wait("document.querySelector('.settings-github a.button').getAttribute('href')==='/github/app/register' && document.querySelector('.settings-github a.button').rel==='external'")?;

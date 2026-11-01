@@ -82,6 +82,7 @@ pub fn check(root: &std::path::Path) -> super::Result {
             if (document.querySelector('[data-ar-t]')) window.decodeSeen = true;
         }).observe(document, {subtree:true, childList:true, attributes:true, attributeFilter:['data-ar-t']});
     "#}))?;
+    let mut geometry = serde_json::Map::new();
     for (width, height) in [(1440, 900), (390, 844)] {
         b.viewport(width, height)?;
         for (name, route, ready) in [
@@ -145,7 +146,9 @@ pub fn check(root: &std::path::Path) -> super::Result {
             b.eval("new Promise(r=>setTimeout(()=>r(true),700))")?;
             if phase == "after" {
                 assert_surfaces(&mut b)?;
+                assert_loading_accessibility(&mut b)?;
             }
+            geometry.insert(format!("{name}-{width}"), b.eval(r#"[...document.querySelectorAll('.loading-skeleton, .loading-caption, .skeleton-layout, .skeleton-column, .skeleton-card, .skeleton-row, .skeleton-detail, .loading-indicator')].map(el=>{const r=el.getBoundingClientRect();return {class:el.className,x:r.x,y:r.y,width:r.width,height:r.height};})"#)?);
             b.screenshot(&output.join(format!("{phase}-{name}-{width}.png")))?;
             b.eval("window.releaseLoading();true")?;
             b.wait(&format!("!!({ready})"))?;
@@ -156,11 +159,24 @@ pub fn check(root: &std::path::Path) -> super::Result {
                 b.wait(
                     "!document.querySelector('.ars canvas') && !document.querySelector('[data-ar-t]')",
                 )?;
+                b.wait(r#"![...document.querySelectorAll('.sr-only[role=status][aria-live=polite]')].some(el=>/^\s*(Loading|Searching)\b/i.test(el.textContent))"#)?;
             }
         }
     }
+    let geometry = Value::Object(geometry);
+    fs::write(
+        output.join(format!("{phase}-geometry.json")),
+        serde_json::to_vec_pretty(&geometry)?,
+    )?;
     if phase == "before" {
         return Ok(());
+    }
+    let baseline = output.join("before-geometry.json");
+    if baseline.exists() {
+        let before: Value = serde_json::from_slice(&fs::read(baseline)?)?;
+        if geometry != before {
+            return Err("Loading geometry changed; compare before/after-geometry.json".into());
+        }
     }
     b.viewport(1440, 900)?;
     // Search uses the same package for its result skeleton and newly arrived
@@ -176,6 +192,7 @@ pub fn check(root: &std::path::Path) -> super::Result {
         "!!document.querySelector('.command-empty .ars canvas') && window.loadingWaiters.length>0",
     )?;
     assert_surfaces(&mut b)?;
+    assert_loading_accessibility(&mut b)?;
     b.screenshot(&output.join("after-search.png"))?;
     b.eval("window.releaseLoading();true")?;
     b.wait("window.decodeSeen && !!document.querySelector('.command-option')")?;
@@ -294,7 +311,14 @@ fn cold_overflow(root: &std::path::Path, url: &str, phase: &str) -> super::Resul
             )? != true
             {
                 if start.elapsed() > Duration::from_secs(120) {
-                    return Err(format!("Cold loading timed out: {name} {width}").into());
+                    let diagnostic = output.join(format!("{phase}-timeout-{name}-{width}.json"));
+                    let state = b.eval(r#"({url:location.href,ready:document.readyState,held:window.loadingHeld,waiters:window.loadingWaiters?.length,skeletons:document.querySelectorAll('.ars').length,canvases:document.querySelectorAll('.ars canvas').length,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,motion:document.documentElement.dataset.motion,main:document.querySelector('main')?.outerHTML.slice(0,4000),resources:performance.getEntriesByType('resource').map(r=>({name:r.name,duration:r.duration,responseEnd:r.responseEnd,transferSize:r.transferSize}))})"#)?;
+                    fs::write(&diagnostic, serde_json::to_vec_pretty(&state)?)?;
+                    return Err(format!(
+                        "Cold loading timed out: {name} {width}; diagnostic: {}",
+                        diagnostic.display()
+                    )
+                    .into());
                 }
                 thread::sleep(Duration::from_millis(100));
             }
@@ -390,6 +414,32 @@ fn assert_surfaces(b: &mut Browser) -> super::Result {
     })()"#)?;
     if report.as_array().is_none_or(|a| !a.is_empty()) {
         return Err(format!("Loading surface mismatch: {report}").into());
+    }
+    Ok(())
+}
+
+/// Loading visuals replace visible copy, while a separate polite status remains
+/// available to assistive technology outside any aria-busy subtree.
+fn assert_loading_accessibility(b: &mut Browser) -> super::Result {
+    let report = b.eval(r#"(() => {
+        const failures=[];
+        const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+        while(walker.nextNode()) {
+            const node=walker.currentNode,el=node.parentElement;
+            if(!/^\s*(Loading|Searching)\b/i.test(node.textContent) || !el || el.closest('script, style')) continue;
+            const style=getComputedStyle(el);
+            if(el.getClientRects().length && style.visibility==='visible' && !el.closest('.sr-only'))
+                failures.push({reason:'visible loading copy',text:node.textContent});
+        }
+        const announcements=[...document.querySelectorAll('.sr-only[role=status][aria-live=polite]')]
+            .filter(el=>el.textContent.trim() && !el.closest('[aria-busy=true], [aria-hidden=true]') && el.getBoundingClientRect().width<=1 && el.getBoundingClientRect().height<=1);
+        if(!announcements.length) failures.push({reason:'missing visually hidden polite announcement outside busy region'});
+        for(const el of document.querySelectorAll('.ascii-skeleton'))
+            if(!el.closest('[aria-busy=true]')) failures.push({reason:'skeleton has no busy region',class:el.className});
+        return failures;
+    })()"#)?;
+    if report.as_array().is_none_or(|a| !a.is_empty()) {
+        return Err(format!("Loading accessibility mismatch: {report}").into());
     }
     Ok(())
 }
