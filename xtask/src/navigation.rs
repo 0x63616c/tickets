@@ -130,5 +130,127 @@ pub fn check(root: &Path) -> super::Result {
             "PASS navigation: Mac/Linux modifiers, seven destinations, preventDefault, editable fields, palette focus, removed chords, matching kbd hints and desktop/mobile evidence"
         );
     }
+    sidebar_tooltips(root)
+}
+
+/// Real pointer/keyboard regression, also run by navigation-check in CI.
+pub fn sidebar_tooltips(root: &Path) -> super::Result {
+    use serde_json::json;
+    let before = std::env::var_os("TICKETS_BEFORE_ASSETS");
+    let assets = before
+        .as_ref()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| root.join("crates/web/dist"));
+    let server = FixtureServer::start(&assets)?;
+    let output = root.join("docs/screenshots/TIK-146");
+    fs::create_dir_all(&output)?;
+    let prefix = if before.is_some() { "before" } else { "after" };
+    let mut b = Browser::start_named(root, "sidebar-tooltip-check")?;
+    b.call(
+        "Page.addScriptToEvaluateOnNewDocument",
+        json!({"source":"Object.defineProperty(navigator,'platform',{get:()=>'MacIntel'})"}),
+    )?;
+    b.go(&format!("{}/design/board", server.url))?;
+    b.wait("!!document.querySelector('.sidebar .tooltip-trigger')")?;
+    b.eval("document.fonts.ready.then(()=>true)")?;
+    let closed = "![...document.querySelectorAll('.sidebar [role=tooltip]')].some(t=>t.dataset.state==='open')";
+    let open = "document.querySelector('.sidebar [role=tooltip][data-state=open]')";
+    let geometry = r#"(()=>{
+      const p=document.querySelector('.sidebar [role=tooltip][data-state=open]');
+      if(!p)return false;
+      const r=p.getBoundingClientRect(), t=p.parentElement.getBoundingClientRect();
+      const rows=[...document.querySelectorAll('.sidebar .nav-item')].filter(n=>n.getClientRects().length);
+      const overlaps=rows.some(n=>{const a=n.getBoundingClientRect();return r.left<a.right && r.right>a.left && r.top<a.bottom && r.bottom>a.top;});
+      if(overlaps)throw Error('Tooltip overlaps a sidebar nav row (including the next item)');
+      if(r.left<0 || r.right>innerWidth || r.top<0 || r.bottom>innerHeight)throw Error('Tooltip outside viewport');
+      if(Math.abs((r.top+r.bottom-t.top-t.bottom)/2)>2)throw Error('Tooltip not vertically centered');
+      return true;
+    })()"#;
+    // Expanded, section-collapsed, and the mobile drawer use the same nav component.
+    for mode in ["expanded", "collapsed", "mobile"] {
+        b.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":1000,"y":800}),
+        )?;
+        b.eval("document.activeElement.blur();new Promise(r=>setTimeout(r,800))")?;
+        if mode == "collapsed" {
+            b.click(".nav-section-toggle")?;
+            b.wait("document.querySelector('.nav-section-toggle').getAttribute('aria-expanded')==='false'")?;
+        }
+        if mode == "mobile" {
+            b.viewport(390, 844)?;
+            b.click("[aria-label='Toggle sidebar']")?;
+            b.wait("!!document.querySelector('.sidebar-open')")?;
+            b.eval("document.activeElement.blur();new Promise(r=>setTimeout(r,800))")?;
+        }
+        let point = b.eval("(()=>{const r=document.querySelector('.sidebar .tooltip-trigger').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
+        b.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":point["x"],"y":point["y"]}),
+        )?;
+        if before.is_none() {
+            b.eval("new Promise(r=>setTimeout(r,200))")?;
+            b.wait(closed)?;
+        }
+        b.wait(&format!("!!({open})"))?;
+        b.eval("new Promise(r=>setTimeout(r,160))")?;
+        if before.is_none() {
+            b.wait(geometry)?;
+        }
+        visible_page(&mut b, &output.join(format!("{prefix}-{mode}.png")))?;
+        if before.is_some() {
+            continue;
+        }
+        // Leave a tooltip open longer than the skip-delay window, then move to its neighbor.
+        b.eval("new Promise(r=>setTimeout(r,800))")?;
+        let point = b.eval("(()=>{const r=document.querySelectorAll('.sidebar .tooltip-trigger')[1].getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()")?;
+        b.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":point["x"],"y":point["y"]}),
+        )?;
+        b.eval("new Promise(r=>setTimeout(r,80))")?;
+        b.wait("!!document.querySelectorAll('.sidebar .tooltip-trigger')[1].querySelector('[role=tooltip][data-state=open]')")?;
+        b.wait(geometry)?;
+        // Escape must dismiss pointer-open tooltips even without trigger focus.
+        b.key("Escape", 27, 0)?;
+        b.wait(closed)?;
+        b.call(
+            "Input.dispatchMouseEvent",
+            json!({"type":"mouseMoved","x":1000,"y":800}),
+        )?;
+        b.wait(closed)?;
+        // Tab, rather than programmatic mouse focus, exercises focus-visible.
+        b.eval("document.activeElement.blur();document.querySelector('.sidebar .tooltip-trigger a').focus();true")?;
+        b.key("Tab", 9, 0)?;
+        b.wait(&format!(
+            "!!({open}) && document.activeElement.matches(':focus-visible')"
+        ))?;
+        b.wait(geometry)?;
+        b.eval("document.querySelector('.sidebar-nav').dispatchEvent(new Event('scroll'));true")?;
+        b.wait(closed)?;
+        b.key("Tab", 9, 8)?;
+        b.wait(&format!("!!({open})"))?;
+        // A click on the current route must dismiss without depending on unmounting.
+        b.click(".sidebar .tooltip-trigger a")?;
+        b.wait(closed)?;
+        b.eval("document.activeElement.blur();true")?;
+        if mode == "mobile" {
+            b.wait("!document.querySelector('.sidebar-open')")?;
+        }
+    }
+    if before.is_none() {
+        b.viewport(1440, 900)?;
+        // Exercise the flip path using the real sidebar near the right viewport edge.
+        b.eval("document.querySelector('.sidebar').style.cssText='position:fixed;left:auto;right:0;top:0;height:100vh';true")?;
+        b.key("Tab", 9, 0)?;
+        b.eval("document.querySelector('.sidebar .tooltip-trigger a').focus();true")?;
+        b.wait(&format!("!!({open})"))?;
+        b.wait("document.querySelector('.sidebar [role=tooltip][data-state=open]').dataset.side==='left'")?;
+        b.wait(geometry)?;
+        visible_page(&mut b, &output.join("after-flipped.png"))?;
+        println!(
+            "PASS sidebar tooltips: no nav overlap, centered right/left placement, delay, warm handoff, keyboard focus, Escape/click/scroll dismissal, collapsed sections and mobile drawer"
+        );
+    }
     Ok(())
 }

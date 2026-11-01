@@ -1,0 +1,18 @@
+   Compiling tickets-core v0.1.0 (/workspace/wt/tickets/TIK-146/crates/core)
+   Compiling xtask v0.1.0 (/workspace/wt/tickets/TIK-146/xtask)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.35s
+     Running `/home/box/.cache/cargo-shared/tickets/debug/xtask build`
+Running: npm ci --prefix crates/web
+
+added 119 packages, and audited 120 packages in 1s
+
+27 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+Running: trunk build --release --locked
+2026-11-01T16:50:01.233013Z  INFO 🚀 Starting trunk 0.21.14
+2026-11-01T16:50:01.363666Z  INFO ⏫ Found an update of trunk: 0.21.14 -> 0.22.1
+2026-11-01T16:50:01.722608Z  INFO 📦 starting build
+   Compiling tickets-core v0.1.0 (/workspace/wt/tickets/TIK-146/crates/core)
+   Compiling tickets-web v0.1.0 (/workspace/wt/tickets/TIK-146/crates/web)

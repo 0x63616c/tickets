@@ -167,6 +167,7 @@ fn main() -> Result {
         Some("settings-check") => settings::check(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("navigation-check") => navigation::check(root),
+        Some("sidebar-tooltip-check") => navigation::sidebar_tooltips(root),
         #[cfg(not(target_arch = "wasm32"))]
         Some("avatar-check") => settings::avatar_check(root),
         #[cfg(not(target_arch = "wasm32"))]
