@@ -13,6 +13,7 @@ pub struct SelectOption {
     pub value: String,
     pub label: String,
     pub disabled: bool,
+    pub description: Option<String>,
     pub icon: Option<String>,
     pub glyph: Option<&'static str>,
     pub color: String,
@@ -25,12 +26,17 @@ impl SelectOption {
             value: value.to_string(),
             label: label.to_string(),
             disabled: false,
+            description: None,
             icon: None,
             glyph: None,
             color: String::new(),
             status: None,
             priority: None,
         }
+    }
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
     }
     /// A neutral shared-family icon, rendered in both the trigger and option.
     pub fn with_glyph(mut self, glyph: &'static str) -> Self {
@@ -54,6 +60,7 @@ impl SelectOption {
             value: p.id.to_string(),
             label: p.name,
             disabled: false,
+            description: None,
             icon: Some(p.icon.unwrap_or_default()),
             glyph: None,
             color: p.color,
@@ -304,7 +311,7 @@ pub fn SelectField(
             on:keydown=move|e|popup_key(e,popup,search,stamp)>
             {move||options.get().into_iter().map(|option|{let v=option.value.clone();let selected=option.value.clone();view!{
                 <button type="button" class="menu-item select-option" role="option" tabindex="-1" data-value=v.clone() data-label=option.label.clone() aria-selected=move||(value.get()==selected).to_string() disabled=option.disabled on:click=move|e|{e.stop_propagation();popup.close(true);on_change.run(v.clone());}>
-                {option.glyph.map(|name|view!{<span class="select-glyph"><Icon name/></span>})}{option.status.map(|status|view!{<StatusIcon status/>})}{option.priority.map(|priority|view!{<PriorityIcon priority/>})}{option.icon.map(|icon|view!{<ProjectIcon name=option.label.clone() icon color=option.color/>})}<span>{option.label.clone()}</span><span class="option-check" aria-hidden="true"><Icon name="check"/></span></button>
+                {option.glyph.map(|name|view!{<span class="select-glyph"><Icon name/></span>})}{option.status.map(|status|view!{<StatusIcon status/>})}{option.priority.map(|priority|view!{<PriorityIcon priority/>})}{option.icon.map(|icon|view!{<ProjectIcon name=option.label.clone() icon color=option.color/>})}<span class="option-copy"><span>{option.label.clone()}</span>{option.description.map(|text|view!{<span class="option-description">{text}</span>})}</span><span class="option-check" aria-hidden="true"><Icon name="check"/></span></button>
             }}).collect_view()}
         </div>
     </span> }
@@ -395,4 +402,61 @@ pub fn Combobox(
         {(filtered.is_empty() && (q.is_empty() || on_create.is_none())).then(||view!{<p class="menu-empty">"No labels found."</p>})}
         {(!q.is_empty() && !exact).then(||on_create.map(|create|view!{<button type="button" role="option" aria-selected="false" tabindex="-1" class="menu-item" data-create="true" disabled=busy on:click=move|_|create.run(query.get_untracked().trim().to_string())><Icon name="plus"/>{format!("Create label {}",query.get())}</button>}))}
     }}}</div></div></div>}
+}
+
+/// Single free-text property with project suggestions and explicit clearing.
+#[component]
+pub fn ScopePicker(
+    #[prop(into)] value: Signal<String>,
+    #[prop(into)] suggestions: Signal<Vec<String>>,
+    on_change: Callback<String>,
+    #[prop(into)] disabled: Signal<bool>,
+) -> impl IntoView {
+    let popup = Popup::new();
+    let query = RwSignal::new(value.get_untracked());
+    let error = RwSignal::new(String::new());
+    let panel_id = id("scope");
+    let hint_id = format!("{panel_id}-hint");
+    let hint_ref = hint_id.clone();
+    let error_id = format!("{panel_id}-error");
+    let error_ref = error_id.clone();
+    let controls = panel_id.clone();
+    let search = RwSignal::new(String::new());
+    let stamp = RwSignal::new(0.);
+    let save =
+        Callback::new(move |next: String| {
+            match tickets_core::ticket_type::normalize_scope(&next) {
+                Ok(next) => {
+                    popup.close(true);
+                    if next.as_deref().unwrap_or_default() != value.get_untracked() {
+                        on_change.run(next.unwrap_or_default());
+                    }
+                }
+                Err(message) => error.set(message),
+            }
+        });
+    let open = move || {
+        query.set(value.get_untracked());
+        error.set(String::new());
+        popup.open.set(true);
+        popup.focus(None);
+    };
+    view! {<span class="select-root scope-picker">
+        <button type="button" class="select-trigger" node_ref=popup.trigger aria-label="Scope" aria-haspopup="dialog" aria-expanded=move||popup.open.get().to_string() aria-controls=controls disabled=disabled
+            on:click=move|_|{if popup.open.get_untracked(){popup.close(false);}else{open();}}
+            on:keydown=move|e:web_sys::KeyboardEvent|{if ["ArrowDown","ArrowUp"].contains(&e.key().as_str()){e.prevent_default();e.stop_propagation();open();}}>
+            <span class="select-value" class:muted=move||value.get().is_empty()><span>{move||if value.get().is_empty(){"Set scope".into()}else{value.get()}}</span></span><Icon name="down"/>
+        </button>
+        <div node_ref=popup.panel id=panel_id class="popup combobox-popup" role="dialog" aria-label="Edit scope" popover="manual" hidden=move||!popup.presence.mounted.get() inert=move||!popup.open.get() data-state=move||popup.presence.state()
+            on:keydown=move|e:web_sys::KeyboardEvent|{if e.key()=="Enter" && e.target().is_some_and(|t|t.dyn_ref::<web_sys::HtmlInputElement>().is_some()){e.prevent_default();e.stop_propagation();save.run(query.get_untracked());}else{popup_key(e,popup,search,stamp);}}>
+            <div class="combobox-search"><Icon name="search"/><input aria-label="Ticket scope" aria-describedby=hint_ref aria-errormessage=error_ref aria-invalid=move||(!error.get().is_empty()).to_string() placeholder="Set scope…" autocomplete="off" data-1p-ignore="true" data-lpignore="true" data-form-type="other" disabled=disabled prop:value=move||query.get() on:input=move|e|{query.set(event_target_value(&e));error.set(String::new());}/></div>
+            <p id=hint_id class="scope-hint">"Enter to save · Escape to cancel"</p>
+            <Show when=move||!error.get().is_empty()><p id=error_id.clone() class="scope-error" role="alert">{move||error.get()}</p></Show>
+            <div role="listbox" aria-label="Project scopes">
+                {move||suggestions.get().into_iter().filter(|scope|scope.contains(&query.get().trim().to_ascii_lowercase())).map(|scope|{let next=scope.clone();let selected=scope.clone();view!{<button type="button" class="menu-item" role="option" tabindex="-1" aria-selected=move||(value.get()==selected).to_string() disabled=disabled on:click=move|_|save.run(next.clone())>{scope}</button>}}).collect_view()}
+            </div>
+            <div role="menu" aria-label="Scope actions"><button type="button" class="menu-item" role="menuitem" tabindex="-1" disabled=disabled on:click=move|_|save.run(query.get_untracked())><Icon name="check"/>"Save scope"</button>
+            <button type="button" class="menu-item" role="menuitem" tabindex="-1" disabled=move||disabled.get() || value.get().is_empty() on:click=move|_|save.run(String::new())><Icon name="close"/>"Clear scope"</button></div>
+        </div>
+    </span>}
 }
