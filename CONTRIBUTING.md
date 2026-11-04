@@ -11,34 +11,11 @@ Use a Conventional Commit PR title, for example `docs: clarify local setup`.
 Allowed types are `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci`, `build` and
 `perf`; scope is optional and the subject must start with a non-whitespace character.
 
-The ticket-key convention below organizes maintainer work. The current
-[PR conventions workflow](.github/workflows/pr-conventions.yml) nevertheless
-enforces it on **every non-bot PR**, including outside contributors: the title
-must end in `[KEY-N]` and the body must link the same ticket. Coordinate a ticket
-with a maintainer before review; do not invent a key. Once assigned, use a title
-such as `docs: clarify local setup [TIK-123]` and a body line such as
-`Refs [TIK-123](https://tickets.worldwidewebb.co/t/TIK-123)` (or `Closes` when
-appropriate). Bot PRs skip the ticket check but still need a Conventional Commit
-title. There is currently no human-contributor exemption. The remaining sections
-document the maintainer/agent workflow and project conventions.
-
-## Tickets is the source of truth
-- Every piece of work has a Tickets ticket with a **Done when** checklist.
-- Every open ticket carries exactly one model label:
-  - `model:astra` – design work only (design system, visual design/mockups, UI ADRs).
-    Run: `codex exec -m gpt-6-astra -c model_reasoning_effort=xhigh`.
-  - `model:sol` – all implementation work. Run: `codex exec -m gpt-6.1-sol`.
-- Dependencies use native blocker → blocked edges; blocked state is derived until
-  every blocker is done or canceled.
-- Use the dedicated `type` and `scope` fields; legacy `type:<x>` labels are migration input.
-
 ## Pull requests
-- One focused PR per ticket. Branch name: `<key-lowercase>-<slug>`.
+- One focused PR per task. Use a descriptive branch name.
 - PR title in Conventional Commits form (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`,
   `test:`, `ci:`, `build:`, `perf:`).
-- PR titles end with `[KEY-N]`; bodies contain `Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)`
-  (or `Refs [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` for references),
-  a summary, and test evidence.
+- PR bodies include a summary and test evidence.
 - **UI PRs must include before and after screenshots** (dark mode).
 - CI must be green: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
   `cargo test`.

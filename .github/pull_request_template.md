@@ -1,5 +1,3 @@
-Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)
-
 ## Summary
 
 ## Test evidence

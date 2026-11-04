@@ -1,19 +1,8 @@
 # Agent guide
 
-Tickets is the sole system of record (2026-10-29); GitHub Issues is retired.
-Use native project keys (QUA, TIK, APP, WWW, BOX), and PR bodies must contain
-`Closes [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` (or
-`Refs [KEY-N](https://tickets.worldwidewebb.co/t/KEY-N)` for reference-only links).
-Imported tickets are editable; preserve GitHub provenance and comment markers.
-One-shot migration: `cargo xtask import-github --repo owner/repo --project PREFIX
---dry-run`; see CONTRIBUTING.md. Never run production imports without explicit OK.
-
 Read `CONTRIBUTING.md` first; everything there applies.
 
-- Pick the model from the issue's label: `model:astra` (design only) uses
-  `-m gpt-6-astra -c model_reasoning_effort=xhigh`; `model:sol` (implementation) uses
-  `-m gpt-6.1-sol`.
-- Work in a git worktree per issue. Never delete folders you did not create.
+- Work in a git worktree per task. Never delete folders you did not create.
 - Merging to `main` deploys to production automatically via CI. Never run `wrangler deploy`, remote migrations or other production changes by hand without Calum's explicit OK.
 - Never commit secrets, API tokens, or personal info. Tokens are stored hashed only.
 - Run `npm ci --prefix crates/web` before direct web/wasm or Trunk builds.
